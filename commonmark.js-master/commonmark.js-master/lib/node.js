@@ -1,5 +1,5 @@
 "use strict";
-
+// 判断是否为容器，但这里的容器似乎并不只是cm中的容器块，而是包括了所有能包含内联元素的块
 function isContainer(node) {
     switch (node._type) {
         case "document":
@@ -19,7 +19,7 @@ function isContainer(node) {
             return false;
     }
 }
-
+// 遍历过程中恢复到某个节点
 var resumeAt = function(node, entering) {
     this.current = node;
     this.entering = entering === true;
@@ -39,7 +39,7 @@ var next = function() {
         if (cur._firstChild) {
             this.current = cur._firstChild;
             this.entering = true;
-        } else {
+        } else {// 没有子节点
             // stay on node but exit
             this.entering = false;
         }
@@ -238,7 +238,7 @@ Object.defineProperty(proto, "onExit", {
         this._onExit = s;
     }
 });
-
+// 添加节点到当前节点的子节点列表的末尾
 Node.prototype.appendChild = function(child) {
     child.unlink();
     child._parent = this;
@@ -251,7 +251,7 @@ Node.prototype.appendChild = function(child) {
         this._lastChild = child;
     }
 };
-
+// 添加节点到当前节点的子节点列表的开头
 Node.prototype.prependChild = function(child) {
     child.unlink();
     child._parent = this;
@@ -264,8 +264,9 @@ Node.prototype.prependChild = function(child) {
         this._lastChild = child;
     }
 };
-
+// 将当前节点独立
 Node.prototype.unlink = function() {
+    // 连接当前节点的前后节点
     if (this._prev) {
         this._prev._next = this._next;
     } else if (this._parent) {
@@ -280,7 +281,7 @@ Node.prototype.unlink = function() {
     this._next = null;
     this._prev = null;
 };
-
+// 分别实现插入兄弟节点到当前节点之后或之前。
 Node.prototype.insertAfter = function(sibling) {
     sibling.unlink();
     sibling._next = this._next;
@@ -309,6 +310,7 @@ Node.prototype.insertBefore = function(sibling) {
     }
 };
 
+// 创建一个NodeWalker对象，并返回该对象。
 Node.prototype.walker = function() {
     var walker = new NodeWalker(this);
     return walker;

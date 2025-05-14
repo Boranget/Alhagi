@@ -9,87 +9,111 @@ var normalizeURI = common.normalizeURI;
 var unescapeString = common.unescapeString;
 
 // Constants for character codes:
-
+// 换行符
 var C_NEWLINE = 10;
+// 星号
 var C_ASTERISK = 42;
+// 下划线
 var C_UNDERSCORE = 95;
+// 反引号（code块）
 var C_BACKTICK = 96;
+// 开括号[
 var C_OPEN_BRACKET = 91;
+// 关闭括号]
 var C_CLOSE_BRACKET = 93;
+// <
 var C_LESSTHAN = 60;
+// !
 var C_BANG = 33;
+// \
 var C_BACKSLASH = 92;
+// &
 var C_AMPERSAND = 38;
+// 开括号(
 var C_OPEN_PAREN = 40;
+// 右括号)
 var C_CLOSE_PAREN = 41;
+// 冒号:
 var C_COLON = 58;
+// 单引号
 var C_SINGLEQUOTE = 39;
+// 双引号
 var C_DOUBLEQUOTE = 34;
 
 // Some regexps used in inline parser:
-
+// 可被转义的字符
 var ESCAPABLE = common.ESCAPABLE;
+// 匹配一个反斜杠后面跟一个可被转义的字符
 var ESCAPED_CHAR = "\\\\" + ESCAPABLE;
-
+// HTML实体
 var ENTITY = common.ENTITY;
+// HTML实体正则表达式
 var reHtmlTag = common.reHtmlTag;
-
+// 匹配所有符号
 var rePunctuation = new RegExp(
-    /^[!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~\p{P}\p{S}]/u);
-
+    /^[!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~\p{P}\p{S}]/u
+);
+// 匹配被双引号、单引号、圆括号包围的链接标题
 var reLinkTitle = new RegExp(
     '^(?:"(' +
         ESCAPED_CHAR +
-        '|\\\\[^\\\\]' +
+        "|\\\\[^\\\\]" +
         '|[^\\\\"\\x00])*"' +
         "|" +
         "'(" +
         ESCAPED_CHAR +
-        '|\\\\[^\\\\]' +
+        "|\\\\[^\\\\]" +
         "|[^\\\\'\\x00])*'" +
         "|" +
         "\\((" +
         ESCAPED_CHAR +
-        '|\\\\[^\\\\]' +
+        "|\\\\[^\\\\]" +
         "|[^\\\\()\\x00])*\\))"
 );
-
+// 匹配带有尖括号的链接定义
 var reLinkDestinationBraces = /^(?:<(?:[^<>\n\\\x00]|\\.)*>)/;
-
+// 匹配以可转义字符开头
 var reEscapable = new RegExp("^" + ESCAPABLE);
-
+// 匹配HMLL实体开头
 var reEntityHere = new RegExp("^" + ENTITY, "i");
-
+// 匹配一个或者多个反引号
 var reTicks = /`+/;
-
+// 匹配一个或者多个反引号开头
 var reTicksHere = /^`+/;
-
+// 匹配省略号（为什么要修改）（…）
 var reEllipses = /\.\.\./g;
-
+// 匹配一个或者多个连字符（-—）
 var reDash = /--+/g;
-
-var reEmailAutolink = /^<([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/;
-
+// 匹配邮件类型的自动链接
+var reEmailAutolink =
+    /^<([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/;
+// 匹配自动链接，忽略大小写
 var reAutolink = /^<[A-Za-z][A-Za-z0-9.+-]{1,31}:[^<>\x00-\x20]*>/i;
-
+// 多个空格开头跟一个换行再跟多个空格
 var reSpnl = /^ *(?:\n *)?/;
-
+// 空白字符
 var reWhitespaceChar = /^[ \t\n\x0b\x0c\x0d]/;
-
+// unicode空白字符
 var reUnicodeWhitespaceChar = /^\s/;
-
+// 行末空格
 var reFinalSpace = / *$/;
-
+// 行首空格
 var reInitialSpace = /^ */;
-
+// 空行或者只包含空格的行
 var reSpaceAtEndOfLine = /^ *(?:\n|$)/;
-
-var reLinkLabel = /^\[(?:[^\\\[\]]|\\.){0,1000}\]/s;
-
+// 匹配链接标签以 [ 开头、以 ] 结尾
+// [^\\\[\]]:
+// 匹配任何不是反斜杠 \、左方括号 [ 或右方括号 ] 的字符。
+// \\.:
+// 匹配反斜杠 \ 后跟任意字符（. 在这里是一个特殊字符，匹配除换行符之外的任何字符）。
+// 这种字面量声明的正则表达式不需要对js进行转义
+var reLinkLabel = /^\[(?:[^\\\[\]] \\.){0,1000}\]/s;
+// 匹配普通字符：匹配不包含换行符 \n、反引号 `、方括号 []、反斜杠 \、感叹号 !、特殊字符 &、*、_、'、" 的字符串。
 // Matches a string of non-special characters.
 var reMain = /^[^\n`\[\]\\!<&*_'"]+/m;
 
-var text = function(s) {
+// 构造纯文本类型的node
+var text = function (s) {
     var node = new Node("text");
     node._literal = s;
     return node;
@@ -98,7 +122,8 @@ var text = function(s) {
 // normalize a reference in reference link (remove []s, trim,
 // collapse internal space, unicode case fold.
 // See commonmark/commonmark.js#168.
-var normalizeReference = function(string) {
+// 规范引用，去掉首位方括号与空格
+var normalizeReference = function (string) {
     return string
         .slice(1, string.length - 1)
         .trim()
@@ -115,7 +140,8 @@ var normalizeReference = function(string) {
 
 // If re matches at current position in the subject, advance
 // position in subject and return the match; otherwise return null.
-var match = function(re) {
+// 使用正则逐个解析元素，如果匹配上了，则pos向后移动
+var match = function (re) {
     var m = re.exec(this.subject.slice(this.pos));
     if (m === null) {
         return null;
@@ -128,7 +154,11 @@ var match = function(re) {
 // Returns the code for the character at the current subject position, or -1
 // there are no more characters.
 // This function must be non-BMP aware because the Unicode category of its result is used.
-var peek = function() {
+// 如果当前位置不到subject的长度
+//
+// ，则获取当前字符的代码点，
+// pos 为当前读取的位置
+var peek = function () {
     if (this.pos < this.subject.length) {
         return this.subject.codePointAt(this.pos);
     } else {
@@ -137,7 +167,8 @@ var peek = function() {
 };
 
 // Parse zero or more space characters, including at most one newline
-var spnl = function() {
+// 判断是否为空行
+var spnl = function () {
     this.match(reSpnl);
     return true;
 };
@@ -148,21 +179,30 @@ var spnl = function() {
 
 // Attempt to parse backticks, adding either a backtick code span or a
 // literal sequence of backticks.
-var parseBackticks = function(block) {
+// 解析反引号的代码段
+var parseBackticks = function (block) {
+    // 判断当前位置是否为反引号开头
     var ticks = this.match(reTicksHere);
     if (ticks === null) {
         return false;
     }
+    // 记录当前位置（开头反引号后面的部分）
     var afterOpenTicks = this.pos;
     var matched;
     var node;
     var contents;
+    // 循环匹配，寻找结束反引号
     while ((matched = this.match(reTicks)) !== null) {
+        // 如果找到与开头匹配的反引号
         if (matched === ticks) {
+            // 构造code节点
             node = new Node("code");
+            // 设置content
             contents = this.subject
                 .slice(afterOpenTicks, this.pos - ticks.length)
+                // 换行替换为空格
                 .replace(/\n/gm, " ");
+            // 如果内容不为空且首尾部都有空格，则去掉首尾的一个空格
             if (
                 contents.length > 0 &&
                 contents.match(/[^ ]/) !== null &&
@@ -170,15 +210,19 @@ var parseBackticks = function(block) {
                 contents[contents.length - 1] == " "
             ) {
                 node._literal = contents.slice(1, contents.length - 1);
+                // 否则content即为literal
             } else {
                 node._literal = contents;
             }
+            // 给block添加子节点
             block.appendChild(node);
             return true;
         }
     }
     // If we got here, we didn't match a closing backtick sequence.
+    // 如果没有找到对应的反引号则回退
     this.pos = afterOpenTicks;
+    // 则将反引号作为普通text节点加入子节点
     block.appendChild(text(ticks));
     return true;
 };
@@ -187,17 +231,24 @@ var parseBackticks = function(block) {
 // character, a hard line break (if the backslash is followed by a newline),
 // or a literal backslash to the block's children.  Assumes current character
 // is a backslash.
-var parseBackslash = function(block) {
+// 解析反斜杠转义字符或者硬换行
+var parseBackslash = function (block) {
     var subj = this.subject;
     var node;
+    // 查看下一个字符（跳过反斜杠本身）
     this.pos += 1;
+    // 如果下一个字符为换行
     if (this.peek() === C_NEWLINE) {
         this.pos += 1;
         node = new Node("linebreak");
+        // 则添加硬换行节点
         block.appendChild(node);
+        // 如果下一个字符为可被转义字符
     } else if (reEscapable.test(subj.charAt(this.pos))) {
+        // 则添加text节点
         block.appendChild(text(subj.charAt(this.pos)));
         this.pos += 1;
+        // 否则直接添加斜杠为text节点
     } else {
         block.appendChild(text("\\"));
     }
@@ -205,18 +256,23 @@ var parseBackslash = function(block) {
 };
 
 // Attempt to parse an autolink (URL or email in pointy brackets).
-var parseAutolink = function(block) {
+// 解析自动链接
+var parseAutolink = function (block) {
     var m;
     var dest;
     var node;
+    // 如果匹配上邮箱类型的自动链接
     if ((m = this.match(reEmailAutolink))) {
         dest = m.slice(1, m.length - 1);
         node = new Node("link");
+        // 添加mailto
         node._destination = normalizeURI("mailto:" + dest);
         node._title = "";
+        // 给链接加text内容
         node.appendChild(text(dest));
         block.appendChild(node);
         return true;
+        // 如果是其他类型
     } else if ((m = this.match(reAutolink))) {
         dest = m.slice(1, m.length - 1);
         node = new Node("link");
@@ -231,7 +287,8 @@ var parseAutolink = function(block) {
 };
 
 // Attempt to parse a raw HTML tag.
-var parseHtmlTag = function(block) {
+// 解析html标签
+var parseHtmlTag = function (block) {
     var m = this.match(reHtmlTag);
     if (m === null) {
         return false;
@@ -247,13 +304,20 @@ var parseHtmlTag = function(block) {
 // the number of delimiters and whether they are positioned such that
 // they can open and/or close emphasis or strong emphasis.  A utility
 // function for strong/emph parsing.
-var scanDelims = function(cc) {
+// 判断是否为强调或者强烈强调
+// scanDelims 方法的作用是扫描 Markdown 中的强调符号（如 _ 或 *），
+// 并判断这些符号是否可以作为强调或强调的开始或结束。它返回一个对象，包含以下信息：
+// 符号的数量 (numdelims)。
+// 是否可以作为强调的开始 (can_open)。
+// 是否可以作为强调的结束 (can_close)。
+
+var scanDelims = function (cc) {
     var numdelims = 0;
     var char_before, char_after, cc_after;
     var startpos = this.pos;
     var left_flanking, right_flanking, can_open, can_close;
     var after_is_whitespace,
-        after_is_punctuation,
+        after_is_punctuation,  
         before_is_whitespace,
         before_is_punctuation;
 
@@ -305,7 +369,7 @@ var scanDelims = function(cc) {
     }
     this.pos = startpos;
     return { numdelims: numdelims, can_open: can_open, can_close: can_close };
-
+    // 获取前一个字符
     function previousChar(str, pos) {
         if (pos === 0) {
             return "\n";
@@ -326,19 +390,27 @@ var scanDelims = function(cc) {
     }
 };
 
+// cc: 当前要处理的字符代码（例如 _ 或 * 的 Unicode 代码）。
+// block: 当前正在构建的 AST 节点，表示 Markdown 文档的一部分。
 // Handle a delimiter marker for emphasis or a quote.
-var handleDelim = function(cc, block) {
+
+var handleDelim = function (cc, block) {
+    // 扫描是否为强调符号
     var res = this.scanDelims(cc);
     if (!res) {
         return false;
     }
+    // 获取符号数量
     var numdelims = res.numdelims;
     var startpos = this.pos;
     var contents;
-
+    // 跳到强调内容部分
     this.pos += numdelims;
+    // 不清楚这里的cc为什么会是引号（这里是为了将引号处理为unicode引号使其更美观）
+    // 如果为单引号
     if (cc === C_SINGLEQUOTE) {
         contents = "\u2019";
+    // 如果为双引号
     } else if (cc === C_DOUBLEQUOTE) {
         contents = "\u201C";
     } else {
@@ -359,8 +431,9 @@ var handleDelim = function(cc, block) {
             node: node,
             previous: this.delimiters,
             next: null,
-            can_open: res.can_open,
-            can_close: res.can_close
+            can_open: res.
+            can_open,
+            can_close: res.can_close,
         };
         if (this.delimiters.previous !== null) {
             this.delimiters.previous.next = this.delimiters;
@@ -370,7 +443,8 @@ var handleDelim = function(cc, block) {
     return true;
 };
 
-var removeDelimiter = function(delim) {
+// 移除分隔符并将前后元素连接
+var removeDelimiter = function (delim) {
     if (delim.previous !== null) {
         delim.previous.next = delim.next;
     }
@@ -381,15 +455,15 @@ var removeDelimiter = function(delim) {
         delim.next.previous = delim.previous;
     }
 };
-
-var removeDelimitersBetween = function(bottom, top) {
+// 移除给定范围中间的分隔符
+var removeDelimitersBetween = function (bottom, top) {
     if (bottom.next !== top) {
         bottom.next = top;
         top.previous = bottom;
     }
 };
 
-var processEmphasis = function(stack_bottom) {
+var processEmphasis = function (stack_bottom) {
     var opener, closer, old_closer;
     var opener_inl, closer_inl;
     var tempstack;
@@ -405,6 +479,7 @@ var processEmphasis = function(stack_bottom) {
     }
     // find first closer above stack_bottom:
     closer = this.delimiters;
+
     while (closer !== null && closer.previous !== stack_bottom) {
         closer = closer.previous;
     }
@@ -417,21 +492,22 @@ var processEmphasis = function(stack_bottom) {
             // found emphasis closer. now look back for first matching opener:
             opener = closer.previous;
             opener_found = false;
+            // 这里不知道为什么要单双引号，理论上不需要
             switch (closercc) {
-               case C_SINGLEQUOTE:
-                 openers_bottom_index = 0;
-                 break;
-               case C_DOUBLEQUOTE:
-                 openers_bottom_index = 1;
-                 break;
-               case C_UNDERSCORE:
-                 openers_bottom_index = 2 + (closer.can_open ? 3 : 0)
-                                          + (closer.origdelims % 3);
-                 break;
-               case C_ASTERISK:
-                 openers_bottom_index = 8 + (closer.can_open ? 3 : 0)
-                                          + (closer.origdelims % 3);
-                 break;
+                case C_SINGLEQUOTE:
+                    openers_bottom_index = 0;
+                    break;
+                case C_DOUBLEQUOTE:
+                    openers_bottom_index = 1;
+                    break;
+                case C_UNDERSCORE:
+                    openers_bottom_index =
+                        2 + (closer.can_open ? 3 : 0) + (closer.origdelims % 3);
+                    break;
+                case C_ASTERISK:
+                    openers_bottom_index =
+                        8 + (closer.can_open ? 3 : 0) + (closer.origdelims % 3);
+                    break;
             }
             while (
                 opener !== null &&
@@ -517,8 +593,7 @@ var processEmphasis = function(stack_bottom) {
             }
             if (!opener_found) {
                 // Set lower bound for future searches for openers:
-                openers_bottom[openers_bottom_index] =
-                    old_closer.previous;
+                openers_bottom[openers_bottom_index] = old_closer.previous;
                 if (!old_closer.can_open) {
                     // We can remove a closer that can't be an opener,
                     // once we've seen there's no matching opener:
@@ -536,7 +611,8 @@ var processEmphasis = function(stack_bottom) {
 
 // Attempt to parse link title (sans quotes), returning the string
 // or null if no match.
-var parseLinkTitle = function() {
+// 匹配链接标题
+var parseLinkTitle = function () {
     var title = this.match(reLinkTitle);
     if (title === null) {
         return null;
@@ -548,7 +624,8 @@ var parseLinkTitle = function() {
 
 // Attempt to parse link destination, returning the string or
 // null if no match.
-var parseLinkDestination = function() {
+// 匹配链接目标
+var parseLinkDestination = function () {
     var res = this.match(reLinkDestinationBraces);
     if (res === null) {
         if (this.peek() === C_LESSTHAN) {
@@ -598,7 +675,8 @@ var parseLinkDestination = function() {
 };
 
 // Attempt to parse a link label, returning number of characters parsed.
-var parseLinkLabel = function() {
+// 匹配链接标签
+var parseLinkLabel = function () {
     var m = this.match(reLinkLabel);
     if (m === null || m.length > 1001) {
         return 0;
@@ -608,7 +686,8 @@ var parseLinkLabel = function() {
 };
 
 // Add open bracket to delimiter stack and add a text node to block's children.
-var parseOpenBracket = function(block) {
+// 添加左方括号文本节点
+var parseOpenBracket = function (block) {
     var startpos = this.pos;
     this.pos += 1;
 
@@ -622,7 +701,8 @@ var parseOpenBracket = function(block) {
 
 // IF next character is [, and ! delimiter to delimiter stack and
 // add a text node to block's children.  Otherwise just add a text node.
-var parseBang = function(block) {
+// 判断叹号后是否跟左方括号并进行对应的处理
+var parseBang = function (block) {
     var startpos = this.pos;
     this.pos += 1;
     if (this.peek() === C_OPEN_BRACKET) {
@@ -643,7 +723,8 @@ var parseBang = function(block) {
 // stack.  Add either a link or image, or a plain [ character,
 // to block's children.  If there is a matching delimiter,
 // remove it from the delimiter stack.
-var parseCloseBracket = function(block) {
+// 处理结束方括号，这应该是处理link or imgae
+var parseCloseBracket = function (block) {
     var startpos;
     var is_image;
     var dest;
@@ -769,7 +850,7 @@ var parseCloseBracket = function(block) {
     }
 };
 
-var addBracket = function(node, index, image) {
+var addBracket = function (node, index, image) {
     if (this.brackets !== null) {
         this.brackets.bracketAfter = true;
     }
@@ -779,16 +860,17 @@ var addBracket = function(node, index, image) {
         previousDelimiter: this.delimiters,
         index: index,
         image: image,
-        active: true
+        active: true,
     };
 };
 
-var removeBracket = function() {
+var removeBracket = function () {
     this.brackets = this.brackets.previous;
 };
 
+// 解析HTML实体
 // Attempt to parse an entity.
-var parseEntity = function(block) {
+var parseEntity = function (block) {
     var m;
     if ((m = this.match(reEntityHere))) {
         block.appendChild(text(decodeHTMLStrict(m)));
@@ -800,15 +882,18 @@ var parseEntity = function(block) {
 
 // Parse a run of ordinary characters, or a single character with
 // a special meaning in markdown, as a plain string.
-var parseString = function(block) {
+// 处理string
+
+var parseString = function (block) {
     var m;
     if ((m = this.match(reMain))) {
+        // 替换字符，将一些字符变得美观
         if (this.options.smart) {
             block.appendChild(
                 text(
                     m
                         .replace(reEllipses, "\u2026")
-                        .replace(reDash, function(chars) {
+                        .replace(reDash, function (chars) {
                             var enCount = 0;
                             var emCount = 0;
                             if (chars.length % 3 === 0) {
@@ -842,9 +927,10 @@ var parseString = function(block) {
     }
 };
 
-// Parse a newline.  If it was preceded by two spaces, return a hard
-// line break; otherwise a soft line break.
-var parseNewline = function(block) {
+// Parse a newline.  If it was preceded by two spaces, return a hard line break; otherwise a soft line break.
+// 处理换行
+
+var parseNewline = function (block) {
     this.pos += 1; // assume we're at a \n
     // check previous node for trailing spaces
     var lastc = block._lastChild;
@@ -864,7 +950,8 @@ var parseNewline = function(block) {
 };
 
 // Attempt to parse a link reference, modifying refmap.
-var parseReference = function(s, refmap) {
+// 解析链接引用，并存到map中
+var parseReference = function (s, refmap) {
     this.subject = s;
     this.pos = 0;
     var rawlabel;
@@ -938,7 +1025,10 @@ var parseReference = function(s, refmap) {
     }
 
     if (!refmap[normlabel]) {
-        refmap[normlabel] = { destination: dest, title: title === null ? "" : title };
+        refmap[normlabel] = {
+            destination: dest,
+            title: title === null ? "" : title,
+        };
     }
     return this.pos - startpos;
 };
@@ -946,7 +1036,7 @@ var parseReference = function(s, refmap) {
 // Parse the next inline element in subject, advancing subject position.
 // On success, add the result to block's children and return true.
 // On failure, return false.
-var parseInline = function(block) {
+var parseInline = function (block) {
     var res = false;
     var c = this.peek();
     if (c === -1) {
@@ -999,12 +1089,12 @@ var parseInline = function(block) {
 
 // Parse string content in block into inline children,
 // using refmap to resolve references.
-var parseInlines = function(block) {
+var parseInlines = function (block) {
     // String.protoype.trim() removes non-ASCII whitespaces, vertical tab, form feed and so on.
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/trim#return_value
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#white_space
     // Removes only ASCII tab and space.
-    this.subject = trim(block._string_content)
+    this.subject = trim(block._string_content);
     this.pos = 0;
     this.delimiters = null;
     this.brackets = null;
@@ -1014,13 +1104,13 @@ var parseInlines = function(block) {
 
     function trim(str) {
         var start = 0;
-        for(; start < str.length; start++) {
+        for (; start < str.length; start++) {
             if (!isSpace(str.charCodeAt(start))) {
                 break;
             }
         }
         var end = str.length - 1;
-        for(; end >= start; end--) {
+        for (; end >= start; end--) {
             if (!isSpace(str.charCodeAt(end))) {
                 break;
             }
@@ -1067,7 +1157,7 @@ function InlineParser(options) {
         processEmphasis: processEmphasis,
         removeDelimiter: removeDelimiter,
         options: options || {},
-        parse: parseInlines
+        parse: parseInlines,
     };
 }
 

@@ -2,14 +2,16 @@
 
 import { escapeXml } from "../common.js";
 import Renderer from "./renderer.js";
-
+// 匹配安全和不安全的协议
 var reUnsafeProtocol = /^javascript:|vbscript:|file:|data:/i;
 var reSafeDataProtocol = /^data:image\/(?:png|gif|jpeg|webp)/i;
 
+// 判断是否不安全协议
 var potentiallyUnsafe = function(url) {
     return reUnsafeProtocol.test(url) && !reSafeDataProtocol.test(url);
 };
 
+// 生成HTML标签 
 // Helper function to produce an HTML tag.
 function tag(name, attrs, selfclosing) {
     if (this.disableTags > 0) {
