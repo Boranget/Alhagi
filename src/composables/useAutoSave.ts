@@ -19,7 +19,7 @@ export function useAutoSave() {
 
     debouncedSave = debounce(async () => {
       await performAutoSave()
-    }, prefsStore.autoSaveDelay)
+    }, prefsStore.autoSaveInterval * 1000)
   }
 
   async function performAutoSave() {
@@ -70,7 +70,7 @@ export function useAutoSave() {
   )
 
   watch(
-    () => prefsStore.autoSaveDelay,
+    () => prefsStore.autoSaveInterval,
     () => {
       if (prefsStore.autoSave) {
         setupAutoSave()

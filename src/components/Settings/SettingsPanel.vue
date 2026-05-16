@@ -1,155 +1,166 @@
 <template>
-  <div class="settings-panel" v-if="isOpen" @click.self="close">
-    <div class="settings-container">
+  <div class="settings-panel-overlay" @click="close" @keyup.esc="close" tabindex="-1">
+    <div class="settings-panel" @click.stop>
       <div class="settings-header">
         <h2>设置</h2>
-        <button class="close-btn" @click="close">×</button>
+        <button class="close-btn" @click="close">✕</button>
       </div>
+      
       <div class="settings-content">
         <div class="settings-sidebar">
           <button
             v-for="section in sections"
             :key="section.id"
-            class="section-btn"
+            class="sidebar-item"
             :class="{ active: activeSection === section.id }"
             @click="activeSection = section.id"
           >
             {{ section.icon }} {{ section.label }}
           </button>
         </div>
+        
         <div class="settings-main">
-          <div v-show="activeSection === 'editor'" class="settings-section">
-            <h3>编辑器设置</h3>
+          <!-- 启动行为设置 -->
+          <div v-show="activeSection === 'general'" class="settings-section">
+            <h3>启动行为</h3>
             <div class="setting-item">
-              <label>字体大小</label>
-              <input v-model.number="prefs.fontSize" type="number" min="10" max="24" />
-            </div>
-            <div class="setting-item">
-              <label>行高</label>
-              <input v-model.number="prefs.lineHeight" type="number" min="1" max="3" step="0.1" />
-            </div>
-            <div class="setting-item">
-              <label>
-                <input v-model="prefs.wordWrap" type="checkbox" />
-                <span>自动换行</span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <label>
-                <input v-model="prefs.hideScrollbar" type="checkbox" />
-                <span>隐藏滚动条</span>
-              </label>
-            </div>
-          </div>
-          
-          <div v-show="activeSection === 'file'" class="settings-section">
-            <h3>文件设置</h3>
-            <div class="setting-item">
-              <label>
-                <input v-model="prefs.autoSave" type="checkbox" />
-                <span>自动保存</span>
-              </label>
-            </div>
-            <div v-if="prefs.autoSave" class="setting-item">
-              <label>自动保存延迟 (毫秒)</label>
-              <input v-model.number="prefs.autoSaveDelay" type="number" min="500" max="10000" step="100" />
-            </div>
-            <div class="setting-item">
-              <label>文件编码</label>
-              <select v-model="prefs.encoding">
-                <option value="utf-8">UTF-8</option>
-                <option value="gbk">GBK</option>
-                <option value="gb2312">GB2312</option>
+              <label>启动模式</label>
+              <select v-model="prefsStore.launchMode">
+                <option value="restore">恢复上次状态</option>
+                <option value="welcome">欢迎页</option>
+                <option value="blank">空白编辑器</option>
               </select>
             </div>
           </div>
           
+          <!-- 保存设置 -->
+          <div v-show="activeSection === 'save'" class="settings-section">
+            <h3>自动保存</h3>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.autoSave" />
+                启用自动保存
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>自动保存间隔 (秒)</label>
+              <input type="number" v-model.number="prefsStore.autoSaveInterval" min="1" max="300" />
+            </div>
+          </div>
+          
+          <!-- 界面设置 -->
           <div v-show="activeSection === 'appearance'" class="settings-section">
-            <h3>外观设置</h3>
+            <h3>主题</h3>
             <div class="setting-item">
               <label>主题</label>
-              <div class="theme-options">
-                <button
-                  class="theme-btn"
-                  :class="{ active: prefs.theme === 'light' }"
-                  @click="prefsStore.setTheme('light')"
-                >
-                  ☀️ 浅色
-                </button>
-                <button
-                  class="theme-btn"
-                  :class="{ active: prefs.theme === 'dark' }"
-                  @click="prefsStore.setTheme('dark')"
-                >
-                  🌙 深色
-                </button>
-              </div>
+              <select v-model="prefsStore.theme">
+                <option value="light">浅色</option>
+                <option value="dark">深色</option>
+                <option value="system">跟随系统</option>
+              </select>
+            </div>
+            
+            <h3>界面元素</h3>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.showSidebar" />
+                显示侧边栏
+              </label>
             </div>
             <div class="setting-item">
-              <label>语言</label>
-              <select v-model="prefs.language">
-                <option value="zh-CN">简体中文</option>
-                <option value="en-US">English</option>
+              <label>
+                <input type="checkbox" v-model="prefsStore.showStatusBar" />
+                显示状态栏
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.hideScrollBars" />
+                隐藏滚动条
+              </label>
+            </div>
+          </div>
+          
+          <!-- 编辑器设置 -->
+          <div v-show="activeSection === 'editor'" class="settings-section">
+            <h3>编辑增强</h3>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.typewriterMode" />
+                打字机模式
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.focusMode" />
+                专注模式
+              </label>
+            </div>
+            
+            <h3>字体</h3>
+            <div class="setting-item">
+              <label>字体大小</label>
+              <input type="number" v-model.number="prefsStore.fontSize" min="8" max="32" />
+            </div>
+          </div>
+          
+          <!-- 图片设置 -->
+          <div v-show="activeSection === 'images'" class="settings-section">
+            <h3>图片插入</h3>
+            <div class="setting-item">
+              <label>默认插入模式</label>
+              <select v-model="prefsStore.imageInsertMode">
+                <option value="keep-original">保留原始路径</option>
+                <option value="copy-absolute">复制并使用绝对路径</option>
+                <option value="copy-relative">复制并使用相对路径</option>
               </select>
             </div>
             <div class="setting-item">
-              <label>
-                <input v-model="prefs.showSidebar" type="checkbox" />
-                <span>显示侧边栏</span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <label>
-                <input v-model="prefs.showStatusbar" type="checkbox" />
-                <span>显示状态栏</span>
-              </label>
+              <label>图片保存目录</label>
+              <input type="text" v-model="prefsStore.imageStoragePath" placeholder="路径" />
             </div>
           </div>
           
-          <div v-show="activeSection === 'behavior'" class="settings-section">
-            <h3>行为设置</h3>
+          <!-- 语言设置 -->
+          <div v-show="activeSection === 'language'" class="settings-section">
+            <h3>语言</h3>
             <div class="setting-item">
-              <label>
-                <input v-model="prefs.typewriterMode" type="checkbox" />
-                <span>打字机模式</span>
-              </label>
-              <p class="setting-desc">光标保持在屏幕中央</p>
-            </div>
-            <div class="setting-item">
-              <label>
-                <input v-model="prefs.focusMode" type="checkbox" />
-                <span>专注模式</span>
-              </label>
-              <p class="setting-desc">高亮当前段落，弱化其他内容</p>
+              <label>界面语言</label>
+              <select v-model="prefsStore.language">
+                <option value="zh-CN">简体中文</option>
+                <option value="en">English</option>
+              </select>
             </div>
           </div>
           
-          <div v-show="activeSection === 'shortcuts'" class="settings-section">
-            <h3>快捷键设置</h3>
-            <div class="shortcuts-list">
-              <div v-for="shortcut in shortcuts" :key="shortcut.action" class="shortcut-item">
-                <span class="shortcut-action">{{ shortcut.label }}</span>
-                <kbd class="shortcut-key">{{ shortcut.key }}</kbd>
-              </div>
+          <!-- 开发设置 -->
+          <div v-show="activeSection === 'developer'" class="settings-section">
+            <h3>开发工具</h3>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" v-model="prefsStore.devToolsOnStartup" />
+                启动时打开开发者工具
+              </label>
             </div>
-            <button class="action-btn" @click="resetShortcuts">恢复默认快捷键</button>
           </div>
         </div>
-      </div>
-      <div class="settings-footer">
-        <button class="btn btn-secondary" @click="close">取消</button>
-        <button class="btn btn-primary" @click="saveSettings">保存</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 
+interface SettingsSection {
+  id: string
+  label: string
+  icon: string
+}
+
 const props = defineProps<{
-  isOpen: boolean
+  visible: boolean
 }>()
 
 const emit = defineEmits<{
@@ -158,81 +169,17 @@ const emit = defineEmits<{
 
 const prefsStore = usePreferencesStore()
 
-const activeSection = ref('editor')
-
-const sections = [
-  { id: 'editor', label: '编辑器', icon: '📝' },
-  { id: 'file', label: '文件', icon: '📁' },
+const sections: SettingsSection[] = [
+  { id: 'general', label: '通用', icon: '⚙️' },
+  { id: 'save', label: '保存', icon: '💾' },
   { id: 'appearance', label: '外观', icon: '🎨' },
-  { id: 'behavior', label: '行为', icon: '⚙️' },
-  { id: 'shortcuts', label: '快捷键', icon: '⌨️' }
+  { id: 'editor', label: '编辑器', icon: '✏️' },
+  { id: 'images', label: '图片', icon: '🖼️' },
+  { id: 'language', label: '语言', icon: '🌐' },
+  { id: 'developer', label: '开发', icon: '🔧' }
 ]
 
-const prefs = reactive({
-  fontSize: 14,
-  lineHeight: 1.6,
-  wordWrap: true,
-  hideScrollbar: false,
-  autoSave: true,
-  autoSaveDelay: 1000,
-  encoding: 'utf-8',
-  theme: 'light' as 'light' | 'dark',
-  language: 'zh-CN' as 'zh-CN' | 'en-US',
-  showSidebar: true,
-  showStatusbar: true,
-  typewriterMode: false,
-  focusMode: false
-})
-
-const shortcuts = [
-  { action: 'newFile', label: '新建文件', key: 'Ctrl+N' },
-  { action: 'openFile', label: '打开文件', key: 'Ctrl+O' },
-  { action: 'save', label: '保存', key: 'Ctrl+S' },
-  { action: 'saveAs', label: '另存为', key: 'Ctrl+Shift+S' },
-  { action: 'undo', label: '撤销', key: 'Ctrl+Z' },
-  { action: 'redo', label: '重做', key: 'Ctrl+Shift+Z' },
-  { action: 'find', label: '查找', key: 'Ctrl+F' },
-  { action: 'replace', label: '替换', key: 'Ctrl+H' },
-  { action: 'toggleSidebar', label: '切换侧边栏', key: 'Ctrl+B' },
-  { action: 'fullscreen', label: '全屏', key: 'F11' }
-]
-
-watch(() => prefsStore, (newPrefs) => {
-  Object.assign(prefs, {
-    fontSize: newPrefs.wordWrap ? 14 : 14,
-    lineHeight: 1.6,
-    wordWrap: newPrefs.wordWrap,
-    hideScrollbar: newPrefs.hideScrollbar,
-    autoSave: newPrefs.autoSave,
-    autoSaveDelay: newPrefs.autoSaveDelay,
-    theme: newPrefs.theme,
-    language: newPrefs.language,
-    showSidebar: newPrefs.showSidebar,
-    showStatusbar: newPrefs.showStatusbar,
-    typewriterMode: newPrefs.typewriterMode,
-    focusMode: newPrefs.focusMode
-  })
-}, { immediate: true })
-
-function saveSettings() {
-  prefsStore.setAutoSave(prefs.autoSave)
-  prefsStore.setAutoSaveDelay(prefs.autoSaveDelay)
-  prefsStore.setHideScrollbar(prefs.hideScrollbar)
-  prefsStore.setTypewriterMode(prefs.typewriterMode)
-  prefsStore.setFocusMode(prefs.focusMode)
-  prefsStore.setShowStatusbar(prefs.showStatusbar)
-  prefsStore.setShowSidebar(prefs.showSidebar)
-  prefsStore.setWordWrap(prefs.wordWrap)
-  prefsStore.setTheme(prefs.theme)
-  prefsStore.setLanguage(prefs.language)
-  
-  prefsStore.savePreferences()
-  close()
-}
-
-function resetShortcuts() {
-  console.log('Reset shortcuts to default')
-}
+const activeSection = ref('general')
 
 function close() {
   emit('close')
@@ -240,7 +187,7 @@ function close() {
 </script>
 
 <style scoped lang="scss">
-.settings-panel {
+.settings-panel-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -251,18 +198,30 @@ function close() {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease;
 }
 
-.settings-container {
-  width: 800px;
-  max-width: 90vw;
-  max-height: 80vh;
-  background: var(--bg-primary);
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.settings-panel {
+  background: var(--panel-bg);
   border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 700px;
+  max-width: 90vw;
+  height: 500px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
 }
 
 .settings-header {
@@ -271,27 +230,26 @@ function close() {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
-
+  
   h2 {
     margin: 0;
     font-size: 18px;
-    font-weight: 600;
-  }
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  font-size: 24px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--text-secondary);
-
-  &:hover {
-    background: var(--bg-secondary);
     color: var(--text-primary);
+  }
+  
+  .close-btn {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    
+    &:hover {
+      background: var(--panel-hover-bg);
+    }
   }
 }
 
@@ -302,28 +260,35 @@ function close() {
 }
 
 .settings-sidebar {
-  width: 180px;
-  padding: 12px;
+  width: 150px;
+  background: var(--panel-bg);
   border-right: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
 }
 
-.section-btn {
-  width: 100%;
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   border: none;
   background: transparent;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 4px;
+  color: var(--text-secondary);
   font-size: 13px;
-  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
   transition: all 0.15s;
-
+  
   &:hover {
-    background: var(--bg-primary);
+    background: var(--panel-hover-bg);
+    color: var(--text-primary);
   }
-
+  
   &.active {
     background: var(--primary-color);
     color: white;
@@ -338,137 +303,43 @@ function close() {
 
 .settings-section {
   h3 {
-    margin: 0 0 20px;
-    font-size: 16px;
+    margin: 0 0 16px 0;
+    font-size: 14px;
     font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
   }
-}
-
-.setting-item {
-  margin-bottom: 16px;
-
-  > label {
+  
+  .setting-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-primary);
-    margin-bottom: 6px;
-
-    input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
+    padding: 10px 0;
+    
+    label {
+      font-size: 13px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-  }
-
-  input[type="number"],
-  input[type="text"],
-  select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-size: 13px;
-
-    &:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-  }
-}
-
-.setting-desc {
-  margin: 4px 0 0 24px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.theme-options {
-  display: flex;
-  gap: 8px;
-}
-
-.theme-btn {
-  flex: 1;
-  padding: 10px;
-  border: 2px solid var(--border-color);
-  background: transparent;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 13px;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: var(--primary-color);
-  }
-
-  &.active {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-    color: white;
-  }
-}
-
-.shortcuts-list {
-  margin-bottom: 16px;
-}
-
-.shortcut-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.shortcut-action {
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.shortcut-key {
-  padding: 4px 8px;
-  background: var(--code-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 11px;
-  font-family: monospace;
-}
-
-.settings-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border-color);
-}
-
-.btn {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &.btn-primary {
-    background: var(--primary-color);
-    color: white;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-
-  &.btn-secondary {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-
-    &:hover {
-      background: var(--border-color);
+    
+    input[type="text"],
+    input[type="number"],
+    select {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--input-bg);
+      color: var(--text-primary);
+      font-size: 13px;
+      min-width: 150px;
+      
+      &:focus {
+        outline: none;
+        border-color: var(--primary-color);
+      }
     }
   }
 }

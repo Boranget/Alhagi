@@ -133,6 +133,42 @@ function scrollToHeading(heading: OutlineHeading) {
 
 let unsubscribeContentChanged: (() => void) | null = null
 let unsubscribeTabSwitched: (() => void) | null = null
+let scrollTimeout: number | null = null
+
+function updateActiveHeading() {
+  if (headings.value.length === 0) {
+    return
+  }
+
+  const textarea = document.querySelector('.source-editor, .split-source') as HTMLTextAreaElement
+  if (!textarea) {
+    return
+  }
+
+  const cursorPosition = textarea.selectionStart
+  const content = textarea.value
+  const lines = content.substring(0, cursorPosition).split('\n')
+  const currentLine = lines.length
+
+  // 查找光标位置之前最近的标题
+  let activeHeading: OutlineHeading | null = null
+  for (let i = headings.value.length - 1; i >= 0; i--) {
+    const heading = headings.value[i]
+    if (heading.line <= currentLine) {
+      activeHeading = heading
+      break
+    }
+  }
+
+  activeHeadingId.value = activeHeading?.id || null
+}
+
+function handleCursorChange() {
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+  }
+  scrollTimeout = window.setTimeout(updateActiveHeading, 100)
+}
 
 onMounted(() => {
   unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
@@ -152,11 +188,20 @@ onMounted(() => {
       parseHeadings(tab.content)
     }
   })
+
+  // 监听编辑器光标变化
+  document.addEventListener('click', handleCursorChange)
+  document.addEventListener('keyup', handleCursorChange)
 })
 
 onUnmounted(() => {
   unsubscribeContentChanged?.()
   unsubscribeTabSwitched?.()
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+  }
+  document.removeEventListener('click', handleCursorChange)
+  document.removeEventListener('keyup', handleCursorChange)
 })
 </script>
 

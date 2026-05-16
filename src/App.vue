@@ -6,9 +6,9 @@
         <EnhancedSidebar v-if="showSidebar" />
         <EditorContainer />
       </div>
-      <StatusBar />
+      <StatusBar v-if="prefsStore.showStatusBar" />
     </div>
-    <SettingsPanel :isOpen="showSettings" @close="showSettings = false" />
+    <SettingsPanel :visible="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
@@ -48,7 +48,7 @@ function triggerAutoSave() {
     if (activeTab && activeTab.isDirty && activeTab.filePath) {
       tabsStore.saveFile(activeTab.id)
     }
-  }, prefsStore.autoSaveDelay)
+  }, prefsStore.autoSaveInterval * 1000)
 }
 
 function handleKeydown(e: KeyboardEvent) {

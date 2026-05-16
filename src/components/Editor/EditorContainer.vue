@@ -57,7 +57,7 @@
           @keydown="handleSourceKeydown"
           @scroll="handleSourceScroll"
         />
-        <div ref="splitPreviewRef" class="split-preview" />
+        <div ref="splitPreviewRef" class="split-preview" @scroll="handlePreviewScroll" />
       </div>
     </div>
   </div>
@@ -178,12 +178,37 @@ function handleSourceKeydown(e: KeyboardEvent) {
   }
 }
 
+let isScrollingFromSource = false
+let isScrollingFromPreview = false
+
 function handleSourceScroll(e: Event) {
-  if (currentMode.value === 'split') {
+  if (currentMode.value === 'split' && !isScrollingFromPreview) {
+    isScrollingFromSource = true
     const source = e.target as HTMLTextAreaElement
     if (splitPreviewRef.value) {
-      splitPreviewRef.value.scrollTop = source.scrollTop
+      // 同步滚动比例，不是直接同步 scrollTop
+      const sourceScrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight || 1)
+      splitPreviewRef.value.scrollTop = sourceScrollRatio * (splitPreviewRef.value.scrollHeight - splitPreviewRef.value.clientHeight)
     }
+    // 短暂延迟后清除标志
+    setTimeout(() => {
+      isScrollingFromSource = false
+    }, 50)
+  }
+}
+
+function handlePreviewScroll(e: Event) {
+  if (currentMode.value === 'split' && !isScrollingFromSource) {
+    isScrollingFromPreview = true
+    const preview = e.target as HTMLElement
+    if (splitSourceRef.value) {
+      // 同步滚动比例
+      const previewScrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1)
+      splitSourceRef.value.scrollTop = previewScrollRatio * (splitSourceRef.value.scrollHeight - splitSourceRef.value.clientHeight)
+    }
+    setTimeout(() => {
+      isScrollingFromPreview = false
+    }, 50)
   }
 }
 

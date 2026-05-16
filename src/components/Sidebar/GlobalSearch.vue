@@ -337,7 +337,64 @@ function handleReplace() {
 }
 
 function handleReplaceAll() {
-  console.log('Replace all:', searchQuery.value, 'with:', replaceQuery.value)
+  if (!searchQuery.value || !replaceQuery.value) {
+    return
+  }
+
+  if (activeSearchTarget.value === 'file') {
+    // 只替换当前文件
+    replaceInActiveFile()
+  } else if (activeSearchTarget.value === 'all') {
+    // 替换所有标签页
+    replaceInAllTabs()
+  }
+}
+
+function replaceInActiveFile() {
+  const activeTab = tabsStore.activeTab
+  if (!activeTab) {
+    return
+  }
+
+  const pattern = buildSearchPattern()
+  if (!pattern) {
+    return
+  }
+
+  const newContent = activeTab.content.replace(pattern, replaceQuery.value)
+  tabsStore.updateTab(activeTab.id, {
+    content: newContent,
+    isDirty: true
+  })
+
+  performSearch()
+}
+
+function replaceInAllTabs() {
+  const pattern = buildSearchPattern()
+  if (!pattern) {
+    return
+  }
+
+  let replaceCount = 0
+  const allTabs = tabsStore.getAllTabs()
+  allTabs.forEach((tab) => {
+    const matches = tab.content.match(pattern)
+    if (matches) {
+      const newContent = tab.content.replace(pattern, replaceQuery.value)
+      tabsStore.updateTab(tab.id, {
+        content: newContent,
+        isDirty: true
+      })
+      replaceCount += matches.length
+    }
+  })
+
+  if (replaceCount > 0) {
+    alert(`已替换 ${replaceCount} 处匹配`)
+  }
+
+  performSearch()
 }
 
 function toggleExpand(file: string) {

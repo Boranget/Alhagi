@@ -12,7 +12,8 @@
       </span>
     </div>
     <div class="status-right">
-      <span class="status-item">{{ wordCount }} 字</span>
+      <span class="status-item" title="原始 Markdown 字符数（不含空白）">MD: {{ rawMarkdownChars }} 字</span>
+      <span class="status-item" title="渲染后纯文本字符数">文本: {{ plainTextChars }} 字</span>
       <span class="status-item">{{ lineCount }} 行</span>
       <span class="status-item">{{ cursorPosition }}</span>
       <button
@@ -55,9 +56,25 @@ const isFullscreen = inject<Ref<boolean>>('isFullscreen')
 
 const activeTab = computed(() => tabsStore.activeTab)
 
-const wordCount = computed(() => {
+// 原始 Markdown 字符数（不含空白）
+const rawMarkdownChars = computed(() => {
   if (!activeTab.value?.content) return 0
   return activeTab.value.content.replace(/\s/g, '').length
+})
+
+// 渲染后纯文本字符数（移除 Markdown 语法）
+const plainTextChars = computed(() => {
+  if (!activeTab.value?.content) return 0
+  let text = activeTab.value.content
+  // 移除 Markdown 语法
+  text = text.replace(/[#*_~`]+/g, '') // 移除 # * _ ~ `
+  text = text.replace(/\[.*?\]\(.*?\)/g, '') // 移除链接
+  text = text.replace(/!\[.*?\]\(.*?\)/g, '') // 移除图片
+  text = text.replace(/```[\s\S]*?```/g, '') // 移除代码块
+  text = text.replace(/^>\s*/gm, '') // 移除引用标记
+  text = text.replace(/^[-*+]\s+/gm, '') // 移除列表标记
+  text = text.replace(/\s/g, '') // 移除空白
+  return text.length
 })
 
 const lineCount = computed(() => {
