@@ -1,25 +1,28 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
-export interface ElectronAPI {
-  openFile: () => Promise<{ filePath: string; content: string } | null>
-  saveFile: (filePath: string, content: string) => Promise<boolean>
-  saveAsFile: (content: string, defaultPath?: string) => Promise<string | null>
-  readFile: (filePath: string) => Promise<string>
-  openFolder: () => Promise<{ path: string; tree: FileTreeNode[] } | null>
-  readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>
-  createFile: (dirPath: string, fileName: string) => Promise<string | null>
-  createDirectory: (dirPath: string, dirName: string) => Promise<string | null>
-  deleteFile: (filePath: string) => Promise<boolean>
-  renameFile: (oldPath: string, newName: string) => Promise<string | null>
-  minimize: () => Promise<void>
-  maximize: () => Promise<void>
-  close: () => Promise<void>
-  setAlwaysOnTop: (flag: boolean) => Promise<void>
-  onNewFile: (callback: () => void) => void
-  onOpenFile: (callback: () => void) => void
-  onSave: (callback: () => void) => void
-  onSaveAs: (callback: () => void) => void
-  onViewMode: (callback: (mode: string) => void) => void
+export enum IPCErrorCode {
+  FILE_NOT_FOUND = 'FILE_NOT_FOUND',
+  FILE_READ_ERROR = 'FILE_READ_ERROR',
+  FILE_WRITE_ERROR = 'FILE_WRITE_ERROR',
+  FILE_SAVE_ERROR = 'FILE_SAVE_ERROR',
+  FILE_DELETE_ERROR = 'FILE_DELETE_ERROR',
+  FILE_RENAME_ERROR = 'FILE_RENAME_ERROR',
+  FILE_CREATE_ERROR = 'FILE_CREATE_ERROR',
+  DIRECTORY_READ_ERROR = 'DIRECTORY_READ_ERROR',
+  DIRECTORY_CREATE_ERROR = 'DIRECTORY_CREATE_ERROR',
+  DIALOG_CANCELLED = 'DIALOG_CANCELLED',
+  INVALID_PATH = 'INVALID_PATH',
+  PERMISSION_DENIED = 'PERMISSION_DENIED',
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
+}
+
+export interface IPCResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: {
+    code: string
+    message: string
+  }
 }
 
 export interface FileTreeNode {
@@ -39,26 +42,104 @@ export interface DirectoryEntry {
   lastModified: number
 }
 
+export interface ElectronAPI {
+  openFile: () => Promise<IPCResponse<{ filePath: string; content: string } | null>>
+  saveFile: (filePath: string, content: string) => Promise<IPCResponse<boolean>>
+  saveAsFile: (content: string, defaultPath?: string) => Promise<IPCResponse<string | null>>
+  readFile: (filePath: string) => Promise<IPCResponse<string>>
+  openFolder: () => Promise<IPCResponse<{ path: string; tree: FileTreeNode[] } | null>>
+  readDirectory: (dirPath: string) => Promise<IPCResponse<DirectoryEntry[]>>
+  createFile: (dirPath: string, fileName: string) => Promise<IPCResponse<string | null>>
+  createDirectory: (dirPath: string, dirName: string) => Promise<IPCResponse<string | null>>
+  deleteFile: (filePath: string) => Promise<IPCResponse<boolean>>
+  renameFile: (oldPath: string, newName: string) => Promise<IPCResponse<string | null>>
+  minimize: () => Promise<IPCResponse<void>>
+  maximize: () => Promise<IPCResponse<void>>
+  close: () => Promise<IPCResponse<void>>
+  setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
+  onNewFile: (callback: () => void) => () => void
+  onOpenFile: (callback: () => void) => () => void
+  onSave: (callback: () => void) => () => void
+  onSaveAs: (callback: () => void) => () => void
+  onViewMode: (callback: (mode: string) => void) => () => void
+}
+
+function createIpcHandler<T>(
+  channel: string,
+  data?: any
+): Promise<IPCResponse<T>> {
+  return ipcRenderer.invoke(channel, data)
+}
+
+function createMenuListener(
+  channel: string,
+  callback: (...args: any[]) => void
+): () => void {
+  const handler = (_event: IpcRendererEvent, ...args: any[]) => callback(...args)
+  ipcRenderer.on(channel, handler)
+  return () => {
+    ipcRenderer.removeListener(channel, handler)
+  }
+}
+
 const api: ElectronAPI = {
-  openFile: () => ipcRenderer.invoke('file:open'),
-  saveFile: (filePath, content) => ipcRenderer.invoke('file:save', { filePath, content }),
-  saveAsFile: (content, defaultPath) => ipcRenderer.invoke('file:save-as', { content, defaultPath }),
-  readFile: (filePath) => ipcRenderer.invoke('file:read', filePath),
-  openFolder: () => ipcRenderer.invoke('file:open-folder'),
-  readDirectory: (dirPath) => ipcRenderer.invoke('file:read-directory', dirPath),
-  createFile: (dirPath, fileName) => ipcRenderer.invoke('file:create', { dirPath, fileName, type: 'file' }),
-  createDirectory: (dirPath, dirName) => ipcRenderer.invoke('file:create', { dirPath, fileName: dirName, type: 'directory' }),
-  deleteFile: (filePath) => ipcRenderer.invoke('file:delete', filePath),
-  renameFile: (oldPath, newName) => ipcRenderer.invoke('file:rename', { oldPath, newName }),
-  minimize: () => ipcRenderer.invoke('window:minimize'),
-  maximize: () => ipcRenderer.invoke('window:maximize'),
-  close: () => ipcRenderer.invoke('window:close'),
-  setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),
-  onNewFile: (callback) => ipcRenderer.on('menu:new-file', () => callback()),
-  onOpenFile: (callback) => ipcRenderer.on('menu:open-file', () => callback()),
-  onSave: (callback) => ipcRenderer.on('menu:save', () => callback()),
-  onSaveAs: (callback) => ipcRenderer.on('menu:save-as', () => callback()),
-  onViewMode: (callback) => ipcRenderer.on('menu:view-mode', (_, mode) => callback(mode))
+  openFile: () => createIpcHandler('file:open'),
+  
+  saveFile: (filePath, content) => 
+    createIpcHandler('file:save', { filePath, content }),
+  
+  saveAsFile: (content, defaultPath) => 
+    createIpcHandler('file:save-as', { content, defaultPath }),
+  
+  readFile: (filePath) => 
+    createIpcHandler('file:read', filePath),
+  
+  openFolder: () => 
+    createIpcHandler('file:open-folder'),
+  
+  readDirectory: (dirPath) => 
+    createIpcHandler('file:read-directory', dirPath),
+  
+  createFile: (dirPath, fileName) => 
+    createIpcHandler('file:create', { dirPath, fileName, type: 'file' }),
+  
+  createDirectory: (dirPath, dirName) => 
+    createIpcHandler('file:create', { dirPath, fileName: dirName, type: 'directory' }),
+  
+  deleteFile: (filePath) => 
+    createIpcHandler('file:delete', filePath),
+  
+  renameFile: (oldPath, newName) => 
+    createIpcHandler('file:rename', { oldPath, newName }),
+  
+  minimize: () => 
+    createIpcHandler('window:minimize'),
+  
+  maximize: () => 
+    createIpcHandler('window:maximize'),
+  
+  close: () => 
+    createIpcHandler('window:close'),
+  
+  setAlwaysOnTop: (flag) => 
+    createIpcHandler('window:set-always-on-top', flag),
+  
+  onNewFile: (callback) => 
+    createMenuListener('menu:new-file', callback),
+  
+  onOpenFile: (callback) => 
+    createMenuListener('menu:open-file', callback),
+  
+  onSave: (callback) => 
+    createMenuListener('menu:save', callback),
+  
+  onSaveAs: (callback) => 
+    createMenuListener('menu:save-as', callback),
+  
+  onViewMode: (callback) => 
+    createMenuListener('menu:view-mode', callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
+
+export type { ElectronAPI, FileTreeNode, DirectoryEntry, IPCResponse }
