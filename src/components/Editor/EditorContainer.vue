@@ -8,7 +8,7 @@
           class="toolbar-btn"
           :class="{ active: currentMode === mode.value }"
           :title="mode.label"
-          @click="setViewMode(mode.value)"
+          @click="handleViewModeChange(mode.value)"
         >
           {{ mode.icon }}
         </button>
@@ -69,6 +69,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useEditorManager } from '@/managers/editorManager'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 
@@ -81,8 +82,9 @@ const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitPreviewRef = ref<HTMLElement | null>(null)
 
 const sourceContent = ref('')
+let unsubscribes: (() => void)[] = []
 
-const { containerRef, isReady, currentMode, init, setViewMode, destroy } = useEditorManager()
+const { containerRef, isReady, currentMode, init, setViewMode, destroy, getManager } = useEditorManager()
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
@@ -99,11 +101,42 @@ const contentClasses = computed(() => ({
   'focus-mode': prefsStore.focusMode
 }))
 
+// 监听标签页内容变化，同步到源码编辑器
+const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload: any) => {
+  if (payload && payload.tabId === activeTab.value?.id) {
+    sourceContent.value = payload.content
+    updatePreview()
+  }
+})
+unsubscribes.push(unsubscribeContentChanged)
+
+// 监听标签页切换
 watch(activeTab, (tab) => {
   if (tab) {
     sourceContent.value = tab.content
   }
 }, { immediate: true })
+
+const handleViewModeChange = async (mode: ViewMode) => {
+  const manager = getManager()
+
+  if (mode !== 'wysiwyg') {
+    // 切换到源码或分屏模式时，获取当前WYSIWYG内容同步到源码
+    if (manager && manager.isReady()) {
+      sourceContent.value = manager.getMarkdown()
+    }
+  }
+
+  if (mode === 'wysiwyg' && currentMode.value !== 'wysiwyg') {
+    // 从源码模式切换回WYSIWYG时，同步源码内容到编辑器
+    if (manager && manager.isReady()) {
+      await manager.setMarkdown(sourceContent.value)
+    }
+  }
+
+  setViewMode(mode)
+  updatePreview()
+}
 
 const handleSourceInput = debounce(() => {
   if (activeTab.value) {
@@ -116,8 +149,20 @@ const handleSourceInput = debounce(() => {
 }, 100)
 
 function updatePreview() {
-  if (currentMode.value === 'split' && splitPreviewRef.value) {
-    splitPreviewRef.value.innerHTML = sourceContent.value
+  if ((currentMode.value === 'split') && splitPreviewRef.value) {
+    // 简单的Markdown预览（实际项目中可使用marked或其他库）
+    let html = sourceContent.value
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*)\*/gim, '<em>$1</em>')
+      .replace(/!\[(.*?)\]\((.*?)\)/gim, "<img alt='$1' src='$2' />")
+      .replace(/\[(.*?)\]\((.*?)\)/gim, "<a href='$2'>$1</a>")
+      .replace(/`(.*?)`/gim, '<code>$1</code>')
+      .replace(/\n/gim, '<br />')
+
+    splitPreviewRef.value.innerHTML = html
   }
 }
 
@@ -150,6 +195,7 @@ onMounted(async () => {
 })
 
 onUnmounted(async () => {
+  unsubscribes.forEach(unsubscribe => unsubscribe())
   await destroy()
 })
 </script>
@@ -336,6 +382,21 @@ onUnmounted(async () => {
         padding: 20px;
         overflow: auto;
         background: var(--preview-bg);
+
+        h1, h2, h3 {
+          margin: 1em 0 0.5em;
+        }
+
+        p {
+          margin: 0.5em 0;
+        }
+
+        code {
+          background: var(--code-bg);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: 'Fira Code', monospace;
+        }
       }
     }
   }

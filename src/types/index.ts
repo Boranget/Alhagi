@@ -51,20 +51,6 @@ export interface WindowState {
   autoSaveInterval: number
 }
 
-export interface EditorInstance {
-  id: string
-  content: string
-  mode: ViewMode
-  getContent: () => string
-  setContent: (content: string) => void
-  getCursor: () => { from: number; to: number }
-  setCursor: (from: number, to: number) => void
-  getScrollTop: () => number
-  setScrollTop: (position: number) => void
-  focus: () => void
-  destroy: () => void
-}
-
 export interface FileTreeNodeType {
   name: string
   path: string
@@ -115,6 +101,5 @@ export interface ElectronAPI {
 declare global {
   interface Window {
     electronAPI?: ElectronAPI
-    editorInstance?: EditorInstance
   }
 }

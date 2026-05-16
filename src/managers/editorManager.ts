@@ -7,6 +7,7 @@ import { history } from '@milkdown/plugin-history'
 import { clipboard } from '@milkdown/plugin-clipboard'
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 export class EditorInstanceManager {
   private editor: Editor | null = null
@@ -14,16 +15,12 @@ export class EditorInstanceManager {
   private isDestroyed = false
   private container: HTMLElement | null = null
   private currentTabId: string | null = null
-  private onContentChangeCallback?: (content: string, tabId: string) => void
   private content: string = ''
+  private isUpdatingContent = false
 
   constructor(
-    private tabsStore: ReturnType<typeof useTabsStore>,
-    private onContentChange?: (content: string, tabId: string) => void,
-    private onCursorChange?: (from: number, to: number, tabId: string) => void
-  ) {
-    this.onContentChangeCallback = onContentChange
-  }
+    private tabsStore: ReturnType<typeof useTabsStore>
+  ) {}
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
     if (this.isInitialized || this.isDestroyed) {
@@ -40,14 +37,17 @@ export class EditorInstanceManager {
         ctx.set(defaultValueCtx, initialContent)
 
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
-          if (this.currentTabId && markdown !== prevMarkdown) {
+          if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
             this.content = markdown
             this.tabsStore.updateTab(this.currentTabId, {
               content: markdown,
               isDirty: true,
               lastModified: Date.now()
             })
-            this.onContentChangeCallback?.(markdown, this.currentTabId)
+            eventBus.emit(AppEvents.CONTENT_CHANGED, {
+              content: markdown,
+              tabId: this.currentTabId
+            })
           }
         })
       })
@@ -59,22 +59,57 @@ export class EditorInstanceManager {
       .create()
 
     this.isInitialized = true
-    this.exposeEditorInstance()
+    eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
   }
 
   getMarkdown(): string {
     return this.content || this.tabsStore.activeTab?.content || ''
   }
 
-  setMarkdown(content: string): void {
-    if (!this.editor) return
+  async setMarkdown(content: string): Promise<void> {
+    if (!this.editor || !this.isReady()) return
+
+    if (this.content === content) return
 
     try {
+      this.isUpdatingContent = true
       this.content = content
-      const ctx = this.editor.ctx
-      ctx.set(defaultValueCtx, content)
+
+      // 销毁并重新创建编辑器来更新内容（Milkdown推荐方式）
+      await this.editor.destroy()
+
+      if (this.container && this.currentTabId) {
+        this.editor = await Editor.make()
+          .config((ctx) => {
+            ctx.set(rootCtx, this.container!)
+            ctx.set(defaultValueCtx, content)
+
+            ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
+              if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
+                this.content = markdown
+                this.tabsStore.updateTab(this.currentTabId, {
+                  content: markdown,
+                  isDirty: true,
+                  lastModified: Date.now()
+                })
+                eventBus.emit(AppEvents.CONTENT_CHANGED, {
+                  content: markdown,
+                  tabId: this.currentTabId
+                })
+              }
+            })
+          })
+          .use(commonmark)
+          .use(gfm)
+          .use(history)
+          .use(clipboard)
+          .use(listener)
+          .create()
+      }
     } catch (e) {
       console.error('Failed to set markdown:', e)
+    } finally {
+      this.isUpdatingContent = false
     }
   }
 
@@ -86,6 +121,11 @@ export class EditorInstanceManager {
     if (this.tabsStore.activeTabId) {
       this.tabsStore.updateTab(this.tabsStore.activeTabId, {
         cursor: { from, to }
+      })
+      eventBus.emit(AppEvents.CURSOR_CHANGED, {
+        from,
+        to,
+        tabId: this.tabsStore.activeTabId
       })
     }
   }
@@ -99,6 +139,10 @@ export class EditorInstanceManager {
       requestAnimationFrame(() => {
         if (this.container) {
           this.container.scrollTop = position
+          eventBus.emit(AppEvents.SCROLL_CHANGED, {
+            scrollTop: position,
+            tabId: this.currentTabId
+          })
         }
       })
     }
@@ -106,42 +150,6 @@ export class EditorInstanceManager {
 
   focus(): void {
     this.container?.focus()
-  }
-
-  private exposeEditorInstance(): void {
-    if (!this.editor || !this.container) return
-
-    const manager = this
-
-    window.editorInstance = {
-      id: this.currentTabId || '',
-      content: '',
-      mode: this.tabsStore.activeTab?.viewMode || 'wysiwyg',
-      getContent: (): string => {
-        return manager.getMarkdown()
-      },
-      setContent: (content: string): void => {
-        manager.setMarkdown(content)
-      },
-      getCursor: (): { from: number; to: number } => {
-        return manager.getSelection()
-      },
-      setCursor: (from: number, to: number): void => {
-        manager.setSelection(from, to)
-      },
-      getScrollTop: (): number => {
-        return manager.getScrollTop()
-      },
-      setScrollTop: (position: number): void => {
-        manager.setScrollTop(position)
-      },
-      focus: (): void => {
-        manager.focus()
-      },
-      destroy: async (): Promise<void> => {
-        await this.destroy()
-      }
-    }
   }
 
   async switchToTab(tabId: string): Promise<void> {
@@ -159,18 +167,16 @@ export class EditorInstanceManager {
     }
 
     if (currentTab && currentTab.id !== tabId) {
-      this.content = this.tabsStore.activeTab?.content || ''
       currentTab.scrollTop = this.getScrollTop()
       currentTab.lastModified = Date.now()
     }
 
     this.tabsStore.switchTab(tabId)
     this.currentTabId = tabId
-    this.content = targetTab.content
-    this.setMarkdown(targetTab.content)
+    await this.setMarkdown(targetTab.content)
     this.setScrollTop(targetTab.scrollTop)
 
-    this.exposeEditorInstance()
+    eventBus.emit(AppEvents.TAB_SWITCHED, tabId)
   }
 
   async destroy(): Promise<void> {
@@ -189,15 +195,13 @@ export class EditorInstanceManager {
       this.editor = null
     }
 
+    eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
+
     this.container = null
     this.currentTabId = null
     this.isInitialized = false
     this.isDestroyed = true
     this.content = ''
-
-    if (window.editorInstance) {
-      delete window.editorInstance
-    }
   }
 
   isReady(): boolean {
