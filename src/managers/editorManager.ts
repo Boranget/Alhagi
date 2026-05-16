@@ -1,56 +1,53 @@
-import { ref, shallowRef, watch, type Ref } from 'vue'
+import { ref, watch } from 'vue'
 import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { clipboard } from '@milkdown/plugin-clipboard'
-import type { TabState, ViewMode, EditorInstance as EditorInstanceType } from '@/types'
+import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 
-/**
- * 编辑器实例管理器 - 单窗口单编辑器实例
- * 
- * 职责：
- * 1. 管理 Milkdown 编辑器实例的生命周期
- * 2. 处理标签页切换时的状态保存和恢复
- * 3. 提供统一的编辑器操作接口
- */
 export class EditorInstanceManager {
   private editor: Editor | null = null
   private isInitialized = false
   private isDestroyed = false
   private container: HTMLElement | null = null
+  private currentTabId: string | null = null
+  private onContentChangeCallback?: (content: string, tabId: string) => void
+  private content: string = ''
 
   constructor(
     private tabsStore: ReturnType<typeof useTabsStore>,
     private onContentChange?: (content: string, tabId: string) => void,
     private onCursorChange?: (from: number, to: number, tabId: string) => void
-  ) {}
+  ) {
+    this.onContentChangeCallback = onContentChange
+  }
 
-  /**
-   * 初始化编辑器
-   */
-  async init(container: HTMLElement, initialContent: string = ''): Promise<void> {
+  async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
     if (this.isInitialized || this.isDestroyed) {
       return
     }
 
     this.container = container
-    
+    this.currentTabId = tabId || this.tabsStore.activeTabId
+    this.content = initialContent
+
     this.editor = await Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, container)
         ctx.set(defaultValueCtx, initialContent)
 
-        ctx.get(listenerCtx).markdownUpdated((ctx, markdown, prevMarkdown) => {
-          if (this.tabsStore.activeTabId && markdown !== prevMarkdown) {
-            this.tabsStore.updateTab(this.tabsStore.activeTabId, {
+        ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
+          if (this.currentTabId && markdown !== prevMarkdown) {
+            this.content = markdown
+            this.tabsStore.updateTab(this.currentTabId, {
               content: markdown,
               isDirty: true,
               lastModified: Date.now()
             })
-            this.onContentChange?.(markdown, this.tabsStore.activeTabId)
+            this.onContentChangeCallback?.(markdown, this.currentTabId)
           }
         })
       })
@@ -65,42 +62,81 @@ export class EditorInstanceManager {
     this.exposeEditorInstance()
   }
 
-  /**
-   * 暴露编辑器实例到 window.editorInstance
-   */
-  private exposeEditorInstance(): void {
-    if (!this.editor || !this.container) return
+  getMarkdown(): string {
+    return this.content || this.tabsStore.activeTab?.content || ''
+  }
 
-    window.editorInstance = {
-      id: this.tabsStore.activeTabId || '',
-      content: '',
-      mode: this.tabsStore.activeTab?.viewMode || 'wysiwyg',
-      getContent: (): string => {
-        return this.tabsStore.activeTab?.content || ''
-      },
-      setContent: (content: string): void => {
-        this.setContent(content)
-      },
-      getCursor: (): { from: number; to: number } => {
-        return this.tabsStore.activeTab?.cursor || { from: 0, to: 0 }
-      },
-      setCursor: (from: number, to: number): void => {
-        if (this.tabsStore.activeTabId) {
-          this.tabsStore.updateTab(this.tabsStore.activeTabId, {
-            cursor: { from, to }
-          })
-        }
-      },
-      getScrollTop: (): number => {
-        return this.container?.scrollTop || 0
-      },
-      setScrollTop: (position: number): void => {
+  setMarkdown(content: string): void {
+    if (!this.editor) return
+
+    try {
+      this.content = content
+      const ctx = this.editor.ctx
+      ctx.set(defaultValueCtx, content)
+    } catch (e) {
+      console.error('Failed to set markdown:', e)
+    }
+  }
+
+  getSelection(): { from: number; to: number } {
+    return this.tabsStore.activeTab?.cursor || { from: 0, to: 0 }
+  }
+
+  setSelection(from: number, to: number): void {
+    if (this.tabsStore.activeTabId) {
+      this.tabsStore.updateTab(this.tabsStore.activeTabId, {
+        cursor: { from, to }
+      })
+    }
+  }
+
+  getScrollTop(): number {
+    return this.container?.scrollTop || 0
+  }
+
+  setScrollTop(position: number): void {
+    if (this.container) {
+      requestAnimationFrame(() => {
         if (this.container) {
           this.container.scrollTop = position
         }
+      })
+    }
+  }
+
+  focus(): void {
+    this.container?.focus()
+  }
+
+  private exposeEditorInstance(): void {
+    if (!this.editor || !this.container) return
+
+    const manager = this
+
+    window.editorInstance = {
+      id: this.currentTabId || '',
+      content: '',
+      mode: this.tabsStore.activeTab?.viewMode || 'wysiwyg',
+      getContent: (): string => {
+        return manager.getMarkdown()
+      },
+      setContent: (content: string): void => {
+        manager.setMarkdown(content)
+      },
+      getCursor: (): { from: number; to: number } => {
+        return manager.getSelection()
+      },
+      setCursor: (from: number, to: number): void => {
+        manager.setSelection(from, to)
+      },
+      getScrollTop: (): number => {
+        return manager.getScrollTop()
+      },
+      setScrollTop: (position: number): void => {
+        manager.setScrollTop(position)
       },
       focus: (): void => {
-        this.container?.focus()
+        manager.focus()
       },
       destroy: async (): Promise<void> => {
         await this.destroy()
@@ -108,9 +144,6 @@ export class EditorInstanceManager {
     }
   }
 
-  /**
-   * 切换到指定标签页
-   */
   async switchToTab(tabId: string): Promise<void> {
     if (!this.editor || !this.container) {
       console.warn('Editor not initialized')
@@ -125,69 +158,31 @@ export class EditorInstanceManager {
       return
     }
 
-    // 1. 保存当前标签页状态
-    if (currentTab) {
-      currentTab.scrollTop = this.container.scrollTop
+    if (currentTab && currentTab.id !== tabId) {
+      this.content = this.tabsStore.activeTab?.content || ''
+      currentTab.scrollTop = this.getScrollTop()
       currentTab.lastModified = Date.now()
     }
 
-    // 2. 更新标签页激活状态
     this.tabsStore.switchTab(tabId)
+    this.currentTabId = tabId
+    this.content = targetTab.content
+    this.setMarkdown(targetTab.content)
+    this.setScrollTop(targetTab.scrollTop)
 
-    // 3. 恢复目标标签页状态
-    this.setContent(targetTab.content)
-    
-    // 恢复滚动位置（下一帧，避免布局影响）
-    requestAnimationFrame(() => {
-      if (this.container && targetTab.scrollTop > 0) {
-        this.container.scrollTop = targetTab.scrollTop
-      }
-    })
-
-    // 4. 更新暴露的编辑器实例
     this.exposeEditorInstance()
   }
 
-  /**
-   * 设置编辑器内容
-   */
-  setContent(content: string): void {
-    if (!this.editor) return
-
-    try {
-      // 重新创建编辑器（简化处理）
-      this.recreateEditor(content)
-    } catch (e) {
-      console.error('Failed to set editor content:', e)
-    }
-  }
-
-  /**
-   * 重新创建编辑器（用于内容重置）
-   */
-  private async recreateEditor(content: string): Promise<void> {
-    if (!this.container) return
-
-    if (this.editor) {
-      await this.editor.destroy()
-      this.editor = null
-    }
-
-    await this.init(this.container, content)
-  }
-
-  /**
-   * 获取当前内容（来自 activeTab）
-   */
-  getContent(): string {
-    return this.tabsStore.activeTab?.content || ''
-  }
-
-  /**
-   * 销毁编辑器
-   */
   async destroy(): Promise<void> {
     if (this.isDestroyed) return
+
+    if (this.currentTabId) {
+      const tab = this.tabsStore.tabs.get(this.currentTabId)
+      if (tab) {
+        tab.content = this.content
+        tab.scrollTop = this.getScrollTop()
+      }
+    }
 
     if (this.editor) {
       await this.editor.destroy()
@@ -195,39 +190,33 @@ export class EditorInstanceManager {
     }
 
     this.container = null
+    this.currentTabId = null
     this.isInitialized = false
     this.isDestroyed = true
+    this.content = ''
 
     if (window.editorInstance) {
       delete window.editorInstance
     }
   }
 
-  /**
-   * 检查编辑器是否已初始化
-   */
   isReady(): boolean {
     return this.isInitialized && !this.isDestroyed && this.editor !== null
   }
 
-  /**
-   * 获取原始编辑器实例（高级用法）
-   */
   getEditor(): Editor | null {
     return this.editor
   }
 
-  /**
-   * 获取容器元素
-   */
   getContainer(): HTMLElement | null {
     return this.container
   }
+
+  getCurrentTabId(): string | null {
+    return this.currentTabId
+  }
 }
 
-/**
- * 创建编辑器管理器组合式函数
- */
 export function useEditorManager() {
   const tabsStore = useTabsStore()
   const containerRef = ref<HTMLElement | null>(null)
@@ -241,10 +230,12 @@ export function useEditorManager() {
 
     const activeTab = tabsStore.activeTab
     const initialContent = activeTab?.content || ''
+    const tabId = activeTab?.id
+
     currentMode.value = activeTab?.viewMode || 'wysiwyg'
 
     manager = new EditorInstanceManager(tabsStore)
-    await manager.init(containerRef.value, initialContent)
+    await manager.init(containerRef.value, initialContent, tabId)
     isReady.value = true
   }
 
@@ -264,6 +255,8 @@ export function useEditorManager() {
     }
   }
 
+  const getManager = (): EditorInstanceManager | null => manager
+
   const destroy = async () => {
     if (manager) {
       await manager.destroy()
@@ -272,9 +265,8 @@ export function useEditorManager() {
     }
   }
 
-  // 监听 activeTab 变化，自动切换
   watch(() => tabsStore.activeTabId, (newTabId, oldTabId) => {
-    if (newTabId && newTabId !== oldTabId) {
+    if (newTabId && newTabId !== oldTabId && manager?.isReady()) {
       switchToTab(newTabId)
     }
   })
@@ -287,6 +279,6 @@ export function useEditorManager() {
     switchToTab,
     setViewMode,
     destroy,
-    getManager: () => manager
+    getManager
   }
 }

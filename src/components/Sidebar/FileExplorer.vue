@@ -41,7 +41,7 @@ import { useFileService } from '@/services/fileService'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath } from '@/utils/helpers'
-import type { FileTreeNode as FileTreeNodeType } from '@/types'
+import type { FileTreeNodeType } from '@/types'
 
 const fileService = useFileService()
 const tabsStore = useTabsStore()

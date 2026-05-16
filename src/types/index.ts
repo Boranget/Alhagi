@@ -28,11 +28,27 @@ export interface HistoryItem {
 
 export type ViewMode = 'wysiwyg' | 'source' | 'split'
 
+export type SidebarView = 'files' | 'search' | 'extensions' | 'settings'
+
+export type Theme = 'light' | 'dark' | 'system'
+
 export interface WindowState {
   windowId: string
-  tabs: Map<string, TabState>
-  activeTabId: string | null
-  tabOrder: string[]
+  width: number
+  height: number
+  x?: number
+  y?: number
+  isMaximized: boolean
+  sidebarWidth: number
+  sidebarCollapsed: boolean
+  activeSidebarView: SidebarView
+  showStatusBar: boolean
+  theme: Theme
+  editorFontSize: number
+  editorFontFamily: string
+  wordWrap: boolean
+  autoSave: boolean
+  autoSaveInterval: number
 }
 
 export interface EditorInstance {
@@ -49,11 +65,11 @@ export interface EditorInstance {
   destroy: () => void
 }
 
-export interface FileTreeNode {
+export interface FileTreeNodeType {
   name: string
   path: string
   type: 'file' | 'directory'
-  children?: FileTreeNode[]
+  children?: FileTreeNodeType[]
   expanded?: boolean
   isDirty?: boolean
 }
@@ -72,7 +88,7 @@ export interface ElectronAPI {
   saveFile: (filePath: string, content: string) => Promise<boolean>
   saveAsFile: (content: string, defaultPath?: string) => Promise<string | null>
   readFile: (filePath: string) => Promise<string>
-  openFolder: () => Promise<{ path: string; tree: FileTreeNode[] } | null>
+  openFolder: () => Promise<{ path: string; tree: FileTreeNodeType[] } | null>
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>
   createFile: (dirPath: string, fileName: string) => Promise<string | null>
   createDirectory: (dirPath: string, dirName: string) => Promise<string | null>

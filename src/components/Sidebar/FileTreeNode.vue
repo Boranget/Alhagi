@@ -27,17 +27,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { FileTreeNode } from '@/types'
+import type { FileTreeNodeType } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 
 const props = defineProps<{
-  node: FileTreeNode
+  node: FileTreeNodeType
   depth: number
 }>()
 
 const emit = defineEmits<{
-  (e: 'select', node: FileTreeNode): void
-  (e: 'contextmenu', event: MouseEvent, node: FileTreeNode): void
+  (e: 'select', node: FileTreeNodeType): void
+  (e: 'contextmenu', event: MouseEvent, node: FileTreeNodeType): void
 }>()
 
 const tabsStore = useTabsStore()

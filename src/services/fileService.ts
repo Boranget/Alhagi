@@ -1,9 +1,9 @@
 import { ref } from 'vue'
-import type { FileTreeNode, DirectoryEntry } from '@/types'
+import type { FileTreeNodeType, DirectoryEntry } from '@/types'
 
 export function useFileService() {
   const currentFolder = ref<string | null>(null)
-  const fileTree = ref<FileTreeNode[]>([])
+  const fileTree = ref<FileTreeNodeType[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -27,7 +27,7 @@ export function useFileService() {
     }
   }
 
-  async function readDirectory(dirPath: string): Promise<FileTreeNode[]> {
+  async function readDirectory(dirPath: string): Promise<FileTreeNodeType[]> {
     if (!window.electronAPI) return []
 
     try {
@@ -139,14 +139,14 @@ export function useFileService() {
     }
   }
 
-  function toggleFolder(node: FileTreeNode) {
+  function toggleFolder(node: FileTreeNodeType) {
     node.expanded = !node.expanded
     if (node.expanded && node.type === 'directory' && (!node.children || node.children.length === 0)) {
       loadChildren(node)
     }
   }
 
-  async function loadChildren(node: FileTreeNode) {
+  async function loadChildren(node: FileTreeNodeType) {
     if (node.type !== 'directory') return
 
     const children = await readDirectory(node.path)
