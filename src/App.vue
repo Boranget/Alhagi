@@ -38,11 +38,11 @@ const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 function triggerAutoSave() {
   if (!prefsStore.autoSave) return
-  
+
   if (autoSaveTimer) {
     clearTimeout(autoSaveTimer)
   }
-  
+
   autoSaveTimer = setTimeout(() => {
     const activeTab = tabsStore.activeTab
     if (activeTab && activeTab.isDirty && activeTab.filePath) {
@@ -55,8 +55,9 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'F11') {
     e.preventDefault()
     isFullscreen.value = !isFullscreen.value
+    return
   }
-  
+
   if (e.ctrlKey || e.metaKey) {
     switch (e.key.toLowerCase()) {
       case 's':
@@ -69,11 +70,23 @@ function handleKeydown(e: KeyboardEvent) {
         break
       case 'n':
         e.preventDefault()
-        tabsStore.createTab({ title: '未命名' })
+        if (e.shiftKey) {
+          if (window.electronAPI) {
+            window.electronAPI.openFolder()
+          }
+        } else {
+          tabsStore.createTab({ title: '未命名' })
+        }
         break
       case 'o':
         e.preventDefault()
-        tabsStore.openFile()
+        if (e.shiftKey) {
+          tabsStore.openFile()
+        } else {
+          if (window.electronAPI) {
+            window.electronAPI.openFile()
+          }
+        }
         break
       case 'b':
         e.preventDefault()
@@ -85,37 +98,114 @@ function handleKeydown(e: KeyboardEvent) {
         break
       case 'w':
         e.preventDefault()
-        if (tabsStore.activeTabId) {
-          tabsStore.removeTab(tabsStore.activeTabId)
+        if (e.shiftKey) {
+          if (tabsStore.activeTabId) {
+            const tab = tabsStore.tabs.get(tabsStore.activeTabId)
+            if (tab?.isDirty) {
+              if (confirm('文件有未保存的更改，确定要关闭吗？')) {
+                tabsStore.removeTab(tabsStore.activeTabId)
+              }
+            } else {
+              tabsStore.removeTab(tabsStore.activeTabId)
+            }
+          }
+        } else {
+          if (tabsStore.activeTabId) {
+            tabsStore.removeTab(tabsStore.activeTabId)
+          }
+        }
+        break
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+        e.preventDefault()
+        const index = parseInt(e.key) - 1
+        if (index >= 0 && index < tabsStore.tabOrder.length) {
+          tabsStore.switchTab(tabsStore.tabOrder[index])
+        }
+        break
+      case 'tab':
+        e.preventDefault()
+        if (tabsStore.tabOrder.length > 0) {
+          const currentIndex = tabsStore.tabOrder.indexOf(tabsStore.activeTabId!)
+          const nextIndex = e.shiftKey 
+            ? (currentIndex - 1 + tabsStore.tabOrder.length) % tabsStore.tabOrder.length 
+            : (currentIndex + 1) % tabsStore.tabOrder.length
+          tabsStore.switchTab(tabsStore.tabOrder[nextIndex])
+        }
+        break
+      case 'p':
+        if (e.shiftKey) {
+          e.preventDefault()
+          toggleFocusMode()
+        }
+        break
+      case 't':
+        if (e.shiftKey) {
+          e.preventDefault()
+          toggleTypewriterMode()
+        }
+        break
+      case 'e':
+        if (e.shiftKey) {
+          e.preventDefault()
+          exportToFile()
         }
         break
     }
   }
 }
 
+function exportToFile() {
+  const activeTab = tabsStore.activeTab
+  if (!activeTab) return
+
+  const content = activeTab.content
+  
+  const blob = new Blob([content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  
+  const fileName = activeTab.title.endsWith('.md') 
+    ? activeTab.title 
+    : `${activeTab.title}.md`
+  
+  a.href = url
+  a.download = fileName
+  a.click()
+  
+  URL.revokeObjectURL(url)
+}
+
 function setupElectronListeners() {
   if (!window.electronAPI) return
-  
+
   window.electronAPI.onNewFile(() => {
     tabsStore.createTab({ title: '未命名' })
   })
-  
+
   window.electronAPI.onOpenFile(() => {
     tabsStore.openFile()
   })
-  
+
   window.electronAPI.onSave(() => {
     if (tabsStore.activeTabId) {
       tabsStore.saveFile(tabsStore.activeTabId)
     }
   })
-  
+
   window.electronAPI.onSaveAs(() => {
     if (tabsStore.activeTabId) {
       tabsStore.saveFileAs(tabsStore.activeTabId)
     }
   })
-  
+
   window.electronAPI.onViewMode((mode) => {
     if (tabsStore.activeTabId) {
       tabsStore.setViewMode(tabsStore.activeTabId, mode as any)
@@ -123,7 +213,6 @@ function setupElectronListeners() {
   })
 }
 
-// 监听标签内容变化触发自动保存
 watch(
   () => tabsStore.activeTab?.content,
   () => {
@@ -150,9 +239,9 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   setupElectronListeners()
-  
+
   prefsStore.loadPreferences()
-  
+
   if (tabsStore.tabCount === 0) {
     tabsStore.createTab({ title: '未命名' })
   }
