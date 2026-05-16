@@ -9,8 +9,9 @@
           v-model="searchQuery"
           type="text"
           class="search-input"
-          placeholder="搜索文件..."
+          placeholder="搜索文件内容或文件名..."
           @input="handleSearch"
+          @keydown.enter="performSearch"
         />
         <input
           v-model="replaceQuery"
@@ -35,12 +36,23 @@
       </div>
     </div>
     <div class="search-actions">
-      <button class="search-btn" @click="handleSearch">搜索</button>
-      <button v-if="replaceQuery" class="search-btn replace" @click="handleReplace">
+      <button class="search-btn" @click="performSearch">搜索</button>
+      <button v-if="replaceQuery && activeSearchTarget === 'file'" class="search-btn replace" @click="handleReplace">
         替换
       </button>
-      <button v-if="replaceQuery" class="search-btn replace-all" @click="handleReplaceAll">
+      <button v-if="replaceQuery && activeSearchTarget === 'file'" class="search-btn replace-all" @click="handleReplaceAll">
         全部替换
+      </button>
+    </div>
+    <div class="search-scope">
+      <button
+        v-for="scope in searchScopes"
+        :key="scope.id"
+        class="scope-btn"
+        :class="{ active: activeSearchTarget === scope.id }"
+        @click="setSearchScope(scope.id)"
+      >
+        {{ scope.label }}
       </button>
     </div>
     <div class="search-results">
@@ -64,7 +76,7 @@
         >
           <div class="result-file" @click="toggleExpand(result.file)">
             <span class="expand-icon">{{ expandedFiles.has(result.file) ? '▼' : '▶' }}</span>
-            <span class="file-name">{{ result.file }}</span>
+            <span class="file-name">{{ result.fileName }}</span>
             <span class="match-count">({{ result.matches.length }})</span>
           </div>
           <div v-if="expandedFiles.has(result.file)" class="result-matches">
@@ -72,10 +84,10 @@
               v-for="(match, idx) in result.matches"
               :key="idx"
               class="match-item"
-              @click="handleMatchClick(result.file, match)"
+              @click="handleMatchClick(result, match)"
             >
               <span class="match-line">{{ match.line }}:{{ match.column }}</span>
-              <span class="match-text">{{ match.text }}</span>
+              <span class="match-text" v-html="match.highlightedText"></span>
             </div>
           </div>
         </div>
@@ -85,22 +97,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
-import { debounce } from '@/utils/helpers'
+import { useFileService } from '@/services/fileService'
+import { debounce, extractTitleFromPath } from '@/utils/helpers'
 
 interface SearchMatch {
   line: number
   column: number
   text: string
+  highlightedText: string
+  startIndex: number
+  endIndex: number
 }
 
 interface SearchResult {
   file: string
+  fileName: string
+  filePath?: string
   matches: SearchMatch[]
 }
 
 const tabsStore = useTabsStore()
+const fileService = useFileService()
 
 const searchQuery = ref('')
 const replaceQuery = ref('')
@@ -108,6 +127,13 @@ const isSearching = ref(false)
 const results = ref<SearchResult[]>([])
 const totalMatches = ref(0)
 const expandedFiles = ref(new Set<string>())
+const activeSearchTarget = ref<'file' | 'folder' | 'all'>('file')
+
+const searchScopes = [
+  { id: 'file' as const, label: '当前文件' },
+  { id: 'folder' as const, label: '当前文件夹' },
+  { id: 'all' as const, label: '所有标签页' }
+]
 
 const options = reactive({
   caseSensitive: false,
@@ -121,24 +147,193 @@ const handleSearch = debounce(() => {
   performSearch()
 }, 300)
 
-function performSearch() {
+function setSearchScope(scope: 'file' | 'folder' | 'all') {
+  activeSearchTarget.value = scope
+  if (searchQuery.value) {
+    performSearch()
+  }
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function buildSearchPattern(): RegExp | null {
   if (!searchQuery.value.trim()) {
+    return null
+  }
+
+  let pattern = options.regex ? searchQuery.value : escapeRegExp(searchQuery.value)
+  
+  if (options.wholeWord) {
+    pattern = `\\b${pattern}\\b`
+  }
+
+  try {
+    const flags = options.caseSensitive ? 'g' : 'gi'
+    return new RegExp(pattern, flags)
+  } catch {
+    return null
+  }
+}
+
+function searchInContent(content: string, pattern: RegExp): SearchMatch[] {
+  const matches: SearchMatch[] = []
+  const lines = content.split('\n')
+
+  lines.forEach((line, lineIndex) => {
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(line)) !== null) {
+      const highlightedText = highlightMatch(line, match[0], match.index)
+      matches.push({
+        line: lineIndex + 1,
+        column: match.index + 1,
+        text: line,
+        highlightedText,
+        startIndex: match.index,
+        endIndex: match.index + match[0].length
+      })
+    }
+  })
+
+  return matches
+}
+
+function highlightMatch(text: string, match: string, startIndex: number): string {
+  const before = text.substring(0, startIndex)
+  const after = text.substring(startIndex + match.length)
+  const escapedMatch = escapeHtml(match)
+  return `${escapeHtml(before)}<mark>${escapedMatch}</mark>${escapeHtml(after)}`
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function performSearch() {
+  const pattern = buildSearchPattern()
+  if (!pattern) {
     results.value = []
     totalMatches.value = 0
     return
   }
 
   isSearching.value = true
-  
+  results.value = []
+  totalMatches.value = 0
+
   setTimeout(() => {
-    results.value = []
-    totalMatches.value = 0
+    if (activeSearchTarget.value === 'file') {
+      searchInActiveFile(pattern)
+    } else if (activeSearchTarget.value === 'all') {
+      searchInAllTabs(pattern)
+    } else {
+      searchInFolder(pattern)
+    }
     isSearching.value = false
-  }, 500)
+  }, 50)
+}
+
+function searchInActiveFile(pattern: RegExp) {
+  const activeTab = tabsStore.activeTab
+  if (!activeTab) {
+    results.value = []
+    return
+  }
+
+  const matches = searchInContent(activeTab.content, pattern)
+  if (matches.length > 0) {
+    results.value = [{
+      file: activeTab.id,
+      fileName: activeTab.title,
+      filePath: activeTab.filePath || undefined,
+      matches
+    }]
+    totalMatches.value = matches.length
+    expandedFiles.value.add(activeTab.id)
+  }
+}
+
+function searchInAllTabs(pattern: RegExp) {
+  const allTabs = tabsStore.getAllTabs()
+  const searchResults: SearchResult[] = []
+  let total = 0
+
+  allTabs.forEach(tab => {
+    const matches = searchInContent(tab.content, pattern)
+    if (matches.length > 0) {
+      searchResults.push({
+        file: tab.id,
+        fileName: tab.title,
+        filePath: tab.filePath || undefined,
+        matches
+      })
+      total += matches.length
+    }
+  })
+
+  results.value = searchResults
+  totalMatches.value = total
+  if (searchResults.length > 0) {
+    expandedFiles.value.add(searchResults[0].file)
+  }
+}
+
+function searchInFolder(pattern: RegExp) {
+  const folderPath = fileService.currentFolder?.value
+  if (!folderPath) {
+    results.value = []
+    return
+  }
+
+  const allTabs = tabsStore.getAllTabs()
+  const searchResults: SearchResult[] = []
+  let total = 0
+
+  allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach(tab => {
+    const matches = searchInContent(tab.content, pattern)
+    if (matches.length > 0) {
+      searchResults.push({
+        file: tab.id,
+        fileName: tab.title,
+        filePath: tab.filePath || undefined,
+        matches
+      })
+      total += matches.length
+    }
+  })
+
+  results.value = searchResults
+  totalMatches.value = total
+  if (searchResults.length > 0) {
+    expandedFiles.value.add(searchResults[0].file)
+  }
 }
 
 function handleReplace() {
-  console.log('Replace:', searchQuery.value, 'with:', replaceQuery.value)
+  if (!searchQuery.value || !replaceQuery.value) {
+    return
+  }
+
+  const activeTab = tabsStore.activeTab
+  if (!activeTab) {
+    return
+  }
+
+  const pattern = buildSearchPattern()
+  if (!pattern) {
+    return
+  }
+
+  const newContent = activeTab.content.replace(pattern, replaceQuery.value)
+  tabsStore.updateTab(activeTab.id, {
+    content: newContent,
+    isDirty: true
+  })
+
+  performSearch()
 }
 
 function handleReplaceAll() {
@@ -153,8 +348,11 @@ function toggleExpand(file: string) {
   }
 }
 
-function handleMatchClick(file: string, match: SearchMatch) {
-  console.log('Navigate to:', file, 'line:', match.line, 'column:', match.column)
+function handleMatchClick(result: SearchResult, match: SearchMatch) {
+  const tab = tabsStore.getAllTabs().find(t => t.id === result.file)
+  if (tab) {
+    tabsStore.switchTab(tab.id)
+  }
 }
 </script>
 
@@ -250,6 +448,34 @@ function handleMatchClick(file: string, match: SearchMatch) {
   }
 }
 
+.search-scope {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.scope-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--sidebar-hover-bg);
+  }
+
+  &.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+  }
+}
+
 .search-results {
   flex: 1;
   overflow: auto;
@@ -325,6 +551,7 @@ function handleMatchClick(file: string, match: SearchMatch) {
   color: var(--primary-color);
   font-size: 11px;
   min-width: 60px;
+  flex-shrink: 0;
 }
 
 .match-text {
@@ -333,5 +560,12 @@ function handleMatchClick(file: string, match: SearchMatch) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  mark {
+    background: var(--primary-color);
+    color: white;
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
 }
 </style>

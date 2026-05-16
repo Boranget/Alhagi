@@ -28,12 +28,28 @@ const prefsStore = usePreferencesStore()
 const showSidebar = ref(true)
 const isFullscreen = ref(false)
 const showSettings = ref(false)
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 provide('showSidebar', showSidebar)
 provide('isFullscreen', isFullscreen)
 provide('showSettings', showSettings)
 
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
+
+function triggerAutoSave() {
+  if (!prefsStore.autoSave) return
+  
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  autoSaveTimer = setTimeout(() => {
+    const activeTab = tabsStore.activeTab
+    if (activeTab && activeTab.isDirty && activeTab.filePath) {
+      tabsStore.saveFile(activeTab.id)
+    }
+  }, prefsStore.autoSaveDelay)
+}
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'F11') {
@@ -107,6 +123,16 @@ function setupElectronListeners() {
   })
 }
 
+// 监听标签内容变化触发自动保存
+watch(
+  () => tabsStore.activeTab?.content,
+  () => {
+    if (prefsStore.autoSave && tabsStore.activeTab?.filePath) {
+      triggerAutoSave()
+    }
+  }
+)
+
 watch(
   () => prefsStore.showSidebar,
   (value) => {
@@ -134,6 +160,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
 })
 </script>
 
