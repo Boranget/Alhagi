@@ -98,6 +98,31 @@ export interface ElectronAPI {
   onViewMode: (callback: (mode: string) => void) => void
 }
 
+// ============ 事件类型定义 ============
+export interface AppEventPayloads {
+  'app:tab:created': { tabId: string; tab: TabState }
+  'app:tab:closed': { tabId: string; tab?: TabState }
+  'app:tab:switched': { tabId: string; previousTabId?: string }
+  'app:tab:updated': { tabId: string; updates: Partial<TabState> }
+  'app:file:opened': { filePath: string; tabId: string }
+  'app:file:saved': { filePath: string; tabId: string }
+  'app:editor:ready': { tabId?: string | null }
+  'app:editor:destroyed': { tabId?: string | null }
+  'app:sidebar:view-changed': SidebarView
+  'app:theme:changed': Theme
+  'app:window:resized': { width: number; height: number }
+  'app:window:maximized': undefined
+  'app:window:minimized': undefined
+  'app:preferences:updated': undefined
+  'editor:content:changed': { content: string; tabId: string }
+  'editor:cursor:changed': { from: number; to: number; tabId: string }
+  'editor:selection:changed': { from: number; to: number; tabId: string }
+  'editor:scroll:changed': { scrollTop: number; tabId: string }
+}
+
+// 事件名称类型
+export type AppEventName = keyof AppEventPayloads
+
 declare global {
   interface Window {
     electronAPI?: ElectronAPI

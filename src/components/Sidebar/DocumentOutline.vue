@@ -135,17 +135,19 @@ let unsubscribeContentChanged: (() => void) | null = null
 let unsubscribeTabSwitched: (() => void) | null = null
 
 onMounted(() => {
-  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, ({ tabId }) => {
-    console.log('[DocumentOutline] Content changed, refreshing outline for tab:', tabId)
+  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+    const data = payload as { content: string; tabId: string }
+    console.log('[DocumentOutline] Content changed, refreshing outline for tab:', data.tabId)
     const activeTab = tabsStore.activeTab
-    if (activeTab && activeTab.id === tabId) {
+    if (activeTab && activeTab.id === data.tabId) {
       parseHeadings(activeTab.content)
     }
   })
 
-  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, ({ tabId }) => {
-    console.log('[DocumentOutline] Tab switched, refreshing outline for tab:', tabId)
-    const tab = tabsStore.tabs.get(tabId)
+  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, (payload) => {
+    const data = payload as { tabId: string; previousTabId?: string }
+    console.log('[DocumentOutline] Tab switched, refreshing outline for tab:', data.tabId)
+    const tab = tabsStore.tabs.get(data.tabId)
     if (tab) {
       parseHeadings(tab.content)
     }

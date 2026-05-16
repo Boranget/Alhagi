@@ -1,12 +1,13 @@
 import { ref } from 'vue'
+import type { AppEventName, AppEventPayloads } from '@/types'
 
 export type EventCallback<T = any> = (payload: T) => void
 
 export interface EventBus {
-  on<T = any>(event: string, callback: EventCallback<T>): () => void
-  off<T = any>(event: string, callback: EventCallback<T>): void
-  emit<T = any>(event: string, payload?: T): void
-  once<T = any>(event: string, callback: EventCallback<T>): void
+  on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void
+  off<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
+  emit<E extends AppEventName>(event: E, payload?: AppEventPayloads[E]): void
+  once<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
   clear(): void
 }
 
@@ -15,7 +16,7 @@ type EventMap = Map<string, Set<EventCallback>>
 class SimpleEventBus implements EventBus {
   private events: EventMap = new Map()
 
-  on<T = any>(event: string, callback: EventCallback<T>): () => void {
+  on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void {
     if (!this.events.has(event)) {
       this.events.set(event, new Set())
     }
@@ -24,7 +25,7 @@ class SimpleEventBus implements EventBus {
     return () => this.off(event, callback)
   }
 
-  off<T = any>(event: string, callback: EventCallback<T>): void {
+  off<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void {
     const callbacks = this.events.get(event)
     if (callbacks) {
       callbacks.delete(callback as EventCallback)
@@ -34,7 +35,7 @@ class SimpleEventBus implements EventBus {
     }
   }
 
-  emit<T = any>(event: string, payload?: T): void {
+  emit<E extends AppEventName>(event: E, payload?: AppEventPayloads[E]): void {
     const callbacks = this.events.get(event)
     if (callbacks) {
       callbacks.forEach(callback => {
@@ -47,8 +48,8 @@ class SimpleEventBus implements EventBus {
     }
   }
 
-  once<T = any>(event: string, callback: EventCallback<T>): void {
-    const wrappedCallback: EventCallback<T> = (payload) => {
+  once<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void {
+    const wrappedCallback: EventCallback<AppEventPayloads[E]> = (payload) => {
       callback(payload)
       this.off(event, wrappedCallback)
     }
@@ -62,7 +63,8 @@ class SimpleEventBus implements EventBus {
 
 export const eventBus = new SimpleEventBus()
 
-export const AppEvents = {
+// 使用类型安全的事件常量
+export const AppEvents: Record<string, AppEventName> = {
   TAB_CREATED: 'app:tab:created',
   TAB_CLOSED: 'app:tab:closed',
   TAB_SWITCHED: 'app:tab:switched',
@@ -81,9 +83,7 @@ export const AppEvents = {
   CURSOR_CHANGED: 'editor:cursor:changed',
   SELECTION_CHANGED: 'editor:selection:changed',
   SCROLL_CHANGED: 'editor:scroll:changed'
-} as const
-
-export type AppEventName = typeof AppEvents[keyof typeof AppEvents]
+}
 
 export function createEventHook<T = any>() {
   const callbacks = ref<Set<EventCallback<T>>>(new Set())

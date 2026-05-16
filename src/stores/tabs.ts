@@ -184,13 +184,16 @@ export const useTabsStore = defineStore('tabs', () => {
       prefs.addRecentFile(tab.filePath, tab.title)
     }
 
-    eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId })
+    eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })
   }
 
   function updateTab(tabId: string, updates: Partial<TabState>): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
-      const contentChanged = updates.content !== undefined && updates.content !== tab.content
+      // 只有当我们不是从编辑器更新内容时才检查内容变化（避免重复事件）
+      const isContentUpdateFromEditor = false // 编辑器会自己发出 CONTENT_CHANGED
+      const contentChanged = !isContentUpdateFromEditor && updates.content !== undefined && updates.content !== tab.content
+      
       Object.assign(tab, updates)
       if (updates.isDirty !== undefined) {
         tab.isDirty = updates.isDirty
@@ -201,10 +204,8 @@ export const useTabsStore = defineStore('tabs', () => {
       }
 
       eventBus.emit(AppEvents.TAB_UPDATED, { tabId, updates })
-
-      if (contentChanged) {
-        eventBus.emit(AppEvents.CONTENT_CHANGED, { tabId, content: updates.content })
-      }
+      
+      // 只有从非编辑器来源更新内容时才发这个事件（编辑器自己会发）
     }
   }
 

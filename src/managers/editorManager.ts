@@ -22,6 +22,40 @@ export class EditorInstanceManager {
     private tabsStore: ReturnType<typeof useTabsStore>
   ) {}
 
+  // ============ 私有辅助方法 - 消除代码重复 ============
+  private createEditorConfig(container: HTMLElement, content: string) {
+    return (ctx: any) => {
+      ctx.set(rootCtx, container)
+      ctx.set(defaultValueCtx, content)
+
+      ctx.get(listenerCtx).markdownUpdated((_ctx: any, markdown: string, prevMarkdown: string) => {
+        if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
+          this.content = markdown
+          this.tabsStore.updateTab(this.currentTabId, {
+            content: markdown,
+            isDirty: true,
+            lastModified: Date.now()
+          })
+          eventBus.emit(AppEvents.CONTENT_CHANGED, {
+            content: markdown,
+            tabId: this.currentTabId
+          })
+        }
+      })
+    }
+  }
+
+  private async createEditor(container: HTMLElement, content: string): Promise<Editor> {
+    return Editor.make()
+      .config(this.createEditorConfig(container, content))
+      .use(commonmark)
+      .use(gfm)
+      .use(history)
+      .use(clipboard)
+      .use(listener)
+      .create()
+  }
+
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
     if (this.isInitialized || this.isDestroyed) {
       return
@@ -31,32 +65,7 @@ export class EditorInstanceManager {
     this.currentTabId = tabId || this.tabsStore.activeTabId
     this.content = initialContent
 
-    this.editor = await Editor.make()
-      .config((ctx) => {
-        ctx.set(rootCtx, container)
-        ctx.set(defaultValueCtx, initialContent)
-
-        ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
-          if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
-            this.content = markdown
-            this.tabsStore.updateTab(this.currentTabId, {
-              content: markdown,
-              isDirty: true,
-              lastModified: Date.now()
-            })
-            eventBus.emit(AppEvents.CONTENT_CHANGED, {
-              content: markdown,
-              tabId: this.currentTabId
-            })
-          }
-        })
-      })
-      .use(commonmark)
-      .use(gfm)
-      .use(history)
-      .use(clipboard)
-      .use(listener)
-      .create()
+    this.editor = await this.createEditor(container, initialContent)
 
     this.isInitialized = true
     eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
@@ -67,44 +76,16 @@ export class EditorInstanceManager {
   }
 
   async setMarkdown(content: string): Promise<void> {
-    if (!this.editor || !this.isReady()) return
-
-    if (this.content === content) return
+    if (!this.editor || !this.isReady() || this.content === content) return
 
     try {
       this.isUpdatingContent = true
       this.content = content
 
-      // 销毁并重新创建编辑器来更新内容（Milkdown推荐方式）
       await this.editor.destroy()
 
       if (this.container && this.currentTabId) {
-        this.editor = await Editor.make()
-          .config((ctx) => {
-            ctx.set(rootCtx, this.container!)
-            ctx.set(defaultValueCtx, content)
-
-            ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
-              if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
-                this.content = markdown
-                this.tabsStore.updateTab(this.currentTabId, {
-                  content: markdown,
-                  isDirty: true,
-                  lastModified: Date.now()
-                })
-                eventBus.emit(AppEvents.CONTENT_CHANGED, {
-                  content: markdown,
-                  tabId: this.currentTabId
-                })
-              }
-            })
-          })
-          .use(commonmark)
-          .use(gfm)
-          .use(history)
-          .use(clipboard)
-          .use(listener)
-          .create()
+        this.editor = await this.createEditor(this.container, content)
       }
     } catch (e) {
       console.error('Failed to set markdown:', e)
@@ -175,8 +156,6 @@ export class EditorInstanceManager {
     this.currentTabId = tabId
     await this.setMarkdown(targetTab.content)
     this.setScrollTop(targetTab.scrollTop)
-
-    eventBus.emit(AppEvents.TAB_SWITCHED, tabId)
   }
 
   async destroy(): Promise<void> {

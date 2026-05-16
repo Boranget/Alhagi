@@ -87,18 +87,21 @@ let unsubscribeTabUpdated: (() => void) | null = null
 let unsubscribeContentChanged: (() => void) | null = null
 
 onMounted(() => {
-  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, ({ tabId }) => {
-    console.log('[StatusBar] Tab switched to:', tabId)
+  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, (payload) => {
+    const data = payload as { tabId: string; previousTabId?: string }
+    console.log('[StatusBar] Tab switched to:', data.tabId)
   })
 
-  unsubscribeTabUpdated = eventBus.on(AppEvents.TAB_UPDATED, ({ tabId, updates }) => {
-    if (updates.isDirty !== undefined) {
-      console.log('[StatusBar] Tab dirty status changed:', tabId, updates.isDirty)
+  unsubscribeTabUpdated = eventBus.on(AppEvents.TAB_UPDATED, (payload) => {
+    const data = payload as { tabId: string; updates: any }
+    if (data.updates.isDirty !== undefined) {
+      console.log('[StatusBar] Tab dirty status changed:', data.tabId, data.updates.isDirty)
     }
   })
 
-  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, ({ tabId }) => {
-    console.log('[StatusBar] Content changed in tab:', tabId)
+  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+    const data = payload as { content: string; tabId: string }
+    console.log('[StatusBar] Content changed in tab:', data.tabId)
   })
 })
 

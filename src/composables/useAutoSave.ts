@@ -1,6 +1,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 
 export function useAutoSave() {
@@ -11,6 +12,7 @@ export function useAutoSave() {
   const autoSaveError = ref<string | null>(null)
 
   let debouncedSave: (() => void) | null = null
+  let unsubscribers: (() => void)[] = []
 
   function setupAutoSave() {
     if (!prefsStore.autoSave) return
@@ -22,7 +24,7 @@ export function useAutoSave() {
 
   async function performAutoSave() {
     const activeTab = tabsStore.activeTab
-    
+
     if (!activeTab || !activeTab.isDirty || !activeTab.filePath) {
       return
     }
@@ -45,26 +47,16 @@ export function useAutoSave() {
     }
   }
 
-  function startAutoSave() {
-    if (debouncedSave) {
+  // 通过事件总线监听内容变化而不是直接 watch
+  function handleContentChanged() {
+    if (prefsStore.autoSave && debouncedSave) {
       debouncedSave()
     }
   }
 
   function stopAutoSave() {
-    if (debouncedSave) {
-      debouncedSave = null
-    }
+    debouncedSave = null
   }
-
-  watch(
-    () => tabsStore.activeTab?.isDirty,
-    (isDirty) => {
-      if (isDirty && prefsStore.autoSave && debouncedSave) {
-        debouncedSave()
-      }
-    }
-  )
 
   watch(
     () => prefsStore.autoSave,
@@ -86,18 +78,28 @@ export function useAutoSave() {
     }
   )
 
+  // 监听事件总线
   onUnmounted(() => {
     stopAutoSave()
+    unsubscribers.forEach(unsub => unsub())
   })
 
   setupAutoSave()
+
+  // 订阅内容变化事件
+  const unsubscribeContent = eventBus.on(AppEvents.CONTENT_CHANGED, handleContentChanged)
+  unsubscribers.push(unsubscribeContent)
 
   return {
     isAutoSaving,
     lastAutoSaveTime,
     autoSaveError,
     performAutoSave,
-    startAutoSave,
+    startAutoSave: () => {
+      if (debouncedSave) {
+        debouncedSave()
+      }
+    },
     stopAutoSave
   }
 }
