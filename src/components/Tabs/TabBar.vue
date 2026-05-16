@@ -5,10 +5,15 @@
         v-for="tabId in filteredTabOrder"
         :key="tabId"
         class="tab-item"
-        :class="{ active: tabId === tabsStore.activeTabId, dirty: getTab(tabId)?.isDirty }"
+        :class="{ active: tabId === tabsStore.activeTabId, dirty: getTab(tabId)?.isDirty, dragging: draggingTabId === tabId }"
+        draggable="true"
         @click="handleTabClick(tabId)"
         @contextmenu.prevent="showContextMenu($event, tabId)"
         @mousedown.middle="handleTabClose(tabId)"
+        @dragstart="handleDragStart($event, tabId)"
+        @dragend="handleDragEnd"
+        @dragover.prevent="handleDragOver($event, tabId)"
+        @drop="handleDrop($event, tabId)"
       >
         <span class="tab-title">{{ getTab(tabId)?.title || '未命名' }}</span>
         <button
@@ -63,6 +68,11 @@
         <span class="menu-icon">📋</span>
         <span class="menu-text">复制路径</span>
       </div>
+      <div class="menu-divider"></div>
+      <div class="menu-item" @click="detachTab">
+        <span class="menu-icon">↗️</span>
+        <span class="menu-text">分离到新窗口</span>
+      </div>
     </div>
 
     <div v-if="showSearch" class="tab-search-overlay" @click.self="toggleSearch">
@@ -94,6 +104,10 @@
         </div>
       </div>
     </div>
+    
+    <div v-if="draggingTabId" class="tab-drag-ghost" :style="ghostStyle">
+      <span>{{ getTab(draggingTabId)?.title || '未命名' }}</span>
+    </div>
   </div>
 </template>
 
@@ -115,6 +129,11 @@ const showSearch = ref(false)
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const selectedIndex = ref(0)
+
+// 拖拽相关
+const draggingTabId = ref<string | null>(null)
+const dragOverTabId = ref<string | null>(null)
+const ghostStyle = ref({ left: '0px', top: '0px' })
 
 const filteredTabOrder = computed(() => {
   if (!searchQuery.value) {
@@ -306,6 +325,109 @@ function copyFilePath() {
   hideContextMenu()
 }
 
+// 拖拽相关函数
+function handleDragStart(event: DragEvent, tabId: string) {
+  draggingTabId.value = tabId
+  
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', tabId)
+    
+    // 延迟添加样式以避免立即显示
+    setTimeout(() => {
+      if (draggingTabId.value === tabId) {
+        const tabElement = (event.target as HTMLElement)
+        ghostStyle.value = {
+          left: `${event.clientX}px`,
+          top: `${event.clientY}px`
+        }
+      }
+    }, 0)
+  }
+}
+
+function handleDragEnd() {
+  draggingTabId.value = null
+  dragOverTabId.value = null
+}
+
+function handleDragOver(event: DragEvent, tabId: string) {
+  if (draggingTabId.value && draggingTabId.value !== tabId) {
+    dragOverTabId.value = tabId
+    
+    // 检查是否拖拽到了窗口外部（屏幕边缘）
+    if (event.clientX < 10 || event.clientX > window.innerWidth - 10) {
+      // 可以在这里触发分离到新窗口
+    }
+  }
+}
+
+function handleDrop(event: DragEvent, targetTabId: string) {
+  event.preventDefault()
+  
+  if (!draggingTabId.value || draggingTabId.value === targetTabId) {
+    return
+  }
+  
+  // 重新排序标签页
+  const currentOrder = [...tabsStore.tabOrder]
+  const dragIndex = currentOrder.indexOf(draggingTabId.value)
+  const targetIndex = currentOrder.indexOf(targetTabId)
+  
+  if (dragIndex > -1 && targetIndex > -1) {
+    // 移除拖拽的标签
+    currentOrder.splice(dragIndex, 1)
+    // 插入到目标位置
+    const insertIndex = dragIndex < targetIndex ? targetIndex : targetIndex + 1
+    currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, draggingTabId.value)
+    
+    // 更新标签顺序
+    tabsStore.tabOrder = currentOrder
+  }
+  
+  draggingTabId.value = null
+  dragOverTabId.value = null
+}
+
+function detachTab() {
+  const tabId = contextMenu.value.tabId
+  if (!tabId) return
+  
+  const tab = getTab(tabId)
+  if (!tab) return
+  
+  // 如果只有一个标签，不允许分离
+  if (tabsStore.tabCount <= 1) {
+    alert('无法分离最后一个标签')
+    hideContextMenu()
+    return
+  }
+  
+  // 通过 Electron API 分离到新窗口
+  if (window.electronAPI) {
+    // 传递标签数据到新窗口
+    window.electronAPI.openNewWindow({
+      type: 'detached-tab',
+      tab: {
+        id: tab.id,
+        title: tab.title,
+        content: tab.content,
+        filePath: tab.filePath,
+        isDirty: tab.isDirty,
+        viewMode: tab.viewMode,
+        cursor: tab.cursor
+      }
+    })
+    
+    // 关闭当前窗口中的标签
+    tabsStore.removeTab(tabId)
+  } else {
+    alert('此功能仅在 Electron 环境下可用')
+  }
+  
+  hideContextMenu()
+}
+
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
   document.addEventListener('keydown', handleGlobalKeydown)
@@ -364,6 +486,11 @@ onUnmounted(() => {
   &.active {
     background: var(--tab-active-bg);
     border-bottom: 2px solid var(--primary-color);
+  }
+  
+  &.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
   }
 }
 
@@ -558,5 +685,19 @@ onUnmounted(() => {
   padding: 32px;
   text-align: center;
   color: var(--text-secondary);
+}
+
+.tab-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  background: var(--tab-active-bg);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translate(-50%, -50%);
 }
 </style>

@@ -133,6 +133,16 @@
             </div>
           </div>
           
+          <!-- 快捷键设置 -->
+          <div v-show="activeSection === 'keyboard'" class="settings-section">
+            <h3>快捷键</h3>
+            <div class="setting-item">
+              <button class="open-keyboard-btn" @click="openKeyboardSettings">
+                打开快捷键设置
+              </button>
+            </div>
+          </div>
+          
           <!-- 开发设置 -->
           <div v-show="activeSection === 'developer'" class="settings-section">
             <h3>开发工具</h3>
@@ -146,12 +156,18 @@
         </div>
       </div>
     </div>
+    <KeyboardSettings 
+      v-if="showKeyboardSettings"
+      @close="showKeyboardSettings = false"
+      @save="showKeyboardSettings = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
+import KeyboardSettings from './KeyboardSettings.vue'
 
 interface SettingsSection {
   id: string
@@ -168,6 +184,7 @@ const emit = defineEmits<{
 }>()
 
 const prefsStore = usePreferencesStore()
+const showKeyboardSettings = ref(false)
 
 const sections: SettingsSection[] = [
   { id: 'general', label: '通用', icon: '⚙️' },
@@ -176,6 +193,7 @@ const sections: SettingsSection[] = [
   { id: 'editor', label: '编辑器', icon: '✏️' },
   { id: 'images', label: '图片', icon: '🖼️' },
   { id: 'language', label: '语言', icon: '🌐' },
+  { id: 'keyboard', label: '快捷键', icon: '⌨️' },
   { id: 'developer', label: '开发', icon: '🔧' }
 ]
 
@@ -183,6 +201,10 @@ const activeSection = ref('general')
 
 function close() {
   emit('close')
+}
+
+function openKeyboardSettings() {
+  showKeyboardSettings.value = true
 }
 </script>
 
@@ -341,6 +363,21 @@ function close() {
         border-color: var(--primary-color);
       }
     }
+  }
+}
+
+.open-keyboard-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  
+  &:hover {
+    opacity: 0.9;
   }
 }
 </style>

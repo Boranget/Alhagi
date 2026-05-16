@@ -91,6 +91,7 @@ export interface ElectronAPI {
   maximize: () => Promise<void>
   close: () => Promise<void>
   setAlwaysOnTop: (flag: boolean) => Promise<void>
+  openNewWindow: (options: { type: string; tab?: Partial<TabState> }) => Promise<void>
   onNewFile: (callback: () => void) => void
   onOpenFile: (callback: () => void) => void
   onSave: (callback: () => void) => void
