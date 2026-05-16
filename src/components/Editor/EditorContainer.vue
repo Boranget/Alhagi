@@ -13,8 +13,27 @@
           {{ mode.icon }}
         </button>
       </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button
+          class="toolbar-btn"
+          :class="{ active: prefsStore.typewriterMode }"
+          title="打字机模式"
+          @click="toggleTypewriterMode"
+        >
+          ⌨️
+        </button>
+        <button
+          class="toolbar-btn"
+          :class="{ active: prefsStore.focusMode }"
+          title="专注模式"
+          @click="toggleFocusMode"
+        >
+          🎯
+        </button>
+      </div>
     </div>
-    <div class="editor-content" :class="`mode-${currentMode}`">
+    <div class="editor-content" :class="contentClasses">
       <div
         v-show="currentMode === 'wysiwyg'"
         ref="wysiwygRef"
@@ -47,11 +66,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useEditorManager } from '@/managers/editorManager'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 
 const tabsStore = useTabsStore()
+const prefsStore = usePreferencesStore()
 
 const wysiwygRef = ref<HTMLElement | null>(null)
 const sourceRef = ref<HTMLTextAreaElement | null>(null)
@@ -61,6 +83,7 @@ const splitPreviewRef = ref<HTMLElement | null>(null)
 const sourceContent = ref('')
 
 const { containerRef, isReady, currentMode, init, setViewMode, destroy } = useEditorManager()
+const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
   { value: 'wysiwyg' as ViewMode, label: 'WYSIWYG 模式', icon: '◉' },
@@ -70,7 +93,12 @@ const viewModes = [
 
 const activeTab = computed(() => tabsStore.activeTab)
 
-// 同步 sourceContent 与 tab.content
+const contentClasses = computed(() => ({
+  [`mode-${currentMode.value}`]: true,
+  'typewriter-mode': prefsStore.typewriterMode,
+  'focus-mode': prefsStore.focusMode
+}))
+
 watch(activeTab, (tab) => {
   if (tab) {
     sourceContent.value = tab.content
@@ -115,7 +143,6 @@ function handleSourceScroll(e: Event) {
 }
 
 onMounted(async () => {
-  // 设置容器引用
   if (wysiwygRef.value) {
     containerRef.value = wysiwygRef.value
     await init()
@@ -149,6 +176,13 @@ onUnmounted(async () => {
   gap: 4px;
 }
 
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 8px;
+}
+
 .toolbar-btn {
   padding: 4px 12px;
   border: none;
@@ -173,24 +207,41 @@ onUnmounted(async () => {
 .editor-content {
   flex: 1;
   overflow: hidden;
+  position: relative;
 
   &.mode-wysiwyg {
     .wysiwyg-editor {
       height: 100%;
       padding: 20px 40px;
       overflow: auto;
+      transition: all 0.3s ease;
 
       :deep(.milkdown) {
         outline: none;
         min-height: 100%;
+        max-width: 800px;
+        margin: 0 auto;
 
         p {
           margin: 1em 0;
+          line-height: 1.8;
         }
 
         h1, h2, h3, h4, h5, h6 {
           margin: 1.5em 0 0.5em;
           font-weight: 600;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        h2 {
+          font-size: 1.75rem;
+        }
+
+        h3 {
+          font-size: 1.5rem;
         }
 
         code {
@@ -232,6 +283,12 @@ onUnmounted(async () => {
           th {
             background: var(--table-header-bg);
           }
+        }
+
+        .focus-highlight {
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 4px;
+          transition: all 0.3s ease;
         }
       }
     }
@@ -280,6 +337,18 @@ onUnmounted(async () => {
         overflow: auto;
         background: var(--preview-bg);
       }
+    }
+  }
+
+  &.typewriter-mode {
+    .wysiwyg-editor, .source-editor, .split-source {
+      scroll-behavior: smooth;
+    }
+  }
+
+  &.focus-mode {
+    .wysiwyg-editor, .source-editor {
+      background: var(--bg-primary);
     }
   }
 }
