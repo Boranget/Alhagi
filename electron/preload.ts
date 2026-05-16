@@ -2,7 +2,10 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import { 
   IPCResponse, 
   FileTreeNode,
-  DirectoryEntry 
+  DirectoryEntry,
+  IPC_CHANNELS,
+  MENU_EVENTS,
+  FILE_TYPES
 } from '../electron-protocol'
 
 export type { IPCResponse, FileTreeNode, DirectoryEntry } from '../electron-protocol'
@@ -51,70 +54,70 @@ function createMenuListener(
 }
 
 const api: ElectronAPI = {
-  openFile: () => createIpcHandler('file:open'),
+  openFile: () => createIpcHandler(IPC_CHANNELS.FILE.OPEN),
   
   saveFile: (filePath, content) => 
-    createIpcHandler('file:save', { filePath, content }),
+    createIpcHandler(IPC_CHANNELS.FILE.SAVE, { filePath, content }),
   
   saveAsFile: (content, defaultPath) => 
-    createIpcHandler('file:save-as', { content, defaultPath }),
+    createIpcHandler(IPC_CHANNELS.FILE.SAVE_AS, { content, defaultPath }),
   
   readFile: (filePath) => 
-    createIpcHandler('file:read', filePath),
+    createIpcHandler(IPC_CHANNELS.FILE.READ, filePath),
   
   openFolder: () => 
-    createIpcHandler('file:open-folder'),
+    createIpcHandler(IPC_CHANNELS.FILE.OPEN_FOLDER),
   
   readDirectory: (dirPath) => 
-    createIpcHandler('file:read-directory', dirPath),
+    createIpcHandler(IPC_CHANNELS.FILE.READ_DIRECTORY, dirPath),
   
   createFile: (dirPath, fileName) => 
-    createIpcHandler('file:create', { dirPath, fileName, type: 'file' }),
+    createIpcHandler(IPC_CHANNELS.FILE.CREATE, { dirPath, fileName, type: FILE_TYPES.FILE }),
   
   createDirectory: (dirPath, dirName) => 
-    createIpcHandler('file:create', { dirPath, fileName: dirName, type: 'directory' }),
+    createIpcHandler(IPC_CHANNELS.FILE.CREATE, { dirPath, fileName: dirName, type: FILE_TYPES.DIRECTORY }),
   
   deleteFile: (filePath) => 
-    createIpcHandler('file:delete', filePath),
+    createIpcHandler(IPC_CHANNELS.FILE.DELETE, filePath),
   
   renameFile: (oldPath, newName) => 
-    createIpcHandler('file:rename', { oldPath, newName }),
+    createIpcHandler(IPC_CHANNELS.FILE.RENAME, { oldPath, newName }),
   
   moveFile: (sourcePath, targetDir) => 
-    createIpcHandler('file:move', { sourcePath, targetDir }),
+    createIpcHandler(IPC_CHANNELS.FILE.MOVE, { sourcePath, targetDir }),
   
   copyFile: (sourcePath, targetDir) => 
-    createIpcHandler('file:copy', { sourcePath, targetDir }),
+    createIpcHandler(IPC_CHANNELS.FILE.COPY, { sourcePath, targetDir }),
   
   selectDirectory: () => 
-    createIpcHandler('dialog:select-directory'),
+    createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
   
   minimize: () => 
-    createIpcHandler('window:minimize'),
+    createIpcHandler(IPC_CHANNELS.WINDOW.MINIMIZE),
   
   maximize: () => 
-    createIpcHandler('window:maximize'),
+    createIpcHandler(IPC_CHANNELS.WINDOW.MAXIMIZE),
   
   close: () => 
-    createIpcHandler('window:close'),
+    createIpcHandler(IPC_CHANNELS.WINDOW.CLOSE),
   
   setAlwaysOnTop: (flag) => 
-    createIpcHandler('window:set-always-on-top', flag),
+    createIpcHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, flag),
   
   onNewFile: (callback) => 
-    createMenuListener('menu:new-file', callback),
+    createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
   onOpenFile: (callback) => 
-    createMenuListener('menu:open-file', callback),
+    createMenuListener(MENU_EVENTS.OPEN_FILE, callback),
   
   onSave: (callback) => 
-    createMenuListener('menu:save', callback),
+    createMenuListener(MENU_EVENTS.SAVE, callback),
   
   onSaveAs: (callback) => 
-    createMenuListener('menu:save-as', callback),
+    createMenuListener(MENU_EVENTS.SAVE_AS, callback),
   
   onViewMode: (callback) => 
-    createMenuListener('menu:view-mode', callback)
+    createMenuListener(MENU_EVENTS.VIEW_MODE, callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

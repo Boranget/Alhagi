@@ -85,3 +85,45 @@ export function isSuccessResponse<T>(response: IPCResponse<T>): response is { su
 export function isErrorResponse<T>(response: IPCResponse<T>): response is { success: false; error: { code: string; message: string } } {
   return response.success === false
 }
+
+// ========== IPC 通道名常量 ==========
+export const IPC_CHANNELS = {
+  FILE: {
+    OPEN: 'file:open',
+    SAVE: 'file:save',
+    SAVE_AS: 'file:save-as',
+    READ: 'file:read',
+    OPEN_FOLDER: 'file:open-folder',
+    READ_DIRECTORY: 'file:read-directory',
+    CREATE: 'file:create',
+    DELETE: 'file:delete',
+    RENAME: 'file:rename',
+    MOVE: 'file:move',
+    COPY: 'file:copy'
+  },
+  DIALOG: {
+    SELECT_DIRECTORY: 'dialog:select-directory'
+  },
+  WINDOW: {
+    MINIMIZE: 'window:minimize',
+    MAXIMIZE: 'window:maximize',
+    CLOSE: 'window:close',
+    SET_ALWAYS_ON_TOP: 'window:set-always-on-top'
+  }
+} as const;
+
+// ========== 菜单事件常量 ==========
+export const MENU_EVENTS = {
+  NEW_FILE: 'menu:new-file',
+  OPEN_FILE: 'menu:open-file',
+  OPEN_FOLDER: 'menu:open-folder',
+  SAVE: 'menu:save',
+  SAVE_AS: 'menu:save-as',
+  VIEW_MODE: 'menu:view-mode'
+} as const;
+
+// ========== 文件类型常量 ==========
+export const FILE_TYPES = {
+  FILE: 'file',
+  DIRECTORY: 'directory'
+} as const;

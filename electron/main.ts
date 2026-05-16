@@ -9,7 +9,10 @@ import {
   DirectoryEntry,
   WindowState,
   createSuccessResponse, 
-  createErrorResponse 
+  createErrorResponse,
+  IPC_CHANNELS,
+  MENU_EVENTS,
+  FILE_TYPES
 } from '../electron-protocol'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -96,12 +99,12 @@ function createMenu() {
     {
       label: '文件',
       submenu: [
-        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-file') },
-        { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => mainWindow?.webContents.send('menu:open-file') },
-        { label: '打开文件夹', click: () => mainWindow?.webContents.send('menu:open-folder') },
+        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send(MENU_EVENTS.NEW_FILE) },
+        { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_FILE) },
+        { label: '打开文件夹', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_FOLDER) },
         { type: 'separator' },
-        { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => mainWindow?.webContents.send('menu:save') },
-        { label: '另存为', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send('menu:save-as') },
+        { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.SAVE) },
+        { label: '另存为', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.SAVE_AS) },
         { type: 'separator' },
         { role: 'quit' }
       ]
@@ -121,9 +124,9 @@ function createMenu() {
     {
       label: '视图',
       submenu: [
-        { label: 'WYSIWYG 模式', click: () => mainWindow?.webContents.send('menu:view-mode', 'wysiwyg') },
-        { label: '源码模式', click: () => mainWindow?.webContents.send('menu:view-mode', 'source') },
-        { label: '分屏模式', click: () => mainWindow?.webContents.send('menu:view-mode', 'split') },
+        { label: 'WYSIWYG 模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'wysiwyg') },
+        { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
+        { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },
@@ -150,7 +153,7 @@ function createMenu() {
   Menu.setApplicationMenu(menu)
 }
 
-ipcMain.handle('file:open', async () => {
+ipcMain.handle(IPC_CHANNELS.FILE.OPEN, async () => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
@@ -181,7 +184,7 @@ ipcMain.handle('file:open', async () => {
   }
 })
 
-ipcMain.handle('file:save', async (_, { filePath, content }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.SAVE, async (_, { filePath, content }) => {
   try {
     await fs.writeFile(filePath, content, 'utf-8')
     return createSuccessResponse(true)
@@ -197,7 +200,7 @@ ipcMain.handle('file:save', async (_, { filePath, content }) => {
   }
 })
 
-ipcMain.handle('file:save-as', async (_, { content, defaultPath }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.SAVE_AS, async (_, { content, defaultPath }) => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
@@ -224,7 +227,7 @@ ipcMain.handle('file:save-as', async (_, { content, defaultPath }) => {
   }
 })
 
-ipcMain.handle('file:read', async (_, filePath: string) => {
+ipcMain.handle(IPC_CHANNELS.FILE.READ, async (_, filePath: string) => {
   try {
     if (!filePath || typeof filePath !== 'string') {
       return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
@@ -243,7 +246,7 @@ ipcMain.handle('file:read', async (_, filePath: string) => {
   }
 })
 
-ipcMain.handle('file:open-folder', async () => {
+ipcMain.handle(IPC_CHANNELS.FILE.OPEN_FOLDER, async () => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
@@ -281,7 +284,7 @@ async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0
         result.push({
           name: entry.name,
           path: fullPath,
-          type: 'directory',
+          type: FILE_TYPES.DIRECTORY,
           children,
           expanded: false
         })
@@ -289,7 +292,7 @@ async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0
         result.push({
           name: entry.name,
           path: fullPath,
-          type: 'file'
+          type: FILE_TYPES.FILE
         })
       }
     }
@@ -301,7 +304,7 @@ async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0
   }
 }
 
-ipcMain.handle('file:read-directory', async (_, dirPath: string) => {
+ipcMain.handle(IPC_CHANNELS.FILE.READ_DIRECTORY, async (_, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     const result: DirectoryEntry[] = []
@@ -329,11 +332,11 @@ ipcMain.handle('file:read-directory', async (_, dirPath: string) => {
   }
 })
 
-ipcMain.handle('file:create', async (_, { dirPath, fileName, type }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.CREATE, async (_, { dirPath, fileName, type }) => {
   try {
     const newPath = path.join(dirPath, fileName)
     
-    if (type === 'directory') {
+    if (type === FILE_TYPES.DIRECTORY) {
       await fs.mkdir(newPath, { recursive: true })
     } else {
       await fs.writeFile(newPath, '', 'utf-8')
@@ -346,7 +349,7 @@ ipcMain.handle('file:create', async (_, { dirPath, fileName, type }) => {
   }
 })
 
-ipcMain.handle('file:delete', async (_, filePath: string) => {
+ipcMain.handle(IPC_CHANNELS.FILE.DELETE, async (_, filePath: string) => {
   try {
     const stats = await fs.stat(filePath)
     if (stats.isDirectory()) {
@@ -367,7 +370,7 @@ ipcMain.handle('file:delete', async (_, filePath: string) => {
   }
 })
 
-ipcMain.handle('dialog:select-directory', async () => {
+ipcMain.handle(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY, async () => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
   
   try {
@@ -386,7 +389,7 @@ ipcMain.handle('dialog:select-directory', async () => {
   }
 })
 
-ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.RENAME, async (_, { oldPath, newName }) => {
   try {
     const dir = path.dirname(oldPath)
     const newPath = path.join(dir, newName)
@@ -404,7 +407,7 @@ ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
   }
 })
 
-ipcMain.handle('file:move', async (_, { sourcePath, targetDir }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.MOVE, async (_, { sourcePath, targetDir }) => {
   try {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
@@ -437,7 +440,7 @@ ipcMain.handle('file:move', async (_, { sourcePath, targetDir }) => {
   }
 })
 
-ipcMain.handle('file:copy', async (_, { sourcePath, targetDir }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.COPY, async (_, { sourcePath, targetDir }) => {
   try {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
@@ -465,12 +468,12 @@ ipcMain.handle('file:copy', async (_, { sourcePath, targetDir }) => {
   }
 })
 
-ipcMain.handle('window:minimize', () => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.MINIMIZE, () => {
   mainWindow?.minimize()
   return createSuccessResponse(undefined)
 })
 
-ipcMain.handle('window:maximize', () => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.MAXIMIZE, () => {
   if (mainWindow?.isMaximized()) {
     mainWindow.unmaximize()
   } else {
@@ -479,12 +482,12 @@ ipcMain.handle('window:maximize', () => {
   return createSuccessResponse(undefined)
 })
 
-ipcMain.handle('window:close', () => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.CLOSE, () => {
   mainWindow?.close()
   return createSuccessResponse(undefined)
 })
 
-ipcMain.handle('window:set-always-on-top', (_, flag: boolean) => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => {
   mainWindow?.setAlwaysOnTop(flag)
   return createSuccessResponse(undefined)
 })
