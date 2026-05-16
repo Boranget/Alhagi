@@ -2,6 +2,9 @@
   <div class="document-outline">
     <div class="outline-header">
       <span>文档大纲</span>
+      <button class="refresh-btn" @click="refreshOutline" title="刷新大纲">
+        🔄
+      </button>
     </div>
     <div class="outline-filters">
       <button
@@ -34,8 +37,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 interface OutlineHeading {
   level: number
@@ -69,7 +73,7 @@ watch(
 function parseHeadings(content: string) {
   const lines = content.split('\n')
   const result: OutlineHeading[] = []
-  
+
   lines.forEach((line, index) => {
     const match = line.match(/^(#{1,6})\s+(.+)$/)
     if (match) {
@@ -84,8 +88,15 @@ function parseHeadings(content: string) {
       })
     }
   })
-  
+
   headings.value = result
+}
+
+function refreshOutline() {
+  const content = tabsStore.activeTab?.content
+  if (content) {
+    parseHeadings(content)
+  }
 }
 
 function toggleFilter(level: number) {
@@ -102,7 +113,7 @@ function toggleFilter(level: number) {
 
 function scrollToHeading(heading: OutlineHeading) {
   activeHeadingId.value = heading.id
-  
+
   const element = document.getElementById(heading.id)
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -119,6 +130,32 @@ function scrollToHeading(heading: OutlineHeading) {
     }
   }
 }
+
+let unsubscribeContentChanged: (() => void) | null = null
+let unsubscribeTabSwitched: (() => void) | null = null
+
+onMounted(() => {
+  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, ({ tabId }) => {
+    console.log('[DocumentOutline] Content changed, refreshing outline for tab:', tabId)
+    const activeTab = tabsStore.activeTab
+    if (activeTab && activeTab.id === tabId) {
+      parseHeadings(activeTab.content)
+    }
+  })
+
+  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, ({ tabId }) => {
+    console.log('[DocumentOutline] Tab switched, refreshing outline for tab:', tabId)
+    const tab = tabsStore.tabs.get(tabId)
+    if (tab) {
+      parseHeadings(tab.content)
+    }
+  })
+})
+
+onUnmounted(() => {
+  unsubscribeContentChanged?.()
+  unsubscribeTabSwitched?.()
+})
 </script>
 
 <style scoped lang="scss">
@@ -129,11 +166,31 @@ function scrollToHeading(heading: OutlineHeading) {
 }
 
 .outline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 8px 12px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.refresh-btn {
+  padding: 4px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--sidebar-hover-bg);
+    opacity: 1;
+  }
 }
 
 .outline-filters {

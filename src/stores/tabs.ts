@@ -5,6 +5,81 @@ import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
+export function validateTabState(tabState: any): tabState is TabState {
+  const requiredFields = [
+    'id', 'filePath', 'content', 'isDirty', 'title', 'active',
+    'cursor', 'scrollTop', 'viewMode', 'undoStack', 'redoStack',
+    'createdAt', 'lastModified', 'lastSaved'
+  ]
+
+  for (const field of requiredFields) {
+    if (!(field in tabState)) {
+      console.error(`Missing required field: ${field}`)
+      return false
+    }
+  }
+
+  if (typeof tabState.id !== 'string' || !tabState.id) {
+    console.error('Invalid id field')
+    return false
+  }
+
+  if (typeof tabState.content !== 'string') {
+    console.error('Invalid content field')
+    return false
+  }
+
+  if (typeof tabState.cursor !== 'object' || 
+      typeof tabState.cursor.from !== 'number' || 
+      typeof tabState.cursor.to !== 'number') {
+    console.error('Invalid cursor field')
+    return false
+  }
+
+  if (!['wysiwyg', 'source', 'split'].includes(tabState.viewMode)) {
+    console.error('Invalid viewMode field')
+    return false
+  }
+
+  if (!Array.isArray(tabState.undoStack) || !Array.isArray(tabState.redoStack)) {
+    console.error('Invalid history stacks')
+    return false
+  }
+
+  return true
+}
+
+export function createDefaultTabState(id: string): TabState {
+  return {
+    id,
+    filePath: null,
+    content: '',
+    isDirty: false,
+    title: '未命名',
+    active: false,
+    cursor: { from: 0, to: 0 },
+    scrollTop: 0,
+    viewMode: 'wysiwyg',
+    undoStack: [],
+    redoStack: [],
+    createdAt: Date.now(),
+    lastModified: Date.now(),
+    lastSaved: null
+  }
+}
+
+const MAX_UNDO_STACK_SIZE = 100
+const MAX_REDO_STACK_SIZE = 50
+
+function trimHistoryStacks(tab: TabState): void {
+  if (tab.undoStack.length > MAX_UNDO_STACK_SIZE) {
+    tab.undoStack = tab.undoStack.slice(-MAX_UNDO_STACK_SIZE)
+  }
+  if (tab.redoStack.length > MAX_REDO_STACK_SIZE) {
+    tab.redoStack = tab.redoStack.slice(-MAX_REDO_STACK_SIZE)
+  }
+}
+
 export const useTabsStore = defineStore('tabs', () => {
   const tabs = ref(new Map<string, TabState>())
   const activeTabId = ref<string | null>(null)
@@ -43,6 +118,11 @@ export const useTabsStore = defineStore('tabs', () => {
       createdAt: Date.now(),
       lastModified: Date.now(),
       lastSaved: null
+    }
+
+    if (!validateTabState(tab)) {
+      console.error('Invalid tab state created, using defaults')
+      Object.assign(tab, createDefaultTabState(id))
     }
 
     tabs.value.set(id, tab)
@@ -116,8 +196,12 @@ export const useTabsStore = defineStore('tabs', () => {
         tab.isDirty = updates.isDirty
       }
 
+      if (tab.undoStack.length > MAX_UNDO_STACK_SIZE || tab.redoStack.length > MAX_REDO_STACK_SIZE) {
+        trimHistoryStacks(tab)
+      }
+
       eventBus.emit(AppEvents.TAB_UPDATED, { tabId, updates })
-      
+
       if (contentChanged) {
         eventBus.emit(AppEvents.CONTENT_CHANGED, { tabId, content: updates.content })
       }
@@ -202,7 +286,7 @@ export const useTabsStore = defineStore('tabs', () => {
     if (tab.filePath) {
       await window.electronAPI.saveFile(tab.filePath, tab.content)
       markClean(tabId)
-      
+
       eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
       return true
     } else {
@@ -221,7 +305,7 @@ export const useTabsStore = defineStore('tabs', () => {
       tab.filePath = filePath
       tab.title = extractTitleFromPath(filePath)
       markClean(tabId)
-      
+
       const prefs = usePreferencesStore()
       prefs.addRecentFile(filePath, tab.title)
 

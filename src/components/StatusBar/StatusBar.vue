@@ -7,6 +7,9 @@
       <span v-if="activeTab?.filePath" class="status-item file-path">
         {{ activeTab.filePath }}
       </span>
+      <span v-if="activeTab?.isDirty" class="status-item dirty-indicator">
+        ● 已修改
+      </span>
     </div>
     <div class="status-right">
       <span class="status-item">{{ wordCount }} 字</span>
@@ -33,16 +36,17 @@
         @click="prefsStore.toggleTheme()"
         title="切换主题"
       >
-        {{ prefsStore.theme === 'light' ? '🌙' : '☀️' }}
+        {{ prefsStore.theme === 'light' || prefsStore.theme === 'system' ? '🌙' : '☀️' }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, Ref } from 'vue'
+import { computed, inject, Ref, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -77,6 +81,32 @@ function toggleTypewriterMode() {
 function toggleFocusMode() {
   prefsStore.setFocusMode(!prefsStore.focusMode)
 }
+
+let unsubscribeTabSwitched: (() => void) | null = null
+let unsubscribeTabUpdated: (() => void) | null = null
+let unsubscribeContentChanged: (() => void) | null = null
+
+onMounted(() => {
+  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, ({ tabId }) => {
+    console.log('[StatusBar] Tab switched to:', tabId)
+  })
+
+  unsubscribeTabUpdated = eventBus.on(AppEvents.TAB_UPDATED, ({ tabId, updates }) => {
+    if (updates.isDirty !== undefined) {
+      console.log('[StatusBar] Tab dirty status changed:', tabId, updates.isDirty)
+    }
+  })
+
+  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, ({ tabId }) => {
+    console.log('[StatusBar] Content changed in tab:', tabId)
+  })
+})
+
+onUnmounted(() => {
+  unsubscribeTabSwitched?.()
+  unsubscribeTabUpdated?.()
+  unsubscribeContentChanged?.()
+})
 </script>
 
 <style scoped lang="scss">
@@ -102,12 +132,17 @@ function toggleFocusMode() {
 .status-item {
   display: flex;
   align-items: center;
-  
+
   &.file-path {
     max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &.dirty-indicator {
+    color: var(--primary-color);
+    font-size: 10px;
   }
 }
 
