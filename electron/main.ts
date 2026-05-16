@@ -21,6 +21,15 @@ interface WindowState {
   isMaximized: boolean
 }
 
+interface DirectoryEntry {
+  name: string
+  path: string
+  isDirectory: boolean
+  isFile: boolean
+  size: number
+  lastModified: number
+}
+
 const store = new Store<{ windowState: WindowState }>({
   defaults: {
     windowState: {
@@ -41,7 +50,7 @@ function createWindow() {
     height: windowState.height,
     x: windowState.x,
     y: windowState.y,
-    minWidth: 400,
+    minWidth: 250,
     minHeight: 300,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -90,6 +99,7 @@ function createMenu() {
       submenu: [
         { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-file') },
         { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => mainWindow?.webContents.send('menu:open-file') },
+        { label: '打开文件夹', click: () => mainWindow?.webContents.send('menu:open-folder') },
         { type: 'separator' },
         { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => mainWindow?.webContents.send('menu:save') },
         { label: '另存为', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send('menu:save-as') },
@@ -204,6 +214,136 @@ ipcMain.handle('file:read', async (_, filePath: string) => {
     return content
   } catch (error) {
     console.error('Failed to read file:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('file:open-folder', async () => {
+  if (!mainWindow) return null
+  
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+
+  const folderPath = result.filePaths[0]
+  try {
+    const tree = await buildFileTree(folderPath, 3)
+    return { path: folderPath, tree }
+  } catch (error) {
+    console.error('Failed to read folder:', error)
+    throw error
+  }
+})
+
+async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0): Promise<any[]> {
+  if (currentDepth >= maxDepth) return []
+  
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    const result = []
+    
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      
+      const fullPath = path.join(dirPath, entry.name)
+      
+      if (entry.isDirectory()) {
+        const children = await buildFileTree(fullPath, maxDepth, currentDepth + 1)
+        result.push({
+          name: entry.name,
+          path: fullPath,
+          type: 'directory',
+          children,
+          expanded: false
+        })
+      } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.markdown'))) {
+        result.push({
+          name: entry.name,
+          path: fullPath,
+          type: 'file'
+        })
+      }
+    }
+    
+    return result
+  } catch (error) {
+    console.error('Failed to read directory:', error)
+    return []
+  }
+}
+
+ipcMain.handle('file:read-directory', async (_, dirPath: string) => {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    const result: DirectoryEntry[] = []
+    
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      
+      const fullPath = path.join(dirPath, entry.name)
+      const stats = await fs.stat(fullPath)
+      
+      result.push({
+        name: entry.name,
+        path: fullPath,
+        isDirectory: entry.isDirectory(),
+        isFile: entry.isFile(),
+        size: stats.size,
+        lastModified: stats.mtimeMs
+      })
+    }
+    
+    return result
+  } catch (error) {
+    console.error('Failed to read directory:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('file:create', async (_, { dirPath, fileName, type }) => {
+  try {
+    const newPath = path.join(dirPath, fileName)
+    
+    if (type === 'directory') {
+      await fs.mkdir(newPath, { recursive: true })
+    } else {
+      await fs.writeFile(newPath, '', 'utf-8')
+    }
+    
+    return newPath
+  } catch (error) {
+    console.error('Failed to create file/directory:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('file:delete', async (_, filePath: string) => {
+  try {
+    const stats = await fs.stat(filePath)
+    if (stats.isDirectory()) {
+      await fs.rm(filePath, { recursive: true })
+    } else {
+      await fs.unlink(filePath)
+    }
+    return true
+  } catch (error) {
+    console.error('Failed to delete:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
+  try {
+    const dir = path.dirname(oldPath)
+    const newPath = path.join(dir, newName)
+    await fs.rename(oldPath, newPath)
+    return newPath
+  } catch (error) {
+    console.error('Failed to rename:', error)
     throw error
   }
 })

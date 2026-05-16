@@ -3,38 +3,129 @@
     <div class="app-content">
       <TabBar />
       <div class="main-area">
-        <Sidebar v-if="showSidebar" />
+        <EnhancedSidebar v-if="showSidebar" />
         <EditorContainer />
       </div>
       <StatusBar />
     </div>
+    <SettingsPanel :isOpen="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, provide } from 'vue'
+import { ref, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import TabBar from '@/components/Tabs/TabBar.vue'
-import Sidebar from '@/components/Sidebar/Sidebar.vue'
+import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
+import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 
 const tabsStore = useTabsStore()
+const prefsStore = usePreferencesStore()
 const showSidebar = ref(true)
 const isFullscreen = ref(false)
+const showSettings = ref(false)
 
 provide('showSidebar', showSidebar)
 provide('isFullscreen', isFullscreen)
+provide('showSettings', showSettings)
 
-const handleKeydown = (e: KeyboardEvent) => {
+const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
+
+function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'F11') {
     e.preventDefault()
     isFullscreen.value = !isFullscreen.value
   }
+  
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 's':
+        e.preventDefault()
+        if (e.shiftKey) {
+          tabsStore.saveFileAs(tabsStore.activeTabId!)
+        } else {
+          tabsStore.saveFile(tabsStore.activeTabId!)
+        }
+        break
+      case 'n':
+        e.preventDefault()
+        tabsStore.createTab({ title: '未命名' })
+        break
+      case 'o':
+        e.preventDefault()
+        tabsStore.openFile()
+        break
+      case 'b':
+        e.preventDefault()
+        showSidebar.value = !showSidebar.value
+        break
+      case ',':
+        e.preventDefault()
+        showSettings.value = true
+        break
+      case 'w':
+        e.preventDefault()
+        if (tabsStore.activeTabId) {
+          tabsStore.removeTab(tabsStore.activeTabId)
+        }
+        break
+    }
+  }
 }
+
+function setupElectronListeners() {
+  if (!window.electronAPI) return
+  
+  window.electronAPI.onNewFile(() => {
+    tabsStore.createTab({ title: '未命名' })
+  })
+  
+  window.electronAPI.onOpenFile(() => {
+    tabsStore.openFile()
+  })
+  
+  window.electronAPI.onSave(() => {
+    if (tabsStore.activeTabId) {
+      tabsStore.saveFile(tabsStore.activeTabId)
+    }
+  })
+  
+  window.electronAPI.onSaveAs(() => {
+    if (tabsStore.activeTabId) {
+      tabsStore.saveFileAs(tabsStore.activeTabId)
+    }
+  })
+  
+  window.electronAPI.onViewMode((mode) => {
+    if (tabsStore.activeTabId) {
+      tabsStore.setViewMode(tabsStore.activeTabId, mode as any)
+    }
+  })
+}
+
+watch(
+  () => prefsStore.showSidebar,
+  (value) => {
+    showSidebar.value = value
+  }
+)
+
+watch(
+  () => prefsStore.theme,
+  (theme) => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }
+)
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  setupElectronListeners()
+  
+  prefsStore.loadPreferences()
   
   if (tabsStore.tabCount === 0) {
     tabsStore.createTab({ title: '未命名' })
@@ -72,6 +163,6 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   overflow: hidden;
-  height: calc(100vh - 36px - 36px);
+  height: calc(100vh - 36px - 24px);
 }
 </style>
