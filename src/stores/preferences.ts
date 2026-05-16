@@ -40,6 +40,13 @@ export interface Preferences {
   // 开发设置
   devToolsOnStartup: boolean
   
+  // 文件打开行为
+  openFileInNewWindow: boolean
+  openFolderInNewWindow: boolean
+  
+  // 编辑器高级设置
+  lineEnding: 'lf' | 'crlf'
+  
   // 最近文件
   recentFiles: RecentFile[]
   maxRecentFiles: number
@@ -64,6 +71,9 @@ const DEFAULT_PREFERENCES: Preferences = {
   imageStoragePath: '',
   language: I18N.DEFAULT_LANGUAGE,
   devToolsOnStartup: false,
+  openFileInNewWindow: false,
+  openFolderInNewWindow: false,
+  lineEnding: 'lf' as const,
   recentFiles: [],
   maxRecentFiles: 20
 }
@@ -91,8 +101,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const imageStoragePath = ref<string>(DEFAULT_PREFERENCES.imageStoragePath)
   const language = ref<Preferences['language']>(DEFAULT_PREFERENCES.language)
   const devToolsOnStartup = ref<boolean>(DEFAULT_PREFERENCES.devToolsOnStartup)
+  const openFileInNewWindow = ref<boolean>(DEFAULT_PREFERENCES.openFileInNewWindow)
+  const openFolderInNewWindow = ref<boolean>(DEFAULT_PREFERENCES.openFolderInNewWindow)
   const recentFiles = ref<RecentFile[]>(DEFAULT_PREFERENCES.recentFiles)
   const maxRecentFiles = ref<number>(DEFAULT_PREFERENCES.maxRecentFiles)
+  const lineEnding = ref<Preferences['lineEnding']>(DEFAULT_PREFERENCES.lineEnding)
 
   /**
    * 获取当前所有偏好设置
@@ -114,6 +127,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
       imageStoragePath: imageStoragePath.value,
       language: language.value,
       devToolsOnStartup: devToolsOnStartup.value,
+      openFileInNewWindow: openFileInNewWindow.value,
+      openFolderInNewWindow: openFolderInNewWindow.value,
+      lineEnding: lineEnding.value,
       recentFiles: recentFiles.value,
       maxRecentFiles: maxRecentFiles.value
     }
@@ -308,6 +324,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     imageStoragePath,
     language,
     devToolsOnStartup,
+    openFileInNewWindow,
+    openFolderInNewWindow,
+    lineEnding,
     recentFiles,
     maxRecentFiles
   }
@@ -329,6 +348,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     imageStoragePath,
     language,
     devToolsOnStartup,
+    openFileInNewWindow,
+    openFolderInNewWindow,
+    lineEnding,
     recentFiles,
     maxRecentFiles,
     

@@ -9,6 +9,35 @@ export interface ImageInsertOptions {
   useVariables?: boolean
 }
 
+export const PATH_VARIABLES = {
+  FILENAME: '{filename}',
+  FILE_DIR: '{filedir}',
+  DATE: '{date}',
+  TIME: '{time}',
+  DATETIME: '{datetime}'
+} as const
+
+export type PathVariable = typeof PATH_VARIABLES[keyof typeof PATH_VARIABLES]
+
+function resolvePathVariables(template: string, context: {
+  fileName?: string
+  filePath?: string
+}): string {
+  const { fileName = 'image', filePath = '' } = context
+  const fileDir = filePath.split('/').slice(0, -1).join('/')
+  const now = new Date()
+  const date = now.toISOString().split('T')[0]
+  const time = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+  const datetime = `${date}-${time}`
+  
+  return template
+    .replace(/\{filename\}/gi, fileName)
+    .replace(/\{filedir\}/gi, fileDir)
+    .replace(/\{date\}/gi, date)
+    .replace(/\{time\}/gi, time)
+    .replace(/\{datetime\}/gi, datetime)
+}
+
 function generateImageName(file: File): string {
   return `${Date.now()}_${file.name}`
 }
@@ -58,13 +87,25 @@ export function useImageInsert() {
   
   async function copyImageToDirectory(file: File, directory: string): Promise<string> {
     const targetDir = directory || '/tmp/alhagi-images'
-    const newName = generateImageName(file)
-    return `${targetDir}/${newName}`
+    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
+    
+    const resolvedPath = resolvePathVariables(targetDir, {
+      fileName: fileNameWithoutExt,
+      filePath: file.name
+    })
+    
+    return `${resolvedPath}${fileExt}`
   }
   
   async function copyImageRelative(file: File): Promise<string> {
-    const newName = generateImageName(file)
-    return `./assets/${newName}`
+    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
+    const resolvedPath = resolvePathVariables('./assets/{filename}', {
+      fileName: fileNameWithoutExt,
+      filePath: generateImageName(file)
+    })
+    return `${resolvedPath}${fileExt}`
   }
   
   function insertMarkdownAtCursor(markdown: string) {
@@ -126,6 +167,7 @@ export function useImageInsert() {
     insertImageByPath,
     selectAndInsertImage,
     setInsertMode,
+    resolvePathVariables,
     ImageInsertMode: {
       KEEP_ORIGINAL: 'keep-original' as ImageInsertMode,
       COPY_ABSOLUTE: 'copy-absolute' as ImageInsertMode,

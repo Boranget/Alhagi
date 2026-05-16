@@ -160,8 +160,10 @@ const contextMenuItems: ContextMenuItem[] = [
   { id: 'new-file', label: '新建文件', icon: '📄' },
   { id: 'new-folder', label: '新建文件夹', icon: '📁' },
   { id: 'rename', label: '重命名', icon: '✏️' },
+  { id: 'move-to', label: '移动到...', icon: '📦' },
+  { id: 'copy-to', label: '复制到...', icon: '📋' },
   { id: 'delete', label: '删除', icon: '🗑️' },
-  { id: 'copy-path', label: '复制路径', icon: '📋' },
+  { id: 'copy-path', label: '复制路径', icon: '📄' },
   { id: 'open-in-explorer', label: '在系统文件管理器中显示', icon: '🗂️' }
 ]
 
@@ -229,6 +231,12 @@ function handleContextMenuAction(action: string) {
     case 'rename':
       handleRename(node)
       break
+    case 'move-to':
+      handleMoveTo(node)
+      break
+    case 'copy-to':
+      handleCopyTo(node)
+      break
     case 'delete':
       handleDelete(node)
       break
@@ -240,6 +248,51 @@ function handleContextMenuAction(action: string) {
     case 'open-in-explorer':
       handleOpenInExplorer(node)
       break
+  }
+}
+
+async function handleMoveTo(node: FileTreeNodeType | null) {
+  if (!node || !window.electronAPI) return
+  
+  const result = await window.electronAPI.selectDirectory()
+  if (result) {
+    const targetDir = result
+    const sourcePath = node.type === 'file' ? node.path : null
+    
+    if (!sourcePath) {
+      console.error('Cannot move a directory')
+      return
+    }
+    
+    const moveResult = await window.electronAPI.moveFile(sourcePath, targetDir)
+    if (moveResult) {
+      await fileService.refreshTree()
+      
+      const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === sourcePath)
+      if (existingTab) {
+        tabsStore.updateTab(existingTab.id, { filePath: moveResult })
+      }
+    }
+  }
+}
+
+async function handleCopyTo(node: FileTreeNodeType | null) {
+  if (!node || !window.electronAPI) return
+  
+  const result = await window.electronAPI.selectDirectory()
+  if (result) {
+    const targetDir = result
+    const sourcePath = node.type === 'file' ? node.path : null
+    
+    if (!sourcePath) {
+      console.error('Cannot copy a directory')
+      return
+    }
+    
+    const copyResult = await window.electronAPI.copyFile(sourcePath, targetDir)
+    if (copyResult) {
+      await fileService.refreshTree()
+    }
   }
 }
 

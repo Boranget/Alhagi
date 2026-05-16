@@ -16,7 +16,7 @@ export enum IPCErrorCode {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 }
 
-export interface IPCResponse<T = any> {
+export interface IPCResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
@@ -53,6 +53,9 @@ export interface ElectronAPI {
   createDirectory: (dirPath: string, dirName: string) => Promise<IPCResponse<string | null>>
   deleteFile: (filePath: string) => Promise<IPCResponse<boolean>>
   renameFile: (oldPath: string, newName: string) => Promise<IPCResponse<string | null>>
+  moveFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
+  copyFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
+  selectDirectory: () => Promise<IPCResponse<string | null>>
   minimize: () => Promise<IPCResponse<void>>
   maximize: () => Promise<IPCResponse<void>>
   close: () => Promise<IPCResponse<void>>
@@ -66,16 +69,16 @@ export interface ElectronAPI {
 
 function createIpcHandler<T>(
   channel: string,
-  data?: any
+  data?: unknown
 ): Promise<IPCResponse<T>> {
   return ipcRenderer.invoke(channel, data)
 }
 
 function createMenuListener(
   channel: string,
-  callback: (...args: any[]) => void
+  callback: (...args: unknown[]) => void
 ): () => void {
-  const handler = (_event: IpcRendererEvent, ...args: any[]) => callback(...args)
+  const handler = (_event: IpcRendererEvent, ...args: unknown[]) => callback(...args)
   ipcRenderer.on(channel, handler)
   return () => {
     ipcRenderer.removeListener(channel, handler)
@@ -111,6 +114,15 @@ const api: ElectronAPI = {
   
   renameFile: (oldPath, newName) => 
     createIpcHandler('file:rename', { oldPath, newName }),
+  
+  moveFile: (sourcePath, targetDir) => 
+    createIpcHandler('file:move', { sourcePath, targetDir }),
+  
+  copyFile: (sourcePath, targetDir) => 
+    createIpcHandler('file:copy', { sourcePath, targetDir }),
+  
+  selectDirectory: () => 
+    createIpcHandler('dialog:select-directory'),
   
   minimize: () => 
     createIpcHandler('window:minimize'),

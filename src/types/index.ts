@@ -87,6 +87,9 @@ export interface ElectronAPI {
   createDirectory: (dirPath: string, dirName: string) => Promise<string | null>
   deleteFile: (filePath: string) => Promise<boolean>
   renameFile: (oldPath: string, newName: string) => Promise<string | null>
+  moveFile: (sourcePath: string, targetDir: string) => Promise<string | null>
+  copyFile: (sourcePath: string, targetDir: string) => Promise<string | null>
+  selectDirectory: () => Promise<string | null>
   minimize: () => Promise<void>
   maximize: () => Promise<void>
   close: () => Promise<void>

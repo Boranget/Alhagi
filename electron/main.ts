@@ -21,6 +21,8 @@ enum IPCErrorCode {
   FILE_DELETE_ERROR = 'FILE_DELETE_ERROR',
   FILE_RENAME_ERROR = 'FILE_RENAME_ERROR',
   FILE_CREATE_ERROR = 'FILE_CREATE_ERROR',
+  FILE_MOVE_ERROR = 'FILE_MOVE_ERROR',
+  FILE_COPY_ERROR = 'FILE_COPY_ERROR',
   DIRECTORY_READ_ERROR = 'DIRECTORY_READ_ERROR',
   DIRECTORY_CREATE_ERROR = 'DIRECTORY_CREATE_ERROR',
   DIALOG_CANCELLED = 'DIALOG_CANCELLED',
@@ -29,7 +31,7 @@ enum IPCErrorCode {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 }
 
-interface IPCResponse<T = any> {
+interface IPCResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
@@ -69,6 +71,14 @@ interface DirectoryEntry {
   isFile: boolean
   size: number
   lastModified: number
+}
+
+interface FileTreeNode {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  children?: FileTreeNode[]
+  expanded?: boolean
 }
 
 const store = new Store<{ windowState: WindowState }>({
@@ -306,7 +316,7 @@ ipcMain.handle('file:open-folder', async () => {
   }
 })
 
-async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0): Promise<any[]> {
+async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0): Promise<FileTreeNode[]> {
   if (currentDepth >= maxDepth) return []
   
   try {
@@ -409,6 +419,25 @@ ipcMain.handle('file:delete', async (_, filePath: string) => {
   }
 })
 
+ipcMain.handle('dialog:select-directory', async () => {
+  if (!mainWindow) return error(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
+  
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    })
+    
+    if (result.canceled || result.filePaths.length === 0) {
+      return success(null)
+    }
+    
+    return success(result.filePaths[0])
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return error(IPCErrorCode.UNKNOWN_ERROR, `Failed to select directory: ${error.message}`)
+  }
+})
+
 ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
   try {
     const dir = path.dirname(oldPath)
@@ -424,6 +453,71 @@ ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
       return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
     return error(IPCErrorCode.FILE_RENAME_ERROR, `Failed to rename: ${error.message}`)
+  }
+})
+
+ipcMain.handle('file:move', async (_, { sourcePath, targetDir }) => {
+  try {
+    const fileName = path.basename(sourcePath)
+    const targetPath = path.join(targetDir, fileName)
+    
+    // 检查目标路径是否已存在
+    try {
+      await fs.access(targetPath)
+      return error(IPCErrorCode.FILE_MOVE_ERROR, `File already exists: ${targetPath}`)
+    } catch {
+      // 文件不存在，可以继续
+    }
+    
+    // 使用 rename（同一磁盘分区）或 copy + delete（跨分区）
+    try {
+      await fs.rename(sourcePath, targetPath)
+    } catch (renameErr) {
+      // 跨分区移动失败，尝试 copy + delete
+      const content = await fs.readFile(sourcePath)
+      await fs.writeFile(targetPath, content)
+      await fs.unlink(sourcePath)
+    }
+    
+    return success(targetPath)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    if (isFileNotFoundError(error)) {
+      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+    }
+    if (isPermissionError(error)) {
+      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+    }
+    return error(IPCErrorCode.FILE_MOVE_ERROR, `Failed to move file: ${error.message}`)
+  }
+})
+
+ipcMain.handle('file:copy', async (_, { sourcePath, targetDir }) => {
+  try {
+    const fileName = path.basename(sourcePath)
+    const targetPath = path.join(targetDir, fileName)
+    
+    // 检查目标路径是否已存在
+    try {
+      await fs.access(targetPath)
+      return error(IPCErrorCode.FILE_COPY_ERROR, `File already exists: ${targetPath}`)
+    } catch {
+      // 文件不存在，可以继续
+    }
+    
+    const content = await fs.readFile(sourcePath)
+    await fs.writeFile(targetPath, content)
+    
+    return success(targetPath)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    if (isFileNotFoundError(error)) {
+      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+    }
+    if (isPermissionError(error)) {
+      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+    }
+    return error(IPCErrorCode.FILE_COPY_ERROR, `Failed to copy file: ${error.message}`)
   }
 })
 
