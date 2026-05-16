@@ -28,7 +28,7 @@ export interface HistoryItem {
 
 export type ViewMode = 'wysiwyg' | 'source' | 'split'
 
-export type SidebarView = 'files' | 'search' | 'extensions' | 'settings'
+export type SidebarView = 'files' | 'recent' | 'search' | 'extensions' | 'settings'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -81,6 +81,13 @@ export interface DirectoryEntry {
   isFile: boolean
   size: number
   lastModified: number
+}
+
+export interface RecentFile {
+  filePath: string
+  title: string
+  lastOpened: number
+  pinned: boolean
 }
 
 export interface ElectronAPI {

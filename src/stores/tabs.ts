@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TabState, ViewMode } from '@/types'
-import { generateUUID } from '@/utils/helpers'
+import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
+import { usePreferencesStore } from '@/stores/preferences'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 export const useTabsStore = defineStore('tabs', () => {
   const tabs = ref(new Map<string, TabState>())
@@ -42,16 +44,22 @@ export const useTabsStore = defineStore('tabs', () => {
       lastModified: Date.now(),
       lastSaved: null
     }
-    
+
     tabs.value.set(id, tab)
     tabOrder.value.push(id)
-    
-    // 如果是第一个标签，自动激活
+
+    if (options.filePath) {
+      const prefs = usePreferencesStore()
+      prefs.addRecentFile(options.filePath, tab.title)
+    }
+
     if (!activeTabId.value) {
       activeTabId.value = id
       tab.active = true
     }
-    
+
+    eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
+
     return tab
   }
 
@@ -60,10 +68,12 @@ export const useTabsStore = defineStore('tabs', () => {
       return false
     }
 
+    const tab = tabs.value.get(tabId)
     tabs.value.delete(tabId)
     tabOrder.value = tabOrder.value.filter(id => id !== tabId)
-    
-    // 如果删除的是激活标签，切换到相邻标签
+
+    eventBus.emit(AppEvents.TAB_CLOSED, { tabId, tab })
+
     if (activeTabId.value === tabId) {
       if (tabOrder.value.length > 0) {
         const index = Math.max(0, tabOrder.value.length - 1)
@@ -72,7 +82,7 @@ export const useTabsStore = defineStore('tabs', () => {
         activeTabId.value = null
       }
     }
-    
+
     return true
   }
 
@@ -80,21 +90,36 @@ export const useTabsStore = defineStore('tabs', () => {
     if (!tabs.value.has(tabId) || tabId === activeTabId.value) {
       return
     }
-    
-    // 更新激活标记
+
     tabs.value.forEach((tab) => {
       tab.active = tab.id === tabId
     })
-    
+
+    const previousTabId = activeTabId.value
     activeTabId.value = tabId
+
+    const tab = tabs.value.get(tabId)
+    if (tab && tab.filePath) {
+      const prefs = usePreferencesStore()
+      prefs.addRecentFile(tab.filePath, tab.title)
+    }
+
+    eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId })
   }
 
   function updateTab(tabId: string, updates: Partial<TabState>): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
+      const contentChanged = updates.content !== undefined && updates.content !== tab.content
       Object.assign(tab, updates)
       if (updates.isDirty !== undefined) {
         tab.isDirty = updates.isDirty
+      }
+
+      eventBus.emit(AppEvents.TAB_UPDATED, { tabId, updates })
+      
+      if (contentChanged) {
+        eventBus.emit(AppEvents.CONTENT_CHANGED, { tabId, content: updates.content })
       }
     }
   }
@@ -124,24 +149,48 @@ export const useTabsStore = defineStore('tabs', () => {
 
   async function openFile(): Promise<TabState | null> {
     if (!window.electronAPI) return null
-    
+
     const result = await window.electronAPI.openFile()
     if (!result) return null
 
     const { filePath, content } = result
-    
-    // 检查文件是否已打开
+
     const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
     if (existingTab) {
       switchTab(existingTab.id)
       return existingTab
     }
 
-    const title = filePath.split(/[/\\]/).pop()?.replace(/\.md$/i, '') || '未命名'
+    const title = extractTitleFromPath(filePath)
     const tab = createTab({ filePath, content, title })
     switchTab(tab.id)
-    
+
+    eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
+
     return tab
+  }
+
+  async function openRecentFile(filePath: string): Promise<TabState | null> {
+    const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
+    if (existingTab) {
+      switchTab(existingTab.id)
+      return existingTab
+    }
+
+    if (!window.electronAPI) return null
+
+    try {
+      const content = await window.electronAPI.readFile(filePath)
+      const title = extractTitleFromPath(filePath)
+      const tab = createTab({ filePath, content, title })
+      switchTab(tab.id)
+
+      eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
+      return tab
+    } catch (e) {
+      console.error('Failed to open recent file:', e)
+      return null
+    }
   }
 
   async function saveFile(tabId: string): Promise<boolean> {
@@ -153,6 +202,8 @@ export const useTabsStore = defineStore('tabs', () => {
     if (tab.filePath) {
       await window.electronAPI.saveFile(tab.filePath, tab.content)
       markClean(tabId)
+      
+      eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
       return true
     } else {
       return await saveFileAs(tabId)
@@ -163,16 +214,21 @@ export const useTabsStore = defineStore('tabs', () => {
     const tab = tabs.value.get(tabId)
     if (!tab || !window.electronAPI) return false
 
-    const defaultPath = tab.title + '.md'
+    const defaultPath = (tab.title.endsWith('.md') ? tab.title : tab.title + '.md')
     const filePath = await window.electronAPI.saveAsFile(tab.content, defaultPath)
-    
+
     if (filePath) {
       tab.filePath = filePath
-      tab.title = filePath.split(/[/\\]/).pop()?.replace(/\.md$/i, '') || '未命名'
+      tab.title = extractTitleFromPath(filePath)
       markClean(tabId)
+      
+      const prefs = usePreferencesStore()
+      prefs.addRecentFile(filePath, tab.title)
+
+      eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })
       return true
     }
-    
+
     return false
   }
 
@@ -195,6 +251,7 @@ export const useTabsStore = defineStore('tabs', () => {
     markClean,
     setViewMode,
     openFile,
+    openRecentFile,
     saveFile,
     saveFileAs,
     getAllTabs

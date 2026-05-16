@@ -134,8 +134,8 @@ function handleKeydown(e: KeyboardEvent) {
         e.preventDefault()
         if (tabsStore.tabOrder.length > 0) {
           const currentIndex = tabsStore.tabOrder.indexOf(tabsStore.activeTabId!)
-          const nextIndex = e.shiftKey 
-            ? (currentIndex - 1 + tabsStore.tabOrder.length) % tabsStore.tabOrder.length 
+          const nextIndex = e.shiftKey
+            ? (currentIndex - 1 + tabsStore.tabOrder.length) % tabsStore.tabOrder.length
             : (currentIndex + 1) % tabsStore.tabOrder.length
           tabsStore.switchTab(tabsStore.tabOrder[nextIndex])
         }
@@ -155,32 +155,112 @@ function handleKeydown(e: KeyboardEvent) {
       case 'e':
         if (e.shiftKey) {
           e.preventDefault()
-          exportToFile()
+          showExportDialog()
         }
         break
     }
   }
 }
 
-function exportToFile() {
+function showExportDialog() {
   const activeTab = tabsStore.activeTab
   if (!activeTab) return
 
-  const content = activeTab.content
-  
-  const blob = new Blob([content], { type: 'text/markdown' })
+  const exportOptions = [
+    { label: 'Markdown (.md)', value: 'md' },
+    { label: 'HTML (.html)', value: 'html' },
+    { label: 'Plain Text (.txt)', value: 'txt' }
+  ]
+
+  const selectedOption = prompt(
+    '选择导出格式：\n' + exportOptions.map((opt, i) => `${i + 1}. ${opt.label}`).join('\n'),
+    '1'
+  )
+
+  if (!selectedOption) return
+
+  const optionIndex = parseInt(selectedOption) - 1
+  if (optionIndex >= 0 && optionIndex < exportOptions.length) {
+    const option = exportOptions[optionIndex]
+    exportFile(activeTab.content, activeTab.title, option.value as 'md' | 'html' | 'txt')
+  }
+}
+
+function exportFile(content: string, title: string, format: 'md' | 'html' | 'txt') {
+  let exportContent = content
+  let mimeType = 'text/markdown'
+  let extension = '.md'
+
+  switch (format) {
+    case 'html':
+      exportContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.8;
+    }
+    h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    pre { background: #f5f5f5; padding: 16px; overflow-x: auto; border-radius: 4px; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
+    blockquote { border-left: 4px solid #007AFF; padding-left: 16px; color: #666; }
+    ul, ol { padding-left: 24px; }
+  </style>
+</head>
+<body>
+${markdownToBasicHtml(content)}
+</body>
+</html>`
+      mimeType = 'text/html'
+      extension = '.html'
+      break
+    case 'txt':
+      exportContent = content
+      mimeType = 'text/plain'
+      extension = '.txt'
+      break
+  }
+
+  const blob = new Blob([exportContent], { type: mimeType })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  
-  const fileName = activeTab.title.endsWith('.md') 
-    ? activeTab.title 
-    : `${activeTab.title}.md`
-  
+
+  const baseName = title.replace(/\.md$/, '')
   a.href = url
-  a.download = fileName
+  a.download = `${baseName}${extension}`
   a.click()
-  
+
   URL.revokeObjectURL(url)
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function markdownToBasicHtml(markdown: string): string {
+  return markdown
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+    .replace(/\*(.*)\*/gim, '<em>$1</em>')
+    .replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />')
+    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
+    .replace(/`(.*?)`/gim, '<code>$1</code>')
+    .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+    .replace(/(.*?)\n\n/gim, '$1<p></p>')
 }
 
 function setupElectronListeners() {

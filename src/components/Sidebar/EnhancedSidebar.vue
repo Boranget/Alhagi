@@ -14,6 +14,7 @@
     </div>
     <div class="sidebar-content">
       <FileExplorer v-show="activeSidebarTab === 'files'" />
+      <RecentFiles v-show="activeSidebarTab === 'recent'" />
       <GlobalSearch v-show="activeSidebarTab === 'search'" />
       <DocumentOutline v-show="activeSidebarTab === 'outline'" />
     </div>
@@ -23,13 +24,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import FileExplorer from './FileExplorer.vue'
+import RecentFiles from './RecentFiles.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import DocumentOutline from './DocumentOutline.vue'
 
-const activeSidebarTab = ref<'files' | 'search' | 'outline'>('files')
+const activeSidebarTab = ref<'files' | 'recent' | 'search' | 'outline'>('files')
 
 const sidebarTabs = [
   { id: 'files' as const, label: '文件资源管理器', icon: '📁' },
+  { id: 'recent' as const, label: '最近文件', icon: '⏰' },
   { id: 'search' as const, label: '搜索', icon: '🔍' },
   { id: 'outline' as const, label: '文档大纲', icon: '📑' }
 ]
