@@ -11,9 +11,15 @@
       {{ nodeIcon }}
     </span>
     <span class="node-name">{{ node.name }}</span>
-    <span v-if="node.isDirty" class="dirty-indicator">●</span>
+    <span
+      v-if="node.isDirty"
+      class="dirty-indicator"
+    >●</span>
   </div>
-  <div v-if="node.expanded && node.children" class="node-children">
+  <div
+    v-if="node.expanded && node.children"
+    class="node-children"
+  >
     <FileTreeNode
       v-for="child in node.children"
       :key="child.path"
@@ -38,6 +44,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', node: FileTreeNodeType): void
   (e: 'contextmenu', event: MouseEvent, node: FileTreeNodeType): void
+  (e: 'toggle', node: FileTreeNodeType): void
 }>()
 
 const tabsStore = useTabsStore()
@@ -86,7 +93,7 @@ function handleClick() {
 
 function handleDoubleClick() {
   if (props.node.type === 'directory') {
-    props.node.expanded = !props.node.expanded
+    emit('toggle', props.node)
   }
 }
 

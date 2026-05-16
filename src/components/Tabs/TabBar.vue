@@ -21,16 +21,28 @@
           class="tab-close"
           @click.stop="handleTabClose(tabId)"
         >
-          <span v-if="getTab(tabId)?.isDirty" class="dirty-indicator">●</span>
+          <span
+            v-if="getTab(tabId)?.isDirty"
+            class="dirty-indicator"
+          >●</span>
           <span v-else>×</span>
         </button>
       </div>
     </div>
     <div class="tab-actions">
-      <button class="search-btn" @click="toggleSearch" title="搜索标签 (Ctrl+P)">
+      <button
+        class="search-btn"
+        title="搜索标签 (Ctrl+P)"
+        @click="toggleSearch"
+      >
         🔍
       </button>
-      <button class="new-tab-btn" @click="handleNewTab">+</button>
+      <button
+        class="new-tab-btn"
+        @click="handleNewTab"
+      >
+        +
+      </button>
     </div>
 
     <div
@@ -38,53 +50,85 @@
       class="tab-context-menu"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
     >
-      <div class="menu-item" @click="saveCurrentTab">
+      <div
+        class="menu-item"
+        @click="saveCurrentTab"
+      >
         <span class="menu-icon">💾</span>
         <span class="menu-text">保存</span>
       </div>
-      <div class="menu-item" @click="saveAsCurrentTab">
+      <div
+        class="menu-item"
+        @click="saveAsCurrentTab"
+      >
         <span class="menu-icon">📄</span>
         <span class="menu-text">另存为</span>
       </div>
-      <div class="menu-divider"></div>
-      <div class="menu-item" @click="closeCurrentTab">
+      <div class="menu-divider" />
+      <div
+        class="menu-item"
+        @click="closeCurrentTab"
+      >
         <span class="menu-icon">✕</span>
         <span class="menu-text">关闭</span>
       </div>
-      <div class="menu-item" @click="closeOtherTabs">
+      <div
+        class="menu-item"
+        @click="closeOtherTabs"
+      >
         <span class="menu-icon">📑</span>
         <span class="menu-text">关闭其他</span>
       </div>
-      <div class="menu-item" @click="closeSavedTabs">
+      <div
+        class="menu-item"
+        @click="closeSavedTabs"
+      >
         <span class="menu-icon">📂</span>
         <span class="menu-text">关闭已保存</span>
       </div>
-      <div class="menu-item" @click="closeAllTabs">
+      <div
+        class="menu-item"
+        @click="closeAllTabs"
+      >
         <span class="menu-icon">🗑️</span>
         <span class="menu-text">关闭全部</span>
       </div>
-      <div class="menu-divider" v-if="getCurrentTab()?.filePath"></div>
-      <div class="menu-item" @click="copyFilePath" v-if="getCurrentTab()?.filePath">
+      <div
+        v-if="getCurrentTab()?.filePath"
+        class="menu-divider"
+      />
+      <div
+        v-if="getCurrentTab()?.filePath"
+        class="menu-item"
+        @click="copyFilePath"
+      >
         <span class="menu-icon">📋</span>
         <span class="menu-text">复制路径</span>
       </div>
-      <div class="menu-divider"></div>
-      <div class="menu-item" @click="detachTab">
+      <div class="menu-divider" />
+      <div
+        class="menu-item"
+        @click="detachTab"
+      >
         <span class="menu-icon">↗️</span>
         <span class="menu-text">分离到新窗口</span>
       </div>
     </div>
 
-    <div v-if="showSearch" class="tab-search-overlay" @click.self="toggleSearch">
+    <div
+      v-if="showSearch"
+      class="tab-search-overlay"
+      @click.self="toggleSearch"
+    >
       <div class="tab-search-modal">
         <input
+          ref="searchInput"
           v-model="searchQuery"
           class="tab-search-input"
           placeholder="搜索标签..."
-          ref="searchInput"
           @keydown.enter="handleSearchEnter"
           @keydown.esc="toggleSearch"
-        />
+        >
         <div class="tab-search-results">
           <div
             v-for="(tabId, index) in filteredTabOrder"
@@ -96,16 +140,26 @@
           >
             <span class="result-icon">📄</span>
             <span class="result-title">{{ getTab(tabId)?.title || '未命名' }}</span>
-            <span v-if="getTab(tabId)?.filePath" class="result-path">{{ getTab(tabId)?.filePath }}</span>
+            <span
+              v-if="getTab(tabId)?.filePath"
+              class="result-path"
+            >{{ getTab(tabId)?.filePath }}</span>
           </div>
-          <div v-if="filteredTabOrder.length === 0" class="tab-search-empty">
+          <div
+            v-if="filteredTabOrder.length === 0"
+            class="tab-search-empty"
+          >
             没有找到匹配的标签
           </div>
         </div>
       </div>
     </div>
     
-    <div v-if="draggingTabId" class="tab-drag-ghost" :style="ghostStyle">
+    <div
+      v-if="draggingTabId"
+      class="tab-drag-ghost"
+      :style="ghostStyle"
+    >
       <span>{{ getTab(draggingTabId)?.title || '未命名' }}</span>
     </div>
   </div>
@@ -259,7 +313,7 @@ function closeOtherTabs() {
     if (tabId !== activeTabId) {
       const tab = getTab(tabId)
       if (tab?.isDirty) {
-        if (!confirm(`文件 \"${tab.title}\" 有未保存的更改，确定要关闭吗？`)) {
+        if (!confirm(`文件 "${tab.title}" 有未保存的更改，确定要关闭吗？`)) {
           continue
         }
       }
@@ -336,7 +390,6 @@ function handleDragStart(event: DragEvent, tabId: string) {
     // 延迟添加样式以避免立即显示
     setTimeout(() => {
       if (draggingTabId.value === tabId) {
-        const tabElement = (event.target as HTMLElement)
         ghostStyle.value = {
           left: `${event.clientX}px`,
           top: `${event.clientY}px`

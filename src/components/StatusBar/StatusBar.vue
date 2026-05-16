@@ -1,19 +1,34 @@
 <template>
   <div class="status-bar">
     <div class="status-left">
-      <span v-if="activeTab" class="status-item">
+      <span
+        v-if="activeTab"
+        class="status-item"
+      >
         {{ activeTab.viewMode === 'wysiwyg' ? 'WYSIWYG' : activeTab.viewMode === 'source' ? '源码' : '分屏' }}
       </span>
-      <span v-if="activeTab?.filePath" class="status-item file-path">
+      <span
+        v-if="activeTab?.filePath"
+        class="status-item file-path"
+      >
         {{ activeTab.filePath }}
       </span>
-      <span v-if="activeTab?.isDirty" class="status-item dirty-indicator">
+      <span
+        v-if="activeTab?.isDirty"
+        class="status-item dirty-indicator"
+      >
         ● 已修改
       </span>
     </div>
     <div class="status-right">
-      <span class="status-item" title="原始 Markdown 字符数（不含空白）">MD: {{ rawMarkdownChars }} 字</span>
-      <span class="status-item" title="渲染后纯文本字符数">文本: {{ plainTextChars }} 字</span>
+      <span
+        class="status-item"
+        title="原始 Markdown 字符数（不含空白）"
+      >MD: {{ rawMarkdownChars }} 字</span>
+      <span
+        class="status-item"
+        title="渲染后纯文本字符数"
+      >文本: {{ plainTextChars }} 字</span>
       <span class="status-item">{{ lineCount }} 行</span>
       <span class="status-item">{{ cursorPosition }}</span>
       <button
@@ -34,8 +49,8 @@
       </button>
       <button
         class="status-btn"
-        @click="prefsStore.toggleTheme()"
         title="切换主题"
+        @click="prefsStore.toggleTheme()"
       >
         {{ prefsStore.theme === 'light' || prefsStore.theme === 'system' ? '🌙' : '☀️' }}
       </button>
@@ -44,15 +59,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, Ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
-
-const isFullscreen = inject<Ref<boolean>>('isFullscreen')
 
 const activeTab = computed(() => tabsStore.activeTab)
 
@@ -92,11 +105,11 @@ const cursorPosition = computed(() => {
 })
 
 function toggleTypewriterMode() {
-  prefsStore.setTypewriterMode(!prefsStore.typewriterMode)
+  prefsStore.typewriterMode = !prefsStore.typewriterMode
 }
 
 function toggleFocusMode() {
-  prefsStore.setFocusMode(!prefsStore.focusMode)
+  prefsStore.focusMode = !prefsStore.focusMode
 }
 
 let unsubscribeTabSwitched: (() => void) | null = null
@@ -110,7 +123,7 @@ onMounted(() => {
   })
 
   unsubscribeTabUpdated = eventBus.on(AppEvents.TAB_UPDATED, (payload) => {
-    const data = payload as { tabId: string; updates: any }
+    const data = payload as { tabId: string; updates: Record<string, unknown> }
     if (data.updates.isDirty !== undefined) {
       console.log('[StatusBar] Tab dirty status changed:', data.tabId, data.updates.isDirty)
     }

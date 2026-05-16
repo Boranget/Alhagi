@@ -3,23 +3,41 @@
     <div class="explorer-header">
       <span>资源管理器</span>
       <div class="header-actions">
-        <button class="action-btn" title="新建文件" @click="handleNewFile">
+        <button
+          class="action-btn"
+          title="新建文件"
+          @click="handleNewFile"
+        >
           📄
         </button>
-        <button class="action-btn" title="新建文件夹" @click="handleNewFolder">
+        <button
+          class="action-btn"
+          title="新建文件夹"
+          @click="handleNewFolder"
+        >
           📁
         </button>
-        <button class="action-btn" title="刷新" @click="handleRefresh">
+        <button
+          class="action-btn"
+          title="刷新"
+          @click="handleRefresh"
+        >
           🔄
         </button>
       </div>
     </div>
     <div class="explorer-toolbar">
-      <button class="toolbar-btn" @click="openFolder">
+      <button
+        class="toolbar-btn"
+        @click="openFolder"
+      >
         打开文件夹
       </button>
     </div>
-    <div class="file-tree" v-if="currentFolder">
+    <div
+      v-if="currentFolder"
+      class="file-tree"
+    >
       <FileTreeNode
         v-for="node in fileTree"
         :key="node.path"
@@ -27,9 +45,13 @@
         :depth="0"
         @select="handleSelect"
         @contextmenu="handleContextMenu"
+        @toggle="handleToggle"
       />
     </div>
-    <div v-else class="empty-state">
+    <div
+      v-else
+      class="empty-state"
+    >
       <p>点击"打开文件夹"开始</p>
     </div>
 
@@ -66,11 +88,21 @@
             placeholder="输入名称..."
             @keydown.enter="confirmNewItem"
             @keydown.escape="closeNewItemDialog"
-          />
+          >
         </div>
         <div class="dialog-footer">
-          <button class="btn btn-secondary" @click="closeNewItemDialog">取消</button>
-          <button class="btn btn-primary" @click="confirmNewItem">创建</button>
+          <button
+            class="btn btn-secondary"
+            @click="closeNewItemDialog"
+          >
+            取消
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="confirmNewItem"
+          >
+            创建
+          </button>
         </div>
       </div>
     </div>
@@ -168,6 +200,12 @@ function handleContextMenu(event: MouseEvent, node: FileTreeNodeType) {
     x: event.clientX,
     y: event.clientY,
     node
+  }
+}
+
+function handleToggle(node: FileTreeNodeType) {
+  if (node.type === 'directory') {
+    fileService.toggleFolder(node)
   }
 }
 

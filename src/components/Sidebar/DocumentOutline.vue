@@ -2,7 +2,11 @@
   <div class="document-outline">
     <div class="outline-header">
       <span>文档大纲</span>
-      <button class="refresh-btn" @click="refreshOutline" title="刷新大纲">
+      <button
+        class="refresh-btn"
+        title="刷新大纲"
+        @click="refreshOutline"
+      >
         🔄
       </button>
     </div>
@@ -17,20 +21,25 @@
         H{{ level }}
       </button>
     </div>
-    <div class="outline-tree" v-if="headings.length > 0">
+    <div
+      v-if="headings.length > 0"
+      class="outline-tree"
+    >
       <div
         v-for="heading in filteredHeadings"
         :key="heading.id"
         class="outline-item"
-        :class="`level-${heading.level}`"
-        :class="{ active: activeHeadingId === heading.id }"
+        :class="[`level-${heading.level}`, { active: activeHeadingId === heading.id }]"
         @click="scrollToHeading(heading)"
       >
         <span class="heading-level">H{{ heading.level }}</span>
         <span class="heading-text">{{ heading.text }}</span>
       </div>
     </div>
-    <div v-else class="empty-state">
+    <div
+      v-else
+      class="empty-state"
+    >
       <p>文档中没有标题</p>
     </div>
   </div>

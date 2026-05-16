@@ -17,7 +17,7 @@ export function extractTitleFromContent(content: string): string {
   return match ? match[1] : '未命名'
 }
 
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {

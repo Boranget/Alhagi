@@ -135,11 +135,11 @@ export function setLanguage(lang: Language) {
 
 export function t(key: string): string {
   const keys = key.split('.')
-  let value: any = translations[currentLanguage]
+  let value: unknown = translations[currentLanguage]
   
   for (const k of keys) {
     if (value && typeof value === 'object' && k in value) {
-      value = value[k]
+      value = (value as Record<string, unknown>)[k]
     } else {
       return key
     }

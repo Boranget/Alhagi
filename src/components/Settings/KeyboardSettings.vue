@@ -1,9 +1,22 @@
 <template>
-  <div class="keyboard-settings-overlay" @click="close" @keyup.esc="close" tabindex="-1">
-    <div class="keyboard-settings-panel" @click.stop>
+  <div
+    class="keyboard-settings-overlay"
+    tabindex="-1"
+    @click="close"
+    @keyup.esc="close"
+  >
+    <div
+      class="keyboard-settings-panel"
+      @click.stop
+    >
       <div class="settings-header">
         <h2>快捷键设置</h2>
-        <button class="close-btn" @click="close">✕</button>
+        <button
+          class="close-btn"
+          @click="close"
+        >
+          ✕
+        </button>
       </div>
       
       <div class="settings-content">
@@ -13,7 +26,7 @@
             type="text"
             placeholder="搜索快捷键..."
             class="search-input"
-          />
+          >
         </div>
         
         <div class="keybindings-list">
@@ -31,18 +44,27 @@
               <div class="binding-info">
                 <span class="binding-description">{{ binding.description }}</span>
               </div>
-              <div class="binding-key" @click="startRecording(binding)">
-                <span v-if="recordingFor === binding.id" class="recording">
+              <div
+                class="binding-key"
+                @click="startRecording(binding)"
+              >
+                <span
+                  v-if="recordingFor === binding.id"
+                  class="recording"
+                >
                   按键中...
                 </span>
-                <span v-else class="key-display">
+                <span
+                  v-else
+                  class="key-display"
+                >
                   {{ formatKeybinding(binding) }}
                 </span>
                 <button
                   v-if="isModified(binding.id)"
                   class="reset-btn"
-                  @click.stop="resetBinding(binding.id)"
                   title="重置为默认"
+                  @click.stop="resetBinding(binding.id)"
                 >
                   ↩
                 </button>
@@ -52,19 +74,39 @@
         </div>
         
         <div class="settings-footer">
-          <button class="btn secondary" @click="resetAll">重置全部</button>
+          <button
+            class="btn secondary"
+            @click="resetAll"
+          >
+            重置全部
+          </button>
           <div class="export-import">
-            <button class="btn secondary" @click="handleExportKeybindings">导出</button>
-            <button class="btn secondary" @click="triggerImport">导入</button>
+            <button
+              class="btn secondary"
+              @click="handleExportKeybindings"
+            >
+              导出
+            </button>
+            <button
+              class="btn secondary"
+              @click="triggerImport"
+            >
+              导入
+            </button>
             <input
               ref="fileInput"
               type="file"
               accept=".json"
               style="display: none"
               @change="handleImportKeybindings"
-            />
+            >
           </div>
-          <button class="btn primary" @click="saveAndClose">保存</button>
+          <button
+            class="btn primary"
+            @click="saveAndClose"
+          >
+            保存
+          </button>
         </div>
       </div>
     </div>
@@ -84,8 +126,6 @@ const emit = defineEmits<{
 
 const {
   keybindings,
-  getKeybindingForAction,
-  updateKeybinding,
   resetToDefaults,
   exportKeybindings: exportKeybindingsFn,
   importKeybindings: importKeybindingsFn

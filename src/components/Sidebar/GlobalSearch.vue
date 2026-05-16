@@ -12,35 +12,57 @@
           placeholder="搜索文件内容或文件名..."
           @input="handleSearch"
           @keydown.enter="performSearch"
-        />
+        >
         <input
           v-model="replaceQuery"
           type="text"
           class="replace-input"
           placeholder="替换为..."
-        />
+        >
       </div>
       <div class="search-options">
         <label class="option">
-          <input v-model="options.caseSensitive" type="checkbox" />
+          <input
+            v-model="options.caseSensitive"
+            type="checkbox"
+          >
           <span>区分大小写</span>
         </label>
         <label class="option">
-          <input v-model="options.wholeWord" type="checkbox" />
+          <input
+            v-model="options.wholeWord"
+            type="checkbox"
+          >
           <span>全字匹配</span>
         </label>
         <label class="option">
-          <input v-model="options.regex" type="checkbox" />
+          <input
+            v-model="options.regex"
+            type="checkbox"
+          >
           <span>正则表达式</span>
         </label>
       </div>
     </div>
     <div class="search-actions">
-      <button class="search-btn" @click="performSearch">搜索</button>
-      <button v-if="replaceQuery && activeSearchTarget === 'file'" class="search-btn replace" @click="handleReplace">
+      <button
+        class="search-btn"
+        @click="performSearch"
+      >
+        搜索
+      </button>
+      <button
+        v-if="replaceQuery && activeSearchTarget === 'file'"
+        class="search-btn replace"
+        @click="handleReplace"
+      >
         替换
       </button>
-      <button v-if="replaceQuery && activeSearchTarget === 'file'" class="search-btn replace-all" @click="handleReplaceAll">
+      <button
+        v-if="replaceQuery && activeSearchTarget === 'file'"
+        class="search-btn replace-all"
+        @click="handleReplaceAll"
+      >
         全部替换
       </button>
     </div>
@@ -56,16 +78,28 @@
       </button>
     </div>
     <div class="search-results">
-      <div v-if="!searchQuery" class="empty-state">
+      <div
+        v-if="!searchQuery"
+        class="empty-state"
+      >
         输入搜索内容开始搜索
       </div>
-      <div v-else-if="isSearching" class="empty-state">
+      <div
+        v-else-if="isSearching"
+        class="empty-state"
+      >
         搜索中...
       </div>
-      <div v-else-if="results.length === 0" class="empty-state">
+      <div
+        v-else-if="results.length === 0"
+        class="empty-state"
+      >
         未找到匹配结果
       </div>
-      <div v-else class="results-list">
+      <div
+        v-else
+        class="results-list"
+      >
         <div class="results-count">
           {{ results.length }} 个文件，{{ totalMatches }} 处匹配
         </div>
@@ -74,12 +108,18 @@
           :key="result.file"
           class="result-group"
         >
-          <div class="result-file" @click="toggleExpand(result.file)">
+          <div
+            class="result-file"
+            @click="toggleExpand(result.file)"
+          >
             <span class="expand-icon">{{ expandedFiles.has(result.file) ? '▼' : '▶' }}</span>
             <span class="file-name">{{ result.fileName }}</span>
             <span class="match-count">({{ result.matches.length }})</span>
           </div>
-          <div v-if="expandedFiles.has(result.file)" class="result-matches">
+          <div
+            v-if="expandedFiles.has(result.file)"
+            class="result-matches"
+          >
             <div
               v-for="(match, idx) in result.matches"
               :key="idx"
@@ -87,7 +127,10 @@
               @click="handleMatchClick(result, match)"
             >
               <span class="match-line">{{ match.line }}:{{ match.column }}</span>
-              <span class="match-text" v-html="match.highlightedText"></span>
+              <span
+                class="match-text"
+                v-html="match.highlightedText"
+              />
             </div>
           </div>
         </div>
@@ -97,10 +140,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileService } from '@/services/fileService'
-import { debounce, extractTitleFromPath } from '@/utils/helpers'
+import { debounce } from '@/utils/helpers'
+import { xssSanitizer } from '@/services/xssSanitizer'
 
 interface SearchMatch {
   line: number
@@ -202,14 +246,8 @@ function searchInContent(content: string, pattern: RegExp): SearchMatch[] {
 function highlightMatch(text: string, match: string, startIndex: number): string {
   const before = text.substring(0, startIndex)
   const after = text.substring(startIndex + match.length)
-  const escapedMatch = escapeHtml(match)
-  return `${escapeHtml(before)}<mark>${escapedMatch}</mark>${escapeHtml(after)}`
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
+  const escapedMatch = xssSanitizer.escapeHtml(match)
+  return `${xssSanitizer.escapeHtml(before)}<mark>${escapedMatch}</mark>${xssSanitizer.escapeHtml(after)}`
 }
 
 function performSearch() {
@@ -405,7 +443,7 @@ function toggleExpand(file: string) {
   }
 }
 
-function handleMatchClick(result: SearchResult, match: SearchMatch) {
+function handleMatchClick(result: SearchResult, _match: SearchMatch) {
   const tab = tabsStore.getAllTabs().find(t => t.id === result.file)
   if (tab) {
     tabsStore.switchTab(tab.id)

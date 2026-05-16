@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import type { AppEventName, AppEventPayloads } from '@/types'
 
-export type EventCallback<T = any> = (payload: T) => void
+export type EventCallback<T = unknown> = (payload: T) => void
 
 export interface EventBus {
   on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void
@@ -85,7 +85,7 @@ export const AppEvents: Record<string, AppEventName> = {
   SCROLL_CHANGED: 'editor:scroll:changed'
 }
 
-export function createEventHook<T = any>() {
+export function createEventHook<T = unknown>() {
   const callbacks = ref<Set<EventCallback<T>>>(new Set())
 
   return {

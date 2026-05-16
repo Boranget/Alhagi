@@ -1,9 +1,22 @@
 <template>
-  <div class="settings-panel-overlay" @click="close" @keyup.esc="close" tabindex="-1">
-    <div class="settings-panel" @click.stop>
+  <div
+    class="settings-panel-overlay"
+    tabindex="-1"
+    @click="close"
+    @keyup.esc="close"
+  >
+    <div
+      class="settings-panel"
+      @click.stop
+    >
       <div class="settings-header">
         <h2>设置</h2>
-        <button class="close-btn" @click="close">✕</button>
+        <button
+          class="close-btn"
+          @click="close"
+        >
+          ✕
+        </button>
       </div>
       
       <div class="settings-content">
@@ -21,78 +34,125 @@
         
         <div class="settings-main">
           <!-- 启动行为设置 -->
-          <div v-show="activeSection === 'general'" class="settings-section">
+          <div
+            v-show="activeSection === 'general'"
+            class="settings-section"
+          >
             <h3>启动行为</h3>
             <div class="setting-item">
               <label>启动模式</label>
               <select v-model="prefsStore.launchMode">
-                <option value="restore">恢复上次状态</option>
-                <option value="welcome">欢迎页</option>
-                <option value="blank">空白编辑器</option>
+                <option value="restore">
+                  恢复上次状态
+                </option>
+                <option value="welcome">
+                  欢迎页
+                </option>
+                <option value="blank">
+                  空白编辑器
+                </option>
               </select>
             </div>
           </div>
           
           <!-- 保存设置 -->
-          <div v-show="activeSection === 'save'" class="settings-section">
+          <div
+            v-show="activeSection === 'save'"
+            class="settings-section"
+          >
             <h3>自动保存</h3>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.autoSave" />
+                <input
+                  v-model="prefsStore.autoSave"
+                  type="checkbox"
+                >
                 启用自动保存
               </label>
             </div>
             <div class="setting-item">
               <label>自动保存间隔 (秒)</label>
-              <input type="number" v-model.number="prefsStore.autoSaveInterval" min="1" max="300" />
+              <input
+                v-model.number="prefsStore.autoSaveInterval"
+                type="number"
+                min="1"
+                max="300"
+              >
             </div>
           </div>
           
           <!-- 界面设置 -->
-          <div v-show="activeSection === 'appearance'" class="settings-section">
+          <div
+            v-show="activeSection === 'appearance'"
+            class="settings-section"
+          >
             <h3>主题</h3>
             <div class="setting-item">
               <label>主题</label>
               <select v-model="prefsStore.theme">
-                <option value="light">浅色</option>
-                <option value="dark">深色</option>
-                <option value="system">跟随系统</option>
+                <option value="light">
+                  浅色
+                </option>
+                <option value="dark">
+                  深色
+                </option>
+                <option value="system">
+                  跟随系统
+                </option>
               </select>
             </div>
             
             <h3>界面元素</h3>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.showSidebar" />
+                <input
+                  v-model="prefsStore.showSidebar"
+                  type="checkbox"
+                >
                 显示侧边栏
               </label>
             </div>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.showStatusBar" />
+                <input
+                  v-model="prefsStore.showStatusBar"
+                  type="checkbox"
+                >
                 显示状态栏
               </label>
             </div>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.hideScrollBars" />
+                <input
+                  v-model="prefsStore.hideScrollBars"
+                  type="checkbox"
+                >
                 隐藏滚动条
               </label>
             </div>
           </div>
           
           <!-- 编辑器设置 -->
-          <div v-show="activeSection === 'editor'" class="settings-section">
+          <div
+            v-show="activeSection === 'editor'"
+            class="settings-section"
+          >
             <h3>编辑增强</h3>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.typewriterMode" />
+                <input
+                  v-model="prefsStore.typewriterMode"
+                  type="checkbox"
+                >
                 打字机模式
               </label>
             </div>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.focusMode" />
+                <input
+                  v-model="prefsStore.focusMode"
+                  type="checkbox"
+                >
                 专注模式
               </label>
             </div>
@@ -100,55 +160,92 @@
             <h3>字体</h3>
             <div class="setting-item">
               <label>字体大小</label>
-              <input type="number" v-model.number="prefsStore.fontSize" min="8" max="32" />
+              <input
+                v-model.number="prefsStore.fontSize"
+                type="number"
+                min="8"
+                max="32"
+              >
             </div>
           </div>
           
           <!-- 图片设置 -->
-          <div v-show="activeSection === 'images'" class="settings-section">
+          <div
+            v-show="activeSection === 'images'"
+            class="settings-section"
+          >
             <h3>图片插入</h3>
             <div class="setting-item">
               <label>默认插入模式</label>
               <select v-model="prefsStore.imageInsertMode">
-                <option value="keep-original">保留原始路径</option>
-                <option value="copy-absolute">复制并使用绝对路径</option>
-                <option value="copy-relative">复制并使用相对路径</option>
+                <option value="keep-original">
+                  保留原始路径
+                </option>
+                <option value="copy-absolute">
+                  复制并使用绝对路径
+                </option>
+                <option value="copy-relative">
+                  复制并使用相对路径
+                </option>
               </select>
             </div>
             <div class="setting-item">
               <label>图片保存目录</label>
-              <input type="text" v-model="prefsStore.imageStoragePath" placeholder="路径" />
+              <input
+                v-model="prefsStore.imageStoragePath"
+                type="text"
+                placeholder="路径"
+              >
             </div>
           </div>
           
           <!-- 语言设置 -->
-          <div v-show="activeSection === 'language'" class="settings-section">
+          <div
+            v-show="activeSection === 'language'"
+            class="settings-section"
+          >
             <h3>语言</h3>
             <div class="setting-item">
               <label>界面语言</label>
               <select v-model="prefsStore.language">
-                <option value="zh-CN">简体中文</option>
-                <option value="en">English</option>
+                <option value="zh-CN">
+                  简体中文
+                </option>
+                <option value="en">
+                  English
+                </option>
               </select>
             </div>
           </div>
           
           <!-- 快捷键设置 -->
-          <div v-show="activeSection === 'keyboard'" class="settings-section">
+          <div
+            v-show="activeSection === 'keyboard'"
+            class="settings-section"
+          >
             <h3>快捷键</h3>
             <div class="setting-item">
-              <button class="open-keyboard-btn" @click="openKeyboardSettings">
+              <button
+                class="open-keyboard-btn"
+                @click="openKeyboardSettings"
+              >
                 打开快捷键设置
               </button>
             </div>
           </div>
           
           <!-- 开发设置 -->
-          <div v-show="activeSection === 'developer'" class="settings-section">
+          <div
+            v-show="activeSection === 'developer'"
+            class="settings-section"
+          >
             <h3>开发工具</h3>
             <div class="setting-item">
               <label>
-                <input type="checkbox" v-model="prefsStore.devToolsOnStartup" />
+                <input
+                  v-model="prefsStore.devToolsOnStartup"
+                  type="checkbox"
+                >
                 启动时打开开发者工具
               </label>
             </div>
@@ -175,7 +272,7 @@ interface SettingsSection {
   icon: string
 }
 
-const props = defineProps<{
+defineProps<{
   visible: boolean
 }>()
 

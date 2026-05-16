@@ -13,21 +13,41 @@
       </button>
     </div>
     <div class="sidebar-content">
-      <div v-show="activeSidebarTab === 'files'" class="sidebar-panel">
+      <div
+        v-show="activeSidebarTab === 'files'"
+        class="sidebar-panel"
+      >
         <div class="panel-header">
           <span>文件资源管理器</span>
-          <button class="panel-action" @click="openFolder">打开文件夹</button>
+          <button
+            class="panel-action"
+            @click="openFolder"
+          >
+            打开文件夹
+          </button>
         </div>
         <div class="file-tree">
-          <div v-if="!currentFolder" class="empty-state">
+          <div
+            v-if="!currentFolder"
+            class="empty-state"
+          >
             点击"打开文件夹"开始
           </div>
-          <div v-else class="tree-node">
-            <div class="folder-header" @click="toggleFolder">
+          <div
+            v-else
+            class="tree-node"
+          >
+            <div
+              class="folder-header"
+              @click="toggleFolder"
+            >
               <span class="folder-icon">{{ isFolderExpanded ? '▼' : '▶' }}</span>
               <span class="folder-name">{{ currentFolderName }}</span>
             </div>
-            <div v-show="isFolderExpanded" class="folder-content">
+            <div
+              v-show="isFolderExpanded"
+              class="folder-content"
+            >
               <div
                 v-for="file in files"
                 :key="file.path"
@@ -41,7 +61,10 @@
           </div>
         </div>
       </div>
-      <div v-show="activeSidebarTab === 'search'" class="sidebar-panel">
+      <div
+        v-show="activeSidebarTab === 'search'"
+        class="sidebar-panel"
+      >
         <div class="search-input-wrapper">
           <input
             v-model="searchQuery"
@@ -49,7 +72,7 @@
             class="search-input"
             placeholder="搜索文件..."
             @input="handleSearch"
-          />
+          >
         </div>
         <div class="search-results">
           <div
@@ -58,12 +81,19 @@
             class="search-result-item"
             @click="openFile(result.path)"
           >
-            <div class="result-path">{{ result.path }}</div>
-            <div class="result-preview">{{ result.preview }}</div>
+            <div class="result-path">
+              {{ result.path }}
+            </div>
+            <div class="result-preview">
+              {{ result.preview }}
+            </div>
           </div>
         </div>
       </div>
-      <div v-show="activeSidebarTab === 'outline'" class="sidebar-panel">
+      <div
+        v-show="activeSidebarTab === 'outline'"
+        class="sidebar-panel"
+      >
         <div class="panel-header">
           <span>文档大纲</span>
         </div>

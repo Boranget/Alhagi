@@ -3,36 +3,71 @@
     <div class="recent-files-header">
       <span>最近文件</span>
       <div class="recent-files-actions">
-        <button class="action-btn" title="清除历史记录" @click="clearHistory">
+        <button
+          class="action-btn"
+          title="清除历史记录"
+          @click="clearHistory"
+        >
           🗑️
         </button>
       </div>
     </div>
     
     <div class="recent-files-list">
-      <div v-if="pinnedFiles.length > 0" class="recent-files-section">
-        <div class="section-header">已固定</div>
-        <div v-for="file in pinnedFiles" :key="file.filePath" class="recent-file-item" @click="openFile(file)">
+      <div
+        v-if="pinnedFiles.length > 0"
+        class="recent-files-section"
+      >
+        <div class="section-header">
+          已固定
+        </div>
+        <div
+          v-for="file in pinnedFiles"
+          :key="file.filePath"
+          class="recent-file-item"
+          @click="openFile(file)"
+        >
           <span class="file-icon">📄</span>
           <span class="file-name">{{ file.title }}</span>
-          <button class="pin-btn" @click.stop="togglePin(file)" title="取消固定">
+          <button
+            class="pin-btn"
+            title="取消固定"
+            @click.stop="togglePin(file)"
+          >
             📌
           </button>
         </div>
       </div>
       
-      <div v-if="unpinnedFiles.length > 0" class="recent-files-section">
-        <div class="section-header">最近</div>
-        <div v-for="file in unpinnedFiles" :key="file.filePath" class="recent-file-item" @click="openFile(file)">
+      <div
+        v-if="unpinnedFiles.length > 0"
+        class="recent-files-section"
+      >
+        <div class="section-header">
+          最近
+        </div>
+        <div
+          v-for="file in unpinnedFiles"
+          :key="file.filePath"
+          class="recent-file-item"
+          @click="openFile(file)"
+        >
           <span class="file-icon">📄</span>
           <span class="file-name">{{ file.title }}</span>
-          <button class="pin-btn" @click.stop="togglePin(file)" title="固定">
+          <button
+            class="pin-btn"
+            title="固定"
+            @click.stop="togglePin(file)"
+          >
             📌
           </button>
         </div>
       </div>
       
-      <div v-if="recentFiles.length === 0" class="empty-state">
+      <div
+        v-if="recentFiles.length === 0"
+        class="empty-state"
+      >
         暂无最近打开的文件
       </div>
     </div>

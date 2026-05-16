@@ -1,5 +1,8 @@
 <template>
-  <div class="app-container" :class="{ 'is-fullscreen': isFullscreen }">
+  <div
+    class="app-container"
+    :class="{ 'is-fullscreen': isFullscreen }"
+  >
     <div class="app-content">
       <TabBar />
       <div class="main-area">
@@ -8,7 +11,10 @@
       </div>
       <StatusBar v-if="prefsStore.showStatusBar" />
     </div>
-    <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+    <SettingsPanel
+      :visible="showSettings"
+      @close="showSettings = false"
+    />
   </div>
 </template>
 
@@ -123,13 +129,14 @@ function handleKeydown(e: KeyboardEvent) {
       case '6':
       case '7':
       case '8':
-      case '9':
+      case '9': {
         e.preventDefault()
         const index = parseInt(e.key) - 1
         if (index >= 0 && index < tabsStore.tabOrder.length) {
           tabsStore.switchTab(tabsStore.tabOrder[index])
         }
         break
+      }
       case 'tab':
         e.preventDefault()
         if (tabsStore.tabOrder.length > 0) {
@@ -259,7 +266,7 @@ function markdownToBasicHtml(markdown: string): string {
     .replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />')
     .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
     .replace(/`(.*?)`/gim, '<code>$1</code>')
-    .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
     .replace(/(.*?)\n\n/gim, '$1<p></p>')
 }
 
@@ -288,7 +295,7 @@ function setupElectronListeners() {
 
   window.electronAPI.onViewMode((mode) => {
     if (tabsStore.activeTabId) {
-      tabsStore.setViewMode(tabsStore.activeTabId, mode as any)
+      tabsStore.setViewMode(tabsStore.activeTabId, mode as 'wysiwyg' | 'source' | 'split')
     }
   })
 }

@@ -1,4 +1,4 @@
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 
 export function useWritingEnhancement() {
@@ -9,13 +9,13 @@ export function useWritingEnhancement() {
   
   function toggleTypewriterMode() {
     typewriterMode.value = !typewriterMode.value
-    prefsStore.setTypewriterMode(typewriterMode.value)
+    prefsStore.typewriterMode = typewriterMode.value
     updateTypewriterMode()
   }
   
   function toggleFocusMode() {
     focusMode.value = !focusMode.value
-    prefsStore.setFocusMode(focusMode.value)
+    prefsStore.focusMode = focusMode.value
     updateFocusMode()
   }
   

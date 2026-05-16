@@ -33,7 +33,7 @@ export class IPCError extends Error {
   }
 }
 
-export interface IPCResponse<T = any> {
+export interface IPCResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
@@ -72,6 +72,6 @@ export function createErrorResponse(
   }
 }
 
-export function isIPCError(error: any): error is IPCError {
+export function isIPCError(error: unknown): error is IPCError {
   return error instanceof IPCError
 }

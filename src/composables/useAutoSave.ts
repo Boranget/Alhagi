@@ -12,7 +12,7 @@ export function useAutoSave() {
   const autoSaveError = ref<string | null>(null)
 
   let debouncedSave: (() => void) | null = null
-  let unsubscribers: (() => void)[] = []
+  const unsubscribers: (() => void)[] = []
 
   function setupAutoSave() {
     if (!prefsStore.autoSave) return

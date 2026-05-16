@@ -13,7 +13,7 @@
           {{ mode.icon }}
         </button>
       </div>
-      <div class="toolbar-divider"></div>
+      <div class="toolbar-divider" />
       <div class="toolbar-group">
         <button
           class="toolbar-btn"
@@ -33,7 +33,10 @@
         </button>
       </div>
     </div>
-    <div class="editor-content" :class="contentClasses">
+    <div
+      class="editor-content"
+      :class="contentClasses"
+    >
       <div
         v-show="currentMode === 'wysiwyg'"
         ref="wysiwygRef"
@@ -48,7 +51,10 @@
         @keydown="handleSourceKeydown"
         @scroll="handleSourceScroll"
       />
-      <div v-show="currentMode === 'split'" class="split-view">
+      <div
+        v-show="currentMode === 'split'"
+        class="split-view"
+      >
         <textarea
           ref="splitSourceRef"
           v-model="sourceContent"
@@ -57,7 +63,11 @@
           @keydown="handleSourceKeydown"
           @scroll="handleSourceScroll"
         />
-        <div ref="splitPreviewRef" class="split-preview" @scroll="handlePreviewScroll" />
+        <div
+          ref="splitPreviewRef"
+          class="split-preview"
+          @scroll="handlePreviewScroll"
+        />
       </div>
     </div>
   </div>
@@ -82,9 +92,9 @@ const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitPreviewRef = ref<HTMLElement | null>(null)
 
 const sourceContent = ref('')
-let unsubscribes: (() => void)[] = []
+const unsubscribes: (() => void)[] = []
 
-const { containerRef, isReady, currentMode, init, setViewMode, destroy, getManager } = useEditorManager()
+const { containerRef, currentMode, init, setViewMode, destroy, getManager } = useEditorManager()
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
@@ -102,9 +112,10 @@ const contentClasses = computed(() => ({
 }))
 
 // 监听标签页内容变化，同步到源码编辑器
-const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload: any) => {
-  if (payload && payload.tabId === activeTab.value?.id) {
-    sourceContent.value = payload.content
+const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+  const data = payload as { tabId: string; content: string }
+  if (data && data.tabId === activeTab.value?.id) {
+    sourceContent.value = data.content
     updatePreview()
   }
 })
@@ -151,7 +162,7 @@ const handleSourceInput = debounce(() => {
 function updatePreview() {
   if ((currentMode.value === 'split') && splitPreviewRef.value) {
     // 简单的Markdown预览（实际项目中可使用marked或其他库）
-    let html = sourceContent.value
+    const html = sourceContent.value
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')

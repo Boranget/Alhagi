@@ -29,17 +29,16 @@ export function useImageInsert() {
     
     try {
       let imagePath: string
-      let markdown: string
       
       if (lastInsertMode.value === 'keep-original') {
         imagePath = file.name
       } else if (lastInsertMode.value === 'copy-absolute') {
         imagePath = await copyImageToDirectory(file, '')
       } else {
-        imagePath = await copyImageRelative(file, activeTab.filePath || '')
+        imagePath = await copyImageRelative(file)
       }
       
-      markdown = `![${file.name}](${imagePath})`
+      const markdown = `![${file.name}](${imagePath})`
       
       insertMarkdownAtCursor(markdown)
       
@@ -63,7 +62,7 @@ export function useImageInsert() {
     return `${targetDir}/${newName}`
   }
   
-  async function copyImageRelative(file: File, mdFilePath: string): Promise<string> {
+  async function copyImageRelative(file: File): Promise<string> {
     const newName = generateImageName(file)
     return `./assets/${newName}`
   }

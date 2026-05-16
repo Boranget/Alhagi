@@ -24,11 +24,13 @@ export class EditorInstanceManager {
 
   // ============ 私有辅助方法 - 消除代码重复 ============
   private createEditorConfig(container: HTMLElement, content: string) {
-    return (ctx: any) => {
-      ctx.set(rootCtx, container)
-      ctx.set(defaultValueCtx, content)
+    return (ctx: unknown) => {
+      const context = ctx as { set: (key: unknown, value: unknown) => void; get: (key: unknown) => unknown }
+      context.set(rootCtx, container)
+      context.set(defaultValueCtx, content)
 
-      ctx.get(listenerCtx).markdownUpdated((_ctx: any, markdown: string, prevMarkdown: string) => {
+      const listenerPlugin = context.get(listenerCtx) as { markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void }
+      listenerPlugin.markdownUpdated((_ctx: unknown, markdown: string, prevMarkdown: string) => {
         if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
           this.content = markdown
           this.tabsStore.updateTab(this.currentTabId, {

@@ -1,194 +1,104 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { RecentFile } from '@/types'
+import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
+import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 
-export const usePreferencesStore = defineStore('preferences', () => {
+/**
+ * Preferences Store
+ * 管理应用程序的所有用户偏好设置
+ * 使用统一的状态管理和持久化机制
+ */
+
+export interface Preferences {
   // 启动设置
-  const launchMode = ref<'restore' | 'welcome' | 'blank'>('restore')
+  launchMode: 'restore' | 'welcome' | 'blank'
   
   // 保存设置
-  const autoSave = ref(true)
-  const autoSaveInterval = ref(30) // 秒
+  autoSave: boolean
+  autoSaveInterval: number
   
   // 外观设置
-  const theme = ref<'light' | 'dark' | 'system'>('light')
-  const showSidebar = ref(true)
-  const showStatusBar = ref(true)
-  const hideScrollBars = ref(false)
+  theme: 'light' | 'dark' | 'system'
+  showSidebar: boolean
+  showStatusBar: boolean
+  hideScrollBars: boolean
   
   // 编辑器设置
-  const typewriterMode = ref(false)
-  const focusMode = ref(false)
-  const fontSize = ref(14)
-  const wordWrap = ref(true)
+  typewriterMode: boolean
+  focusMode: boolean
+  fontSize: number
+  wordWrap: boolean
   
   // 图片设置
-  const imageInsertMode = ref<'keep-original' | 'copy-absolute' | 'copy-relative'>('keep-original')
-  const imageStoragePath = ref('')
+  imageInsertMode: 'keep-original' | 'copy-absolute' | 'copy-relative'
+  imageStoragePath: string
   
   // 语言设置
-  const language = ref<'zh-CN' | 'en'>('zh-CN')
+  language: 'zh-CN' | 'en'
   
   // 开发设置
-  const devToolsOnStartup = ref(false)
+  devToolsOnStartup: boolean
   
   // 最近文件
-  const recentFiles = ref<RecentFile[]>([])
-  const maxRecentFiles = ref(20)
+  recentFiles: RecentFile[]
+  maxRecentFiles: number
+}
 
-  // 启动行为
-  function setLaunchMode(mode: 'restore' | 'welcome' | 'blank') {
-    launchMode.value = mode
-    savePreferences()
-  }
+/**
+ * 默认偏好设置
+ */
+const DEFAULT_PREFERENCES: Preferences = {
+  launchMode: LAUNCH.MODES.RESTORE,
+  autoSave: true,
+  autoSaveInterval: AUTO_SAVE.DEFAULT_INTERVAL,
+  theme: UI.THEMES.LIGHT,
+  showSidebar: true,
+  showStatusBar: true,
+  hideScrollBars: false,
+  typewriterMode: false,
+  focusMode: false,
+  fontSize: EDITOR.DEFAULT_FONT_SIZE,
+  wordWrap: true,
+  imageInsertMode: IMAGE.INSERT_MODES.KEEP_ORIGINAL,
+  imageStoragePath: '',
+  language: I18N.DEFAULT_LANGUAGE,
+  devToolsOnStartup: false,
+  recentFiles: [],
+  maxRecentFiles: 20
+}
 
-  // 保存设置
-  function setAutoSave(enabled: boolean) {
-    autoSave.value = enabled
-    savePreferences()
-  }
+const STORAGE_KEY = 'alhagi-preferences'
 
-  function setAutoSaveInterval(interval: number) {
-    autoSaveInterval.value = interval
-    savePreferences()
-  }
+/**
+ * Preferences Store
+ * 提供类型安全的偏好设置管理
+ */
+export const usePreferencesStore = defineStore('preferences', () => {
+  // 状态
+  const launchMode = ref<Preferences['launchMode']>(DEFAULT_PREFERENCES.launchMode)
+  const autoSave = ref<boolean>(DEFAULT_PREFERENCES.autoSave)
+  const autoSaveInterval = ref<number>(DEFAULT_PREFERENCES.autoSaveInterval)
+  const theme = ref<Preferences['theme']>(DEFAULT_PREFERENCES.theme)
+  const showSidebar = ref<boolean>(DEFAULT_PREFERENCES.showSidebar)
+  const showStatusBar = ref<boolean>(DEFAULT_PREFERENCES.showStatusBar)
+  const hideScrollBars = ref<boolean>(DEFAULT_PREFERENCES.hideScrollBars)
+  const typewriterMode = ref<boolean>(DEFAULT_PREFERENCES.typewriterMode)
+  const focusMode = ref<boolean>(DEFAULT_PREFERENCES.focusMode)
+  const fontSize = ref<number>(DEFAULT_PREFERENCES.fontSize)
+  const wordWrap = ref<boolean>(DEFAULT_PREFERENCES.wordWrap)
+  const imageInsertMode = ref<Preferences['imageInsertMode']>(DEFAULT_PREFERENCES.imageInsertMode)
+  const imageStoragePath = ref<string>(DEFAULT_PREFERENCES.imageStoragePath)
+  const language = ref<Preferences['language']>(DEFAULT_PREFERENCES.language)
+  const devToolsOnStartup = ref<boolean>(DEFAULT_PREFERENCES.devToolsOnStartup)
+  const recentFiles = ref<RecentFile[]>(DEFAULT_PREFERENCES.recentFiles)
+  const maxRecentFiles = ref<number>(DEFAULT_PREFERENCES.maxRecentFiles)
 
-  // 外观设置
-  function setTheme(newTheme: 'light' | 'dark' | 'system') {
-    theme.value = newTheme
-    applyTheme()
-    savePreferences()
-  }
-
-  function toggleTheme() {
-    setTheme(theme.value === 'light' ? 'dark' : theme.value === 'dark' ? 'system' : 'light')
-  }
-
-  function setShowSidebar(show: boolean) {
-    showSidebar.value = show
-    savePreferences()
-  }
-
-  function setShowStatusBar(show: boolean) {
-    showStatusBar.value = show
-    savePreferences()
-  }
-
-  function setHideScrollBars(hide: boolean) {
-    hideScrollBars.value = hide
-    savePreferences()
-  }
-
-  // 编辑器设置
-  function setTypewriterMode(enabled: boolean) {
-    typewriterMode.value = enabled
-    savePreferences()
-  }
-
-  function setFocusMode(enabled: boolean) {
-    focusMode.value = enabled
-    savePreferences()
-  }
-
-  function setFontSize(size: number) {
-    fontSize.value = size
-    savePreferences()
-  }
-
-  function setWordWrap(wrap: boolean) {
-    wordWrap.value = wrap
-    savePreferences()
-  }
-
-  // 图片设置
-  function setImageInsertMode(mode: 'keep-original' | 'copy-absolute' | 'copy-relative') {
-    imageInsertMode.value = mode
-    savePreferences()
-  }
-
-  function setImageStoragePath(path: string) {
-    imageStoragePath.value = path
-    savePreferences()
-  }
-
-  // 语言设置
-  function setLanguage(lang: 'zh-CN' | 'en') {
-    language.value = lang
-    savePreferences()
-  }
-
-  // 开发设置
-  function setDevToolsOnStartup(enabled: boolean) {
-    devToolsOnStartup.value = enabled
-    savePreferences()
-  }
-
-  // 最近文件
-  function addRecentFile(filePath: string, title: string) {
-    const existingIndex = recentFiles.value.findIndex(f => f.filePath === filePath)
-    
-    if (existingIndex !== -1) {
-      recentFiles.value[existingIndex].lastOpened = Date.now()
-      const [existing] = recentFiles.value.splice(existingIndex, 1)
-      recentFiles.value.unshift(existing)
-    } else {
-      recentFiles.value.unshift({
-        filePath,
-        title,
-        lastOpened: Date.now(),
-        pinned: false
-      })
-      
-      if (recentFiles.value.length > maxRecentFiles.value) {
-        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
-        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
-        while (pinnedFiles.length + unpinnedFiles.length > maxRecentFiles.value && unpinnedFiles.length > 0) {
-          unpinnedFiles.pop()
-        }
-        recentFiles.value = [...pinnedFiles, ...unpinnedFiles]
-      }
-    }
-    
-    savePreferences()
-  }
-
-  function removeRecentFile(filePath: string) {
-    const index = recentFiles.value.findIndex(f => f.filePath === filePath)
-    if (index !== -1) {
-      recentFiles.value.splice(index, 1)
-      savePreferences()
-    }
-  }
-
-  function pinRecentFile(filePath: string, pinned: boolean) {
-    const file = recentFiles.value.find(f => f.filePath === filePath)
-    if (file) {
-      file.pinned = pinned
-      if (pinned) {
-        const index = recentFiles.value.indexOf(file)
-        recentFiles.value.splice(index, 1)
-        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
-        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
-        recentFiles.value = [file, ...pinnedFiles, ...unpinnedFiles]
-      }
-      savePreferences()
-    }
-  }
-
-  function clearRecentFiles() {
-    recentFiles.value = recentFiles.value.filter(f => f.pinned)
-    savePreferences()
-  }
-
-  function applyTheme() {
-    const effectiveTheme = theme.value === 'system' 
-      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : theme.value
-    document.documentElement.setAttribute('data-theme', effectiveTheme)
-  }
-
-  function savePreferences() {
-    localStorage.setItem('alhagi-preferences', JSON.stringify({
+  /**
+   * 获取当前所有偏好设置
+   */
+  function getAllPreferences(): Preferences {
+    return {
       launchMode: launchMode.value,
       autoSave: autoSave.value,
       autoSaveInterval: autoSaveInterval.value,
@@ -206,39 +116,204 @@ export const usePreferencesStore = defineStore('preferences', () => {
       devToolsOnStartup: devToolsOnStartup.value,
       recentFiles: recentFiles.value,
       maxRecentFiles: maxRecentFiles.value
-    }))
-  }
-
-  function loadPreferences() {
-    const saved = localStorage.getItem('alhagi-preferences')
-    if (saved) {
-      try {
-        const prefs = JSON.parse(saved)
-        launchMode.value = prefs.launchMode ?? 'restore'
-        autoSave.value = prefs.autoSave ?? true
-        autoSaveInterval.value = prefs.autoSaveInterval ?? 30
-        theme.value = prefs.theme ?? 'light'
-        showSidebar.value = prefs.showSidebar ?? true
-        showStatusBar.value = prefs.showStatusBar ?? true
-        hideScrollBars.value = prefs.hideScrollBars ?? false
-        typewriterMode.value = prefs.typewriterMode ?? false
-        focusMode.value = prefs.focusMode ?? false
-        fontSize.value = prefs.fontSize ?? 14
-        wordWrap.value = prefs.wordWrap ?? true
-        imageInsertMode.value = prefs.imageInsertMode ?? 'keep-original'
-        imageStoragePath.value = prefs.imageStoragePath ?? ''
-        language.value = prefs.language ?? 'zh-CN'
-        devToolsOnStartup.value = prefs.devToolsOnStartup ?? false
-        recentFiles.value = prefs.recentFiles ?? []
-        maxRecentFiles.value = prefs.maxRecentFiles ?? 20
-        applyTheme()
-      } catch (e) {
-        console.error('Failed to load preferences:', e)
-      }
     }
   }
 
+  /**
+   * 设置单个偏好项
+   */
+  function setPreference<K extends keyof Preferences>(
+    key: K,
+    value: Preferences[K]
+  ): void {
+    if (key in preferencesStore) {
+      (preferencesStore as Record<string, unknown>)[key] = value
+      savePreferences()
+    }
+  }
+
+  /**
+   * 批量更新偏好设置
+   */
+  function updatePreferences(updates: Partial<Preferences>): void {
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key in preferencesStore) {
+        (preferencesStore as Record<string, unknown>)[key] = value
+      }
+    })
+    savePreferences()
+  }
+
+  /**
+   * 重置为默认设置
+   */
+  function resetToDefaults(): void {
+    updatePreferences(DEFAULT_PREFERENCES)
+  }
+
+  /**
+   * 应用主题
+   */
+  function applyTheme(): void {
+    const effectiveTheme = theme.value === UI.THEMES.SYSTEM 
+      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches 
+          ? UI.THEMES.DARK 
+          : UI.THEMES.LIGHT)
+      : theme.value
+    
+    document.documentElement.setAttribute('data-theme', effectiveTheme)
+  }
+
+  /**
+   * 切换主题
+   */
+  function toggleTheme(): void {
+    const themes: Array<Preferences['theme']> = [
+      UI.THEMES.LIGHT,
+      UI.THEMES.DARK,
+      UI.THEMES.SYSTEM
+    ]
+    const currentIndex = themes.indexOf(theme.value)
+    const nextIndex = (currentIndex + 1) % themes.length
+    theme.value = themes[nextIndex]
+    applyTheme()
+    savePreferences()
+  }
+
+  /**
+   * 添加最近文件
+   */
+  function addRecentFile(filePath: string, title: string): void {
+    const existingIndex = recentFiles.value.findIndex(f => f.filePath === filePath)
+    
+    if (existingIndex !== -1) {
+      recentFiles.value[existingIndex].lastOpened = Date.now()
+      const [existing] = recentFiles.value.splice(existingIndex, 1)
+      recentFiles.value.unshift(existing)
+    } else {
+      recentFiles.value.unshift({
+        filePath,
+        title,
+        lastOpened: Date.now(),
+        pinned: false
+      })
+      
+      // 限制最大数量
+      if (recentFiles.value.length > maxRecentFiles.value) {
+        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
+        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
+        while (pinnedFiles.length + unpinnedFiles.length > maxRecentFiles.value && unpinnedFiles.length > 0) {
+          unpinnedFiles.pop()
+        }
+        recentFiles.value = [...pinnedFiles, ...unpinnedFiles]
+      }
+    }
+    
+    savePreferences()
+  }
+
+  /**
+   * 移除最近文件
+   */
+  function removeRecentFile(filePath: string): void {
+    const index = recentFiles.value.findIndex(f => f.filePath === filePath)
+    if (index !== -1) {
+      recentFiles.value.splice(index, 1)
+      savePreferences()
+    }
+  }
+
+  /**
+   * 固定/取消固定最近文件
+   */
+  function pinRecentFile(filePath: string, pinned: boolean): void {
+    const file = recentFiles.value.find(f => f.filePath === filePath)
+    if (file) {
+      file.pinned = pinned
+      if (pinned) {
+        // 将固定的移到前面
+        const index = recentFiles.value.indexOf(file)
+        recentFiles.value.splice(index, 1)
+        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
+        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
+        recentFiles.value = [file, ...pinnedFiles, ...unpinnedFiles]
+      }
+      savePreferences()
+    }
+  }
+
+  /**
+   * 清空未固定的最近文件
+   */
+  function clearRecentFiles(): void {
+    recentFiles.value = recentFiles.value.filter(f => f.pinned)
+    savePreferences()
+  }
+
+  /**
+   * 保存偏好设置到 localStorage
+   */
+  function savePreferences(): void {
+    try {
+      const preferences = getAllPreferences()
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+    } catch (error) {
+      errorManager.createError(
+        ErrorCode.FILE_WRITE_ERROR,
+        '保存偏好设置失败',
+        ErrorSeverity.ERROR,
+        { context: 'preferences.savePreferences' }
+      )
+    }
+  }
+
+  /**
+   * 从 localStorage 加载偏好设置
+   */
+  function loadPreferences(): void {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const preferences = JSON.parse(saved) as Partial<Preferences>
+        updatePreferences(preferences)
+        applyTheme()
+      } else {
+        applyTheme()
+      }
+    } catch (error) {
+      errorManager.createError(
+        ErrorCode.FILE_READ_ERROR,
+        '加载偏好设置失败，使用默认设置',
+        ErrorSeverity.WARNING,
+        { context: 'preferences.loadPreferences', error }
+      )
+      applyTheme()
+    }
+  }
+
+  // 导出 store 引用供内部使用
+  const preferencesStore = {
+    launchMode,
+    autoSave,
+    autoSaveInterval,
+    theme,
+    showSidebar,
+    showStatusBar,
+    hideScrollBars,
+    typewriterMode,
+    focusMode,
+    fontSize,
+    wordWrap,
+    imageInsertMode,
+    imageStoragePath,
+    language,
+    devToolsOnStartup,
+    recentFiles,
+    maxRecentFiles
+  }
+
   return {
+    // Getters
     launchMode,
     autoSave,
     autoSaveInterval,
@@ -256,22 +331,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     devToolsOnStartup,
     recentFiles,
     maxRecentFiles,
-    setLaunchMode,
-    setAutoSave,
-    setAutoSaveInterval,
-    setTheme,
+    
+    // Methods
+    getAllPreferences,
+    setPreference,
+    updatePreferences,
+    resetToDefaults,
+    applyTheme,
     toggleTheme,
-    setShowSidebar,
-    setShowStatusBar,
-    setHideScrollBars,
-    setTypewriterMode,
-    setFocusMode,
-    setFontSize,
-    setWordWrap,
-    setImageInsertMode,
-    setImageStoragePath,
-    setLanguage,
-    setDevToolsOnStartup,
     addRecentFile,
     removeRecentFile,
     pinRecentFile,

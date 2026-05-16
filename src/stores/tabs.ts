@@ -5,7 +5,12 @@ import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
-export function validateTabState(tabState: any): tabState is TabState {
+export function validateTabState(tabState: unknown): tabState is TabState {
+  if (!tabState || typeof tabState !== 'object') {
+    return false
+  }
+  
+  const obj = tabState as Record<string, unknown>
   const requiredFields = [
     'id', 'filePath', 'content', 'isDirty', 'title', 'active',
     'cursor', 'scrollTop', 'viewMode', 'undoStack', 'redoStack',
@@ -13,35 +18,35 @@ export function validateTabState(tabState: any): tabState is TabState {
   ]
 
   for (const field of requiredFields) {
-    if (!(field in tabState)) {
+    if (!(field in obj)) {
       console.error(`Missing required field: ${field}`)
       return false
     }
   }
 
-  if (typeof tabState.id !== 'string' || !tabState.id) {
+  if (typeof obj.id !== 'string' || !obj.id) {
     console.error('Invalid id field')
     return false
   }
 
-  if (typeof tabState.content !== 'string') {
+  if (typeof obj.content !== 'string') {
     console.error('Invalid content field')
     return false
   }
 
-  if (typeof tabState.cursor !== 'object' || 
-      typeof tabState.cursor.from !== 'number' || 
-      typeof tabState.cursor.to !== 'number') {
+  if (typeof obj.cursor !== 'object' || 
+      typeof (obj.cursor as Record<string, unknown>)?.from !== 'number' || 
+      typeof (obj.cursor as Record<string, unknown>)?.to !== 'number') {
     console.error('Invalid cursor field')
     return false
   }
 
-  if (!['wysiwyg', 'source', 'split'].includes(tabState.viewMode)) {
+  if (!['wysiwyg', 'source', 'split'].includes(obj.viewMode as string)) {
     console.error('Invalid viewMode field')
     return false
   }
 
-  if (!Array.isArray(tabState.undoStack) || !Array.isArray(tabState.redoStack)) {
+  if (!Array.isArray(obj.undoStack) || !Array.isArray(obj.redoStack)) {
     console.error('Invalid history stacks')
     return false
   }
@@ -190,10 +195,6 @@ export const useTabsStore = defineStore('tabs', () => {
   function updateTab(tabId: string, updates: Partial<TabState>): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
-      // 只有当我们不是从编辑器更新内容时才检查内容变化（避免重复事件）
-      const isContentUpdateFromEditor = false // 编辑器会自己发出 CONTENT_CHANGED
-      const contentChanged = !isContentUpdateFromEditor && updates.content !== undefined && updates.content !== tab.content
-      
       Object.assign(tab, updates)
       if (updates.isDirty !== undefined) {
         tab.isDirty = updates.isDirty
