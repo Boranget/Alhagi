@@ -1,20 +1,14 @@
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { 
   DEFAULT_KEYBINDINGS, 
   type Keybinding,
   matchKeyEvent 
 } from '@/services/keybindingService'
 import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
 
 export function useKeybindings() {
   const tabsStore = useTabsStore()
-  const prefsStore = usePreferencesStore()
   const keybindings = ref<Keybinding[]>([...DEFAULT_KEYBINDINGS])
-  
-  const emit = defineEmits<{
-    (e: 'action', action: string): void
-  }>()
   
   const actionHandlers: Record<string, () => void> = {
     'file.new': () => {
@@ -81,7 +75,6 @@ export function useKeybindings() {
         const handler = actionHandlers[binding.action]
         if (handler) {
           handler()
-          emit('action', binding.action)
         }
         
         break
