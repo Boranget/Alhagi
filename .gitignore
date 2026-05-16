@@ -1,9 +1,128 @@
-node_modules
-dist
-dist-electron
-release
-*.log
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-electron/
+release/
+build/
+out/
+
+# Testing
+coverage/
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+*.sublime-project
+*.sublime-workspace
+.settings/
+.eclipse/
+.project
+.classpath
+
+# Editor directories and files
 .DS_Store
-.idea
-.vscode
-*.local
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+server.log
+main.log
+renderer.log
+preload.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Electron
+node_modules/electron/dist/*
+!node_modules/electron/dist/LICENSE
+!node_modules/electron/dist/version
+
+# macOS
+__pycache__/
+*.pyc
+*.pyo
+
+# Windows
+ehthumbs.db
+Thumbs.db
+*.lnk
+
+# Package managers
+.npm
+.yarn-integrity
+.yarn
+.pnpm-debug.log*
+
+# OS files
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+*.bak
+*.old
+*.orig
+*.tmp
