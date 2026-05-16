@@ -45,14 +45,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core'
-import { listener, listenerCtx } from '@milkdown/plugin-listener'
-import { commonmark } from '@milkdown/preset-commonmark'
-import { gfm } from '@milkdown/preset-gfm'
-import { history } from '@milkdown/plugin-history'
-import { clipboard } from '@milkdown/plugin-clipboard'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { useEditorManager } from '@/managers/editorManager'
 import { debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 
@@ -64,9 +59,8 @@ const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitPreviewRef = ref<HTMLElement | null>(null)
 
 const sourceContent = ref('')
-const currentMode = ref<ViewMode>('wysiwyg')
 
-let editorInstance: Editor | null = null
+const { containerRef, isReady, currentMode, init, setViewMode, destroy } = useEditorManager()
 
 const viewModes = [
   { value: 'wysiwyg' as ViewMode, label: 'WYSIWYG 模式', icon: '◉' },
@@ -76,32 +70,12 @@ const viewModes = [
 
 const activeTab = computed(() => tabsStore.activeTab)
 
-watch(activeTab, async (tab) => {
+// 同步 sourceContent 与 tab.content
+watch(activeTab, (tab) => {
   if (tab) {
     sourceContent.value = tab.content
-    currentMode.value = tab.viewMode
-    
-    await nextTick()
-    
-    if (editorInstance && tab.content) {
-      try {
-        const root = editorInstance.action((ctx) => ctx.get(rootCtx))
-        if (root && root instanceof HTMLElement) {
-          root.innerHTML = ''
-        }
-        await initEditor()
-      } catch (e) {
-        console.error('Failed to reset editor:', e)
-      }
-    }
   }
 }, { immediate: true })
-
-watch(currentMode, (mode) => {
-  if (activeTab.value) {
-    tabsStore.setViewMode(activeTab.value.id, mode)
-  }
-})
 
 const handleSourceInput = debounce(() => {
   if (activeTab.value) {
@@ -140,97 +114,16 @@ function handleSourceScroll(e: Event) {
   }
 }
 
-async function initEditor() {
-  if (!wysiwygRef.value) return
-
-  if (editorInstance) {
-    await editorInstance.destroy()
-  }
-
-  const content = activeTab.value?.content || ''
-
-  editorInstance = await Editor.make()
-    .config((ctx) => {
-      ctx.set(rootCtx, wysiwygRef.value!)
-      ctx.set(defaultValueCtx, content)
-      ctx.get(listenerCtx).markdownUpdated((ctx, markdown, prevMarkdown) => {
-        if (activeTab.value && markdown !== prevMarkdown) {
-          tabsStore.updateTab(activeTab.value.id, {
-            content: markdown,
-            isDirty: true
-          })
-          sourceContent.value = markdown
-        }
-      })
-    })
-    .use(commonmark)
-    .use(gfm)
-    .use(history)
-    .use(clipboard)
-    .use(listener)
-    .create()
-
-  if (editorInstance) {
-    window.editorInstance = {
-      id: activeTab.value?.id || '',
-      content: '',
-      mode: currentMode.value,
-      getContent: () => {
-        if (!editorInstance) return ''
-        try {
-          const root = editorInstance.action((ctx) => ctx.get(rootCtx))
-          return root instanceof HTMLElement ? root.innerText || root.textContent || '' : ''
-        } catch {
-          return ''
-        }
-      },
-      setContent: (content: string) => {
-        if (!editorInstance) return
-        try {
-          const root = editorInstance.action((ctx) => ctx.get(rootCtx))
-          if (root instanceof HTMLElement) {
-            root.innerText = content
-          }
-        } catch (e) {
-          console.error('Failed to set content:', e)
-        }
-      },
-      getCursor: () => ({ from: 0, to: 0 }),
-      setCursor: () => {},
-      getScrollTop: () => {
-        return wysiwygRef.value?.scrollTop || 0
-      },
-      setScrollTop: (position: number) => {
-        if (wysiwygRef.value) {
-          wysiwygRef.value.scrollTop = position
-        }
-      },
-      focus: () => {
-        wysiwygRef.value?.focus()
-      },
-      destroy: async () => {
-        if (editorInstance) {
-          await editorInstance.destroy()
-          editorInstance = null
-        }
-      }
-    }
-  }
-}
-
-function setViewMode(mode: ViewMode) {
-  currentMode.value = mode
-}
-
 onMounted(async () => {
-  await initEditor()
+  // 设置容器引用
+  if (wysiwygRef.value) {
+    containerRef.value = wysiwygRef.value
+    await init()
+  }
 })
 
 onUnmounted(async () => {
-  if (editorInstance) {
-    await editorInstance.destroy()
-    editorInstance = null
-  }
+  await destroy()
 })
 </script>
 

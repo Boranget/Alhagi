@@ -46,6 +46,7 @@ export const useTabsStore = defineStore('tabs', () => {
     tabs.value.set(id, tab)
     tabOrder.value.push(id)
     
+    // 如果是第一个标签，自动激活
     if (!activeTabId.value) {
       activeTabId.value = id
       tab.active = true
@@ -54,7 +55,7 @@ export const useTabsStore = defineStore('tabs', () => {
     return tab
   }
 
-  function removeTab(tabId: string) {
+  function removeTab(tabId: string): boolean {
     if (tabOrder.value.length === 1 && activeTabId.value === tabId) {
       return false
     }
@@ -62,15 +63,11 @@ export const useTabsStore = defineStore('tabs', () => {
     tabs.value.delete(tabId)
     tabOrder.value = tabOrder.value.filter(id => id !== tabId)
     
+    // 如果删除的是激活标签，切换到相邻标签
     if (activeTabId.value === tabId) {
       if (tabOrder.value.length > 0) {
-        const index = tabOrder.value.indexOf(tabId)
-        const nextIndex = Math.min(index, tabOrder.value.length - 1)
-        activeTabId.value = tabOrder.value[nextIndex]
-        const nextTab = tabs.value.get(activeTabId.value)
-        if (nextTab) {
-          nextTab.active = true
-        }
+        const index = Math.max(0, tabOrder.value.length - 1)
+        switchTab(tabOrder.value[index])
       } else {
         activeTabId.value = null
       }
@@ -79,24 +76,20 @@ export const useTabsStore = defineStore('tabs', () => {
     return true
   }
 
-  function switchTab(tabId: string) {
+  function switchTab(tabId: string): void {
     if (!tabs.value.has(tabId) || tabId === activeTabId.value) {
       return
     }
     
-    const currentTab = activeTab.value
-    if (currentTab) {
-      currentTab.active = false
-    }
+    // 更新激活标记
+    tabs.value.forEach((tab) => {
+      tab.active = tab.id === tabId
+    })
     
     activeTabId.value = tabId
-    const tab = tabs.value.get(tabId)
-    if (tab) {
-      tab.active = true
-    }
   }
 
-  function updateTab(tabId: string, updates: Partial<TabState>) {
+  function updateTab(tabId: string, updates: Partial<TabState>): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
       Object.assign(tab, updates)
@@ -106,7 +99,7 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
-  function markDirty(tabId: string) {
+  function markDirty(tabId: string): void {
     const tab = tabs.value.get(tabId)
     if (tab && !tab.isDirty) {
       tab.isDirty = true
@@ -114,7 +107,7 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
-  function markClean(tabId: string) {
+  function markClean(tabId: string): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
       tab.isDirty = false
@@ -122,14 +115,14 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
-  function setViewMode(tabId: string, mode: ViewMode) {
+  function setViewMode(tabId: string, mode: ViewMode): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
       tab.viewMode = mode
     }
   }
 
-  async function openFile() {
+  async function openFile(): Promise<TabState | null> {
     if (!window.electronAPI) return null
     
     const result = await window.electronAPI.openFile()
@@ -137,6 +130,7 @@ export const useTabsStore = defineStore('tabs', () => {
 
     const { filePath, content } = result
     
+    // 检查文件是否已打开
     const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
     if (existingTab) {
       switchTab(existingTab.id)
@@ -150,7 +144,7 @@ export const useTabsStore = defineStore('tabs', () => {
     return tab
   }
 
-  async function saveFile(tabId: string) {
+  async function saveFile(tabId: string): Promise<boolean> {
     const tab = tabs.value.get(tabId)
     if (!tab) return false
 
@@ -165,7 +159,7 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
-  async function saveFileAs(tabId: string) {
+  async function saveFileAs(tabId: string): Promise<boolean> {
     const tab = tabs.value.get(tabId)
     if (!tab || !window.electronAPI) return false
 
