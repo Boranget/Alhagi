@@ -3,6 +3,14 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import Store from 'electron-store'
+import { 
+  IPCErrorCode, 
+  FileTreeNode,
+  DirectoryEntry,
+  WindowState,
+  createSuccessResponse, 
+  createErrorResponse 
+} from '../electron-protocol'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -13,72 +21,12 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
-enum IPCErrorCode {
-  FILE_NOT_FOUND = 'FILE_NOT_FOUND',
-  FILE_READ_ERROR = 'FILE_READ_ERROR',
-  FILE_WRITE_ERROR = 'FILE_WRITE_ERROR',
-  FILE_SAVE_ERROR = 'FILE_SAVE_ERROR',
-  FILE_DELETE_ERROR = 'FILE_DELETE_ERROR',
-  FILE_RENAME_ERROR = 'FILE_RENAME_ERROR',
-  FILE_CREATE_ERROR = 'FILE_CREATE_ERROR',
-  FILE_MOVE_ERROR = 'FILE_MOVE_ERROR',
-  FILE_COPY_ERROR = 'FILE_COPY_ERROR',
-  DIRECTORY_READ_ERROR = 'DIRECTORY_READ_ERROR',
-  DIRECTORY_CREATE_ERROR = 'DIRECTORY_CREATE_ERROR',
-  DIALOG_CANCELLED = 'DIALOG_CANCELLED',
-  INVALID_PATH = 'INVALID_PATH',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
-}
-
-interface IPCResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
-  }
-}
-
-function success<T>(data: T): IPCResponse<T> {
-  return { success: true, data }
-}
-
-function error(code: IPCErrorCode, message: string): IPCResponse<never> {
-  return { success: false, error: { code, message } }
-}
-
 function isFileNotFoundError(error: NodeJS.ErrnoException): boolean {
   return error.code === 'ENOENT'
 }
 
 function isPermissionError(error: NodeJS.ErrnoException): boolean {
   return error.code === 'EACCES' || error.code === 'EPERM'
-}
-
-interface WindowState {
-  width: number
-  height: number
-  x?: number
-  y?: number
-  isMaximized: boolean
-}
-
-interface DirectoryEntry {
-  name: string
-  path: string
-  isDirectory: boolean
-  isFile: boolean
-  size: number
-  lastModified: number
-}
-
-interface FileTreeNode {
-  name: string
-  path: string
-  type: 'file' | 'directory'
-  children?: FileTreeNode[]
-  expanded?: boolean
 }
 
 const store = new Store<{ windowState: WindowState }>({
@@ -203,7 +151,7 @@ function createMenu() {
 }
 
 ipcMain.handle('file:open', async () => {
-  if (!mainWindow) return error(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
+  if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -215,42 +163,42 @@ ipcMain.handle('file:open', async () => {
     })
     
     if (result.canceled || result.filePaths.length === 0) {
-      return success(null)
+      return createSuccessResponse(null)
     }
 
     const filePath = result.filePaths[0]
     const content = await fs.readFile(filePath, 'utf-8')
-    return success({ filePath, content })
+    return createSuccessResponse({ filePath, content })
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_READ_ERROR, `Failed to read file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_READ_ERROR, `Failed to read file: ${error.message}`)
   }
 })
 
 ipcMain.handle('file:save', async (_, { filePath, content }) => {
   try {
     await fs.writeFile(filePath, content, 'utf-8')
-    return success(true)
+    return createSuccessResponse(true)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)
   }
 })
 
 ipcMain.handle('file:save-as', async (_, { content, defaultPath }) => {
-  if (!mainWindow) return error(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
+  if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
     const result = await dialog.showSaveDialog(mainWindow, {
@@ -262,41 +210,41 @@ ipcMain.handle('file:save-as', async (_, { content, defaultPath }) => {
     })
 
     if (result.canceled || !result.filePath) {
-      return success(null)
+      return createSuccessResponse(null)
     }
 
     await fs.writeFile(result.filePath, content, 'utf-8')
-    return success(result.filePath)
+    return createSuccessResponse(result.filePath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)
   }
 })
 
 ipcMain.handle('file:read', async (_, filePath: string) => {
   try {
     if (!filePath || typeof filePath !== 'string') {
-      return error(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+      return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
     }
     const content = await fs.readFile(filePath, 'utf-8')
-    return success(content)
+    return createSuccessResponse(content)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_READ_ERROR, `Failed to read file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_READ_ERROR, `Failed to read file: ${error.message}`)
   }
 })
 
 ipcMain.handle('file:open-folder', async () => {
-  if (!mainWindow) return error(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
+  if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -304,15 +252,15 @@ ipcMain.handle('file:open-folder', async () => {
     })
     
     if (result.canceled || result.filePaths.length === 0) {
-      return success(null)
+      return createSuccessResponse(null)
     }
 
     const folderPath = result.filePaths[0]
     const tree = await buildFileTree(folderPath, 3)
-    return success({ path: folderPath, tree })
+    return createSuccessResponse({ path: folderPath, tree })
   } catch (err) {
     const error = err as NodeJS.ErrnoException
-    return error(IPCErrorCode.DIRECTORY_READ_ERROR, `Failed to read folder: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.DIRECTORY_READ_ERROR, `Failed to read folder: ${error.message}`)
   }
 })
 
@@ -321,7 +269,7 @@ async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0
   
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
-    const result = []
+    const result: FileTreeNode[] = []
     
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue
@@ -374,10 +322,10 @@ ipcMain.handle('file:read-directory', async (_, dirPath: string) => {
       })
     }
     
-    return success(result)
+    return createSuccessResponse(result)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
-    return error(IPCErrorCode.DIRECTORY_READ_ERROR, `Failed to read directory: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.DIRECTORY_READ_ERROR, `Failed to read directory: ${error.message}`)
   }
 })
 
@@ -391,10 +339,10 @@ ipcMain.handle('file:create', async (_, { dirPath, fileName, type }) => {
       await fs.writeFile(newPath, '', 'utf-8')
     }
     
-    return success(newPath)
+    return createSuccessResponse(newPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
-    return error(IPCErrorCode.FILE_CREATE_ERROR, `Failed to create: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_CREATE_ERROR, `Failed to create: ${error.message}`)
   }
 })
 
@@ -406,21 +354,21 @@ ipcMain.handle('file:delete', async (_, filePath: string) => {
     } else {
       await fs.unlink(filePath)
     }
-    return success(true)
+    return createSuccessResponse(true)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_DELETE_ERROR, `Failed to delete: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_DELETE_ERROR, `Failed to delete: ${error.message}`)
   }
 })
 
 ipcMain.handle('dialog:select-directory', async () => {
-  if (!mainWindow) return error(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
+  if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
   
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -428,13 +376,13 @@ ipcMain.handle('dialog:select-directory', async () => {
     })
     
     if (result.canceled || result.filePaths.length === 0) {
-      return success(null)
+      return createSuccessResponse(null)
     }
     
-    return success(result.filePaths[0])
+    return createSuccessResponse(result.filePaths[0])
   } catch (err) {
     const error = err as NodeJS.ErrnoException
-    return error(IPCErrorCode.UNKNOWN_ERROR, `Failed to select directory: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to select directory: ${error.message}`)
   }
 })
 
@@ -443,16 +391,16 @@ ipcMain.handle('file:rename', async (_, { oldPath, newName }) => {
     const dir = path.dirname(oldPath)
     const newPath = path.join(dir, newName)
     await fs.rename(oldPath, newPath)
-    return success(newPath)
+    return createSuccessResponse(newPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_RENAME_ERROR, `Failed to rename: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_RENAME_ERROR, `Failed to rename: ${error.message}`)
   }
 })
 
@@ -461,34 +409,31 @@ ipcMain.handle('file:move', async (_, { sourcePath, targetDir }) => {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
     
-    // 检查目标路径是否已存在
     try {
       await fs.access(targetPath)
-      return error(IPCErrorCode.FILE_MOVE_ERROR, `File already exists: ${targetPath}`)
+      return createErrorResponse(IPCErrorCode.FILE_MOVE_ERROR, `File already exists: ${targetPath}`)
     } catch {
-      // 文件不存在，可以继续
+      // File doesn't exist, safe to proceed
     }
     
-    // 使用 rename（同一磁盘分区）或 copy + delete（跨分区）
     try {
       await fs.rename(sourcePath, targetPath)
     } catch (renameErr) {
-      // 跨分区移动失败，尝试 copy + delete
       const content = await fs.readFile(sourcePath)
       await fs.writeFile(targetPath, content)
       await fs.unlink(sourcePath)
     }
     
-    return success(targetPath)
+    return createSuccessResponse(targetPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_MOVE_ERROR, `Failed to move file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_MOVE_ERROR, `Failed to move file: ${error.message}`)
   }
 })
 
@@ -497,33 +442,32 @@ ipcMain.handle('file:copy', async (_, { sourcePath, targetDir }) => {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
     
-    // 检查目标路径是否已存在
     try {
       await fs.access(targetPath)
-      return error(IPCErrorCode.FILE_COPY_ERROR, `File already exists: ${targetPath}`)
+      return createErrorResponse(IPCErrorCode.FILE_COPY_ERROR, `File already exists: ${targetPath}`)
     } catch {
-      // 文件不存在，可以继续
+      // File doesn't exist, safe to proceed
     }
     
     const content = await fs.readFile(sourcePath)
     await fs.writeFile(targetPath, content)
     
-    return success(targetPath)
+    return createSuccessResponse(targetPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     if (isFileNotFoundError(error)) {
-      return error(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
     }
     if (isPermissionError(error)) {
-      return error(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+      return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     }
-    return error(IPCErrorCode.FILE_COPY_ERROR, `Failed to copy file: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_COPY_ERROR, `Failed to copy file: ${error.message}`)
   }
 })
 
 ipcMain.handle('window:minimize', () => {
   mainWindow?.minimize()
-  return success(undefined)
+  return createSuccessResponse(undefined)
 })
 
 ipcMain.handle('window:maximize', () => {
@@ -532,17 +476,17 @@ ipcMain.handle('window:maximize', () => {
   } else {
     mainWindow?.maximize()
   }
-  return success(undefined)
+  return createSuccessResponse(undefined)
 })
 
 ipcMain.handle('window:close', () => {
   mainWindow?.close()
-  return success(undefined)
+  return createSuccessResponse(undefined)
 })
 
 ipcMain.handle('window:set-always-on-top', (_, flag: boolean) => {
   mainWindow?.setAlwaysOnTop(flag)
-  return success(undefined)
+  return createSuccessResponse(undefined)
 })
 
 app.whenReady().then(() => {

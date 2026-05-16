@@ -16,25 +16,6 @@ export enum IPCErrorCode {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 }
 
-export class IPCError extends Error {
-  constructor(
-    public code: IPCErrorCode,
-    message: string,
-    public originalError?: Error
-  ) {
-    super(message)
-    this.name = 'IPCError'
-  }
-
-  toJSON() {
-    return {
-      code: this.code,
-      message: this.message,
-      name: this.name
-    }
-  }
-}
-
 export interface IPCResponse<T = unknown> {
   success: boolean
   data?: T
@@ -44,14 +25,37 @@ export interface IPCResponse<T = unknown> {
   }
 }
 
-export interface FileOperationResult {
-  success: boolean
-  filePath?: string
-  content?: string
-  error?: {
-    code: string
-    message: string
-  }
+export interface FileTreeNode {
+  name: string
+  path: string
+  type: 'file' | 'directory'
+  children?: FileTreeNode[]
+  expanded?: boolean
+  isDirty?: boolean
+}
+
+export interface DirectoryEntry {
+  name: string
+  path: string
+  isDirectory: boolean
+  isFile: boolean
+  size: number
+  lastModified: number
+}
+
+export interface RecentFile {
+  filePath: string
+  title: string
+  lastOpened: number
+  pinned: boolean
+}
+
+export interface WindowState {
+  width: number
+  height: number
+  x?: number
+  y?: number
+  isMaximized: boolean
 }
 
 export function createSuccessResponse<T>(data: T): IPCResponse<T> {
@@ -74,6 +78,10 @@ export function createErrorResponse(
   }
 }
 
-export function isIPCError(error: unknown): error is IPCError {
-  return error instanceof IPCError
+export function isSuccessResponse<T>(response: IPCResponse<T>): response is { success: true; data: T } {
+  return response.success === true
+}
+
+export function isErrorResponse<T>(response: IPCResponse<T>): response is { success: false; error: { code: string; message: string } } {
+  return response.success === false
 }

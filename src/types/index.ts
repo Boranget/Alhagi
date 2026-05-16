@@ -1,3 +1,5 @@
+import { FileTreeNode, DirectoryEntry, RecentFile } from '../../electron-protocol'
+
 export interface TabState {
   id: string
   filePath: string | null
@@ -51,30 +53,9 @@ export interface WindowState {
   autoSaveInterval: number
 }
 
-export interface FileTreeNodeType {
-  name: string
-  path: string
-  type: 'file' | 'directory'
-  children?: FileTreeNodeType[]
-  expanded?: boolean
-  isDirty?: boolean
-}
+export type FileTreeNodeType = FileTreeNode
 
-export interface DirectoryEntry {
-  name: string
-  path: string
-  isDirectory: boolean
-  isFile: boolean
-  size: number
-  lastModified: number
-}
-
-export interface RecentFile {
-  filePath: string
-  title: string
-  lastOpened: number
-  pinned: boolean
-}
+export type { DirectoryEntry, RecentFile }
 
 export interface ElectronAPI {
   openFile: () => Promise<{ filePath: string; content: string } | null>
@@ -102,7 +83,6 @@ export interface ElectronAPI {
   onViewMode: (callback: (mode: string) => void) => void
 }
 
-// ============ 事件类型定义 ============
 export interface AppEventPayloads {
   'app:tab:created': { tabId: string; tab: TabState }
   'app:tab:closed': { tabId: string; tab?: TabState }
@@ -124,7 +104,6 @@ export interface AppEventPayloads {
   'editor:scroll:changed': { scrollTop: number; tabId: string }
 }
 
-// 事件名称类型
 export type AppEventName = keyof AppEventPayloads
 
 declare global {
