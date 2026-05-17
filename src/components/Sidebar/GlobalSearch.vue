@@ -1,7 +1,7 @@
 <template>
   <div class="global-search">
     <div class="search-header">
-      <span>搜索</span>
+      <span>{{ t('sidebar.globalSearch') }}</span>
     </div>
     <div class="search-inputs">
       <div class="input-group">
@@ -9,7 +9,7 @@
           v-model="searchQuery"
           type="text"
           class="search-input"
-          placeholder="搜索文件内容或文件名..."
+          :placeholder="t('search.searchPlaceholder')"
           @input="handleSearch"
           @keydown.enter="performSearch"
         >
@@ -17,7 +17,7 @@
           v-model="replaceQuery"
           type="text"
           class="replace-input"
-          placeholder="替换为..."
+          :placeholder="t('search.replacePlaceholder')"
         >
       </div>
       <div class="search-options">
@@ -26,26 +26,26 @@
             v-model="options.caseSensitive"
             type="checkbox"
           >
-          <span>区分大小写</span>
+          <span>{{ t('search.caseSensitive') }}</span>
         </label>
         <label class="option">
           <input
             v-model="options.wholeWord"
             type="checkbox"
           >
-          <span>全字匹配</span>
+          <span>{{ t('search.wholeWord') }}</span>
         </label>
         <label class="option">
           <input
             v-model="options.regex"
             type="checkbox"
           >
-          <span>正则表达式</span>
+          <span>{{ t('search.regex') }}</span>
         </label>
       </div>
       <div class="search-patterns">
         <div class="pattern-row">
-          <label class="pattern-label">包含:</label>
+          <label class="pattern-label">{{ t('search.includePattern') }}:</label>
           <input
             v-model="options.include"
             type="text"
@@ -54,7 +54,7 @@
           >
         </div>
         <div class="pattern-row">
-          <label class="pattern-label">排除:</label>
+          <label class="pattern-label">{{ t('search.excludePattern') }}:</label>
           <input
             v-model="options.exclude"
             type="text"
@@ -69,21 +69,21 @@
         class="search-btn"
         @click="performSearch"
       >
-        搜索
+        {{ t('sidebar.globalSearch') }}
       </button>
       <button
         v-if="replaceQuery && activeSearchTarget === 'file'"
         class="search-btn replace"
         @click="handleReplace"
       >
-        替换
+        {{ t('search.replacePlaceholder') }}
       </button>
       <button
         v-if="replaceQuery && activeSearchTarget === 'file'"
         class="search-btn replace-all"
         @click="handleReplaceAll"
       >
-        全部替换
+        {{ t('search.replaceAll') }}
       </button>
     </div>
     <div class="search-scope">
@@ -102,26 +102,26 @@
         v-if="!searchQuery"
         class="empty-state"
       >
-        输入搜索内容开始搜索
+        {{ t('search.searchPlaceholder') }}
       </div>
       <div
         v-else-if="isSearching"
         class="empty-state"
       >
-        搜索中...
+        {{ t('sidebar.globalSearch') }}...
       </div>
       <div
         v-else-if="results.length === 0"
         class="empty-state"
       >
-        未找到匹配结果
+        {{ t('search.noResults') }}
       </div>
       <div
         v-else
         class="results-list"
       >
         <div class="results-count">
-          {{ results.length }} 个文件，{{ totalMatches }} 处匹配
+          {{ results.length }} {{ t('common.openFile') }}，{{ totalMatches }} 处匹配
         </div>
         <div
           v-for="result in results"
@@ -165,6 +165,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { useFileService } from '@/services/fileService'
 import { debounce } from '@/utils/helpers'
 import { xssSanitizer } from '@/services/xssSanitizer'
+import { t } from '@/services/i18n'
 
 interface SearchMatch {
   line: number
@@ -194,9 +195,9 @@ const expandedFiles = ref(new Set<string>())
 const activeSearchTarget = ref<'file' | 'folder' | 'all'>('file')
 
 const searchScopes = [
-  { id: 'file' as const, label: '当前文件' },
-  { id: 'folder' as const, label: '当前文件夹' },
-  { id: 'all' as const, label: '所有标签页' }
+  { id: 'file' as const, label: t('sidebar.currentFile') },
+  { id: 'folder' as const, label: t('sidebar.currentFolder') },
+  { id: 'all' as const, label: t('sidebar.allTabs') }
 ]
 
 const options = reactive({

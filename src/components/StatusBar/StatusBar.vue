@@ -5,7 +5,7 @@
         v-if="activeTab"
         class="status-item"
       >
-        {{ activeTab.viewMode === 'wysiwyg' ? 'WYSIWYG' : activeTab.viewMode === 'source' ? '源码' : '分屏' }}
+        {{ activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwyg') : activeTab.viewMode === 'source' ? t('editor.source') : t('editor.split') }}
       </span>
       <span
         v-if="activeTab?.filePath"
@@ -17,39 +17,39 @@
         v-if="activeTab?.isDirty"
         class="status-item dirty-indicator"
       >
-        ● 已修改
+        ● {{ t('common.save') }}
       </span>
     </div>
     <div class="status-right">
       <span
         class="status-item"
-        title="原始 Markdown 字符数（不含空白）"
-      >MD: {{ rawMarkdownChars }} 字</span>
+        :title="t('editor.plainTextChars')"
+      >MD: {{ rawMarkdownChars }} {{ t('editor.characters') }}</span>
       <span
         class="status-item"
-        title="渲染后纯文本字符数"
-      >文本: {{ plainTextChars }} 字</span>
+        :title="t('statusBar.renderTextCount')"
+      >{{ t('editor.plainTextChars') }}: {{ plainTextChars }} {{ t('editor.characters') }}</span>
       <span class="status-item">{{ lineCount }} 行</span>
       <span class="status-item">{{ cursorPosition }}</span>
       <button
         class="status-btn"
         :class="{ active: prefsStore.typewriterMode }"
-        title="打字机模式"
+        :title="t('editor.typewriterMode')"
         @click="toggleTypewriterMode"
       >
-        打字机
+        {{ t('editor.typewriter') }}
       </button>
       <button
         class="status-btn"
         :class="{ active: prefsStore.focusMode }"
-        title="专注模式"
+        :title="t('editor.focusMode')"
         @click="toggleFocusMode"
       >
-        专注
+        {{ t('editor.focus') }}
       </button>
       <button
         class="status-btn"
-        title="切换主题"
+        :title="t('statusBar.switchTheme')"
         @click="prefsStore.toggleTheme()"
       >
         {{ prefsStore.theme === 'light' || prefsStore.theme === 'system' ? '🌙' : '☀️' }}
@@ -63,6 +63,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { t } from '@/services/i18n'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()

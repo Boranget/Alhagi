@@ -1,25 +1,25 @@
 <template>
   <div class="file-explorer">
     <div class="explorer-header">
-      <span>资源管理器</span>
+      <span>{{ t('sidebar.fileExplorer') }}</span>
       <div class="header-actions">
         <button
           class="action-btn"
-          title="新建文件"
+          :title="t('common.newFile')"
           @click="handleNewFile"
         >
           📄
         </button>
         <button
           class="action-btn"
-          title="新建文件夹"
+          :title="t('common.newFolder')"
           @click="handleNewFolder"
         >
           📁
         </button>
         <button
           class="action-btn"
-          title="刷新"
+          :title="t('common.refresh')"
           @click="handleRefresh"
         >
           🔄
@@ -31,7 +31,7 @@
         class="toolbar-btn"
         @click="openFolder"
       >
-        打开文件夹
+        {{ t('common.openFolder') }}
       </button>
     </div>
     <div
@@ -52,7 +52,7 @@
       v-else
       class="empty-state"
     >
-      <p>点击"打开文件夹"开始</p>
+      <p>{{ t('sidebar.clickToStart') }}</p>
     </div>
 
     <div
@@ -78,7 +78,7 @@
     >
       <div class="dialog">
         <div class="dialog-header">
-          {{ newItemDialog.isFolder ? '新建文件夹' : '新建文件' }}
+          {{ newItemDialog.isFolder ? t('common.newFolder') : t('common.newFile') }}
         </div>
         <div class="dialog-body">
           <input
@@ -95,13 +95,13 @@
             class="btn btn-secondary"
             @click="closeNewItemDialog"
           >
-            取消
+            {{ t('common.cancel') }}
           </button>
           <button
             class="btn btn-primary"
             @click="confirmNewItem"
           >
-            创建
+            {{ t('common.confirm') }}
           </button>
         </div>
       </div>
@@ -116,6 +116,7 @@ import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath } from '@/utils/helpers'
 import type { FileTreeNodeType } from '@/types'
+import { t } from '@/services/i18n'
 
 const fileService = useFileService()
 const tabsStore = useTabsStore()
@@ -157,12 +158,12 @@ const newItemDialog = ref<NewItemDialog>({
 })
 
 const contextMenuItems: ContextMenuItem[] = [
-  { id: 'new-file', label: '新建文件', icon: '📄' },
-  { id: 'new-folder', label: '新建文件夹', icon: '📁' },
-  { id: 'rename', label: '重命名', icon: '✏️' },
+  { id: 'new-file', label: t('common.newFile'), icon: '📄' },
+  { id: 'new-folder', label: t('common.newFolder'), icon: '📁' },
+  { id: 'rename', label: t('common.rename'), icon: '✏️' },
   { id: 'move-to', label: '移动到...', icon: '📦' },
   { id: 'copy-to', label: '复制到...', icon: '📋' },
-  { id: 'delete', label: '删除', icon: '🗑️' },
+  { id: 'delete', label: t('common.delete'), icon: '🗑️' },
   { id: 'copy-path', label: '复制路径', icon: '📄' },
   { id: 'open-in-explorer', label: '在系统文件管理器中显示', icon: '🗂️' }
 ]
@@ -353,7 +354,7 @@ function handleNewFolder() {
 async function handleRename(node: FileTreeNodeType | null) {
   if (!node) return
 
-  const newName = prompt('输入新名称:', node.name)
+  const newName = prompt(t('common.rename') + ':', node.name)
   if (newName && newName !== node.name) {
     await fileService.renameFile(node.path, newName)
   }
@@ -362,7 +363,7 @@ async function handleRename(node: FileTreeNodeType | null) {
 async function handleDelete(node: FileTreeNodeType | null) {
   if (!node) return
 
-  const confirmMsg = node.type === 'directory' ? '确定要删除此文件夹吗？' : '确定要删除此文件吗？'
+  const confirmMsg = node.type === 'directory' ? t('common.delete') + '文件夹?' : t('common.delete') + '文件?'
   if (confirm(confirmMsg)) {
     await fileService.deleteFile(node.path)
   }

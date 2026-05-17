@@ -15,7 +15,7 @@
         @dragover.prevent="handleDragOver($event, tabId)"
         @drop="handleDrop($event, tabId)"
       >
-        <span class="tab-title">{{ getTab(tabId)?.title || '未命名' }}</span>
+        <span class="tab-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
         <button
           v-if="tabsStore.tabCount > 1 || getTab(tabId)?.isDirty"
           class="tab-close"
@@ -55,14 +55,14 @@
         @click="saveCurrentTab"
       >
         <span class="menu-icon">💾</span>
-        <span class="menu-text">保存</span>
+        <span class="menu-text">{{ t('common.save') }}</span>
       </div>
       <div
         class="menu-item"
         @click="saveAsCurrentTab"
       >
         <span class="menu-icon">📄</span>
-        <span class="menu-text">另存为</span>
+        <span class="menu-text">{{ t('common.saveAs') }}</span>
       </div>
       <div class="menu-divider" />
       <div
@@ -70,28 +70,28 @@
         @click="closeCurrentTab"
       >
         <span class="menu-icon">✕</span>
-        <span class="menu-text">关闭</span>
+        <span class="menu-text">{{ t('common.close') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeOtherTabs"
       >
         <span class="menu-icon">📑</span>
-        <span class="menu-text">关闭其他</span>
+        <span class="menu-text">{{ t('tabs.closeOtherTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeSavedTabs"
       >
         <span class="menu-icon">📂</span>
-        <span class="menu-text">关闭已保存</span>
+        <span class="menu-text">{{ t('tabs.closeSavedTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeAllTabs"
       >
         <span class="menu-icon">🗑️</span>
-        <span class="menu-text">关闭全部</span>
+        <span class="menu-text">{{ t('tabs.closeAllTabs') }}</span>
       </div>
       <div
         v-if="getCurrentTab()?.filePath"
@@ -103,7 +103,7 @@
         @click="copyFilePath"
       >
         <span class="menu-icon">📋</span>
-        <span class="menu-text">复制路径</span>
+        <span class="menu-text">{{ t('tabs.copyPath') }}</span>
       </div>
       <div class="menu-divider" />
       <div
@@ -111,7 +111,7 @@
         @click="detachTab"
       >
         <span class="menu-icon">↗️</span>
-        <span class="menu-text">分离到新窗口</span>
+        <span class="menu-text">{{ t('tabs.detachToNewWindow') }}</span>
       </div>
     </div>
 
@@ -125,7 +125,7 @@
           ref="searchInput"
           v-model="searchQuery"
           class="tab-search-input"
-          placeholder="搜索标签..."
+          :placeholder="t('search.searchPlaceholder')"
           @keydown.enter="handleSearchEnter"
           @keydown.esc="toggleSearch"
         >
@@ -139,7 +139,7 @@
             @mouseenter="selectedIndex = index"
           >
             <span class="result-icon">📄</span>
-            <span class="result-title">{{ getTab(tabId)?.title || '未命名' }}</span>
+            <span class="result-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
             <span
               v-if="getTab(tabId)?.filePath"
               class="result-path"
@@ -149,7 +149,7 @@
             v-if="filteredTabOrder.length === 0"
             class="tab-search-empty"
           >
-            没有找到匹配的标签
+            {{ t('search.noResults') }}
           </div>
         </div>
       </div>
@@ -160,7 +160,7 @@
       class="tab-drag-ghost"
       :style="ghostStyle"
     >
-      <span>{{ getTab(draggingTabId)?.title || '未命名' }}</span>
+      <span>{{ getTab(draggingTabId)?.title || t('tabs.untitled') }}</span>
     </div>
     
     <!-- 窗口边缘指示器 -->
@@ -172,7 +172,7 @@
       <div class="edge-icon">
         {{ dragOverWindowEdge.direction === 'left' ? '◀' : '▶' }}
       </div>
-      <div class="edge-text">释放以合并到其他窗口</div>
+      <div class="edge-text">{{ t('tabs.releaseToMerge') }}</div>
     </div>
   </div>
 </template>
@@ -180,6 +180,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
 
 const tabsStore = useTabsStore()
@@ -295,7 +296,7 @@ function handleTabClose(tabId: string) {
 }
 
 function handleNewTab() {
-  tabsStore.createTab({ title: '未命名' })
+  tabsStore.createTab({ title: t('tabs.untitled') })
 }
 
 function saveCurrentTab() {
@@ -518,7 +519,7 @@ function detachTab() {
   
   // 如果只有一个标签，不允许分离
   if (tabsStore.tabCount <= 1) {
-    alert('无法分离最后一个标签')
+    alert(t('tabs.cannotDetachLast'))
     hideContextMenu()
     return
   }

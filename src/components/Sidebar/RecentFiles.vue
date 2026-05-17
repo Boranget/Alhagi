@@ -1,11 +1,11 @@
 <template>
   <div class="recent-files">
     <div class="recent-files-header">
-      <span>最近</span>
+      <span>{{ t('sidebar.recentFiles') }}</span>
       <div class="recent-files-actions">
         <button
           class="action-btn"
-          title="清除历史记录"
+          :title="t('sidebar.clearHistory')"
           @click="clearHistory"
         >
           🗑️
@@ -20,7 +20,7 @@
       >
         <div class="section-header">
           <span class="section-icon">📁</span>
-          文件夹
+          {{ t('common.openFolder') }}
         </div>
         <div
           v-for="folder in pinnedFolders"
@@ -32,7 +32,7 @@
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
-            title="取消固定"
+            :title="t('sidebar.unpin')"
             @click.stop="togglePinFolder(folder)"
           >
             📌
@@ -48,7 +48,7 @@
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
-            title="固定"
+            :title="t('sidebar.pin')"
             @click.stop="togglePinFolder(folder)"
           >
             📌
@@ -62,7 +62,7 @@
       >
         <div class="section-header">
           <span class="section-icon">📄</span>
-          文件
+          {{ t('common.openFile') }}
         </div>
         <div
           v-for="file in pinnedFiles"
@@ -74,7 +74,7 @@
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
-            title="取消固定"
+            :title="t('sidebar.unpin')"
             @click.stop="togglePinFile(file)"
           >
             📌
@@ -90,7 +90,7 @@
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
-            title="固定"
+            :title="t('sidebar.pin')"
             @click.stop="togglePinFile(file)"
           >
             📌
@@ -102,7 +102,7 @@
         v-if="recentFiles.length === 0 && recentFolders.length === 0"
         class="empty-state"
       >
-        暂无最近打开的文件夹或文件
+        {{ t('sidebar.clickToStart') }}
       </div>
     </div>
   </div>
@@ -115,6 +115,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { useFileService } from '@/services/fileService'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import type { RecentFile, RecentFolder } from '@/types'
+import { t } from '@/services/i18n'
 
 const prefs = usePreferencesStore()
 const tabs = useTabsStore()
@@ -146,7 +147,7 @@ function togglePinFolder(folder: RecentFolder) {
 }
 
 function clearHistory() {
-  if (confirm('确定要清除最近打开的文件夹和文件历史（保留已固定）？')) {
+  if (confirm(t('sidebar.clearHistory'))) {
     prefs.clearRecentFiles()
     prefs.clearRecentFolders()
   }

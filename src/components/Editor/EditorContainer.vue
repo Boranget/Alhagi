@@ -18,7 +18,7 @@
         <button
           class="toolbar-btn"
           :class="{ active: prefsStore.typewriterMode }"
-          title="打字机模式"
+          :title="t('editor.typewriterMode')"
           @click="toggleTypewriterMode"
         >
           ⌨️
@@ -26,7 +26,7 @@
         <button
           class="toolbar-btn"
           :class="{ active: prefsStore.focusMode }"
-          title="专注模式"
+          :title="t('editor.focusMode')"
           @click="toggleFocusMode"
         >
           🎯
@@ -83,6 +83,7 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
+import { t } from '@/services/i18n'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -99,9 +100,9 @@ const { containerRef, currentMode, init, setViewMode, destroy, getManager } = us
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
-  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: 'WYSIWYG 模式', icon: '◉' },
-  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: '源码模式', icon: '{ }' },
-  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: '分屏模式', icon: '◈' }
+  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: '◉' },
+  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: t('editor.sourceMode'), icon: '{ }' },
+  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: t('editor.splitMode'), icon: '◈' }
 ]
 
 const activeTab = computed(() => tabsStore.activeTab)
