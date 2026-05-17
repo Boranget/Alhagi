@@ -1,12 +1,12 @@
 <template>
   <div
     class="app-container"
-    :class="{ 'is-fullscreen': isFullscreen }"
+    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <TabBar />
+      <TabBar v-if="prefsStore.showTabBar" />
       <div class="main-area">
-        <EnhancedSidebar v-if="showSidebar" />
+        <EnhancedSidebar v-if="prefsStore.showSidebar" />
         <EditorContainer />
       </div>
       <StatusBar v-if="prefsStore.showStatusBar" />
@@ -278,6 +278,33 @@ function setupElectronListeners() {
       }
     }
   })
+  
+  // 监听标签页合并事件
+  if (window.electronAPI.onTabMerge) {
+    window.electronAPI.onTabMerge((tabData) => {
+      tabsStore.createTab({
+        title: tabData.title,
+        content: tabData.content,
+        filePath: tabData.filePath,
+        isDirty: tabData.isDirty,
+        viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
+      })
+    })
+  }
+  
+  // 监听切换悬浮便签模式事件
+  if ((window.electronAPI as any).onToggleStickyNoteMode) {
+    (window.electronAPI as any).onToggleStickyNoteMode(() => {
+      prefsStore.toggleStickyNoteMode()
+    })
+  }
+  
+  // 监听切换沉浸式模式事件
+  if ((window.electronAPI as any).onToggleImmersiveMode) {
+    (window.electronAPI as any).onToggleImmersiveMode(() => {
+      prefsStore.toggleImmersiveMode()
+    })
+  }
 }
 
 watch(
@@ -306,19 +333,82 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   setupElectronListeners()
+  window.addEventListener('beforeunload', saveCurrentSession)
 
   prefsStore.loadPreferences()
-
-  if (tabsStore.tabCount === 0) {
-    tabsStore.createTab({ title: '未命名' })
+  
+  // 实现启动模式逻辑
+  const launchMode = prefsStore.launchMode
+  
+  switch (launchMode) {
+    case 'last-session':
+      const lastSession = prefsStore.getLastSession()
+      if (lastSession) {
+        // 恢复上次会话
+        lastSession.tabs.forEach((tabData) => {
+          tabsStore.createTab({
+            title: tabData.title,
+            content: tabData.content,
+            filePath: tabData.filePath,
+            isDirty: tabData.isDirty,
+            viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
+          })
+        })
+        if (lastSession.activeTabId) {
+          tabsStore.switchTab(lastSession.activeTabId)
+        }
+        if (lastSession.currentFolder) {
+          // 恢复文件夹（需要fileService）
+        }
+      } else {
+        // 没有保存的会话，创建默认标签
+        tabsStore.createTab({ title: '未命名' })
+      }
+      break
+      
+    case 'folder':
+      if (prefsStore.launchFolderPath && window.electronAPI) {
+        window.electronAPI.openFolder()
+      }
+      tabsStore.createTab({ title: '未命名' })
+      break
+      
+    case 'empty':
+      // 保持空白，不创建标签
+      break
+      
+    case 'welcome':
+    default:
+      tabsStore.createTab({ title: '未命名' })
+      break
   }
 })
 
+// 保存会话
+function saveCurrentSession() {
+  const sessionTabs = tabsStore.getAllTabs().map(tab => ({
+    title: tab.title,
+    content: tab.content,
+    filePath: tab.filePath,
+    viewMode: tab.viewMode,
+    isDirty: tab.isDirty,
+    cursor: { from: 0, to: 0 }
+  }))
+  
+  prefsStore.saveSession({
+    tabs: sessionTabs,
+    activeTabId: tabsStore.activeTabId
+  })
+}
+
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('beforeunload', saveCurrentSession)
   if (autoSaveTimer) {
     clearTimeout(autoSaveTimer)
   }
+  // 保存最后会话
+  saveCurrentSession()
 })
 </script>
 

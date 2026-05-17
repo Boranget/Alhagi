@@ -184,9 +184,10 @@ export const IMAGE = {
 
 export const LAUNCH = {
   MODES: {
-    RESTORE: 'restore',
+    RESTORE: 'last-session',
     WELCOME: 'welcome',
-    BLANK: 'blank'
+    BLANK: 'empty',
+    FOLDER: 'folder'
   } as const
 } as const
 

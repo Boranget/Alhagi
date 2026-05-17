@@ -12,7 +12,8 @@ import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 
 export interface Preferences {
   // 启动设置
-  launchMode: 'restore' | 'welcome' | 'blank'
+  launchMode: 'last-session' | 'welcome' | 'empty' | 'folder'
+  launchFolderPath?: string
   
   // 保存设置
   autoSave: boolean
@@ -21,8 +22,13 @@ export interface Preferences {
   // 外观设置
   theme: 'light' | 'dark' | 'system' | string
   showSidebar: boolean
+  showTabBar: boolean
   showStatusBar: boolean
   hideScrollBars: boolean
+  
+  // 特殊模式
+  isStickyNoteMode: boolean
+  isImmersiveMode: boolean
   
   // 编辑器设置
   typewriterMode: boolean
@@ -58,6 +64,20 @@ export interface Preferences {
   // 自定义主题
   customThemePath: string
   customThemes: CustomTheme[]
+  
+  // 最后会话状态
+  lastSession?: {
+    tabs: Array<{
+      title: string
+      content: string
+      filePath: string | null
+      viewMode: string
+      isDirty: boolean
+      cursor: { from: number; to: number }
+    }>
+    activeTabId?: string
+    currentFolder?: string
+  }
 }
 
 export interface CustomTheme {
@@ -84,12 +104,16 @@ export interface ThemeColors {
  */
 const DEFAULT_PREFERENCES: Preferences = {
   launchMode: LAUNCH.MODES.RESTORE,
+  launchFolderPath: '',
   autoSave: true,
   autoSaveInterval: AUTO_SAVE.DEFAULT_INTERVAL,
   theme: UI.THEMES.LIGHT,
   showSidebar: true,
+  showTabBar: true,
   showStatusBar: true,
   hideScrollBars: false,
+  isStickyNoteMode: false,
+  isImmersiveMode: false,
   typewriterMode: false,
   focusMode: false,
   fontSize: EDITOR.DEFAULT_FONT_SIZE,
@@ -106,7 +130,8 @@ const DEFAULT_PREFERENCES: Preferences = {
   recentFolders: [],
   maxRecentFolders: 10,
   customThemePath: '',
-  customThemes: []
+  customThemes: [],
+  lastSession: undefined
 }
 
 const STORAGE_KEY = 'alhagi-preferences'
@@ -118,12 +143,16 @@ const STORAGE_KEY = 'alhagi-preferences'
 export const usePreferencesStore = defineStore('preferences', () => {
   // 状态
   const launchMode = ref<Preferences['launchMode']>(DEFAULT_PREFERENCES.launchMode)
+  const launchFolderPath = ref<string>(DEFAULT_PREFERENCES.launchFolderPath || '')
   const autoSave = ref<boolean>(DEFAULT_PREFERENCES.autoSave)
   const autoSaveInterval = ref<number>(DEFAULT_PREFERENCES.autoSaveInterval)
   const theme = ref<Preferences['theme']>(DEFAULT_PREFERENCES.theme)
   const showSidebar = ref<boolean>(DEFAULT_PREFERENCES.showSidebar)
+  const showTabBar = ref<boolean>(DEFAULT_PREFERENCES.showTabBar)
   const showStatusBar = ref<boolean>(DEFAULT_PREFERENCES.showStatusBar)
   const hideScrollBars = ref<boolean>(DEFAULT_PREFERENCES.hideScrollBars)
+  const isStickyNoteMode = ref<boolean>(DEFAULT_PREFERENCES.isStickyNoteMode)
+  const isImmersiveMode = ref<boolean>(DEFAULT_PREFERENCES.isImmersiveMode)
   const typewriterMode = ref<boolean>(DEFAULT_PREFERENCES.typewriterMode)
   const focusMode = ref<boolean>(DEFAULT_PREFERENCES.focusMode)
   const fontSize = ref<number>(DEFAULT_PREFERENCES.fontSize)
@@ -141,6 +170,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const customThemePath = ref<string>(DEFAULT_PREFERENCES.customThemePath)
   const customThemes = ref<CustomTheme[]>(DEFAULT_PREFERENCES.customThemes)
   const lineEnding = ref<Preferences['lineEnding']>(DEFAULT_PREFERENCES.lineEnding)
+  const lastSession = ref<Preferences['lastSession']>(DEFAULT_PREFERENCES.lastSession)
 
   /**
    * 获取当前所有偏好设置
@@ -148,12 +178,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function getAllPreferences(): Preferences {
     return {
       launchMode: launchMode.value,
+      launchFolderPath: launchFolderPath.value,
       autoSave: autoSave.value,
       autoSaveInterval: autoSaveInterval.value,
       theme: theme.value,
       showSidebar: showSidebar.value,
+      showTabBar: showTabBar.value,
       showStatusBar: showStatusBar.value,
       hideScrollBars: hideScrollBars.value,
+      isStickyNoteMode: isStickyNoteMode.value,
+      isImmersiveMode: isImmersiveMode.value,
       typewriterMode: typewriterMode.value,
       focusMode: focusMode.value,
       fontSize: fontSize.value,
@@ -170,7 +204,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       recentFolders: recentFolders.value,
       maxRecentFolders: maxRecentFolders.value,
       customThemePath: customThemePath.value,
-      customThemes: customThemes.value
+      customThemes: customThemes.value,
+      lastSession: lastSession.value
     }
   }
 
@@ -434,6 +469,78 @@ export const usePreferencesStore = defineStore('preferences', () => {
     theme.value = DEFAULT_PREFERENCES.theme
     savePreferences()
   }
+  
+  /**
+   * 切换悬浮便签模式
+   */
+  function toggleStickyNoteMode(): void {
+    isStickyNoteMode.value = !isStickyNoteMode.value
+    if (isStickyNoteMode.value) {
+      // 进入悬浮便签模式时隐藏所有界面元素
+      showSidebar.value = false
+      showTabBar.value = false
+      showStatusBar.value = false
+    } else {
+      // 退出悬浮便签模式时恢复默认界面
+      showSidebar.value = DEFAULT_PREFERENCES.showSidebar
+      showTabBar.value = DEFAULT_PREFERENCES.showTabBar
+      showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+    }
+    savePreferences()
+  }
+  
+  /**
+   * 切换沉浸式写作模式
+   */
+  function toggleImmersiveMode(): void {
+    isImmersiveMode.value = !isImmersiveMode.value
+    if (isImmersiveMode.value) {
+      // 进入沉浸式写作模式
+      showSidebar.value = false
+      showTabBar.value = false
+      showStatusBar.value = false
+    } else {
+      // 退出沉浸式写作模式
+      showSidebar.value = DEFAULT_PREFERENCES.showSidebar
+      showTabBar.value = DEFAULT_PREFERENCES.showTabBar
+      showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+    }
+    savePreferences()
+  }
+
+  /**
+   * 保存当前会话状态
+   */
+  function saveSession(data: {
+    tabs: Array<{
+      title: string
+      content: string
+      filePath: string | null
+      viewMode: string
+      isDirty: boolean
+      cursor: { from: number; to: number }
+    }>
+    activeTabId?: string
+    currentFolder?: string
+  }): void {
+    lastSession.value = data
+    savePreferences()
+  }
+
+  /**
+   * 获取保存的会话
+   */
+  function getLastSession(): Preferences['lastSession'] {
+    return lastSession.value
+  }
+
+  /**
+   * 清除会话
+   */
+  function clearSession(): void {
+    lastSession.value = undefined
+    savePreferences()
+  }
 
   /**
    * 保存偏好设置到 localStorage
@@ -479,40 +586,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // 导出 store 引用供内部使用
   const preferencesStore = {
     launchMode,
+    launchFolderPath,
     autoSave,
     autoSaveInterval,
     theme,
     showSidebar,
+    showTabBar,
     showStatusBar,
     hideScrollBars,
-    typewriterMode,
-    focusMode,
-    fontSize,
-    wordWrap,
-    imageInsertMode,
-    imageStoragePath,
-    language,
-    devToolsOnStartup,
-    openFileInNewWindow,
-    openFolderInNewWindow,
-    lineEnding,
-    recentFiles,
-    maxRecentFiles,
-    recentFolders,
-    maxRecentFolders,
-    customThemePath,
-    customThemes
-  }
-
-  return {
-    // Getters
-    launchMode,
-    autoSave,
-    autoSaveInterval,
-    theme,
-    showSidebar,
-    showStatusBar,
-    hideScrollBars,
+    isStickyNoteMode,
+    isImmersiveMode,
     typewriterMode,
     focusMode,
     fontSize,
@@ -530,6 +613,40 @@ export const usePreferencesStore = defineStore('preferences', () => {
     maxRecentFolders,
     customThemePath,
     customThemes,
+    lastSession
+  }
+
+  return {
+    // Getters
+    launchMode,
+    launchFolderPath,
+    autoSave,
+    autoSaveInterval,
+    theme,
+    showSidebar,
+    showTabBar,
+    showStatusBar,
+    hideScrollBars,
+    isStickyNoteMode,
+    isImmersiveMode,
+    typewriterMode,
+    focusMode,
+    fontSize,
+    wordWrap,
+    imageInsertMode,
+    imageStoragePath,
+    language,
+    devToolsOnStartup,
+    openFileInNewWindow,
+    openFolderInNewWindow,
+    lineEnding,
+    recentFiles,
+    maxRecentFiles,
+    recentFolders,
+    maxRecentFolders,
+    customThemePath,
+    customThemes,
+    lastSession,
     
     // Methods
     getAllPreferences,
@@ -549,7 +666,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loadCustomThemes,
     applyCustomTheme,
     resetToBuiltInTheme,
+    toggleStickyNoteMode,
+    toggleImmersiveMode,
     savePreferences,
-    loadPreferences
+    loadPreferences,
+    saveSession,
+    getLastSession,
+    clearSession
   }
 })

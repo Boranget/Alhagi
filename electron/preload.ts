@@ -6,7 +6,8 @@ import {
   ElectronAPI,
   IPC_CHANNELS,
   MENU_EVENTS,
-  FILE_TYPES
+  FILE_TYPES,
+  DetachedTabData
 } from '../electron-protocol'
 
 export type { IPCResponse, FileTreeNode, DirectoryEntry } from '../electron-protocol'
@@ -86,6 +87,15 @@ const api: ElectronAPI = {
   openNewWindow: (options?: { filePath?: string; tabData?: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } } }) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, options),
   
+  mergeTab: (tabData: DetachedTabData, targetWindowId: number) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.MERGE_TAB, { tabData, targetWindowId }),
+  
+  getWindowId: () => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.GET_WINDOW_ID),
+  
+  listWindows: () => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.LIST_WINDOWS),
+  
   onNewFile: (callback) => 
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
@@ -111,7 +121,16 @@ const api: ElectronAPI = {
     createMenuListener(MENU_EVENTS.PASTE_AS_PLAIN, callback),
   
   onCaptureScreen: (callback) => 
-    createMenuListener(MENU_EVENTS.CAPTURE_SCREEN, callback)
+    createMenuListener(MENU_EVENTS.CAPTURE_SCREEN, callback),
+  
+  onTabMerge: (callback) => 
+    createMenuListener('tab:merge', callback),
+  
+  onToggleStickyNoteMode: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),
+  
+  onToggleImmersiveMode: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_IMMERSIVE, callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

@@ -151,7 +151,9 @@ export const MENU_EVENTS = {
   COPY_AS_MARKDOWN: 'menu:copy-as-markdown',
   COPY_AS_HTML: 'menu:copy-as-html',
   PASTE_AS_PLAIN: 'menu:paste-as-plain',
-  CAPTURE_SCREEN: 'menu:capture-screen'
+  CAPTURE_SCREEN: 'menu:capture-screen',
+  TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
+  TOGGLE_IMMERSIVE: 'menu:toggle-immersive'
 } as const;
 
 // ========== 文件类型常量 ==========
@@ -199,7 +201,10 @@ export interface ElectronAPI {
   maximize: () => Promise<IPCResponse<void>>
   close: () => Promise<IPCResponse<void>>
   setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
-  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData }) => Promise<IPCResponse<boolean>>
+  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData }) => Promise<IPCResponse<boolean | number>>
+  mergeTab: (tabData: DetachedTabData, targetWindowId: number) => Promise<IPCResponse<boolean>>
+  getWindowId: () => Promise<IPCResponse<number | null>>
+  listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string }>>>
   onNewFile: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void
   onSave: (callback: () => void) => () => void
@@ -209,6 +214,9 @@ export interface ElectronAPI {
   onCopyAsHtml: (callback: () => void) => () => void
   onPasteAsPlain: (callback: () => void) => () => void
   onCaptureScreen: (callback: () => void) => () => void
+  onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
+  onToggleStickyNoteMode: (callback: () => void) => () => void
+  onToggleImmersiveMode: (callback: () => void) => () => void
 }
 
 export interface DetachedTabData {

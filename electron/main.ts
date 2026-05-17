@@ -14,7 +14,8 @@ import {
   MENU_EVENTS,
   FILE_TYPES,
   LINE_ENDINGS,
-  LineEnding
+  LineEnding,
+  DetachedTabData
 } from '../electron-protocol'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -141,6 +142,26 @@ function createMenu() {
         { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
         { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
         { type: 'separator' },
+        { label: '悬浮便签模式', accelerator: 'CmdOrCtrl+Shift+F', click: () => {
+          if (mainWindow) {
+            const currentSize = mainWindow.getSize()
+            const isSmall = currentSize[0] <= 400 && currentSize[1] <= 500
+            
+            if (isSmall) {
+              mainWindow.setSize(1200, 800)
+              mainWindow.setAlwaysOnTop(false)
+            } else {
+              mainWindow.setSize(350, 450)
+              mainWindow.setAlwaysOnTop(true)
+            }
+            // 同时通知渲染进程切换 UI
+            mainWindow.webContents.send(MENU_EVENTS.TOGGLE_STICKY_NOTE)
+          }
+        }},
+        { label: '沉浸式写作模式', accelerator: 'CmdOrCtrl+Shift+Enter', click: () => {
+          mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_IMMERSIVE)
+        }},
+        { type: 'separator' },
         { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => {
           if (mainWindow?.webContents.isDevToolsOpened()) {
             mainWindow.webContents.closeDevTools()
@@ -149,7 +170,7 @@ function createMenu() {
           }
         }},
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
         { type: 'separator' },
         { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
       ]
@@ -598,7 +619,7 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => {
   return createSuccessResponse(undefined)
 })
 
-ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?: { filePath?: string; tabData?: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } } }) => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?: { filePath?: string; tabData?: DetachedTabData }) => {
   try {
     const newWindow = new BrowserWindow({
       width: 1200,
@@ -646,7 +667,7 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?: { filePa
   }
 })
 
-ipcMain.handle('window:merge-tab', async (_, { tabData, targetWindowId }: { tabData: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } }; targetWindowId: number }) => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.MERGE_TAB, async (_, { tabData, targetWindowId }: { tabData: DetachedTabData; targetWindowId: number }) => {
   try {
     const targetWindow = windows.get(targetWindowId)
     if (!targetWindow || targetWindow.isDestroyed()) {
@@ -661,12 +682,12 @@ ipcMain.handle('window:merge-tab', async (_, { tabData, targetWindowId }: { tabD
   }
 })
 
-ipcMain.handle('window:get-window-id', (event) => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.GET_WINDOW_ID, (event) => {
   const window = BrowserWindow.fromWebContents(event.sender)
   return createSuccessResponse(window?.id || null)
 })
 
-ipcMain.handle('window:list-windows', () => {
+ipcMain.handle(IPC_CHANNELS.WINDOW.LIST_WINDOWS, () => {
   const windowList = Array.from(windows.entries()).map(([id, win]) => ({
     id,
     title: win.getTitle()
