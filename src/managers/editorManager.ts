@@ -546,6 +546,19 @@ export class EditorInstanceManager {
       regexp: false
     })
   }
+
+  getEditorView() {
+    if (!this.editor || !this.isReady()) {
+      return null
+    }
+
+    let view = null
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      view = context.get(editorViewCtx)
+    })
+    return view
+  }
 }
 
 export function useEditorManager() {
@@ -608,6 +621,10 @@ export function useEditorManager() {
 
   const clearSearchHighlight = () => {
     manager?.clearSearchHighlight()
+  }
+
+  const getEditorView = () => {
+    return manager?.getEditorView()
   }
 
   return {
