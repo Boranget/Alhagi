@@ -28,8 +28,9 @@ import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
-import { useClipboard, convertMarkdownToFullHtml } from '@/services/clipboard'
+import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
+import { useEditorManager } from '@/managers/editorManager'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -45,6 +46,7 @@ provide('showSettings', showSettings)
 const { toggleTypewriterMode, toggleFocusMode, initialize: initWritingEnhancement } = useWritingEnhancement()
 const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
 const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
+const { getMarkdown, getHTML } = useEditorManager()
 
 const writingEnhancementCleanup = ref<(() => void) | null>(null)
 
@@ -205,7 +207,7 @@ function exportFile(content: string, title: string, format: 'md' | 'html' | 'txt
   let extension = '.md'
 
   if (format === 'html') {
-    exportContent = convertMarkdownToFullHtml(content, title)
+    exportContent = getFullHtml(title)
     mimeType = 'text/html'
     extension = '.html'
   } else if (format === 'txt') {
@@ -224,6 +226,38 @@ function exportFile(content: string, title: string, format: 'md' | 'html' | 'txt
   a.click()
 
   URL.revokeObjectURL(url)
+}
+
+function getFullHtml(title: string): string {
+  const content = getHTML()
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
+    blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #666; }
+    pre { background: #f4f4f4; padding: 16px; overflow-x: auto; border-radius: 4px; }
+    img { max-width: 100%; }
+    a { color: #0066cc; }
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 function setupElectronListeners() {

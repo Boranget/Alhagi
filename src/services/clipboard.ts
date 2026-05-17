@@ -1,28 +1,38 @@
 import { useTabsStore } from '@/stores/tabs'
+import { useEditorManager } from '@/managers/editorManager'
 
-export function convertMarkdownToHtml(markdown: string): string {
-  let html = markdown
-  
-  html = html
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/`([^`]+)`/gim, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>')
-    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-    .replace(/^- (.*$)/gim, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    .replace(/\n/gim, '<br>')
-  
-  return html
-}
+export function useClipboard() {
+  const { getMarkdown, getHTML } = useEditorManager()
 
-export function convertMarkdownToFullHtml(markdown: string, title: string): string {
-  const content = convertMarkdownToHtml(markdown)
-  
-  return `<!DOCTYPE html>
+  function copyAsMarkdown(): boolean {
+    const tabs = useTabsStore()
+    const activeTab = tabs.activeTab
+    
+    if (!activeTab) return false
+    
+    const text = getMarkdown()
+    navigator.clipboard.writeText(text)
+    return true
+  }
+
+  function copyAsHtml(): boolean {
+    const tabs = useTabsStore()
+    const activeTab = tabs.activeTab
+    
+    if (!activeTab) return false
+    
+    const htmlContent = getHTML()
+    const fullHtml = wrapWithHtmlTemplate(htmlContent, activeTab.title)
+    
+    const blob = new Blob([fullHtml], { type: 'text/html' })
+    const clipboardItem = new ClipboardItem({ 'text/html': blob })
+    navigator.clipboard.write([clipboardItem])
+    
+    return true
+  }
+
+  function wrapWithHtmlTemplate(content: string, title: string): string {
+    return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -41,43 +51,15 @@ export function convertMarkdownToFullHtml(markdown: string, title: string): stri
 ${content}
 </body>
 </html>`
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-export function useClipboard() {
-  function copyAsMarkdown(): boolean {
-    const tabs = useTabsStore()
-    const activeTab = tabs.activeTab
-    
-    if (!activeTab) return false
-    
-    const text = activeTab.content
-    navigator.clipboard.writeText(text)
-    return true
   }
 
-  function copyAsHtml(): boolean {
-    const tabs = useTabsStore()
-    const activeTab = tabs.activeTab
-    
-    if (!activeTab) return false
-    
-    const markdownContent = activeTab.content
-    const html = convertMarkdownToFullHtml(markdownContent, activeTab.title)
-    
-    const blob = new Blob([html], { type: 'text/html' })
-    const clipboardItem = new ClipboardItem({ 'text/html': blob })
-    navigator.clipboard.write([clipboardItem])
-    
-    return true
+  function escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
   }
 
   async function pasteAsPlainText(): Promise<boolean> {

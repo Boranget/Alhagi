@@ -99,7 +99,7 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 const sourceContent = ref('')
 const unsubscribes: (() => void)[] = []
 
-const { containerRef, currentMode, init, setViewMode, destroy, getManager } = useEditorManager()
+const { containerRef, currentMode, init, setViewMode, destroy, getManager, getHTML } = useEditorManager()
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
@@ -170,18 +170,7 @@ const handleSourceInput = debounce(() => {
 
 function updatePreview() {
   if ((currentMode.value === EDITOR.VIEW_MODES.SPLIT) && splitPreviewRef.value) {
-    // 简单的Markdown预览（实际项目中可使用marked或其他库）
-    const html = sourceContent.value
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\*(.*)\*/gim, '<em>$1</em>')
-      .replace(/!\[(.*?)\]\((.*?)\)/gim, "<img alt='$1' src='$2' />")
-      .replace(/\[(.*?)\]\((.*?)\)/gim, "<a href='$2'>$1</a>")
-      .replace(/`(.*?)`/gim, '<code>$1</code>')
-      .replace(/\n/gim, '<br />')
-
+    const html = getHTML()
     splitPreviewRef.value.innerHTML = html
   }
 }

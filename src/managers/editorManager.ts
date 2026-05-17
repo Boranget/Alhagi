@@ -198,10 +198,22 @@ export class EditorInstanceManager {
   }
 
   getMarkdown(): string {
-    if (!this.isReady()) {
+    if (!this.editor || !this.isReady()) {
       return this.content
     }
-    return this.content || this.tabsStore.activeTab?.content || ''
+
+    let markdown = ''
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const serializer = context.get(serializerCtx) as any
+      const view = context.get(editorViewCtx) as any
+
+      if (serializer && view) {
+        markdown = serializer(view.state.doc)
+      }
+    })
+
+    return markdown || this.content || this.tabsStore.activeTab?.content || ''
   }
 
   async setMarkdown(content: string): Promise<void> {
