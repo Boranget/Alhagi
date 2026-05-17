@@ -28,6 +28,8 @@ import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
+import { useClipboard } from '@/services/clipboard'
+import { useCapture } from '@/services/capture'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -41,6 +43,8 @@ provide('isFullscreen', isFullscreen)
 provide('showSettings', showSettings)
 
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
+const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
+const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
 
 function triggerAutoSave() {
   if (!prefsStore.autoSave) return
@@ -296,6 +300,32 @@ function setupElectronListeners() {
   window.electronAPI.onViewMode((mode) => {
     if (tabsStore.activeTabId) {
       tabsStore.setViewMode(tabsStore.activeTabId, mode as 'wysiwyg' | 'source' | 'split')
+    }
+  })
+
+  window.electronAPI.onCopyAsMarkdown(() => {
+    copyAsMarkdown()
+  })
+
+  window.electronAPI.onCopyAsHtml(() => {
+    copyAsHtml()
+  })
+
+  window.electronAPI.onPasteAsPlain(() => {
+    pasteAsPlainText()
+  })
+
+  window.electronAPI.onCaptureScreen(async () => {
+    const result = await captureEditor()
+    if (result) {
+      const action = prompt('截图完成！选择操作：\n1. 复制到剪贴板\n2. 下载到本地\n3. 取消', '1')
+      if (action === '1') {
+        await copyCaptureToClipboard(result)
+        alert('已复制到剪贴板')
+      } else if (action === '2') {
+        const filename = `screenshot-${Date.now()}.png`
+        downloadCapture(result, filename)
+      }
     }
   })
 }

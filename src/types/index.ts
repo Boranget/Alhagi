@@ -1,6 +1,6 @@
-import { FileTreeNode, DirectoryEntry, RecentFile, ElectronAPI, LineEnding } from '../../electron-protocol'
+import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, LineEnding, SearchResult, SearchOptions } from '../../electron-protocol'
 
-export type { ElectronAPI, LineEnding }
+export type { ElectronAPI, LineEnding, SearchResult, SearchOptions }
 
 export interface TabState {
   id: string
@@ -57,7 +57,7 @@ export interface WindowState {
 
 export type FileTreeNodeType = FileTreeNode
 
-export type { DirectoryEntry, RecentFile }
+export type { DirectoryEntry, RecentFile, RecentFolder }
 
 export interface AppEventPayloads {
   'app:tab:created': { tabId: string; tab: TabState }
@@ -66,6 +66,7 @@ export interface AppEventPayloads {
   'app:tab:updated': { tabId: string; updates: Partial<TabState> }
   'app:file:opened': { filePath: string; tabId: string }
   'app:file:saved': { filePath: string; tabId: string }
+  'app:folder:opened': { folderPath: string }
   'app:editor:ready': { tabId?: string | null }
   'app:editor:destroyed': { tabId?: string | null }
   'app:sidebar:view-changed': SidebarView

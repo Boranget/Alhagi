@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { RecentFile } from '@/types'
+import type { RecentFile, RecentFolder } from '@/types'
 import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 
@@ -19,7 +19,7 @@ export interface Preferences {
   autoSaveInterval: number
   
   // 外观设置
-  theme: 'light' | 'dark' | 'system'
+  theme: 'light' | 'dark' | 'system' | string
   showSidebar: boolean
   showStatusBar: boolean
   hideScrollBars: boolean
@@ -50,6 +50,33 @@ export interface Preferences {
   // 最近文件
   recentFiles: RecentFile[]
   maxRecentFiles: number
+  
+  // 最近文件夹
+  recentFolders: RecentFolder[]
+  maxRecentFolders: number
+  
+  // 自定义主题
+  customThemePath: string
+  customThemes: CustomTheme[]
+}
+
+export interface CustomTheme {
+  id: string
+  name: string
+  path: string
+  colors: ThemeColors
+}
+
+export interface ThemeColors {
+  '--bg-primary': string
+  '--bg-secondary': string
+  '--text-primary': string
+  '--text-secondary': string
+  '--border-color': string
+  '--primary-color': string
+  '--sidebar-bg': string
+  '--sidebar-hover-bg': string
+  '--input-bg': string
 }
 
 /**
@@ -75,7 +102,11 @@ const DEFAULT_PREFERENCES: Preferences = {
   openFolderInNewWindow: false,
   lineEnding: 'lf' as const,
   recentFiles: [],
-  maxRecentFiles: 20
+  maxRecentFiles: 20,
+  recentFolders: [],
+  maxRecentFolders: 10,
+  customThemePath: '',
+  customThemes: []
 }
 
 const STORAGE_KEY = 'alhagi-preferences'
@@ -105,6 +136,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const openFolderInNewWindow = ref<boolean>(DEFAULT_PREFERENCES.openFolderInNewWindow)
   const recentFiles = ref<RecentFile[]>(DEFAULT_PREFERENCES.recentFiles)
   const maxRecentFiles = ref<number>(DEFAULT_PREFERENCES.maxRecentFiles)
+  const recentFolders = ref<RecentFolder[]>(DEFAULT_PREFERENCES.recentFolders)
+  const maxRecentFolders = ref<number>(DEFAULT_PREFERENCES.maxRecentFolders)
+  const customThemePath = ref<string>(DEFAULT_PREFERENCES.customThemePath)
+  const customThemes = ref<CustomTheme[]>(DEFAULT_PREFERENCES.customThemes)
   const lineEnding = ref<Preferences['lineEnding']>(DEFAULT_PREFERENCES.lineEnding)
 
   /**
@@ -131,7 +166,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
       openFolderInNewWindow: openFolderInNewWindow.value,
       lineEnding: lineEnding.value,
       recentFiles: recentFiles.value,
-      maxRecentFiles: maxRecentFiles.value
+      maxRecentFiles: maxRecentFiles.value,
+      recentFolders: recentFolders.value,
+      maxRecentFolders: maxRecentFolders.value,
+      customThemePath: customThemePath.value,
+      customThemes: customThemes.value
     }
   }
 
@@ -267,6 +306,136 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   /**
+   * 添加最近文件夹
+   */
+  function addRecentFolder(folderPath: string, name: string): void {
+    const existingIndex = recentFolders.value.findIndex(f => f.folderPath === folderPath)
+    
+    if (existingIndex !== -1) {
+      recentFolders.value[existingIndex].lastOpened = Date.now()
+      const [existing] = recentFolders.value.splice(existingIndex, 1)
+      recentFolders.value.unshift(existing)
+    } else {
+      recentFolders.value.unshift({
+        folderPath,
+        name,
+        lastOpened: Date.now(),
+        pinned: false
+      })
+      
+      if (recentFolders.value.length > maxRecentFolders.value) {
+        const pinnedFolders = recentFolders.value.filter(f => f.pinned)
+        const unpinnedFolders = recentFolders.value.filter(f => !f.pinned)
+        while (pinnedFolders.length + unpinnedFolders.length > maxRecentFolders.value && unpinnedFolders.length > 0) {
+          unpinnedFolders.pop()
+        }
+        recentFolders.value = [...pinnedFolders, ...unpinnedFolders]
+      }
+    }
+    
+    savePreferences()
+  }
+
+  /**
+   * 移除最近文件夹
+   */
+  function removeRecentFolder(folderPath: string): void {
+    const index = recentFolders.value.findIndex(f => f.folderPath === folderPath)
+    if (index !== -1) {
+      recentFolders.value.splice(index, 1)
+      savePreferences()
+    }
+  }
+
+  /**
+   * 固定/取消固定最近文件夹
+   */
+  function pinRecentFolder(folderPath: string, pinned: boolean): void {
+    const folder = recentFolders.value.find(f => f.folderPath === folderPath)
+    if (folder) {
+      folder.pinned = pinned
+      if (pinned) {
+        const index = recentFolders.value.indexOf(folder)
+        recentFolders.value.splice(index, 1)
+        const pinnedFolders = recentFolders.value.filter(f => f.pinned)
+        const unpinnedFolders = recentFolders.value.filter(f => !f.pinned)
+        recentFolders.value = [folder, ...pinnedFolders, ...unpinnedFolders]
+      }
+      savePreferences()
+    }
+  }
+
+  /**
+   * 清空未固定的最近文件夹
+   */
+  function clearRecentFolders(): void {
+    recentFolders.value = recentFolders.value.filter(f => f.pinned)
+    savePreferences()
+  }
+
+  /**
+   * 扫描并加载自定义主题目录中的主题
+   */
+  async function loadCustomThemes(): Promise<void> {
+    if (!customThemePath.value || !window.electronAPI) return
+    
+    try {
+      const response = await window.electronAPI.readDirectory(customThemePath.value)
+      if (response && response.success && response.data) {
+        const themes: CustomTheme[] = []
+        for (const entry of response.data) {
+          if (entry.isFile && entry.name.endsWith('.json')) {
+            const fileResponse = await window.electronAPI.readFile(entry.path)
+            if (fileResponse && fileResponse.success && fileResponse.data) {
+              try {
+                const themeData = JSON.parse(fileResponse.data)
+                if (themeData.name && themeData.colors) {
+                  themes.push({
+                    id: entry.path,
+                    name: themeData.name,
+                    path: entry.path,
+                    colors: themeData.colors
+                  })
+                }
+              } catch {
+                // Skip invalid theme files
+              }
+            }
+          }
+        }
+        customThemes.value = themes
+        savePreferences()
+      }
+    } catch (error) {
+      console.error('Failed to load custom themes:', error)
+    }
+  }
+
+  /**
+   * 应用自定义主题
+   */
+  function applyCustomTheme(themeId: string): void {
+    const customTheme = customThemes.value.find(t => t.id === themeId)
+    if (!customTheme) return
+    
+    Object.entries(customTheme.colors).forEach(([property, value]) => {
+      document.documentElement.style.setProperty(property, value)
+    })
+    
+    theme.value = `custom-${themeId}` as 'light' | 'dark' | 'system'
+    savePreferences()
+  }
+
+  /**
+   * 重置为内置主题
+   */
+  function resetToBuiltInTheme(): void {
+    applyTheme()
+    theme.value = DEFAULT_PREFERENCES.theme
+    savePreferences()
+  }
+
+  /**
    * 保存偏好设置到 localStorage
    */
   function savePreferences(): void {
@@ -328,7 +497,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     openFolderInNewWindow,
     lineEnding,
     recentFiles,
-    maxRecentFiles
+    maxRecentFiles,
+    recentFolders,
+    maxRecentFolders,
+    customThemePath,
+    customThemes
   }
 
   return {
@@ -353,6 +526,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     lineEnding,
     recentFiles,
     maxRecentFiles,
+    recentFolders,
+    maxRecentFolders,
+    customThemePath,
+    customThemes,
     
     // Methods
     getAllPreferences,
@@ -365,6 +542,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
     removeRecentFile,
     pinRecentFile,
     clearRecentFiles,
+    addRecentFolder,
+    removeRecentFolder,
+    pinRecentFolder,
+    clearRecentFolders,
+    loadCustomThemes,
+    applyCustomTheme,
+    resetToBuiltInTheme,
     savePreferences,
     loadPreferences
   }

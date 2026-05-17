@@ -71,6 +71,7 @@ export const AppEvents = {
   TAB_UPDATED: 'app:tab:updated',
   FILE_OPENED: 'app:file:opened',
   FILE_SAVED: 'app:file:saved',
+  FOLDER_OPENED: 'app:folder:opened',
   EDITOR_READY: 'app:editor:ready',
   EDITOR_DESTROYED: 'app:editor:destroyed',
   SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed',

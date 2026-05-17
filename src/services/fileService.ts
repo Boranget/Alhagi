@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import type { FileTreeNodeType, DirectoryEntry } from '@/types'
 import { FILE_TYPES } from '../../electron-protocol'
+import { usePreferencesStore } from '@/stores/preferences'
 
 export function useFileService() {
   const currentFolder = ref<string | null>(null)
@@ -19,6 +20,11 @@ export function useFileService() {
       if (response && response.success && response.data) {
         currentFolder.value = response.data.path
         fileTree.value = response.data.tree
+        
+        const prefs = usePreferencesStore()
+        const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
+        prefs.addRecentFolder(response.data.path, folderName)
+        
         return response.data
       }
       return null
@@ -152,6 +158,28 @@ export function useFileService() {
     }
   }
 
+  async function openFolderByPath(folderPath: string) {
+    if (!window.electronAPI) {
+      error.value = 'Electron API not available'
+      return null
+    }
+
+    try {
+      const tree = await readDirectory(folderPath)
+      currentFolder.value = folderPath
+      fileTree.value = tree
+      
+      const prefs = usePreferencesStore()
+      const folderName = folderPath.split(/[/\\]/).pop() || folderPath
+      prefs.addRecentFolder(folderPath, folderName)
+      
+      return { path: folderPath, tree }
+    } catch (e) {
+      error.value = `Failed to open folder: ${e}`
+      return null
+    }
+  }
+
   function toggleFolder(node: FileTreeNodeType) {
     node.expanded = !node.expanded
     if (node.expanded && node.type === FILE_TYPES.DIRECTORY && (!node.children || node.children.length === 0)) {
@@ -172,6 +200,7 @@ export function useFileService() {
     isLoading,
     error,
     openFolder,
+    openFolderByPath,
     openFile,
     saveFile,
     createFile,

@@ -50,6 +50,29 @@ export interface RecentFile {
   pinned: boolean
 }
 
+export interface RecentFolder {
+  folderPath: string
+  name: string
+  lastOpened: number
+  pinned: boolean
+}
+
+export interface SearchResult {
+  filePath: string
+  lineNumber: number
+  lineContent: string
+  matchStart: number
+  matchEnd: number
+}
+
+export interface SearchOptions {
+  includePatterns?: string[]
+  excludePatterns?: string[]
+  caseSensitive?: boolean
+  wholeWord?: boolean
+  useRegex?: boolean
+}
+
 export interface WindowState {
   width: number
   height: number
@@ -99,7 +122,8 @@ export const IPC_CHANNELS = {
     DELETE: 'file:delete',
     RENAME: 'file:rename',
     MOVE: 'file:move',
-    COPY: 'file:copy'
+    COPY: 'file:copy',
+    SEARCH_IN_DIRECTORY: 'file:search-in-directory'
   },
   DIALOG: {
     SELECT_DIRECTORY: 'dialog:select-directory'
@@ -108,7 +132,8 @@ export const IPC_CHANNELS = {
     MINIMIZE: 'window:minimize',
     MAXIMIZE: 'window:maximize',
     CLOSE: 'window:close',
-    SET_ALWAYS_ON_TOP: 'window:set-always-on-top'
+    SET_ALWAYS_ON_TOP: 'window:set-always-on-top',
+    OPEN_NEW_WINDOW: 'window:open-new-window'
   }
 } as const;
 
@@ -119,7 +144,11 @@ export const MENU_EVENTS = {
   OPEN_FOLDER: 'menu:open-folder',
   SAVE: 'menu:save',
   SAVE_AS: 'menu:save-as',
-  VIEW_MODE: 'menu:view-mode'
+  VIEW_MODE: 'menu:view-mode',
+  COPY_AS_MARKDOWN: 'menu:copy-as-markdown',
+  COPY_AS_HTML: 'menu:copy-as-html',
+  PASTE_AS_PLAIN: 'menu:paste-as-plain',
+  CAPTURE_SCREEN: 'menu:capture-screen'
 } as const;
 
 // ========== 文件类型常量 ==========
@@ -162,13 +191,29 @@ export interface ElectronAPI {
   moveFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
   copyFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
   selectDirectory: () => Promise<IPCResponse<string | null>>
+  searchInDirectory: (dirPath: string, query: string, options?: SearchOptions) => Promise<IPCResponse<SearchResult[]>>
   minimize: () => Promise<IPCResponse<void>>
   maximize: () => Promise<IPCResponse<void>>
   close: () => Promise<IPCResponse<void>>
   setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
+  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData }) => Promise<IPCResponse<boolean>>
   onNewFile: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void
   onSave: (callback: () => void) => () => void
   onSaveAs: (callback: () => void) => () => void
   onViewMode: (callback: (mode: string) => void) => () => void
+  onCopyAsMarkdown: (callback: () => void) => () => void
+  onCopyAsHtml: (callback: () => void) => () => void
+  onPasteAsPlain: (callback: () => void) => () => void
+  onCaptureScreen: (callback: () => void) => () => void
+}
+
+export interface DetachedTabData {
+  id: string
+  title: string
+  content: string
+  filePath: string | null
+  isDirty: boolean
+  viewMode: string
+  cursor: { from: number; to: number }
 }

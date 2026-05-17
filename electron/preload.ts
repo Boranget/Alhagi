@@ -65,6 +65,9 @@ const api: ElectronAPI = {
   copyFile: (sourcePath, targetDir) => 
     createIpcHandler(IPC_CHANNELS.FILE.COPY, { sourcePath, targetDir }),
   
+  searchInDirectory: (dirPath, query, options) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, { dirPath, query, options }),
+  
   selectDirectory: () => 
     createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
   
@@ -80,6 +83,9 @@ const api: ElectronAPI = {
   setAlwaysOnTop: (flag) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, flag),
   
+  openNewWindow: (options?: { filePath?: string; tabData?: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } } }) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, options),
+  
   onNewFile: (callback) => 
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
@@ -93,7 +99,19 @@ const api: ElectronAPI = {
     createMenuListener(MENU_EVENTS.SAVE_AS, callback),
   
   onViewMode: (callback) => 
-    createMenuListener(MENU_EVENTS.VIEW_MODE, callback)
+    createMenuListener(MENU_EVENTS.VIEW_MODE, callback),
+  
+  onCopyAsMarkdown: (callback) => 
+    createMenuListener(MENU_EVENTS.COPY_AS_MARKDOWN, callback),
+  
+  onCopyAsHtml: (callback) => 
+    createMenuListener(MENU_EVENTS.COPY_AS_HTML, callback),
+  
+  onPasteAsPlain: (callback) => 
+    createMenuListener(MENU_EVENTS.PASTE_AS_PLAIN, callback),
+  
+  onCaptureScreen: (callback) => 
+    createMenuListener(MENU_EVENTS.CAPTURE_SCREEN, callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

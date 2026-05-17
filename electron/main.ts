@@ -45,6 +45,7 @@ const store = new Store<{ windowState: WindowState }>({
 })
 
 let mainWindow: BrowserWindow | null = null
+const windows = new Map<number, BrowserWindow>()
 
 function createWindow() {
   const windowState = store.get('windowState')
@@ -64,6 +65,8 @@ function createWindow() {
     show: false,
     backgroundColor: '#ffffff'
   })
+  
+  windows.set(mainWindow.id, mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     if (windowState.isMaximized) {
@@ -86,6 +89,7 @@ function createWindow() {
   })
 
   mainWindow.on('closed', () => {
+    windows.delete(mainWindow!.id)
     mainWindow = null
   })
 
@@ -120,6 +124,13 @@ function createMenu() {
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
+        { type: 'separator' },
+        { label: '复制为 Markdown', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_MARKDOWN) },
+        { label: '复制为 HTML', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_HTML) },
+        { label: '粘贴为纯文本', click: () => mainWindow?.webContents.send(MENU_EVENTS.PASTE_AS_PLAIN) },
+        { type: 'separator' },
+        { label: '截图', click: () => mainWindow?.webContents.send(MENU_EVENTS.CAPTURE_SCREEN) },
+        { type: 'separator' },
         { role: 'selectAll' }
       ]
     },
@@ -130,12 +141,22 @@ function createMenu() {
         { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
         { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
         { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
+        { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => {
+          if (mainWindow?.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools()
+          } else {
+            mainWindow?.webContents.openDevTools()
+          }
+        }},
         { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
-    },
+      { role: 'reload' },
+      { role: 'toggleDevTools' },
+      { type: 'separator' },
+      { role: 'togglefullscreen' },
+      { type: 'separator' },
+      { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
+    ]
+  },
     {
       label: '帮助',
       submenu: [
@@ -484,6 +505,78 @@ ipcMain.handle(IPC_CHANNELS.FILE.COPY, async (_, { sourcePath, targetDir }) => {
   }
 })
 
+ipcMain.handle(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, async (_, { dirPath, query, options }: { dirPath: string; query: string; options?: { includePatterns?: string[]; excludePatterns?: string[]; caseSensitive?: boolean; wholeWord?: boolean; useRegex?: boolean } }) => {
+  try {
+    const results: Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }> = []
+    
+    let pattern: RegExp
+    try {
+      if (options?.useRegex) {
+        pattern = new RegExp(query, options.caseSensitive ? 'g' : 'gi')
+      } else {
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const wordBoundary = options?.wholeWord ? '\\b' : ''
+        pattern = new RegExp(`${wordBoundary}${escaped}${wordBoundary}`, options.caseSensitive ? 'g' : 'gi')
+      }
+    } catch {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Invalid search pattern')
+    }
+    
+    const excludePatterns = options?.excludePatterns || ['node_modules', '.git', 'dist', '__pycache__']
+    
+    async function searchInDir(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true })
+        
+        for (const entry of entries) {
+          if (entry.name.startsWith('.')) continue
+          
+          const fullPath = path.join(dir, entry.name)
+          
+          if (entry.isDirectory()) {
+            if (!excludePatterns.includes(entry.name)) {
+              await searchInDir(fullPath)
+            }
+          } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.txt'))) {
+            if (options?.includePatterns && options.includePatterns.length > 0) {
+              const matches = options.includePatterns.some(p => entry.name.match(new RegExp(p)))
+              if (!matches) continue
+            }
+            
+            try {
+              const content = await fs.readFile(fullPath, 'utf-8')
+              const lines = content.split('\n')
+              
+              lines.forEach((line, index) => {
+                const matches = line.matchAll(pattern)
+                for (const match of matches) {
+                  results.push({
+                    filePath: fullPath,
+                    lineNumber: index + 1,
+                    lineContent: line,
+                    matchStart: match.index || 0,
+                    matchEnd: (match.index || 0) + match[0].length
+                  })
+                }
+              })
+            } catch {
+              // Skip files that can't be read
+            }
+          }
+        }
+      } catch {
+        // Skip directories that can't be read
+      }
+    }
+    
+    await searchInDir(dirPath)
+    return createSuccessResponse(results)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Search failed: ${error.message}`)
+  }
+})
+
 ipcMain.handle(IPC_CHANNELS.WINDOW.MINIMIZE, () => {
   mainWindow?.minimize()
   return createSuccessResponse(undefined)
@@ -506,6 +599,82 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.CLOSE, () => {
 ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => {
   mainWindow?.setAlwaysOnTop(flag)
   return createSuccessResponse(undefined)
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?: { filePath?: string; tabData?: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } } }) => {
+  try {
+    const newWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.mjs'),
+        contextIsolation: true,
+        nodeIntegration: false
+      },
+      show: false,
+      backgroundColor: '#ffffff'
+    })
+
+    windows.set(newWindow.id, newWindow)
+
+    newWindow.on('ready-to-show', () => {
+      newWindow.show()
+    })
+
+    const filePath = options?.filePath
+    const tabData = options?.tabData
+
+    if (VITE_DEV_SERVER_URL) {
+      const url = filePath 
+        ? `${VITE_DEV_SERVER_URL}?file=${encodeURIComponent(filePath)}`
+        : VITE_DEV_SERVER_URL
+      newWindow.loadURL(url)
+    } else {
+      const htmlPath = filePath 
+        ? `${path.join(RENDERER_DIST, 'index.html')}?file=${encodeURIComponent(filePath)}`
+        : path.join(RENDERER_DIST, 'index.html')
+      newWindow.loadFile(htmlPath)
+    }
+
+    if (tabData) {
+      newWindow.webContents.once('did-finish-load', () => {
+        newWindow.webContents.send('tab:detached', tabData)
+      })
+    }
+
+    return createSuccessResponse(newWindow.id)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to open new window: ${error.message}`)
+  }
+})
+
+ipcMain.handle('window:merge-tab', async (_, { tabData, targetWindowId }: { tabData: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } }; targetWindowId: number }) => {
+  try {
+    const targetWindow = windows.get(targetWindowId)
+    if (!targetWindow || targetWindow.isDestroyed()) {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Target window not found')
+    }
+    
+    targetWindow.webContents.send('tab:merge', tabData)
+    return createSuccessResponse(true)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to merge tab: ${error.message}`)
+  }
+})
+
+ipcMain.handle('window:get-window-id', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  return createSuccessResponse(window?.id || null)
+})
+
+ipcMain.handle('window:list-windows', () => {
+  const windowList = Array.from(windows.entries()).map(([id, win]) => ({
+    id,
+    title: win.getTitle()
+  }))
+  return createSuccessResponse(windowList)
 })
 
 app.whenReady().then(() => {

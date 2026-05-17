@@ -43,6 +43,26 @@
           <span>正则表达式</span>
         </label>
       </div>
+      <div class="search-patterns">
+        <div class="pattern-row">
+          <label class="pattern-label">包含:</label>
+          <input
+            v-model="options.include"
+            type="text"
+            class="pattern-input"
+            placeholder="*.md, *.txt"
+          >
+        </div>
+        <div class="pattern-row">
+          <label class="pattern-label">排除:</label>
+          <input
+            v-model="options.exclude"
+            type="text"
+            class="pattern-input"
+            placeholder="node_modules, .git"
+          >
+        </div>
+      </div>
     </div>
     <div class="search-actions">
       <button
@@ -326,27 +346,77 @@ function searchInFolder(pattern: RegExp) {
     return
   }
 
-  const allTabs = tabsStore.getAllTabs()
-  const searchResults: SearchResult[] = []
-  let total = 0
-
-  allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach(tab => {
-    const matches = searchInContent(tab.content, pattern)
-    if (matches.length > 0) {
-      searchResults.push({
-        file: tab.id,
-        fileName: tab.title,
-        filePath: tab.filePath || undefined,
-        matches
-      })
-      total += matches.length
+  if (window.electronAPI) {
+    isSearching.value = true
+    const searchOptions = {
+      caseSensitive: options.caseSensitive,
+      wholeWord: options.wholeWord,
+      useRegex: options.regex,
+      includePatterns: options.include ? [options.include] : ['.*\\.md$', '.*\\.markdown$', '.*\\.txt$'],
+      excludePatterns: options.exclude ? options.exclude.split(',').map(s => s.trim()) : ['node_modules', '.git', 'dist']
     }
-  })
 
-  results.value = searchResults
-  totalMatches.value = total
-  if (searchResults.length > 0) {
-    expandedFiles.value.add(searchResults[0].file)
+    window.electronAPI.searchInDirectory(folderPath, searchQuery.value, searchOptions).then(response => {
+      if (response && response.success && response.data) {
+        const groupedByFile = new Map<string, SearchResult>()
+
+        response.data.forEach((result: { filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }) => {
+          const fileName = result.filePath.split(/[/\\]/).pop() || result.filePath
+
+          if (!groupedByFile.has(result.filePath)) {
+            groupedByFile.set(result.filePath, {
+              file: result.filePath,
+              fileName: fileName,
+              filePath: result.filePath,
+              matches: []
+            })
+          }
+
+          const existing = groupedByFile.get(result.filePath)!
+          const highlightedText = highlightMatch(result.lineContent, pattern, result.matchStart)
+          existing.matches.push({
+            line: result.lineNumber,
+            column: result.matchStart + 1,
+            text: result.lineContent,
+            highlightedText,
+            startIndex: result.matchStart,
+            endIndex: result.matchEnd
+          })
+        })
+
+        const searchResults = Array.from(groupedByFile.values())
+        results.value = searchResults
+        totalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
+
+        if (searchResults.length > 0) {
+          expandedFiles.value.add(searchResults[0].file)
+        }
+      }
+      isSearching.value = false
+    })
+  } else {
+    const allTabs = tabsStore.getAllTabs()
+    const searchResults: SearchResult[] = []
+    let total = 0
+
+    allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach(tab => {
+      const matches = searchInContent(tab.content, pattern)
+      if (matches.length > 0) {
+        searchResults.push({
+          file: tab.id,
+          fileName: tab.title,
+          filePath: tab.filePath || undefined,
+          matches
+        })
+        total += matches.length
+      }
+    })
+
+    results.value = searchResults
+    totalMatches.value = total
+    if (searchResults.length > 0) {
+      expandedFiles.value.add(searchResults[0].file)
+    }
   }
 }
 
@@ -498,6 +568,38 @@ function handleMatchClick(result: SearchResult, _match: SearchMatch) {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+
+.search-patterns {
+  margin-top: 8px;
+}
+
+.pattern-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pattern-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 40px;
+}
+
+.pattern-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 11px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+  }
 }
 
 .option {
