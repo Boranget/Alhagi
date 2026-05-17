@@ -64,7 +64,7 @@ class SimpleEventBus implements EventBus {
 export const eventBus = new SimpleEventBus()
 
 // 使用类型安全的事件常量
-export const AppEvents: Record<string, AppEventName> = {
+export const AppEvents = {
   TAB_CREATED: 'app:tab:created',
   TAB_CLOSED: 'app:tab:closed',
   TAB_SWITCHED: 'app:tab:switched',
@@ -83,7 +83,7 @@ export const AppEvents: Record<string, AppEventName> = {
   CURSOR_CHANGED: 'editor:cursor:changed',
   SELECTION_CHANGED: 'editor:selection:changed',
   SCROLL_CHANGED: 'editor:scroll:changed'
-}
+} as const satisfies Record<AppEventName, string>
 
 export function createEventHook<T = unknown>() {
   const callbacks = ref<Set<EventCallback<T>>>(new Set())

@@ -4,6 +4,7 @@ import type { TabState, ViewMode } from '@/types'
 import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { TABS, EDITOR } from '@/constants'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
   if (!tabState || typeof tabState !== 'object') {
@@ -41,7 +42,7 @@ export function validateTabState(tabState: unknown): tabState is TabState {
     return false
   }
 
-  if (!['wysiwyg', 'source', 'split'].includes(obj.viewMode as string)) {
+  if (![EDITOR.VIEW_MODES.WYSIWYG, EDITOR.VIEW_MODES.SOURCE, EDITOR.VIEW_MODES.SPLIT].includes(obj.viewMode as string)) {
     console.error('Invalid viewMode field')
     return false
   }
@@ -60,11 +61,11 @@ export function createDefaultTabState(id: string): TabState {
     filePath: null,
     content: '',
     isDirty: false,
-    title: '未命名',
+    title: TABS.NEW_TAB_TITLE,
     active: false,
     cursor: { from: 0, to: 0 },
     scrollTop: 0,
-    viewMode: 'wysiwyg',
+    viewMode: EDITOR.VIEW_MODES.WYSIWYG,
     undoStack: [],
     redoStack: [],
     createdAt: Date.now(),
@@ -73,8 +74,8 @@ export function createDefaultTabState(id: string): TabState {
   }
 }
 
-const MAX_UNDO_STACK_SIZE = 100
-const MAX_REDO_STACK_SIZE = 50
+const MAX_UNDO_STACK_SIZE = EDITOR.MAX_UNDO_STACK_SIZE
+const MAX_REDO_STACK_SIZE = EDITOR.MAX_REDO_STACK_SIZE
 
 function trimHistoryStacks(tab: TabState): void {
   if (tab.undoStack.length > MAX_UNDO_STACK_SIZE) {
@@ -113,11 +114,11 @@ export const useTabsStore = defineStore('tabs', () => {
       filePath: options.filePath || null,
       content: options.content || '',
       isDirty: false,
-      title: options.title || '未命名',
+      title: options.title || TABS.NEW_TAB_TITLE,
       active: false,
       cursor: { from: 0, to: 0 },
       scrollTop: 0,
-      viewMode: options.viewMode || 'wysiwyg',
+      viewMode: options.viewMode || EDITOR.VIEW_MODES.WYSIWYG,
       undoStack: [],
       redoStack: [],
       createdAt: Date.now(),

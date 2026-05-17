@@ -1,4 +1,6 @@
-import { FileTreeNode, DirectoryEntry, RecentFile } from '../../electron-protocol'
+import { FileTreeNode, DirectoryEntry, RecentFile, ElectronAPI } from '../../electron-protocol'
+
+export type { ElectronAPI }
 
 export interface TabState {
   id: string
@@ -56,32 +58,6 @@ export interface WindowState {
 export type FileTreeNodeType = FileTreeNode
 
 export type { DirectoryEntry, RecentFile }
-
-export interface ElectronAPI {
-  openFile: () => Promise<{ filePath: string; content: string } | null>
-  saveFile: (filePath: string, content: string) => Promise<boolean>
-  saveAsFile: (content: string, defaultPath?: string) => Promise<string | null>
-  readFile: (filePath: string) => Promise<string>
-  openFolder: () => Promise<{ path: string; tree: FileTreeNodeType[] } | null>
-  readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>
-  createFile: (dirPath: string, fileName: string) => Promise<string | null>
-  createDirectory: (dirPath: string, dirName: string) => Promise<string | null>
-  deleteFile: (filePath: string) => Promise<boolean>
-  renameFile: (oldPath: string, newName: string) => Promise<string | null>
-  moveFile: (sourcePath: string, targetDir: string) => Promise<string | null>
-  copyFile: (sourcePath: string, targetDir: string) => Promise<string | null>
-  selectDirectory: () => Promise<string | null>
-  minimize: () => Promise<void>
-  maximize: () => Promise<void>
-  close: () => Promise<void>
-  setAlwaysOnTop: (flag: boolean) => Promise<void>
-  openNewWindow: (options: { type: string; tab?: Partial<TabState> }) => Promise<void>
-  onNewFile: (callback: () => void) => void
-  onOpenFile: (callback: () => void) => void
-  onSave: (callback: () => void) => void
-  onSaveAs: (callback: () => void) => void
-  onViewMode: (callback: (mode: string) => void) => void
-}
 
 export interface AppEventPayloads {
   'app:tab:created': { tabId: string; tab: TabState }

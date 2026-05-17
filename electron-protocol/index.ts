@@ -127,3 +127,29 @@ export const FILE_TYPES = {
   FILE: 'file',
   DIRECTORY: 'directory'
 } as const;
+
+// ========== ElectronAPI 接口 ==========
+export interface ElectronAPI {
+  openFile: () => Promise<IPCResponse<{ filePath: string; content: string } | null>>
+  saveFile: (filePath: string, content: string) => Promise<IPCResponse<boolean>>
+  saveAsFile: (content: string, defaultPath?: string) => Promise<IPCResponse<string | null>>
+  readFile: (filePath: string) => Promise<IPCResponse<string>>
+  openFolder: () => Promise<IPCResponse<{ path: string; tree: FileTreeNode[] } | null>>
+  readDirectory: (dirPath: string) => Promise<IPCResponse<DirectoryEntry[]>>
+  createFile: (dirPath: string, fileName: string) => Promise<IPCResponse<string | null>>
+  createDirectory: (dirPath: string, dirName: string) => Promise<IPCResponse<string | null>>
+  deleteFile: (filePath: string) => Promise<IPCResponse<boolean>>
+  renameFile: (oldPath: string, newName: string) => Promise<IPCResponse<string | null>>
+  moveFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
+  copyFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
+  selectDirectory: () => Promise<IPCResponse<string | null>>
+  minimize: () => Promise<IPCResponse<void>>
+  maximize: () => Promise<IPCResponse<void>>
+  close: () => Promise<IPCResponse<void>>
+  setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
+  onNewFile: (callback: () => void) => () => void
+  onOpenFile: (callback: () => void) => () => void
+  onSave: (callback: () => void) => () => void
+  onSaveAs: (callback: () => void) => () => void
+  onViewMode: (callback: (mode: string) => void) => () => void
+}

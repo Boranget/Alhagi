@@ -38,12 +38,12 @@
       :class="contentClasses"
     >
       <div
-        v-show="currentMode === 'wysiwyg'"
+        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG"
         ref="wysiwygRef"
         class="wysiwyg-editor"
       />
       <textarea
-        v-show="currentMode === 'source'"
+        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
         ref="sourceRef"
         v-model="sourceContent"
         class="source-editor"
@@ -52,7 +52,7 @@
         @scroll="handleSourceScroll"
       />
       <div
-        v-show="currentMode === 'split'"
+        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
         class="split-view"
       >
         <textarea
@@ -81,6 +81,7 @@ import { useEditorManager } from '@/managers/editorManager'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
+import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
 
 const tabsStore = useTabsStore()
@@ -98,9 +99,9 @@ const { containerRef, currentMode, init, setViewMode, destroy, getManager } = us
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const viewModes = [
-  { value: 'wysiwyg' as ViewMode, label: 'WYSIWYG 模式', icon: '◉' },
-  { value: 'source' as ViewMode, label: '源码模式', icon: '{ }' },
-  { value: 'split' as ViewMode, label: '分屏模式', icon: '◈' }
+  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: 'WYSIWYG 模式', icon: '◉' },
+  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: '源码模式', icon: '{ }' },
+  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: '分屏模式', icon: '◈' }
 ]
 
 const activeTab = computed(() => tabsStore.activeTab)
@@ -131,14 +132,14 @@ watch(activeTab, (tab) => {
 const handleViewModeChange = async (mode: ViewMode) => {
   const manager = getManager()
 
-  if (mode !== 'wysiwyg') {
+  if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
     // 切换到源码或分屏模式时，获取当前WYSIWYG内容同步到源码
     if (manager && manager.isReady()) {
       sourceContent.value = manager.getMarkdown()
     }
   }
 
-  if (mode === 'wysiwyg' && currentMode.value !== 'wysiwyg') {
+  if (mode === EDITOR.VIEW_MODES.WYSIWYG && currentMode.value !== EDITOR.VIEW_MODES.WYSIWYG) {
     // 从源码模式切换回WYSIWYG时，同步源码内容到编辑器
     if (manager && manager.isReady()) {
       await manager.setMarkdown(sourceContent.value)
@@ -160,7 +161,7 @@ const handleSourceInput = debounce(() => {
 }, 100)
 
 function updatePreview() {
-  if ((currentMode.value === 'split') && splitPreviewRef.value) {
+  if ((currentMode.value === EDITOR.VIEW_MODES.SPLIT) && splitPreviewRef.value) {
     // 简单的Markdown预览（实际项目中可使用marked或其他库）
     const html = sourceContent.value
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
@@ -193,7 +194,7 @@ let isScrollingFromSource = false
 let isScrollingFromPreview = false
 
 function handleSourceScroll(e: Event) {
-  if (currentMode.value === 'split' && !isScrollingFromPreview) {
+  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT && !isScrollingFromPreview) {
     isScrollingFromSource = true
     const source = e.target as HTMLTextAreaElement
     if (splitPreviewRef.value) {
@@ -209,7 +210,7 @@ function handleSourceScroll(e: Event) {
 }
 
 function handlePreviewScroll(e: Event) {
-  if (currentMode.value === 'split' && !isScrollingFromSource) {
+  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT && !isScrollingFromSource) {
     isScrollingFromPreview = true
     const preview = e.target as HTMLElement
     if (splitSourceRef.value) {

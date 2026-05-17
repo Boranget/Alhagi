@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { FileTreeNodeType, DirectoryEntry } from '@/types'
+import { FILE_TYPES } from '../../electron-protocol'
 
 export function useFileService() {
   const currentFolder = ref<string | null>(null)
@@ -14,11 +15,11 @@ export function useFileService() {
     }
 
     try {
-      const result = await window.electronAPI.openFolder()
-      if (result) {
-        currentFolder.value = result.path
-        fileTree.value = result.tree
-        return result
+      const response = await window.electronAPI.openFolder()
+      if (response && response.success && response.data) {
+        currentFolder.value = response.data.path
+        fileTree.value = response.data.tree
+        return response.data
       }
       return null
     } catch (e) {
@@ -31,11 +32,14 @@ export function useFileService() {
     if (!window.electronAPI) return []
 
     try {
-      const entries = await window.electronAPI.readDirectory(dirPath)
-      return entries.map((entry: DirectoryEntry) => ({
+      const response = await window.electronAPI.readDirectory(dirPath)
+      if (!response || !response.success || !response.data) {
+        return []
+      }
+      return response.data.map((entry: DirectoryEntry) => ({
         name: entry.name,
         path: entry.path,
-        type: entry.isDirectory ? 'directory' : 'file' as const,
+        type: entry.isDirectory ? FILE_TYPES.DIRECTORY : FILE_TYPES.FILE,
         expanded: false,
         children: entry.isDirectory ? [] : undefined
       }))
@@ -49,8 +53,11 @@ export function useFileService() {
     if (!window.electronAPI) return null
 
     try {
-      const result = await window.electronAPI.readFile(filePath)
-      return result
+      const response = await window.electronAPI.readFile(filePath)
+      if (response && response.success && response.data) {
+        return response.data
+      }
+      return null
     } catch (e) {
       error.value = `Failed to open file: ${e}`
       return null
@@ -61,8 +68,8 @@ export function useFileService() {
     if (!window.electronAPI) return false
 
     try {
-      await window.electronAPI.saveFile(filePath, content)
-      return true
+      const response = await window.electronAPI.saveFile(filePath, content)
+      return response && response.success
     } catch (e) {
       error.value = `Failed to save file: ${e}`
       return false
@@ -73,11 +80,12 @@ export function useFileService() {
     if (!window.electronAPI) return null
 
     try {
-      const filePath = await window.electronAPI.createFile(dirPath, fileName)
-      if (filePath) {
+      const response = await window.electronAPI.createFile(dirPath, fileName)
+      if (response && response.success && response.data) {
         await refreshTree()
+        return response.data
       }
-      return filePath
+      return null
     } catch (e) {
       error.value = `Failed to create file: ${e}`
       return null
@@ -88,11 +96,12 @@ export function useFileService() {
     if (!window.electronAPI) return null
 
     try {
-      const newDirPath = await window.electronAPI.createDirectory(dirPath, dirName)
-      if (newDirPath) {
+      const response = await window.electronAPI.createDirectory(dirPath, dirName)
+      if (response && response.success && response.data) {
         await refreshTree()
+        return response.data
       }
-      return newDirPath
+      return null
     } catch (e) {
       error.value = `Failed to create directory: ${e}`
       return null
@@ -103,9 +112,12 @@ export function useFileService() {
     if (!window.electronAPI) return false
 
     try {
-      await window.electronAPI.deleteFile(filePath)
-      await refreshTree()
-      return true
+      const response = await window.electronAPI.deleteFile(filePath)
+      if (response && response.success) {
+        await refreshTree()
+        return true
+      }
+      return false
     } catch (e) {
       error.value = `Failed to delete file: ${e}`
       return false
@@ -116,11 +128,12 @@ export function useFileService() {
     if (!window.electronAPI) return null
 
     try {
-      const newPath = await window.electronAPI.renameFile(oldPath, newName)
-      if (newPath) {
+      const response = await window.electronAPI.renameFile(oldPath, newName)
+      if (response && response.success && response.data) {
         await refreshTree()
+        return response.data
       }
-      return newPath
+      return null
     } catch (e) {
       error.value = `Failed to rename file: ${e}`
       return null
@@ -141,13 +154,13 @@ export function useFileService() {
 
   function toggleFolder(node: FileTreeNodeType) {
     node.expanded = !node.expanded
-    if (node.expanded && node.type === 'directory' && (!node.children || node.children.length === 0)) {
+    if (node.expanded && node.type === FILE_TYPES.DIRECTORY && (!node.children || node.children.length === 0)) {
       loadChildren(node)
     }
   }
 
   async function loadChildren(node: FileTreeNodeType) {
-    if (node.type !== 'directory') return
+    if (node.type !== FILE_TYPES.DIRECTORY) return
 
     const children = await readDirectory(node.path)
     node.children = children
