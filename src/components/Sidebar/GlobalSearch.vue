@@ -160,12 +160,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileService } from '@/services/fileService'
 import { debounce } from '@/utils/helpers'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { t } from '@/services/i18n'
+import { useEditorManager } from '@/managers/editorManager'
+import type { SearchConfig } from '@/managers/searchHighlightPlugin'
+
+const { setSearchHighlight, clearSearchHighlight } = useEditorManager()
 
 interface SearchMatch {
   line: number
@@ -208,14 +212,41 @@ const options = reactive({
   exclude: 'node_modules'
 })
 
+// 监听搜索条件变化，更新编辑器高亮
+watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => options.regex], () => {
+  updateEditorHighlight()
+})
+
+// 组件卸载时清除搜索高亮
+onUnmounted(() => {
+  clearSearchHighlight()
+})
+
+function updateEditorHighlight() {
+  if (!searchQuery.value.trim()) {
+    clearSearchHighlight()
+    return
+  }
+
+  const config: SearchConfig = {
+    search: searchQuery.value,
+    caseSensitive: options.caseSensitive,
+    wholeWord: options.wholeWord,
+    regexp: options.regex
+  }
+  setSearchHighlight(config)
+}
+
 const handleSearch = debounce(() => {
   performSearch()
+  updateEditorHighlight()
 }, 300)
 
 function setSearchScope(scope: 'file' | 'folder' | 'all') {
   activeSearchTarget.value = scope
   if (searchQuery.value) {
     performSearch()
+    updateEditorHighlight()
   }
 }
 

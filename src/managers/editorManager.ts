@@ -9,6 +9,7 @@ import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { PerformanceMonitor, LRUCache, Debouncer } from '@/utils/performance'
+import { searchHighlightPlugin, setSearchQuery, clearSearchHighlight, SearchConfig } from './searchHighlightPlugin'
 
 export interface EditorConfig {
   enablePolling: boolean
@@ -91,6 +92,7 @@ export class EditorInstanceManager {
       .use(history)
       .use(clipboard)
       .use(listener)
+      .use(searchHighlightPlugin())
       .create()
   }
 
@@ -507,6 +509,43 @@ export class EditorInstanceManager {
       console.error('Failed to reload editor:', error)
     }
   }
+
+  setSearchHighlight(config: SearchConfig): void {
+    if (!this.editor || !this.isReady()) {
+      return
+    }
+
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const editorView = context.get(editorViewCtx)
+      
+      if (editorView) {
+        const view = editorView as { dispatch: (tr: any) => void; state: any }
+        
+        if (config.search.trim()) {
+          const tr = view.state.tr.setMeta('search', config)
+          view.dispatch(tr)
+        } else {
+          const tr = view.state.tr.setMeta('search', {
+            search: '',
+            caseSensitive: false,
+            wholeWord: false,
+            regexp: false
+          })
+          view.dispatch(tr)
+        }
+      }
+    })
+  }
+
+  clearSearchHighlight(): void {
+    this.setSearchHighlight({
+      search: '',
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false
+    })
+  }
 }
 
 export function useEditorManager() {
@@ -563,6 +602,14 @@ export function useEditorManager() {
     }
   })
 
+  const setSearchHighlight = (config: SearchConfig) => {
+    manager?.setSearchHighlight(config)
+  }
+
+  const clearSearchHighlight = () => {
+    manager?.clearSearchHighlight()
+  }
+
   return {
     containerRef,
     isReady,
@@ -571,6 +618,8 @@ export function useEditorManager() {
     switchToTab,
     setViewMode,
     destroy,
-    getManager
+    getManager,
+    setSearchHighlight,
+    clearSearchHighlight
   }
 }
