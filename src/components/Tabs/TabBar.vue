@@ -162,6 +162,18 @@
     >
       <span>{{ getTab(draggingTabId)?.title || '未命名' }}</span>
     </div>
+    
+    <!-- 窗口边缘指示器 -->
+    <div
+      v-if="dragOverWindowEdge.direction && windowList.length > 1"
+      class="window-edge-indicator"
+      :class="dragOverWindowEdge.direction"
+    >
+      <div class="edge-icon">
+        {{ dragOverWindowEdge.direction === 'left' ? '◀' : '▶' }}
+      </div>
+      <div class="edge-text">释放以合并到其他窗口</div>
+    </div>
   </div>
 </template>
 
@@ -188,6 +200,8 @@ const selectedIndex = ref(0)
 const draggingTabId = ref<string | null>(null)
 const dragOverTabId = ref<string | null>(null)
 const ghostStyle = ref({ left: '0px', top: '0px' })
+const dragOverWindowEdge = ref<{ direction: 'left' | 'right' | null, targetWindowId: number | null }>({ direction: null, targetWindowId: null })
+const windowList = ref<Array<{ id: number; title: string }>>([])
 
 const filteredTabOrder = computed(() => {
   if (!searchQuery.value) {
@@ -380,14 +394,31 @@ function copyFilePath() {
 }
 
 // 拖拽相关函数
-function handleDragStart(event: DragEvent, tabId: string) {
+let currentWindowId: number | null = null
+
+async function handleDragStart(event: DragEvent, tabId: string) {
   draggingTabId.value = tabId
+  
+  // 获取当前窗口ID和窗口列表
+  if (window.electronAPI) {
+    try {
+      const idResp = await window.electronAPI.getWindowId()
+      if (idResp.success && idResp.data) {
+        currentWindowId = idResp.data
+      }
+      const listResp = await window.electronAPI.listWindows()
+      if (listResp.success && listResp.data) {
+        windowList.value = listResp.data
+      }
+    } catch (e) {
+      console.error('Failed to get window info:', e)
+    }
+  }
   
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', tabId)
     
-    // 延迟添加样式以避免立即显示
     setTimeout(() => {
       if (draggingTabId.value === tabId) {
         ghostStyle.value = {
@@ -408,9 +439,24 @@ function handleDragOver(event: DragEvent, tabId: string) {
   if (draggingTabId.value && draggingTabId.value !== tabId) {
     dragOverTabId.value = tabId
     
-    // 检查是否拖拽到了窗口外部（屏幕边缘）
-    if (event.clientX < 10 || event.clientX > window.innerWidth - 10) {
-      // 可以在这里触发分离到新窗口
+    // 检测是否拖拽到窗口边缘
+    const edgeThreshold = 50
+    const direction: 'left' | 'right' | null = 
+      event.clientX < edgeThreshold ? 'left' : 
+      event.clientX > window.innerWidth - edgeThreshold ? 'right' : null
+    
+    if (direction) {
+      // 查找目标窗口
+      const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
+      if (otherWindows.length > 0) {
+        // 简化处理：如果是左边缘，合并到列表中的第一个其他窗口
+        // 如果是右边缘，同样处理
+        dragOverWindowEdge.value = { direction, targetWindowId: otherWindows[0].id }
+      } else {
+        dragOverWindowEdge.value = { direction: null, targetWindowId: null }
+      }
+    } else {
+      dragOverWindowEdge.value = { direction: null, targetWindowId: null }
     }
   }
 }
@@ -418,28 +464,49 @@ function handleDragOver(event: DragEvent, tabId: string) {
 function handleDrop(event: DragEvent, targetTabId: string) {
   event.preventDefault()
   
-  if (!draggingTabId.value || draggingTabId.value === targetTabId) {
+  if (!draggingTabId.value) {
     return
   }
   
-  // 重新排序标签页
-  const currentOrder = [...tabsStore.tabOrder]
-  const dragIndex = currentOrder.indexOf(draggingTabId.value)
-  const targetIndex = currentOrder.indexOf(targetTabId)
-  
-  if (dragIndex > -1 && targetIndex > -1) {
-    // 移除拖拽的标签
-    currentOrder.splice(dragIndex, 1)
-    // 插入到目标位置
-    const insertIndex = dragIndex < targetIndex ? targetIndex : targetIndex + 1
-    currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, draggingTabId.value)
+  // 检查是否拖拽到窗口边缘，准备合并到其他窗口
+  if (dragOverWindowEdge.value.direction && dragOverWindowEdge.value.targetWindowId && window.electronAPI) {
+    const tab = getTab(draggingTabId.value)
+    if (tab) {
+      // 合并到目标窗口
+      window.electronAPI.mergeTab({
+        id: tab.id,
+        title: tab.title,
+        content: tab.content,
+        filePath: tab.filePath,
+        isDirty: tab.isDirty,
+        viewMode: tab.viewMode,
+        cursor: tab.cursor
+      }, dragOverWindowEdge.value.targetWindowId)
+      
+      // 从当前窗口移除标签
+      tabsStore.removeTab(draggingTabId.value)
+    }
+  } else if (draggingTabId.value !== targetTabId) {
+    // 重新排序标签页
+    const currentOrder = [...tabsStore.tabOrder]
+    const dragIndex = currentOrder.indexOf(draggingTabId.value)
+    const targetIndex = currentOrder.indexOf(targetTabId)
     
-    // 更新标签顺序
-    tabsStore.tabOrder = currentOrder
+    if (dragIndex > -1 && targetIndex > -1) {
+      // 移除拖拽的标签
+      currentOrder.splice(dragIndex, 1)
+      // 插入到目标位置
+      const insertIndex = dragIndex < targetIndex ? targetIndex : targetIndex + 1
+      currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, draggingTabId.value)
+      
+      // 更新标签顺序
+      tabsStore.tabOrder = currentOrder
+    }
   }
   
   draggingTabId.value = null
   dragOverTabId.value = null
+  dragOverWindowEdge.value = { direction: null, targetWindowId: null }
 }
 
 function detachTab() {
@@ -752,5 +819,44 @@ onUnmounted(() => {
   color: var(--text-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translate(-50%, -50%);
+}
+
+.window-edge-indicator {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to right, rgba(64, 158, 255, 0.8), transparent);
+  pointer-events: none;
+  z-index: 9998;
+  transition: opacity 0.2s;
+  
+  &.left {
+    left: 0;
+    background: linear-gradient(to right, rgba(64, 158, 255, 0.8), transparent);
+  }
+  
+  &.right {
+    right: 0;
+    background: linear-gradient(to left, rgba(64, 158, 255, 0.8), transparent);
+  }
+  
+  .edge-icon {
+    font-size: 24px;
+    color: white;
+    margin-bottom: 8px;
+  }
+  
+  .edge-text {
+    font-size: 11px;
+    color: white;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+  }
 }
 </style>
