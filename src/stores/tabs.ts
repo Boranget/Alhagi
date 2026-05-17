@@ -287,7 +287,9 @@ export const useTabsStore = defineStore('tabs', () => {
     if (!window.electronAPI) return false
 
     if (tab.filePath) {
-      await window.electronAPI.saveFile(tab.filePath, tab.content)
+      const prefs = usePreferencesStore()
+      const lineEnding = prefs.lineEnding
+      await window.electronAPI.saveFile(tab.filePath, tab.content, lineEnding)
       markClean(tabId)
 
       eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
@@ -301,15 +303,16 @@ export const useTabsStore = defineStore('tabs', () => {
     const tab = tabs.value.get(tabId)
     if (!tab || !window.electronAPI) return false
 
+    const prefs = usePreferencesStore()
+    const lineEnding = prefs.lineEnding
     const defaultPath = (tab.title.endsWith('.md') ? tab.title : tab.title + '.md')
-    const filePath = await window.electronAPI.saveAsFile(tab.content, defaultPath)
+    const filePath = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
 
     if (filePath) {
       tab.filePath = filePath
       tab.title = extractTitleFromPath(filePath)
       markClean(tabId)
 
-      const prefs = usePreferencesStore()
       prefs.addRecentFile(filePath, tab.title)
 
       eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })

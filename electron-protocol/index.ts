@@ -128,11 +128,30 @@ export const FILE_TYPES = {
   DIRECTORY: 'directory'
 } as const;
 
+// ========== 行尾符常量 ==========
+export const LINE_ENDINGS = {
+  LF: '\n',
+  CRLF: '\r\n'
+} as const;
+
+export type LineEnding = keyof typeof LINE_ENDINGS;
+
+/**
+ * 转换文本的行尾符
+ */
+export function convertLineEndings(content: string, lineEnding: LineEnding): string {
+  const targetEnding = LINE_ENDINGS[lineEnding]
+  // 将所有行尾符统一转换为目标格式
+  return content
+    .replace(/\r\n/g, '\n')  // 先统一为 LF
+    .replace(/\n/g, targetEnding)  // 再转换为目标格式
+}
+
 // ========== ElectronAPI 接口 ==========
 export interface ElectronAPI {
   openFile: () => Promise<IPCResponse<{ filePath: string; content: string } | null>>
-  saveFile: (filePath: string, content: string) => Promise<IPCResponse<boolean>>
-  saveAsFile: (content: string, defaultPath?: string) => Promise<IPCResponse<string | null>>
+  saveFile: (filePath: string, content: string, lineEnding?: LineEnding) => Promise<IPCResponse<boolean>>
+  saveAsFile: (content: string, defaultPath?: string, lineEnding?: LineEnding) => Promise<IPCResponse<string | null>>
   readFile: (filePath: string) => Promise<IPCResponse<string>>
   openFolder: () => Promise<IPCResponse<{ path: string; tree: FileTreeNode[] } | null>>
   readDirectory: (dirPath: string) => Promise<IPCResponse<DirectoryEntry[]>>

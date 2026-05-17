@@ -1,6 +1,6 @@
-import { FileTreeNode, DirectoryEntry, RecentFile, ElectronAPI } from '../../electron-protocol'
+import { FileTreeNode, DirectoryEntry, RecentFile, ElectronAPI, LineEnding } from '../../electron-protocol'
 
-export type { ElectronAPI }
+export type { ElectronAPI, LineEnding }
 
 export interface TabState {
   id: string

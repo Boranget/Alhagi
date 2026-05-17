@@ -32,11 +32,11 @@ function createMenuListener(
 const api: ElectronAPI = {
   openFile: () => createIpcHandler(IPC_CHANNELS.FILE.OPEN),
   
-  saveFile: (filePath, content) => 
-    createIpcHandler(IPC_CHANNELS.FILE.SAVE, { filePath, content }),
+  saveFile: (filePath, content, lineEnding) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SAVE, { filePath, content, lineEnding }),
   
-  saveAsFile: (content, defaultPath) => 
-    createIpcHandler(IPC_CHANNELS.FILE.SAVE_AS, { content, defaultPath }),
+  saveAsFile: (content, defaultPath, lineEnding) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SAVE_AS, { content, defaultPath, lineEnding }),
   
   readFile: (filePath) => 
     createIpcHandler(IPC_CHANNELS.FILE.READ, filePath),

@@ -12,7 +12,9 @@ import {
   createErrorResponse,
   IPC_CHANNELS,
   MENU_EVENTS,
-  FILE_TYPES
+  FILE_TYPES,
+  LINE_ENDINGS,
+  LineEnding
 } from '../electron-protocol'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -184,9 +186,16 @@ ipcMain.handle(IPC_CHANNELS.FILE.OPEN, async () => {
   }
 })
 
-ipcMain.handle(IPC_CHANNELS.FILE.SAVE, async (_, { filePath, content }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.SAVE, async (_, { filePath, content, lineEnding }) => {
   try {
-    await fs.writeFile(filePath, content, 'utf-8')
+    let finalContent = content
+    if (lineEnding && lineEnding in LINE_ENDINGS) {
+      const targetEnding = LINE_ENDINGS[lineEnding as LineEnding]
+      finalContent = content
+        .replace(/\r\n/g, '\n')
+        .replace(/\n/g, targetEnding)
+    }
+    await fs.writeFile(filePath, finalContent, 'utf-8')
     return createSuccessResponse(true)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -200,7 +209,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.SAVE, async (_, { filePath, content }) => {
   }
 })
 
-ipcMain.handle(IPC_CHANNELS.FILE.SAVE_AS, async (_, { content, defaultPath }) => {
+ipcMain.handle(IPC_CHANNELS.FILE.SAVE_AS, async (_, { content, defaultPath, lineEnding }) => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
 
   try {
@@ -216,7 +225,14 @@ ipcMain.handle(IPC_CHANNELS.FILE.SAVE_AS, async (_, { content, defaultPath }) =>
       return createSuccessResponse(null)
     }
 
-    await fs.writeFile(result.filePath, content, 'utf-8')
+    let finalContent = content
+    if (lineEnding && lineEnding in LINE_ENDINGS) {
+      const targetEnding = LINE_ENDINGS[lineEnding as LineEnding]
+      finalContent = content
+        .replace(/\r\n/g, '\n')
+        .replace(/\n/g, targetEnding)
+    }
+    await fs.writeFile(result.filePath, finalContent, 'utf-8')
     return createSuccessResponse(result.filePath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
