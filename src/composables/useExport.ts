@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { useEditorManager } from '@/managers/editorManager'
 
 export type ExportFormat = 'html' | 'pdf' | 'txt'
 
@@ -44,21 +45,6 @@ const HTML_STYLES = `
       </style>
 `
 
-function markdownToHtml(markdown: string): string {
-  return markdown
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*)\*/gim, '<em>$1</em>')
-    .replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />')
-    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
-    .replace(/`(.*?)`/gim, '<code>$1</code>')
-    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-    .replace(/^- (.*$)/gim, '<li>$1</li>')
-    .replace(/\n/gim, '<br />')
-}
-
 function wrapHtml(content: string, title?: string, includeStyles = true): string {
   return `
 <!DOCTYPE html>
@@ -93,39 +79,44 @@ function downloadFile(content: string, filename: string, mimeType: string) {
 
 type Exporter = (content: string, title: string, options: ExportOptions) => Promise<boolean>
 
-const exporters: Record<ExportFormat, Exporter> = {
-  async html(content: string, title: string, options: ExportOptions): Promise<boolean> {
-    const htmlContent = markdownToHtml(content)
-    const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
-    const filePath = await downloadFile(fullHtml, `${title || '未命名'}.html`, 'text/html')
-    return !!filePath
-  },
-  
-  async txt(content: string, title: string): Promise<boolean> {
-    const filePath = await downloadFile(content, `${title || '未命名'}.txt`, 'text/plain')
-    return !!filePath
-  },
-  
-  async pdf(content: string, title: string, options: ExportOptions): Promise<boolean> {
-    const htmlContent = markdownToHtml(content)
-    const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
-    
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      printWindow.document.write(fullHtml)
-      printWindow.document.close()
-      printWindow.print()
-      printWindow.close()
-      return true
-    }
-    return false
-  }
-}
-
 export function useExport() {
   const tabsStore = useTabsStore()
+  const { getHTML, getMarkdown } = useEditorManager()
   const isExporting = ref(false)
   const exportError = ref<string | null>(null)
+  
+  const exporters: Record<ExportFormat, Exporter> = {
+    async html(_content: string, title: string, options: ExportOptions): Promise<boolean> {
+      // 使用 Milkdown 的 getHTML() 获取准确的 HTML
+      const htmlContent = getHTML()
+      const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
+      const filePath = await downloadFile(fullHtml, `${title || '未命名'}.html`, 'text/html')
+      return !!filePath
+    },
+    
+    async txt(_content: string, title: string): Promise<boolean> {
+      // 使用 Milkdown 的 getMarkdown() 获取准确的 Markdown
+      const markdownContent = getMarkdown()
+      const filePath = await downloadFile(markdownContent, `${title || '未命名'}.txt`, 'text/plain')
+      return !!filePath
+    },
+    
+    async pdf(_content: string, title: string, options: ExportOptions): Promise<boolean> {
+      // 使用 Milkdown 的 getHTML() 获取准确的 HTML
+      const htmlContent = getHTML()
+      const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
+      
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(fullHtml)
+        printWindow.document.close()
+        printWindow.print()
+        printWindow.close()
+        return true
+      }
+      return false
+    }
+  }
   
   async function exportDocument(options: ExportOptions): Promise<boolean> {
     const activeTab = tabsStore.activeTab
