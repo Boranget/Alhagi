@@ -8,6 +8,21 @@ import { clipboard } from '@milkdown/plugin-clipboard'
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { PerformanceMonitor, LRUCache, Debouncer } from '@/utils/performance'
+
+export interface EditorConfig {
+  enablePolling: boolean
+  pollingInterval: number
+  cacheSize: number
+  enableMetrics: boolean
+}
+
+const DEFAULT_CONFIG: EditorConfig = {
+  enablePolling: true,
+  pollingInterval: 500,
+  cacheSize: 10,
+  enableMetrics: true
+}
 
 export class EditorInstanceManager {
   private editor: Editor | null = null
@@ -19,11 +34,24 @@ export class EditorInstanceManager {
   private content: string = ''
   private isUpdatingContent = false
   private pollingInterval: number | null = null
-  private readonly POLLING_DELAY = 500
+  private readonly pollingDelay: number
+  private config: EditorConfig
+  private contentCache: LRUCache<string>
+  private debouncer: Debouncer
+  private monitor: PerformanceMonitor
+  private readonly MAX_RETRIES = 3
+  private retryCount = 0
 
   constructor(
-    private tabsStore: ReturnType<typeof useTabsStore>
-  ) {}
+    private tabsStore: ReturnType<typeof useTabsStore>,
+    config: Partial<EditorConfig> = {}
+  ) {
+    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.pollingDelay = this.config.pollingInterval
+    this.contentCache = new LRUCache<string>(this.config.cacheSize)
+    this.debouncer = new Debouncer()
+    this.monitor = new PerformanceMonitor()
+  }
 
   private createEditorConfig(container: HTMLElement, content: string) {
     return (ctx: unknown) => {
@@ -31,15 +59,21 @@ export class EditorInstanceManager {
       context.set(rootCtx, container)
       context.set(defaultValueCtx, content)
 
-      const listenerPlugin = context.get(listenerCtx) as { markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void }
+      const listenerPlugin = context.get(listenerCtx) as { 
+        markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void 
+      }
+      
       listenerPlugin.markdownUpdated((_ctx: unknown, markdown: string, prevMarkdown: string) => {
         if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
           this.content = markdown
+          this.contentCache.set(this.currentTabId, markdown)
+          
           this.tabsStore.updateTab(this.currentTabId, {
             content: markdown,
             isDirty: true,
             lastModified: Date.now()
           })
+          
           eventBus.emit(AppEvents.CONTENT_CHANGED, {
             content: markdown,
             tabId: this.currentTabId
@@ -65,19 +99,82 @@ export class EditorInstanceManager {
       return
     }
 
+    this.monitor.measure('editorInit')
+    
     this.container = container
     this.currentTabId = tabId || this.tabsStore.activeTabId
     this.content = initialContent
+    
+    if (tabId) {
+      this.contentCache.set(tabId, initialContent)
+    }
 
-    this.editor = await this.createEditor(container, initialContent)
+    try {
+      this.editor = await this.createEditor(container, initialContent)
+      
+      await nextTick()
+      await this.waitForEditorReady()
+      
+      this.isEditorReady = true
+      this.isInitialized = true
+      this.retryCount = 0
+      
+      if (this.config.enablePolling) {
+        this.startPolling()
+      }
+      
+      const initDuration = this.monitor.measureEnd('editorInit')
+      this.monitor.recordInitialization(initDuration)
+      this.monitor.recordEditorReady()
+      
+      eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
+    } catch (error) {
+      console.error('Editor initialization failed:', error)
+      await this.handleInitializationError(error as Error, container, initialContent)
+    }
+  }
+
+  private async waitForEditorReady(maxWait: number = 5000): Promise<void> {
+    const startTime = Date.now()
     
-    await nextTick()
-    this.isEditorReady = true
-    this.isInitialized = true
+    while (!this.isEditorReady && Date.now() - startTime < maxWait) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
     
-    this.startPolling()
+    if (!this.isEditorReady) {
+      throw new Error('Editor did not become ready within timeout')
+    }
+  }
+
+  private async handleInitializationError(
+    error: Error,
+    container: HTMLElement,
+    content: string
+  ): Promise<void> {
+    this.retryCount++
     
-    eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
+    if (this.retryCount <= this.MAX_RETRIES) {
+      console.warn(`Editor initialization failed, retry ${this.retryCount}/${this.MAX_RETRIES}`)
+      
+      await new Promise(resolve => setTimeout(resolve, 1000 * this.retryCount))
+      
+      try {
+        if (this.container && this.content) {
+          this.editor = await this.createEditor(this.container, this.content)
+          await nextTick()
+          this.isEditorReady = true
+          this.isInitialized = true
+          return
+        }
+      } catch (retryError) {
+        console.error('Retry failed:', retryError)
+        await this.handleInitializationError(retryError as Error, container, content)
+      }
+    } else {
+      console.error('Max retries reached, editor initialization failed permanently')
+      this.isDestroyed = true
+      throw error
+    }
   }
 
   getMarkdown(): string {
@@ -97,16 +194,42 @@ export class EditorInstanceManager {
       return
     }
 
+    this.monitor.measure('setMarkdown')
+    
     try {
       this.isUpdatingContent = true
       this.content = content
       
-      this.editor.action((ctx) => {
-        const context = ctx as {
-          get: (key: unknown) => unknown
-        }
+      if (this.currentTabId) {
+        this.contentCache.set(this.currentTabId, content)
+      }
+
+      const success = await this.dispatchContentChange(content)
+      
+      if (!success) {
+        console.warn('Direct dispatch failed, attempting alternative method')
+        await this.setMarkdownAlternative(content)
+      }
+      
+      const duration = this.monitor.measureEnd('setMarkdown')
+      this.monitor.recordSetMarkdown(duration)
+      
+    } catch (error) {
+      console.error('Failed to set markdown:', error)
+      await this.handleSetMarkdownError(error as Error, content)
+    } finally {
+      this.isUpdatingContent = false
+    }
+  }
+
+  private dispatchContentChange(content: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        let success = false
         
-        try {
+        this.editor!.action((ctx) => {
+          const context = ctx as { get: (key: unknown) => unknown }
+          
           const editorState = context.get(editorStateCtx)
           const editorView = context.get(editorViewCtx)
           
@@ -124,16 +247,38 @@ export class EditorInstanceManager {
                 newDoc.content
               )
               view.dispatch(tr)
+              success = true
             }
           }
-        } catch (e) {
-          console.warn('Direct dispatch failed, using alternative method')
-        }
-      })
-    } catch (e) {
-      console.error('Failed to set markdown:', e)
-    } finally {
-      this.isUpdatingContent = false
+        })
+        
+        resolve(success)
+      } catch (error) {
+        resolve(false)
+      }
+    })
+  }
+
+  private async setMarkdownAlternative(content: string): Promise<void> {
+    console.warn('Using alternative markdown setter')
+    
+    if (this.currentTabId) {
+      const cached = this.contentCache.get(this.currentTabId)
+      if (cached === content) {
+        return
+      }
+    }
+    
+    this.content = content
+  }
+
+  private async handleSetMarkdownError(error: Error, content: string): Promise<void> {
+    console.error('Set markdown failed:', error)
+    
+    this.content = content
+    
+    if (this.currentTabId) {
+      this.contentCache.set(this.currentTabId, content)
     }
   }
 
@@ -182,6 +327,8 @@ export class EditorInstanceManager {
       return
     }
 
+    this.monitor.measure('switchTab')
+
     if (!this.isEditorReady) {
       console.warn('Editor not ready for tab switch')
       await nextTick()
@@ -203,8 +350,14 @@ export class EditorInstanceManager {
     this.tabsStore.switchTab(tabId)
     this.currentTabId = tabId
     
-    await this.setMarkdown(targetTab.content)
+    const cachedContent = this.contentCache.get(tabId)
+    const contentToLoad = cachedContent || targetTab.content
+    
+    await this.setMarkdown(contentToLoad)
     this.setScrollTop(targetTab.scrollTop)
+    
+    const duration = this.monitor.measureEnd('switchTab')
+    this.monitor.recordSwitchTab(duration)
   }
 
   private startPolling(): void {
@@ -217,8 +370,9 @@ export class EditorInstanceManager {
         return
       }
       
+      this.monitor.recordPolling()
       this.verifyEditorState()
-    }, this.POLLING_DELAY)
+    }, this.pollingDelay)
   }
 
   private stopPolling(): void {
@@ -238,11 +392,13 @@ export class EditorInstanceManager {
           if (!editorView) {
             console.warn('Editor view not available')
             this.isEditorReady = false
+            this.monitor.recordPollingError()
           }
         })
       }
-    } catch (e) {
-      console.warn('Editor state verification failed:', e)
+    } catch (error) {
+      console.warn('Editor state verification failed:', error)
+      this.monitor.recordPollingError()
     }
   }
 
@@ -262,13 +418,21 @@ export class EditorInstanceManager {
     if (this.editor) {
       try {
         await this.editor.destroy()
-      } catch (e) {
-        console.warn('Error destroying editor:', e)
+      } catch (error) {
+        console.warn('Error destroying editor:', error)
       }
       this.editor = null
     }
 
     eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
+
+    this.contentCache.clear()
+    this.debouncer.cancel()
+    
+    if (this.config.enableMetrics) {
+      console.log(this.monitor.getSummary())
+    }
+    this.monitor.reset()
 
     this.container = null
     this.currentTabId = null
@@ -299,6 +463,49 @@ export class EditorInstanceManager {
 
   getPollingStatus(): boolean {
     return this.pollingInterval !== null
+  }
+
+  getPerformanceMetrics(): PerformanceMonitor {
+    return this.monitor
+  }
+
+  getCacheStats(): { size: number; keys: string[] } {
+    return {
+      size: this.contentCache.size(),
+      keys: Array.from(this.contentCache.keys())
+    }
+  }
+
+  updateConfig(newConfig: Partial<EditorConfig>): void {
+    this.config = { ...this.config, ...newConfig }
+    
+    if (newConfig.enablePolling !== undefined) {
+      if (newConfig.enablePolling && !this.getPollingStatus()) {
+        this.startPolling()
+      } else if (!newConfig.enablePolling && this.getPollingStatus()) {
+        this.stopPolling()
+      }
+    }
+  }
+
+  async reloadEditor(): Promise<void> {
+    if (!this.container || !this.content) {
+      return
+    }
+
+    try {
+      if (this.editor) {
+        await this.editor.destroy()
+      }
+      
+      this.editor = await this.createEditor(this.container, this.content)
+      await nextTick()
+      this.isEditorReady = true
+      
+      eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
+    } catch (error) {
+      console.error('Failed to reload editor:', error)
+    }
   }
 }
 
