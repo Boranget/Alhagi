@@ -1,51 +1,29 @@
 import { Plugin, PluginKey } from '@milkdown/prose/state'
-import { Decoration, DecorationSet } from '@milkdown/prose/view'
+import { Decoration, DecorationSet, EditorView } from '@milkdown/prose/view'
+import { SearchConfig, buildSearchPattern } from '@/utils/search'
 
-export interface SearchConfig {
-  search: string
-  caseSensitive: boolean
-  wholeWord: boolean
-  regexp: boolean
-}
+export { SearchConfig } from '@/utils/search'
 
 const searchHighlightKey = new PluginKey<DecorationSet>('search-highlight')
 
-function createDecorations(doc: any, config: SearchConfig): DecorationSet {
+function createDecorations(doc: { descendants: (fn: (node: any, pos: number) => void) => void }, config: SearchConfig): DecorationSet {
   const decorations: Decoration[] = []
 
   if (!config.search.trim()) {
     return DecorationSet.empty
   }
 
-  let pattern: RegExp
-  try {
-    let searchText = config.search
-
-    if (!config.regexp) {
-      searchText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    }
-
-    if (config.wholeWord) {
-      searchText = `\\b${searchText}\\b`
-    }
-
-    const flags = config.caseSensitive ? 'g' : 'gi'
-    pattern = new RegExp(searchText, flags)
-  } catch {
+  const pattern = buildSearchPattern(config)
+  if (!pattern) {
     return DecorationSet.empty
   }
 
-  doc.descendants((node: any, pos: number) => {
+  doc.descendants((node: { isText: boolean; text: string }, pos: number) => {
     if (node.isText && node.text) {
       let match: RegExpExecArray | null
-      const text = node.text
-
-      while ((match = pattern.exec(text)) !== null) {
-        const from = pos + match.index
-        const to = from + match[0].length
-
+      while ((match = pattern.exec(node.text)) !== null) {
         decorations.push(
-          Decoration.inline(from, to, {
+          Decoration.inline(pos + match.index, pos + match.index + match[0].length, {
             class: 'search-highlight-match'
           })
         )
@@ -76,19 +54,16 @@ export const searchHighlightPlugin = (initialConfig: Partial<SearchConfig> = {})
       apply(tr, oldDecoSet) {
         let newDecoSet = oldDecoSet.map(tr.mapping, tr.doc)
 
-        const searchMeta = tr.getMeta('search')
+        const searchMeta = tr.getMeta('search') as SearchConfig | undefined
         if (searchMeta) {
-          const config = searchMeta as SearchConfig
-          newDecoSet = createDecorations(tr.doc, config)
+          newDecoSet = createDecorations(tr.doc, searchMeta)
         } else if (tr.docChanged) {
-          const pluginState = searchHighlightKey.getState(tr.before)
-          if (pluginState) {
-            const storedConfig = (pluginState as any)._config || defaultConfig
-            newDecoSet = createDecorations(tr.doc, storedConfig)
-          }
+          const oldState = searchHighlightKey.getState(tr.before)
+          const storedConfig = (oldState as any)?._config || defaultConfig
+          newDecoSet = createDecorations(tr.doc, storedConfig)
         }
 
-        ;(newDecoSet as any)._config = searchMeta || (oldDecoSet as any)._config || defaultConfig
+        (newDecoSet as any)._config = searchMeta || (oldDecoSet as any)?._config || defaultConfig
 
         return newDecoSet
       }
@@ -102,14 +77,14 @@ export const searchHighlightPlugin = (initialConfig: Partial<SearchConfig> = {})
   })
 }
 
-export function setSearchQuery(view: any, config: SearchConfig) {
+export function setSearchQuery(view: EditorView, config: SearchConfig) {
   if (!view) return
 
   const tr = view.state.tr.setMeta('search', config)
   view.dispatch(tr)
 }
 
-export function clearSearchHighlight(view: any) {
+export function clearSearchHighlight(view: EditorView) {
   if (!view) return
 
   const tr = view.state.tr.setMeta('search', {
@@ -120,3 +95,4 @@ export function clearSearchHighlight(view: any) {
   })
   view.dispatch(tr)
 }
+
