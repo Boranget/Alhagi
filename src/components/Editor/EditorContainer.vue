@@ -152,11 +152,15 @@ const handleViewModeChange = async (mode: ViewMode) => {
 }
 
 const handleSourceInput = debounce(() => {
-  if (activeTab.value) {
+  const manager = getManager()
+  
+  if (activeTab.value && manager?.isReady()) {
     tabsStore.updateTab(activeTab.value.id, {
       content: sourceContent.value,
       isDirty: true
     })
+    
+    manager.setMarkdown(sourceContent.value)
     updatePreview()
   }
 }, 100)

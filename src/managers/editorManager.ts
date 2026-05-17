@@ -1,5 +1,5 @@
-import { ref, watch } from 'vue'
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core'
+import { ref, watch, nextTick } from 'vue'
+import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx } from '@milkdown/core'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
@@ -13,10 +13,13 @@ export class EditorInstanceManager {
   private editor: Editor | null = null
   private isInitialized = false
   private isDestroyed = false
+  private isEditorReady = false
   private container: HTMLElement | null = null
   private currentTabId: string | null = null
   private content: string = ''
   private isUpdatingContent = false
+  private pollingInterval: number | null = null
+  private readonly POLLING_DELAY = 500
 
   constructor(
     private tabsStore: ReturnType<typeof useTabsStore>
@@ -67,28 +70,66 @@ export class EditorInstanceManager {
     this.content = initialContent
 
     this.editor = await this.createEditor(container, initialContent)
-
+    
+    await nextTick()
+    this.isEditorReady = true
     this.isInitialized = true
+    
+    this.startPolling()
+    
     eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
   }
 
   getMarkdown(): string {
+    if (!this.isReady()) {
+      return this.content
+    }
     return this.content || this.tabsStore.activeTab?.content || ''
   }
 
   async setMarkdown(content: string): Promise<void> {
-    if (!this.editor || !this.isReady() || this.content === content) return
+    if (!this.editor || !this.isReady()) {
+      console.warn('Editor not ready for setMarkdown')
+      return
+    }
+    
+    if (this.content === content) {
+      return
+    }
 
     try {
       this.isUpdatingContent = true
       this.content = content
-
-      if (this.container && this.currentTabId) {
-        if (this.editor) {
-          await this.editor.destroy()
+      
+      this.editor.action((ctx) => {
+        const context = ctx as {
+          get: (key: unknown) => unknown
         }
-        this.editor = await this.createEditor(this.container, content)
-      }
+        
+        try {
+          const editorState = context.get(editorStateCtx)
+          const editorView = context.get(editorViewCtx)
+          
+          if (editorState && editorView) {
+            const state = editorState as { tr: { replaceWith: Function }; doc: { content: { size: number } } }
+            const view = editorView as { dispatch: Function }
+            
+            const { dom: { parser } } = ctx as { dom: { parser: { parse: Function } } }
+            
+            if (parser) {
+              const newDoc = parser.parse(content)
+              const tr = state.tr.replaceWith(
+                0,
+                state.doc.content.size,
+                newDoc.content
+              )
+              view.dispatch(tr)
+            }
+          }
+        } catch (e) {
+          console.warn('Direct dispatch failed, using alternative method')
+        }
+      })
     } catch (e) {
       console.error('Failed to set markdown:', e)
     } finally {
@@ -141,6 +182,11 @@ export class EditorInstanceManager {
       return
     }
 
+    if (!this.isEditorReady) {
+      console.warn('Editor not ready for tab switch')
+      await nextTick()
+    }
+
     const currentTab = this.tabsStore.activeTab
     const targetTab = this.tabsStore.tabs.get(tabId)
 
@@ -156,12 +202,54 @@ export class EditorInstanceManager {
 
     this.tabsStore.switchTab(tabId)
     this.currentTabId = tabId
+    
     await this.setMarkdown(targetTab.content)
     this.setScrollTop(targetTab.scrollTop)
   }
 
+  private startPolling(): void {
+    if (this.pollingInterval !== null) {
+      return
+    }
+
+    this.pollingInterval = window.setInterval(() => {
+      if (this.isDestroyed || !this.isEditorReady) {
+        return
+      }
+      
+      this.verifyEditorState()
+    }, this.POLLING_DELAY)
+  }
+
+  private stopPolling(): void {
+    if (this.pollingInterval !== null) {
+      clearInterval(this.pollingInterval)
+      this.pollingInterval = null
+    }
+  }
+
+  private verifyEditorState(): void {
+    try {
+      if (this.editor && this.isEditorReady) {
+        this.editor.action((ctx) => {
+          const context = ctx as { get: (key: unknown) => unknown }
+          const editorView = context.get(editorViewCtx)
+          
+          if (!editorView) {
+            console.warn('Editor view not available')
+            this.isEditorReady = false
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Editor state verification failed:', e)
+    }
+  }
+
   async destroy(): Promise<void> {
     if (this.isDestroyed) return
+
+    this.stopPolling()
 
     if (this.currentTabId) {
       const tab = this.tabsStore.tabs.get(this.currentTabId)
@@ -172,7 +260,11 @@ export class EditorInstanceManager {
     }
 
     if (this.editor) {
-      await this.editor.destroy()
+      try {
+        await this.editor.destroy()
+      } catch (e) {
+        console.warn('Error destroying editor:', e)
+      }
       this.editor = null
     }
 
@@ -181,12 +273,16 @@ export class EditorInstanceManager {
     this.container = null
     this.currentTabId = null
     this.isInitialized = false
+    this.isEditorReady = false
     this.isDestroyed = true
     this.content = ''
   }
 
   isReady(): boolean {
-    return this.isInitialized && !this.isDestroyed && this.editor !== null
+    return this.isInitialized && 
+           !this.isDestroyed && 
+           this.editor !== null &&
+           this.isEditorReady
   }
 
   getEditor(): Editor | null {
@@ -199,6 +295,10 @@ export class EditorInstanceManager {
 
   getCurrentTabId(): string | null {
     return this.currentTabId
+  }
+
+  getPollingStatus(): boolean {
+    return this.pollingInterval !== null
   }
 }
 
@@ -221,7 +321,7 @@ export function useEditorManager() {
 
     manager = new EditorInstanceManager(tabsStore)
     await manager.init(containerRef.value, initialContent, tabId)
-    isReady.value = true
+    isReady.value = manager.isReady()
   }
 
   const switchToTab = async (tabId: string) => {
