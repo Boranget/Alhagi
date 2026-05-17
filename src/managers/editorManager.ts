@@ -22,7 +22,6 @@ export class EditorInstanceManager {
     private tabsStore: ReturnType<typeof useTabsStore>
   ) {}
 
-  // ============ 私有辅助方法 - 消除代码重复 ============
   private createEditorConfig(container: HTMLElement, content: string) {
     return (ctx: unknown) => {
       const context = ctx as { set: (key: unknown, value: unknown) => void; get: (key: unknown) => unknown }
@@ -84,9 +83,10 @@ export class EditorInstanceManager {
       this.isUpdatingContent = true
       this.content = content
 
-      await this.editor.destroy()
-
       if (this.container && this.currentTabId) {
+        if (this.editor) {
+          await this.editor.destroy()
+        }
         this.editor = await this.createEditor(this.container, content)
       }
     } catch (e) {
