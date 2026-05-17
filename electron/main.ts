@@ -149,14 +149,11 @@ function createMenu() {
           }
         }},
         { type: 'separator' },
-      { role: 'reload' },
-      { role: 'toggleDevTools' },
-      { type: 'separator' },
-      { role: 'togglefullscreen' },
-      { type: 'separator' },
-      { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
-    ]
-  },
+        { role: 'togglefullscreen' },
+        { type: 'separator' },
+        { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
+      ]
+    },
     {
       label: '帮助',
       submenu: [

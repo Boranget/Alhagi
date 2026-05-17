@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas'
+
 export interface CaptureResult {
   dataUrl: string
   width: number

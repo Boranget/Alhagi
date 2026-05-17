@@ -9,7 +9,7 @@ import {
   FILE_TYPES
 } from '../electron-protocol'
 
-export type { IPCResponse, FileTreeNode, DirectoryEntry, ElectronAPI } from '../electron-protocol'
+export type { IPCResponse, FileTreeNode, DirectoryEntry } from '../electron-protocol'
 
 function createIpcHandler<T>(
   channel: string,

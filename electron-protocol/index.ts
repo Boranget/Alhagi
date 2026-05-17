@@ -133,7 +133,10 @@ export const IPC_CHANNELS = {
     MAXIMIZE: 'window:maximize',
     CLOSE: 'window:close',
     SET_ALWAYS_ON_TOP: 'window:set-always-on-top',
-    OPEN_NEW_WINDOW: 'window:open-new-window'
+    OPEN_NEW_WINDOW: 'window:open-new-window',
+    MERGE_TAB: 'window:merge-tab',
+    GET_WINDOW_ID: 'window:get-window-id',
+    LIST_WINDOWS: 'window:list-windows'
   }
 } as const;
 
