@@ -1,5 +1,6 @@
 import { ref, watch, nextTick } from 'vue'
-import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx } from '@milkdown/core'
+import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx, serializerCtx, schemaCtx } from '@milkdown/core'
+import { DOMSerializer } from '@milkdown/prose'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
@@ -616,6 +617,28 @@ export class EditorInstanceManager {
     const result = replaceAllInProseMirror(view, matches, replacement)
     return result.success ? matches.length : 0
   }
+
+  getHTML(): string {
+    if (!this.editor || !this.isReady()) {
+      return ''
+    }
+
+    let html = ''
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const schema = context.get(schemaCtx) as any
+      const view = context.get(editorViewCtx) as any
+
+      if (schema && view) {
+        const div = document.createElement('div')
+        const fragment = DOMSerializer.fromSchema(schema).serializeFragment(view.state.doc.content)
+        div.appendChild(fragment)
+        html = div.innerHTML
+      }
+    })
+
+    return html
+  }
 }
 
 export function useEditorManager() {
@@ -696,6 +719,10 @@ export function useEditorManager() {
     return manager?.replaceAll(config, replacement) || 0
   }
 
+  const getHTML = (): string => {
+    return manager?.getHTML() || ''
+  }
+
   return {
     containerRef,
     isReady,
@@ -710,6 +737,7 @@ export function useEditorManager() {
     getEditorView,
     findMatches,
     replaceMatch,
-    replaceAll
+    replaceAll,
+    getHTML
   }
 }
