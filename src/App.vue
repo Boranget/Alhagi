@@ -42,9 +42,11 @@ provide('showSidebar', showSidebar)
 provide('isFullscreen', isFullscreen)
 provide('showSettings', showSettings)
 
-const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
+const { toggleTypewriterMode, toggleFocusMode, initialize: initWritingEnhancement } = useWritingEnhancement()
 const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
 const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
+
+const writingEnhancementCleanup = ref<(() => void) | null>(null)
 
 function triggerAutoSave() {
   if (!prefsStore.autoSave) return
@@ -336,6 +338,7 @@ onMounted(() => {
   window.addEventListener('beforeunload', saveCurrentSession)
 
   prefsStore.loadPreferences()
+  initWritingEnhancement()
   
   // 实现启动模式逻辑
   const launchMode = prefsStore.launchMode
@@ -409,6 +412,10 @@ onUnmounted(() => {
   }
   // 保存最后会话
   saveCurrentSession()
+  
+  // 清理写作增强功能
+  const { cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
+  cleanupWritingEnhancement()
 })
 </script>
 
