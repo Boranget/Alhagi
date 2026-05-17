@@ -216,10 +216,38 @@ export const usePreferencesStore = defineStore('preferences', () => {
     key: K,
     value: Preferences[K]
   ): void {
-    if (key in preferencesStore) {
-      (preferencesStore as Record<string, unknown>)[key] = value
-      savePreferences()
-    }
+    // 使用条件判断直接访问 ref
+    if (key === 'launchMode') launchMode.value = value as Preferences['launchMode']
+    else if (key === 'launchFolderPath') launchFolderPath.value = value as string
+    else if (key === 'autoSave') autoSave.value = value as boolean
+    else if (key === 'autoSaveInterval') autoSaveInterval.value = value as number
+    else if (key === 'theme') theme.value = value as Preferences['theme']
+    else if (key === 'showSidebar') showSidebar.value = value as boolean
+    else if (key === 'showTabBar') showTabBar.value = value as boolean
+    else if (key === 'showStatusBar') showStatusBar.value = value as boolean
+    else if (key === 'hideScrollBars') hideScrollBars.value = value as boolean
+    else if (key === 'isStickyNoteMode') isStickyNoteMode.value = value as boolean
+    else if (key === 'isImmersiveMode') isImmersiveMode.value = value as boolean
+    else if (key === 'typewriterMode') typewriterMode.value = value as boolean
+    else if (key === 'focusMode') focusMode.value = value as boolean
+    else if (key === 'fontSize') fontSize.value = value as number
+    else if (key === 'wordWrap') wordWrap.value = value as boolean
+    else if (key === 'imageInsertMode') imageInsertMode.value = value as Preferences['imageInsertMode']
+    else if (key === 'imageStoragePath') imageStoragePath.value = value as string
+    else if (key === 'language') language.value = value as Preferences['language']
+    else if (key === 'devToolsOnStartup') devToolsOnStartup.value = value as boolean
+    else if (key === 'openFileInNewWindow') openFileInNewWindow.value = value as boolean
+    else if (key === 'openFolderInNewWindow') openFolderInNewWindow.value = value as boolean
+    else if (key === 'recentFiles') recentFiles.value = value as RecentFile[]
+    else if (key === 'maxRecentFiles') maxRecentFiles.value = value as number
+    else if (key === 'recentFolders') recentFolders.value = value as RecentFolder[]
+    else if (key === 'maxRecentFolders') maxRecentFolders.value = value as number
+    else if (key === 'customThemePath') customThemePath.value = value as string
+    else if (key === 'customThemes') customThemes.value = value as CustomTheme[]
+    else if (key === 'lineEnding') lineEnding.value = value as Preferences['lineEnding']
+    else if (key === 'lastSession') lastSession.value = value as Preferences['lastSession']
+    
+    savePreferences()
   }
 
   /**
@@ -227,9 +255,36 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   function updatePreferences(updates: Partial<Preferences>): void {
     Object.entries(updates).forEach(([key, value]) => {
-      if (key in preferencesStore) {
-        (preferencesStore as Record<string, unknown>)[key] = value
-      }
+      // 使用条件判断直接访问 ref
+      if (key === 'launchMode' && value !== undefined) launchMode.value = value as Preferences['launchMode']
+      else if (key === 'launchFolderPath' && value !== undefined) launchFolderPath.value = value as string
+      else if (key === 'autoSave' && value !== undefined) autoSave.value = value as boolean
+      else if (key === 'autoSaveInterval' && value !== undefined) autoSaveInterval.value = value as number
+      else if (key === 'theme' && value !== undefined) theme.value = value as Preferences['theme']
+      else if (key === 'showSidebar' && value !== undefined) showSidebar.value = value as boolean
+      else if (key === 'showTabBar' && value !== undefined) showTabBar.value = value as boolean
+      else if (key === 'showStatusBar' && value !== undefined) showStatusBar.value = value as boolean
+      else if (key === 'hideScrollBars' && value !== undefined) hideScrollBars.value = value as boolean
+      else if (key === 'isStickyNoteMode' && value !== undefined) isStickyNoteMode.value = value as boolean
+      else if (key === 'isImmersiveMode' && value !== undefined) isImmersiveMode.value = value as boolean
+      else if (key === 'typewriterMode' && value !== undefined) typewriterMode.value = value as boolean
+      else if (key === 'focusMode' && value !== undefined) focusMode.value = value as boolean
+      else if (key === 'fontSize' && value !== undefined) fontSize.value = value as number
+      else if (key === 'wordWrap' && value !== undefined) wordWrap.value = value as boolean
+      else if (key === 'imageInsertMode' && value !== undefined) imageInsertMode.value = value as Preferences['imageInsertMode']
+      else if (key === 'imageStoragePath' && value !== undefined) imageStoragePath.value = value as string
+      else if (key === 'language' && value !== undefined) language.value = value as Preferences['language']
+      else if (key === 'devToolsOnStartup' && value !== undefined) devToolsOnStartup.value = value as boolean
+      else if (key === 'openFileInNewWindow' && value !== undefined) openFileInNewWindow.value = value as boolean
+      else if (key === 'openFolderInNewWindow' && value !== undefined) openFolderInNewWindow.value = value as boolean
+      else if (key === 'lineEnding' && value !== undefined) lineEnding.value = value as Preferences['lineEnding']
+      else if (key === 'recentFiles' && value !== undefined) recentFiles.value = value as RecentFile[]
+      else if (key === 'maxRecentFiles' && value !== undefined) maxRecentFiles.value = value as number
+      else if (key === 'recentFolders' && value !== undefined) recentFolders.value = value as RecentFolder[]
+      else if (key === 'maxRecentFolders' && value !== undefined) maxRecentFolders.value = value as number
+      else if (key === 'customThemePath' && value !== undefined) customThemePath.value = value as string
+      else if (key === 'customThemes' && value !== undefined) customThemes.value = value as CustomTheme[]
+      else if (key === 'lastSession' && value !== undefined) lastSession.value = value as Preferences['lastSession']
     })
     savePreferences()
   }

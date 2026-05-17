@@ -5,6 +5,8 @@ import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { clipboard } from '@milkdown/plugin-clipboard'
+import { EditorState } from '@milkdown/prose/state'
+import { EditorView } from '@milkdown/prose/view'
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
@@ -23,6 +25,16 @@ export interface EditorConfig {
   pollingInterval: number
   cacheSize: number
   enableMetrics: boolean
+}
+
+/** 编辑器上下文类型 */
+interface EditorContext {
+  get: (key: unknown) => unknown
+}
+
+/** 监听器上下文类型 */
+interface ListenerContext {
+  markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void
 }
 
 const DEFAULT_CONFIG: EditorConfig = {
@@ -63,13 +75,11 @@ export class EditorInstanceManager {
 
   private createEditorConfig(container: HTMLElement, content: string) {
     return (ctx: unknown) => {
-      const context = ctx as { set: (key: unknown, value: unknown) => void; get: (key: unknown) => unknown }
+      const context = ctx as EditorContext & { set: (key: unknown, value: unknown) => void }
       context.set(rootCtx, container)
       context.set(defaultValueCtx, content)
 
-      const listenerPlugin = context.get(listenerCtx) as { 
-        markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void 
-      }
+      const listenerPlugin = context.get(listenerCtx) as ListenerContext
       
       listenerPlugin.markdownUpdated((_ctx: unknown, markdown: string, prevMarkdown: string) => {
         if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
