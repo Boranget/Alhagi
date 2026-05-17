@@ -9,7 +9,14 @@ import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { PerformanceMonitor, LRUCache, Debouncer } from '@/utils/performance'
-import { searchHighlightPlugin, setSearchQuery, clearSearchHighlight, SearchConfig } from './searchHighlightPlugin'
+import { 
+  SearchConfig, 
+  MatchRange,
+  findMatchesInDocument,
+  replaceInProseMirror,
+  replaceAllInProseMirror
+} from '@/utils/search'
+import { searchHighlightPlugin, setSearchQuery, clearSearchHighlight } from './searchHighlightPlugin'
 
 export interface EditorConfig {
   enablePolling: boolean
@@ -559,6 +566,46 @@ export class EditorInstanceManager {
     })
     return view
   }
+
+  findMatches(config: SearchConfig): MatchRange[] {
+    if (!this.editor || !this.isReady()) {
+      return []
+    }
+
+    let matches: MatchRange[] = []
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const state = context.get(editorStateCtx) as any
+      if (state?.doc) {
+        matches = findMatchesInDocument(state.doc, config)
+      }
+    })
+    return matches
+  }
+
+  replaceMatch(config: SearchConfig, match: MatchRange, replacement: string): boolean {
+    const view = this.getEditorView() as any
+    if (!view) {
+      return false
+    }
+    const result = replaceInProseMirror(view, match.from, match.to, replacement)
+    return result.success
+  }
+
+  replaceAll(config: SearchConfig, replacement: string): number {
+    const matches = this.findMatches(config)
+    if (matches.length === 0) {
+      return 0
+    }
+
+    const view = this.getEditorView() as any
+    if (!view) {
+      return 0
+    }
+
+    const result = replaceAllInProseMirror(view, matches, replacement)
+    return result.success ? matches.length : 0
+  }
 }
 
 export function useEditorManager() {
@@ -627,6 +674,18 @@ export function useEditorManager() {
     return manager?.getEditorView()
   }
 
+  const findMatches = (config: SearchConfig): MatchRange[] => {
+    return manager?.findMatches(config) || []
+  }
+
+  const replaceMatch = (config: SearchConfig, match: MatchRange, replacement: string): boolean => {
+    return manager?.replaceMatch(config, match, replacement) || false
+  }
+
+  const replaceAll = (config: SearchConfig, replacement: string): number => {
+    return manager?.replaceAll(config, replacement) || 0
+  }
+
   return {
     containerRef,
     isReady,
@@ -637,6 +696,10 @@ export function useEditorManager() {
     destroy,
     getManager,
     setSearchHighlight,
-    clearSearchHighlight
+    clearSearchHighlight,
+    getEditorView,
+    findMatches,
+    replaceMatch,
+    replaceAll
   }
 }
