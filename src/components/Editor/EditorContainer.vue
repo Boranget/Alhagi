@@ -1,5 +1,6 @@
 <template>
   <div class="editor-container">
+    <FloatingSearch ref="floatingSearchRef" />
     <div class="editor-toolbar">
       <div class="toolbar-group">
         <button
@@ -84,6 +85,7 @@ import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
 import { t } from '@/services/i18n'
+import FloatingSearch from './FloatingSearch.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -92,6 +94,7 @@ const wysiwygRef = ref<HTMLElement | null>(null)
 const sourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitPreviewRef = ref<HTMLElement | null>(null)
+const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
 const unsubscribes: (() => void)[] = []
@@ -234,12 +237,22 @@ onMounted(async () => {
     containerRef.value = wysiwygRef.value
     await init()
   }
+  
+  window.addEventListener('keydown', handleEditorKeydown)
 })
 
 onUnmounted(async () => {
   unsubscribes.forEach(unsubscribe => unsubscribe())
   await destroy()
+  window.removeEventListener('keydown', handleEditorKeydown)
 })
+
+function handleEditorKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault()
+    floatingSearchRef.value?.show()
+  }
+}
 </script>
 
 <style scoped lang="scss">

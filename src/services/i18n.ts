@@ -80,7 +80,11 @@ const zhCN: Translations = {
     excludePattern: '排除文件',
     searchInFolder: '在文件夹中搜索',
     replaceAll: '全部替换',
-    noResults: '未找到结果'
+    noResults: '未找到结果',
+    previousMatch: '上一个匹配',
+    nextMatch: '下一个匹配',
+    replace: '替换',
+    matchCount: '处匹配'
   },
   settings: {
     general: '通用',
