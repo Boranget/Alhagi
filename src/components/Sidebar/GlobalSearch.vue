@@ -10,7 +10,7 @@
           type="text"
           class="search-input"
           :placeholder="t('search.searchPlaceholder')"
-          @input="handleSearch"
+          @input="handleSearchInput"
           @keydown.enter="performSearch"
         >
         <input
@@ -72,16 +72,16 @@
         {{ t('sidebar.globalSearch') }}
       </button>
       <button
-        v-if="replaceQuery && activeSearchTarget === 'file'"
+        v-if="replaceQuery && searchScope === 'file'"
         class="search-btn replace"
-        @click="handleReplace"
+        @click="replaceInActiveFile"
       >
         {{ t('search.replacePlaceholder') }}
       </button>
       <button
-        v-if="replaceQuery && activeSearchTarget === 'file'"
+        v-if="replaceQuery && searchScope === 'file'"
         class="search-btn replace-all"
-        @click="handleReplaceAll"
+        @click="replaceInAllTabs"
       >
         {{ t('search.replaceAll') }}
       </button>
@@ -91,7 +91,7 @@
         v-for="scope in searchScopes"
         :key="scope.id"
         class="scope-btn"
-        :class="{ active: activeSearchTarget === scope.id }"
+        :class="{ active: searchScope === scope.id }"
         @click="setSearchScope(scope.id)"
       >
         {{ scope.label }}
@@ -161,42 +161,27 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, onUnmounted } from 'vue'
-import { useTabsStore } from '@/stores/tabs'
-import { useFileService } from '@/services/fileService'
-import { debounce } from '@/utils/helpers'
-import { xssSanitizer } from '@/services/xssSanitizer'
+import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 import { t } from '@/services/i18n'
-import { useEditorManager } from '@/managers/editorManager'
-import type { SearchConfig } from '@/managers/searchHighlightPlugin'
 
-const { setSearchHighlight, clearSearchHighlight } = useEditorManager()
-
-interface SearchMatch {
-  line: number
-  column: number
-  text: string
-  highlightedText: string
-  startIndex: number
-  endIndex: number
-}
-
-interface SearchResult {
-  file: string
-  fileName: string
-  filePath?: string
-  matches: SearchMatch[]
-}
-
-const tabsStore = useTabsStore()
-const fileService = useFileService()
-
-const searchQuery = ref('')
-const replaceQuery = ref('')
-const isSearching = ref(false)
-const results = ref<SearchResult[]>([])
-const totalMatches = ref(0)
-const expandedFiles = ref(new Set<string>())
-const activeSearchTarget = ref<'file' | 'folder' | 'all'>('file')
+const {
+  searchQuery,
+  replaceQuery,
+  isSearching,
+  results,
+  totalMatches,
+  options,
+  expandedFiles,
+  searchScope,
+  performSearch,
+  updateEditorHighlight,
+  replaceInActiveFile,
+  replaceInAllTabs,
+  toggleExpand,
+  handleMatchClick,
+  setSearchScope,
+  handleSearchInput
+} = useWorkspaceSearch()
 
 const searchScopes = [
   { id: 'file' as const, label: t('sidebar.currentFile') },
@@ -204,353 +189,15 @@ const searchScopes = [
   { id: 'all' as const, label: t('sidebar.allTabs') }
 ]
 
-const options = reactive({
-  caseSensitive: false,
-  wholeWord: false,
-  regex: false,
-  include: '*.md',
-  exclude: 'node_modules'
-})
-
 // 监听搜索条件变化，更新编辑器高亮
 watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => options.regex], () => {
   updateEditorHighlight()
 })
 
-// 组件卸载时清除搜索高亮
-onUnmounted(() => {
-  clearSearchHighlight()
-})
-
-function updateEditorHighlight() {
-  if (!searchQuery.value.trim()) {
-    clearSearchHighlight()
-    return
-  }
-
-  const config: SearchConfig = {
-    search: searchQuery.value,
-    caseSensitive: options.caseSensitive,
-    wholeWord: options.wholeWord,
-    regexp: options.regex
-  }
-  setSearchHighlight(config)
-}
-
-const handleSearch = debounce(() => {
-  performSearch()
-  updateEditorHighlight()
-}, 300)
-
 function setSearchScope(scope: 'file' | 'folder' | 'all') {
-  activeSearchTarget.value = scope
-  if (searchQuery.value) {
-    performSearch()
-    updateEditorHighlight()
-  }
+  setSearchScope(scope)
 }
 
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function buildSearchPattern(): RegExp | null {
-  if (!searchQuery.value.trim()) {
-    return null
-  }
-
-  let pattern = options.regex ? searchQuery.value : escapeRegExp(searchQuery.value)
-  
-  if (options.wholeWord) {
-    pattern = `\\b${pattern}\\b`
-  }
-
-  try {
-    const flags = options.caseSensitive ? 'g' : 'gi'
-    return new RegExp(pattern, flags)
-  } catch {
-    return null
-  }
-}
-
-function searchInContent(content: string, pattern: RegExp): SearchMatch[] {
-  const matches: SearchMatch[] = []
-  const lines = content.split('\n')
-
-  lines.forEach((line, lineIndex) => {
-    let match: RegExpExecArray | null
-    while ((match = pattern.exec(line)) !== null) {
-      const highlightedText = highlightMatch(line, match[0], match.index)
-      matches.push({
-        line: lineIndex + 1,
-        column: match.index + 1,
-        text: line,
-        highlightedText,
-        startIndex: match.index,
-        endIndex: match.index + match[0].length
-      })
-    }
-  })
-
-  return matches
-}
-
-function highlightMatch(text: string, match: string, startIndex: number): string {
-  const before = text.substring(0, startIndex)
-  const after = text.substring(startIndex + match.length)
-  const escapedMatch = xssSanitizer.escapeHtml(match)
-  return `${xssSanitizer.escapeHtml(before)}<mark>${escapedMatch}</mark>${xssSanitizer.escapeHtml(after)}`
-}
-
-function performSearch() {
-  const pattern = buildSearchPattern()
-  if (!pattern) {
-    results.value = []
-    totalMatches.value = 0
-    return
-  }
-
-  isSearching.value = true
-  results.value = []
-  totalMatches.value = 0
-
-  setTimeout(() => {
-    if (activeSearchTarget.value === 'file') {
-      searchInActiveFile(pattern)
-    } else if (activeSearchTarget.value === 'all') {
-      searchInAllTabs(pattern)
-    } else {
-      searchInFolder(pattern)
-    }
-    isSearching.value = false
-  }, 50)
-}
-
-function searchInActiveFile(pattern: RegExp) {
-  const activeTab = tabsStore.activeTab
-  if (!activeTab) {
-    results.value = []
-    return
-  }
-
-  const matches = searchInContent(activeTab.content, pattern)
-  if (matches.length > 0) {
-    results.value = [{
-      file: activeTab.id,
-      fileName: activeTab.title,
-      filePath: activeTab.filePath || undefined,
-      matches
-    }]
-    totalMatches.value = matches.length
-    expandedFiles.value.add(activeTab.id)
-  }
-}
-
-function searchInAllTabs(pattern: RegExp) {
-  const allTabs = tabsStore.getAllTabs()
-  const searchResults: SearchResult[] = []
-  let total = 0
-
-  allTabs.forEach(tab => {
-    const matches = searchInContent(tab.content, pattern)
-    if (matches.length > 0) {
-      searchResults.push({
-        file: tab.id,
-        fileName: tab.title,
-        filePath: tab.filePath || undefined,
-        matches
-      })
-      total += matches.length
-    }
-  })
-
-  results.value = searchResults
-  totalMatches.value = total
-  if (searchResults.length > 0) {
-    expandedFiles.value.add(searchResults[0].file)
-  }
-}
-
-function searchInFolder(pattern: RegExp) {
-  const folderPath = fileService.currentFolder?.value
-  if (!folderPath) {
-    results.value = []
-    return
-  }
-
-  if (window.electronAPI) {
-    isSearching.value = true
-    const searchOptions = {
-      caseSensitive: options.caseSensitive,
-      wholeWord: options.wholeWord,
-      useRegex: options.regex,
-      includePatterns: options.include ? [options.include] : ['.*\\.md$', '.*\\.markdown$', '.*\\.txt$'],
-      excludePatterns: options.exclude ? options.exclude.split(',').map(s => s.trim()) : ['node_modules', '.git', 'dist']
-    }
-
-    window.electronAPI.searchInDirectory(folderPath, searchQuery.value, searchOptions).then(response => {
-      if (response && response.success && response.data) {
-        const groupedByFile = new Map<string, SearchResult>()
-
-        response.data.forEach((result: { filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }) => {
-          const fileName = result.filePath.split(/[/\\]/).pop() || result.filePath
-
-          if (!groupedByFile.has(result.filePath)) {
-            groupedByFile.set(result.filePath, {
-              file: result.filePath,
-              fileName: fileName,
-              filePath: result.filePath,
-              matches: []
-            })
-          }
-
-          const existing = groupedByFile.get(result.filePath)!
-          const highlightedText = highlightMatch(result.lineContent, pattern, result.matchStart)
-          existing.matches.push({
-            line: result.lineNumber,
-            column: result.matchStart + 1,
-            text: result.lineContent,
-            highlightedText,
-            startIndex: result.matchStart,
-            endIndex: result.matchEnd
-          })
-        })
-
-        const searchResults = Array.from(groupedByFile.values())
-        results.value = searchResults
-        totalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
-
-        if (searchResults.length > 0) {
-          expandedFiles.value.add(searchResults[0].file)
-        }
-      }
-      isSearching.value = false
-    })
-  } else {
-    const allTabs = tabsStore.getAllTabs()
-    const searchResults: SearchResult[] = []
-    let total = 0
-
-    allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach(tab => {
-      const matches = searchInContent(tab.content, pattern)
-      if (matches.length > 0) {
-        searchResults.push({
-          file: tab.id,
-          fileName: tab.title,
-          filePath: tab.filePath || undefined,
-          matches
-        })
-        total += matches.length
-      }
-    })
-
-    results.value = searchResults
-    totalMatches.value = total
-    if (searchResults.length > 0) {
-      expandedFiles.value.add(searchResults[0].file)
-    }
-  }
-}
-
-function handleReplace() {
-  if (!searchQuery.value || !replaceQuery.value) {
-    return
-  }
-
-  const activeTab = tabsStore.activeTab
-  if (!activeTab) {
-    return
-  }
-
-  const pattern = buildSearchPattern()
-  if (!pattern) {
-    return
-  }
-
-  const newContent = activeTab.content.replace(pattern, replaceQuery.value)
-  tabsStore.updateTab(activeTab.id, {
-    content: newContent,
-    isDirty: true
-  })
-
-  performSearch()
-}
-
-function handleReplaceAll() {
-  if (!searchQuery.value || !replaceQuery.value) {
-    return
-  }
-
-  if (activeSearchTarget.value === 'file') {
-    // 只替换当前文件
-    replaceInActiveFile()
-  } else if (activeSearchTarget.value === 'all') {
-    // 替换所有标签页
-    replaceInAllTabs()
-  }
-}
-
-function replaceInActiveFile() {
-  const activeTab = tabsStore.activeTab
-  if (!activeTab) {
-    return
-  }
-
-  const pattern = buildSearchPattern()
-  if (!pattern) {
-    return
-  }
-
-  const newContent = activeTab.content.replace(pattern, replaceQuery.value)
-  tabsStore.updateTab(activeTab.id, {
-    content: newContent,
-    isDirty: true
-  })
-
-  performSearch()
-}
-
-function replaceInAllTabs() {
-  const pattern = buildSearchPattern()
-  if (!pattern) {
-    return
-  }
-
-  let replaceCount = 0
-  const allTabs = tabsStore.getAllTabs()
-  allTabs.forEach((tab) => {
-    const matches = tab.content.match(pattern)
-    if (matches) {
-      const newContent = tab.content.replace(pattern, replaceQuery.value)
-      tabsStore.updateTab(tab.id, {
-        content: newContent,
-        isDirty: true
-      })
-      replaceCount += matches.length
-    }
-  })
-
-  if (replaceCount > 0) {
-    alert(`已替换 ${replaceCount} 处匹配`)
-  }
-
-  performSearch()
-}
-
-function toggleExpand(file: string) {
-  if (expandedFiles.value.has(file)) {
-    expandedFiles.value.delete(file)
-  } else {
-    expandedFiles.value.add(file)
-  }
-}
-
-function handleMatchClick(result: SearchResult, _match: SearchMatch) {
-  const tab = tabsStore.getAllTabs().find(t => t.id === result.file)
-  if (tab) {
-    tabsStore.switchTab(tab.id)
-  }
-}
 </script>
 
 <style scoped lang="scss">

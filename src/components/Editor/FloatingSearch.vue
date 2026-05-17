@@ -121,12 +121,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { t } from '@/services/i18n'
-import { useSearch } from '@/composables/useSearch'
+import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 
 const {
-  isVisible,
   searchQuery,
   replaceQuery,
   matchCount,
@@ -139,8 +138,9 @@ const {
   replaceSingle,
   replaceAll,
   show,
-  hide
-} = useSearch()
+  hide,
+  isVisible
+} = useWorkspaceSearch()
 
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
@@ -156,7 +156,7 @@ const handleClose = () => {
   hide()
 }
 
-watch(isVisible, (newVal) => {
+watch(searchQuery, (newVal) => {
   if (newVal) {
     nextTick(() => {
       searchInputRef.value?.focus()
@@ -164,18 +164,10 @@ watch(isVisible, (newVal) => {
   }
 })
 
-onMounted(() => {
-  // 移除全局快捷键监听，现在由 EditorContainer 统一处理
-})
-
-onUnmounted(() => {
-  // 移除全局快捷键监听，现在由 EditorContainer 统一处理
-})
-
 defineExpose({
   show,
   hide,
-  isVisible
+  searchQuery
 })
 </script>
 
