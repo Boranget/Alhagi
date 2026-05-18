@@ -78,20 +78,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, inject } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useEditorManager } from '@/managers/editorManager'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
+import type { EditorInstanceManager } from '@/managers/editorManager'
 import { t } from '@/services/i18n'
 import FloatingSearch from './FloatingSearch.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+
+// 从父组件注入共享的 editorManager
+const editorManager = inject<ReturnType<typeof import('@/managers/editorManager').useEditorManager>>('editorManager')
+
+if (!editorManager) {
+  console.error('[EditorContainer] EditorManager not provided by parent')
+}
 
 const wysiwygRef = ref<HTMLElement | null>(null)
 const sourceRef = ref<HTMLTextAreaElement | null>(null)
@@ -102,7 +109,14 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 const sourceContent = ref('')
 const unsubscribes: (() => void)[] = []
 
-const { containerRef, currentMode, init, setViewMode, destroy, getManager, getHTML } = useEditorManager()
+// 使用注入的 editorManager
+const containerRef = editorManager?.containerRef || ref<HTMLElement | null>(null)
+const currentMode = editorManager?.currentMode || ref<ViewMode>('wysiwyg')
+const init = editorManager?.init || (async () => {})
+const setViewMode = editorManager?.setViewMode || (() => {})
+const destroy = editorManager?.destroy || (async () => {})
+const getManager = editorManager?.getManager || (() => null)
+const getHTML = editorManager?.getHTML || (() => '')
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
 const showEditorToolbar = ref(false)

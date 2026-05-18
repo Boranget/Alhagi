@@ -83,7 +83,9 @@ function createMenu() {
       { role: 'quit' }
     ]},
     { label: '编辑', submenu: [
-      { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+      { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_UNDO) },
+      { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_REDO) },
+      { type: 'separator' },
       { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' },
       { label: '复制为 Markdown', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_MARKDOWN) },
       { label: '复制为 HTML', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_HTML) },

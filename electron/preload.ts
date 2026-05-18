@@ -136,7 +136,27 @@ const api: ElectronAPI = {
     createMenuListener(MENU_EVENTS.TOGGLE_SIDEBAR, callback),
   
   onOpenSettings: (callback) => 
-    createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback)
+    createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback),
+  
+  onEditUndo: (callback) => {
+    const handler = (_event: IpcRendererEvent) => {
+      callback()
+    }
+    ipcRenderer.on(MENU_EVENTS.EDIT_UNDO, handler)
+    return () => {
+      ipcRenderer.removeListener(MENU_EVENTS.EDIT_UNDO, handler)
+    }
+  },
+  
+  onEditRedo: (callback) => {
+    const handler = (_event: IpcRendererEvent) => {
+      callback()
+    }
+    ipcRenderer.on(MENU_EVENTS.EDIT_REDO, handler)
+    return () => {
+      ipcRenderer.removeListener(MENU_EVENTS.EDIT_REDO, handler)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

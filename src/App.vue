@@ -28,6 +28,8 @@ import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { undoCommand, redoCommand } from '@milkdown/plugin-history'
+import { callCommand } from '@milkdown/utils'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
@@ -50,10 +52,14 @@ provide('showSidebar', showSidebar)
 provide('isFullscreen', isFullscreen)
 provide('showSettings', showSettings)
 
+// 创建共享的 editorManager 实例
+const editorManager = useEditorManager()
+provide('editorManager', editorManager)
+
 const { toggleTypewriterMode, toggleFocusMode, initialize: initWritingEnhancement } = useWritingEnhancement()
 const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
 const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
-const { getMarkdown, getHTML } = useEditorManager()
+const { getMarkdown, getHTML } = editorManager
 
 const writingEnhancementCleanup = ref<(() => void) | null>(null)
 
@@ -386,6 +392,39 @@ function setupElectronListeners() {
       showSettings.value = true
     })
   }
+  
+  // 监听编辑菜单的撤销/重做事件
+  if (window.electronAPI?.onEditUndo) {
+    window.electronAPI.onEditUndo(() => {
+      const manager = editorManager.getManager()
+      if (manager) {
+        const editor = manager.getEditor()
+        if (editor) {
+          try {
+            editor.action(callCommand(undoCommand.key))
+          } catch (e) {
+            console.error('[App] Undo failed:', e)
+          }
+        }
+      }
+    })
+  }
+  
+  if (window.electronAPI?.onEditRedo) {
+    window.electronAPI.onEditRedo(() => {
+      const manager = editorManager.getManager()
+      if (manager) {
+        const editor = manager.getEditor()
+        if (editor) {
+          try {
+            editor.action(callCommand(redoCommand.key))
+          } catch (e) {
+            console.error('[App] Redo failed:', e)
+          }
+        }
+      }
+    })
+  }
 }
 
 watch(
@@ -412,7 +451,6 @@ watch(
 )
 
 onMounted(() => {
-  console.log('[App] onMounted - 初始化应用')
   window.addEventListener('keydown', handleKeydown)
   setupElectronListeners()
   window.addEventListener('beforeunload', saveCurrentSession)

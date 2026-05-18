@@ -5,9 +5,13 @@ import {
   matchKeyEvent 
 } from '@/services/keybindingService'
 import { useTabsStore } from '@/stores/tabs'
+import { useEditorManager } from '@/managers/editorManager'
+import { undoCommand, redoCommand } from '@milkdown/plugin-history'
+import { callCommand } from '@milkdown/utils'
 
 export function useKeybindings() {
   const tabsStore = useTabsStore()
+  const editorManager = useEditorManager()
   const keybindings = ref<Keybinding[]>([...DEFAULT_KEYBINDINGS])
   
   const actionHandlers: Record<string, () => void> = {
@@ -33,10 +37,30 @@ export function useKeybindings() {
       }
     },
     'edit.undo': () => {
-      document.execCommand('undo')
+      const manager = editorManager.getManager()
+      if (manager) {
+        const editor = manager.getEditor()
+        if (editor) {
+          try {
+            editor.action(callCommand(undoCommand.key))
+          } catch (e) {
+            console.warn('Undo failed:', e)
+          }
+        }
+      }
     },
     'edit.redo': () => {
-      document.execCommand('redo')
+      const manager = editorManager.getManager()
+      if (manager) {
+        const editor = manager.getEditor()
+        if (editor) {
+          try {
+            editor.action(callCommand(redoCommand.key))
+          } catch (e) {
+            console.warn('Redo failed:', e)
+          }
+        }
+      }
     },
     'edit.cut': () => {
       document.execCommand('cut')

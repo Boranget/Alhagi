@@ -155,7 +155,9 @@ export const MENU_EVENTS = {
   TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
   TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
   TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
-  OPEN_SETTINGS: 'menu:open-settings'
+  OPEN_SETTINGS: 'menu:open-settings',
+  EDIT_UNDO: 'menu:edit-undo',
+  EDIT_REDO: 'menu:edit-redo'
 } as const;
 
 // ========== 文件类型常量 ==========
@@ -221,6 +223,8 @@ export interface ElectronAPI {
   onToggleImmersiveMode: (callback: () => void) => () => void
   onToggleSidebar: (callback: () => void) => () => void
   onOpenSettings: (callback: () => void) => () => void
+  onEditUndo: (callback: () => void) => () => void
+  onEditRedo: (callback: () => void) => () => void
 }
 
 export interface DetachedTabData {
