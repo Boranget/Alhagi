@@ -319,9 +319,7 @@ function setupElectronListeners() {
   })
 
   window.electronAPI.onViewMode((mode) => {
-    if (tabsStore.activeTabId) {
-      tabsStore.setViewMode(tabsStore.activeTabId, mode as 'wysiwyg' | 'source' | 'split')
-    }
+    editorManager.setViewMode(mode as 'wysiwyg' | 'source' | 'split')
   })
 
   window.electronAPI.onCopyAsMarkdown(() => {
