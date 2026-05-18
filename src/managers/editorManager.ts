@@ -114,7 +114,7 @@ export class EditorInstanceManager {
       .use(listener)
       .use(prism)
       .use(block)
-      .use(searchHighlightPlugin)
+      .use(searchHighlightPlugin as unknown as any)
       .create()
   }
 

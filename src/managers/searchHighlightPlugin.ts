@@ -15,7 +15,7 @@ export interface MatchRange {
 
 export const searchPluginKey = new PluginKey('search')
 
-export const searchHighlightPlugin = $prose(() => search({})) as any
+export const searchHighlightPlugin = $prose(() => search({}))
 
 export function createSearchQuery(config: SearchConfig): SearchQuery {
   return new SearchQuery({
