@@ -39,6 +39,7 @@ export function useWorkspaceSearch() {
   const currentMatchIndex = ref(0)
   const searchScope = ref<SearchScope>('file')
   const searchMode = ref<SearchMode>('sidebar')
+  const linkedFromGlobalSearch = ref(false)
 
   const options = reactive({
     caseSensitive: false,
@@ -70,7 +71,6 @@ export function useWorkspaceSearch() {
       clearSearchHighlight()
       return
     }
-
     setSearchHighlight(getSearchConfig())
   }
 
@@ -79,19 +79,11 @@ export function useWorkspaceSearch() {
   }
 
   function buildSearchPattern(): RegExp | null {
-    if (!searchQuery.value.trim()) {
-      return null
-    }
-
+    if (!searchQuery.value.trim()) return null
     let pattern = options.regex ? searchQuery.value : escapeRegExp(searchQuery.value)
-    
-    if (options.wholeWord) {
-      pattern = `\\b${pattern}\\b`
-    }
-
+    if (options.wholeWord) pattern = `\\b${pattern}\\b`
     try {
-      const flags = options.caseSensitive ? 'g' : 'gi'
-      return new RegExp(pattern, flags)
+      return new RegExp(pattern, options.caseSensitive ? 'g' : 'gi')
     } catch {
       return null
     }
@@ -107,7 +99,6 @@ export function useWorkspaceSearch() {
   function searchInContent(content: string, pattern: RegExp): SearchMatch[] {
     const matches: SearchMatch[] = []
     const lines = content.split('\n')
-
     lines.forEach((line, lineIndex) => {
       let match: RegExpExecArray | null
       while ((match = pattern.exec(line)) !== null) {
@@ -122,7 +113,6 @@ export function useWorkspaceSearch() {
         })
       }
     })
-
     return matches
   }
 
@@ -134,20 +124,14 @@ export function useWorkspaceSearch() {
       currentMatchIndex.value = 0
       return
     }
-
     isSearching.value = true
     results.value = []
     totalMatches.value = 0
     currentMatchIndex.value = 0
-
     setTimeout(() => {
-      if (searchScope.value === 'file') {
-        searchInActiveFile(pattern)
-      } else if (searchScope.value === 'all') {
-        searchInAllTabs(pattern)
-      } else {
-        searchInFolder(pattern)
-      }
+      if (searchScope.value === 'file') searchInActiveFile(pattern)
+      else if (searchScope.value === 'all') searchInAllTabs(pattern)
+      else searchInFolder(pattern)
       isSearching.value = false
     }, 50)
   }
@@ -158,15 +142,9 @@ export function useWorkspaceSearch() {
       results.value = []
       return
     }
-
     const matches = searchInContent(activeTab.content, pattern)
     if (matches.length > 0) {
-      results.value = [{
-        file: activeTab.id,
-        fileName: activeTab.title,
-        filePath: activeTab.filePath || undefined,
-        matches
-      }]
+      results.value = [{ file: activeTab.id, fileName: activeTab.title, filePath: activeTab.filePath || undefined, matches }]
       totalMatches.value = matches.length
       expandedFiles.value.add(activeTab.id)
     }
@@ -176,25 +154,16 @@ export function useWorkspaceSearch() {
     const allTabs = tabsStore.getAllTabs()
     const searchResults: SearchResult[] = []
     let total = 0
-
     allTabs.forEach(tab => {
       const matches = searchInContent(tab.content, pattern)
       if (matches.length > 0) {
-        searchResults.push({
-          file: tab.id,
-          fileName: tab.title,
-          filePath: tab.filePath || undefined,
-          matches
-        })
+        searchResults.push({ file: tab.id, fileName: tab.title, filePath: tab.filePath || undefined, matches })
         total += matches.length
       }
     })
-
     results.value = searchResults
     totalMatches.value = total
-    if (searchResults.length > 0) {
-      expandedFiles.value.add(searchResults[0].file)
-    }
+    if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
   }
 
   function searchInFolder(pattern: RegExp) {
@@ -203,7 +172,6 @@ export function useWorkspaceSearch() {
       results.value = []
       return
     }
-
     if (window.electronAPI) {
       isSearching.value = true
       const searchOptions = {
@@ -213,43 +181,23 @@ export function useWorkspaceSearch() {
         includePatterns: options.include ? [options.include] : ['.*\\.md$', '.*\\.markdown$', '.*\\.txt$'],
         excludePatterns: options.exclude ? options.exclude.split(',').map(s => s.trim()) : ['node_modules', '.git', 'dist']
       }
-
       window.electronAPI.searchInDirectory(folderPath, searchQuery.value, searchOptions).then(response => {
         if (response && response.success && response.data) {
           const groupedByFile = new Map<string, SearchResult>()
-
           response.data.forEach((result: { filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }) => {
             const fileName = result.filePath.split(/[/\\]/).pop() || result.filePath
-
             if (!groupedByFile.has(result.filePath)) {
-              groupedByFile.set(result.filePath, {
-                file: result.filePath,
-                fileName: fileName,
-                filePath: result.filePath,
-                matches: []
-              })
+              groupedByFile.set(result.filePath, { file: result.filePath, fileName, filePath: result.filePath, matches: [] })
             }
-
             const existing = groupedByFile.get(result.filePath)!
             const matchText = result.lineContent.substring(result.matchStart, result.matchEnd)
             const highlightedText = highlightMatch(result.lineContent, matchText, result.matchStart)
-            existing.matches.push({
-              line: result.lineNumber,
-              column: result.matchStart + 1,
-              text: result.lineContent,
-              highlightedText,
-              startIndex: result.matchStart,
-              endIndex: result.matchEnd
-            })
+            existing.matches.push({ line: result.lineNumber, column: result.matchStart + 1, text: result.lineContent, highlightedText, startIndex: result.matchStart, endIndex: result.matchEnd })
           })
-
           const searchResults = Array.from(groupedByFile.values())
           results.value = searchResults
           totalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
-
-          if (searchResults.length > 0) {
-            expandedFiles.value.add(searchResults[0].file)
-          }
+          if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
         }
         isSearching.value = false
       })
@@ -257,25 +205,16 @@ export function useWorkspaceSearch() {
       const allTabs = tabsStore.getAllTabs()
       const searchResults: SearchResult[] = []
       let total = 0
-
       allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach(tab => {
         const matches = searchInContent(tab.content, pattern)
         if (matches.length > 0) {
-          searchResults.push({
-            file: tab.id,
-            fileName: tab.title,
-            filePath: tab.filePath || undefined,
-            matches
-          })
+          searchResults.push({ file: tab.id, fileName: tab.title, filePath: tab.filePath || undefined, matches })
           total += matches.length
         }
       })
-
       results.value = searchResults
       totalMatches.value = total
-      if (searchResults.length > 0) {
-        expandedFiles.value.add(searchResults[0].file)
-      }
+      if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
     }
   }
 
@@ -287,116 +226,107 @@ export function useWorkspaceSearch() {
 
   function navigatePrev() {
     if (totalMatches.value === 0) return
-    currentMatchIndex.value = currentMatchIndex.value === 0
-      ? totalMatches.value - 1
-      : currentMatchIndex.value - 1
+    currentMatchIndex.value = currentMatchIndex.value === 0 ? totalMatches.value - 1 : currentMatchIndex.value - 1
     scrollToMatch(currentMatchIndex.value)
   }
 
   function scrollToMatch(index: number) {
     const match = results.value[index]
     if (!match) return
-
     const tab = tabsStore.getAllTabs().find(t => t.id === match.file)
     if (tab && tab.id !== tabsStore.activeTabId) {
       tabsStore.switchTab(tab.id)
     }
-
     const config = getSearchConfig()
     const activeTab = tabsStore.activeTab
     if (activeTab) {
       const matches = findMatchesInContent(activeTab.content, config)
       const matchInfo = matches[index]
       if (matchInfo) {
-        tabsStore.updateTab(tabsStore.activeTabId!, {
-          cursor: { from: matchInfo.from, to: matchInfo.to }
-        })
+        tabsStore.updateTab(tabsStore.activeTabId!, { cursor: { from: matchInfo.from, to: matchInfo.to } })
       }
     }
   }
 
   function replaceSingle() {
     if (totalMatches.value === 0 || !replaceQuery.value) return
-
     const activeTab = tabsStore.activeTab
     if (!activeTab) return
-
     const pattern = buildSearchPattern()
     if (!pattern) return
-
     const newContent = activeTab.content.replace(pattern, replaceQuery.value)
-    tabsStore.updateTab(activeTab.id, {
-      content: newContent,
-      isDirty: true
-    })
-
+    tabsStore.updateTab(activeTab.id, { content: newContent, isDirty: true })
     performSearch()
   }
 
   function replaceAll() {
     if (totalMatches.value === 0 || !replaceQuery.value) return
-
-    if (searchScope.value === 'file') {
-      replaceInActiveFile()
-    } else if (searchScope.value === 'all') {
-      replaceInAllTabs()
-    }
+    if (searchScope.value === 'file') replaceInActiveFile()
+    else if (searchScope.value === 'all') replaceInAllTabs()
   }
 
   function replaceInActiveFile() {
     const activeTab = tabsStore.activeTab
     if (!activeTab) return
-
     const pattern = buildSearchPattern()
     if (!pattern) return
-
     const newContent = activeTab.content.replace(pattern, replaceQuery.value)
-    tabsStore.updateTab(activeTab.id, {
-      content: newContent,
-      isDirty: true
-    })
-
+    tabsStore.updateTab(activeTab.id, { content: newContent, isDirty: true })
     performSearch()
   }
 
   function replaceInAllTabs() {
     const pattern = buildSearchPattern()
     if (!pattern) return
-
     let replaceCount = 0
     const allTabs = tabsStore.getAllTabs()
     allTabs.forEach((tab) => {
       const matches = tab.content.match(pattern)
       if (matches) {
         const newContent = tab.content.replace(pattern, replaceQuery.value)
-        tabsStore.updateTab(tab.id, {
-          content: newContent,
-          isDirty: true
-        })
+        tabsStore.updateTab(tab.id, { content: newContent, isDirty: true })
         replaceCount += matches.length
       }
     })
-
-    if (replaceCount > 0) {
-      alert(`已替换 ${replaceCount} 处匹配`)
-    }
-
+    if (replaceCount > 0) alert(`已替换 ${replaceCount} 处匹配`)
     performSearch()
   }
 
   function toggleExpand(file: string) {
-    if (expandedFiles.value.has(file)) {
-      expandedFiles.value.delete(file)
-    } else {
-      expandedFiles.value.add(file)
-    }
+    if (expandedFiles.value.has(file)) expandedFiles.value.delete(file)
+    else expandedFiles.value.add(file)
   }
 
   function handleMatchClick(result: SearchResult, _match: SearchMatch) {
     const tab = tabsStore.getAllTabs().find(t => t.id === result.file)
     if (tab) {
       tabsStore.switchTab(tab.id)
+      if (searchMode.value === 'floating') {
+        linkedFromGlobalSearch.value = true
+        searchScope.value = 'file'
+        setTimeout(() => {
+          linkedFromGlobalSearch.value = false
+        }, 1000)
+      }
     }
+  }
+
+  function linkToCurrentFile() {
+    if (!searchQuery.value.trim() || searchScope.value === 'file') return
+    searchScope.value = 'file'
+    linkedFromGlobalSearch.value = true
+    performSearch()
+    updateEditorHighlight()
+    setTimeout(() => {
+      linkedFromGlobalSearch.value = false
+    }, 1000)
+  }
+
+  function syncFromGlobalSearch(query: string, scope: SearchScope = 'folder') {
+    searchQuery.value = query
+    searchScope.value = scope
+    performSearch()
+    updateEditorHighlight()
   }
 
   function setSearchScope(scope: SearchScope) {
@@ -458,6 +388,7 @@ export function useWorkspaceSearch() {
     currentResult,
     searchScope,
     searchMode,
+    linkedFromGlobalSearch,
     options,
     expandedFiles,
     performSearch,
@@ -471,6 +402,8 @@ export function useWorkspaceSearch() {
     toggleExpand,
     handleMatchClick,
     setSearchScope,
+    linkToCurrentFile,
+    syncFromGlobalSearch,
     show,
     hide,
     handleSearchInput,

@@ -72,6 +72,14 @@
         {{ t('sidebar.globalSearch') }}
       </button>
       <button
+        v-if="searchQuery && searchScope !== 'file'"
+        class="search-btn link"
+        @click="linkToCurrentFile"
+        :title="t('search.linkToCurrentFile')"
+      >
+        🔗 {{ t('search.linkToCurrentFile') }}
+      </button>
+      <button
         v-if="replaceQuery && searchScope === 'file'"
         class="search-btn replace"
         @click="replaceInActiveFile"
@@ -180,7 +188,8 @@ const {
   toggleExpand,
   handleMatchClick,
   setSearchScope,
-  handleSearchInput
+  handleSearchInput,
+  linkToCurrentFile
 } = useWorkspaceSearch()
 
 const searchScopes = [
@@ -313,6 +322,10 @@ function setSearchScope(scope: 'file' | 'folder' | 'all') {
 
   &:hover {
     opacity: 0.9;
+  }
+
+  &.link {
+    background: var(--success-color);
   }
 
   &.replace {
