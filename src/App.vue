@@ -93,7 +93,15 @@ function handleKeydown(e: KeyboardEvent) {
         e.preventDefault()
         if (e.shiftKey) {
           if (window.electronAPI) {
-            window.electronAPI.openFolder()
+            window.electronAPI.openFolder().then((result: any) => {
+              if (result.success && result.data) {
+                // 使用 fileService 打开文件夹
+                import('@/services/fileService').then(({ useFileService }) => {
+                  const fileService = useFileService()
+                  fileService.openFolderByPath(result.data.path)
+                })
+              }
+            })
           }
         } else {
           tabsStore.createTab({ title: '未命名' })
@@ -105,7 +113,21 @@ function handleKeydown(e: KeyboardEvent) {
           tabsStore.openFile()
         } else {
           if (window.electronAPI) {
-            window.electronAPI.openFile()
+            window.electronAPI.openFile().then((result: any) => {
+              if (result.success && result.data) {
+                const { filePath, content } = result.data
+                const title = filePath.split('/').pop()?.split('\\').pop() || '未命名'
+                tabsStore.createTab({
+                  title,
+                  content,
+                  filePath
+                })
+                import('@/stores/preferences').then(({ usePreferencesStore }) => {
+                  const prefsStore = usePreferencesStore()
+                  prefsStore.addRecentFile(filePath, title)
+                })
+              }
+            })
           }
         }
         break
@@ -434,7 +456,15 @@ onMounted(() => {
       
     case 'folder':
       if (prefsStore.launchFolderPath && window.electronAPI) {
-        window.electronAPI.openFolder()
+        window.electronAPI.openFolder().then((result: any) => {
+          if (result.success && result.data) {
+            // 使用 fileService 打开文件夹
+            import('@/services/fileService').then(({ useFileService }) => {
+              const fileService = useFileService()
+              fileService.openFolderByPath(result.data.path)
+            })
+          }
+        })
       }
       isWelcomePage.value = false
       tabsStore.createTab({ title: '未命名' })

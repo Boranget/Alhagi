@@ -43,11 +43,13 @@
 <script setup lang="ts">
 import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
+import { useFileService } from '@/services/fileService'
 import { computed } from 'vue'
 import { Icon } from '@/components/Icons'
 
 const prefsStore = usePreferencesStore()
 const tabsStore = useTabsStore()
+const fileService = useFileService()
 
 const recentFiles = computed(() => prefsStore.recentFiles)
 
@@ -55,17 +57,31 @@ function createNewFile() {
   tabsStore.createTab({ title: '未命名' })
 }
 
-function openExistingFile() {
+async function openExistingFile() {
   if (window.electronAPI) {
-    window.electronAPI.openFile()
+    const result = await window.electronAPI.openFile()
+    if (result.success && result.data) {
+      const { filePath, content } = result.data
+      const title = filePath.split('/').pop()?.split('\\').pop() || '未命名'
+      tabsStore.createTab({
+        title,
+        content,
+        filePath
+      })
+      prefsStore.addRecentFile(filePath, title)
+    }
   } else {
-    tabsStore.openFile()
+    await tabsStore.openFile()
   }
 }
 
-function openFolder() {
+async function openFolder() {
   if (window.electronAPI) {
-    window.electronAPI.openFolder()
+    const result = await window.electronAPI.openFolder()
+    if (result.success && result.data) {
+      // 使用 fileService 打开文件夹，这样会自动更新文件树
+      await fileService.openFolderByPath(result.data.path)
+    }
   }
 }
 
