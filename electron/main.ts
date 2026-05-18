@@ -2,13 +2,14 @@ import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
+import { spawn } from 'node:child_process'
 import Store from 'electron-store'
-import { 
-  IPCErrorCode, 
+import {
+  IPCErrorCode,
   FileTreeNode,
   DirectoryEntry,
   WindowState,
-  createSuccessResponse, 
+  createSuccessResponse,
   createErrorResponse,
   IPC_CHANNELS,
   MENU_EVENTS,
@@ -17,6 +18,7 @@ import {
   LineEnding,
   DetachedTabData
 } from '../electron-protocol'
+import { rgPath } from '@vscode/ripgrep'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -50,7 +52,7 @@ const windows = new Map<number, BrowserWindow>()
 
 function createWindow() {
   const windowState = store.get('windowState')
-  
+
   mainWindow = new BrowserWindow({
     width: windowState.width,
     height: windowState.height,
@@ -66,7 +68,7 @@ function createWindow() {
     show: false,
     backgroundColor: '#ffffff'
   })
-  
+
   windows.set(mainWindow.id, mainWindow)
 
   mainWindow.on('ready-to-show', () => {
@@ -143,32 +145,32 @@ function createMenu() {
         { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
         { type: 'separator' },
         { label: '悬浮便签模式', accelerator: 'CmdOrCtrl+Shift+F', click: () => {
-          if (mainWindow) {
-            const currentSize = mainWindow.getSize()
-            const isSmall = currentSize[0] <= 400 && currentSize[1] <= 500
-            
-            if (isSmall) {
-              mainWindow.setSize(1200, 800)
-              mainWindow.setAlwaysOnTop(false)
-            } else {
-              mainWindow.setSize(350, 450)
-              mainWindow.setAlwaysOnTop(true)
+            if (mainWindow) {
+              const currentSize = mainWindow.getSize()
+              const isSmall = currentSize[0] <= 400 && currentSize[1] <= 500
+
+              if (isSmall) {
+                mainWindow.setSize(1200, 800)
+                mainWindow.setAlwaysOnTop(false)
+              } else {
+                mainWindow.setSize(350, 450)
+                mainWindow.setAlwaysOnTop(true)
+              }
+              // 同时通知渲染进程切换 UI
+              mainWindow.webContents.send(MENU_EVENTS.TOGGLE_STICKY_NOTE)
             }
-            // 同时通知渲染进程切换 UI
-            mainWindow.webContents.send(MENU_EVENTS.TOGGLE_STICKY_NOTE)
-          }
-        }},
+          }},
         { label: '沉浸式写作模式', accelerator: 'CmdOrCtrl+Shift+Enter', click: () => {
-          mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_IMMERSIVE)
-        }},
+            mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_IMMERSIVE)
+          }},
         { type: 'separator' },
         { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => {
-          if (mainWindow?.webContents.isDevToolsOpened()) {
-            mainWindow.webContents.closeDevTools()
-          } else {
-            mainWindow?.webContents.openDevTools()
-          }
-        }},
+            if (mainWindow?.webContents.isDevToolsOpened()) {
+              mainWindow.webContents.closeDevTools()
+            } else {
+              mainWindow?.webContents.openDevTools()
+            }
+          }},
         { type: 'separator' },
         { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
         { type: 'separator' },
@@ -179,13 +181,13 @@ function createMenu() {
       label: '帮助',
       submenu: [
         { label: '关于', click: () => {
-          dialog.showMessageBox({
-            type: 'info',
-            title: '关于 顾念笔记',
-            message: '顾念笔记 (Alhagi) v1.0.0',
-            detail: '基于 Milkdown 的现代化 Markdown 编辑器'
-          })
-        }}
+            dialog.showMessageBox({
+              type: 'info',
+              title: '关于 顾念笔记',
+              message: '顾念笔记 (Alhagi) v1.0.0',
+              detail: '基于 Milkdown 的现代化 Markdown 编辑器'
+            })
+          }}
       ]
     }
   ]
@@ -205,7 +207,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.OPEN, async () => {
         { name: '所有文件', extensions: ['*'] }
       ]
     })
-    
+
     if (result.canceled || result.filePaths.length === 0) {
       return createSuccessResponse(null)
     }
@@ -308,7 +310,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.OPEN_FOLDER, async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory']
     })
-    
+
     if (result.canceled || result.filePaths.length === 0) {
       return createSuccessResponse(null)
     }
@@ -324,16 +326,16 @@ ipcMain.handle(IPC_CHANNELS.FILE.OPEN_FOLDER, async () => {
 
 async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0): Promise<FileTreeNode[]> {
   if (currentDepth >= maxDepth) return []
-  
+
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     const result: FileTreeNode[] = []
-    
+
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue
-      
+
       const fullPath = path.join(dirPath, entry.name)
-      
+
       if (entry.isDirectory()) {
         const children = await buildFileTree(fullPath, maxDepth, currentDepth + 1)
         result.push({
@@ -351,7 +353,7 @@ async function buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0
         })
       }
     }
-    
+
     return result
   } catch (error) {
     console.error('Failed to read directory:', error)
@@ -363,13 +365,13 @@ ipcMain.handle(IPC_CHANNELS.FILE.READ_DIRECTORY, async (_, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     const result: DirectoryEntry[] = []
-    
+
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue
-      
+
       const fullPath = path.join(dirPath, entry.name)
       const stats = await fs.stat(fullPath)
-      
+
       result.push({
         name: entry.name,
         path: fullPath,
@@ -379,7 +381,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.READ_DIRECTORY, async (_, dirPath: string) => {
         lastModified: stats.mtimeMs
       })
     }
-    
+
     return createSuccessResponse(result)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -390,13 +392,13 @@ ipcMain.handle(IPC_CHANNELS.FILE.READ_DIRECTORY, async (_, dirPath: string) => {
 ipcMain.handle(IPC_CHANNELS.FILE.CREATE, async (_, { dirPath, fileName, type }) => {
   try {
     const newPath = path.join(dirPath, fileName)
-    
+
     if (type === FILE_TYPES.DIRECTORY) {
       await fs.mkdir(newPath, { recursive: true })
     } else {
       await fs.writeFile(newPath, '', 'utf-8')
     }
-    
+
     return createSuccessResponse(newPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -427,16 +429,16 @@ ipcMain.handle(IPC_CHANNELS.FILE.DELETE, async (_, filePath: string) => {
 
 ipcMain.handle(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY, async () => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
-  
+
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory']
     })
-    
+
     if (result.canceled || result.filePaths.length === 0) {
       return createSuccessResponse(null)
     }
-    
+
     return createSuccessResponse(result.filePaths[0])
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -466,14 +468,14 @@ ipcMain.handle(IPC_CHANNELS.FILE.MOVE, async (_, { sourcePath, targetDir }) => {
   try {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
-    
+
     try {
       await fs.access(targetPath)
       return createErrorResponse(IPCErrorCode.FILE_MOVE_ERROR, `File already exists: ${targetPath}`)
     } catch {
       // File doesn't exist, safe to proceed
     }
-    
+
     try {
       await fs.rename(sourcePath, targetPath)
     } catch (renameErr) {
@@ -481,7 +483,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.MOVE, async (_, { sourcePath, targetDir }) => {
       await fs.writeFile(targetPath, content)
       await fs.unlink(sourcePath)
     }
-    
+
     return createSuccessResponse(targetPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -499,17 +501,17 @@ ipcMain.handle(IPC_CHANNELS.FILE.COPY, async (_, { sourcePath, targetDir }) => {
   try {
     const fileName = path.basename(sourcePath)
     const targetPath = path.join(targetDir, fileName)
-    
+
     try {
       await fs.access(targetPath)
       return createErrorResponse(IPCErrorCode.FILE_COPY_ERROR, `File already exists: ${targetPath}`)
     } catch {
       // File doesn't exist, safe to proceed
     }
-    
+
     const content = await fs.readFile(sourcePath)
     await fs.writeFile(targetPath, content)
-    
+
     return createSuccessResponse(targetPath)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -523,72 +525,209 @@ ipcMain.handle(IPC_CHANNELS.FILE.COPY, async (_, { sourcePath, targetDir }) => {
   }
 })
 
-ipcMain.handle(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, async (_, { dirPath, query, options }: { dirPath: string; query: string; options?: { includePatterns?: string[]; excludePatterns?: string[]; caseSensitive?: boolean; wholeWord?: boolean; useRegex?: boolean } }) => {
-  try {
-    const results: Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }> = []
-    
-    let pattern: RegExp
-    try {
-      if (options?.useRegex) {
-        pattern = new RegExp(query, options.caseSensitive ? 'g' : 'gi')
-      } else {
-        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const wordBoundary = options?.wholeWord ? '\\b' : ''
-        pattern = new RegExp(`${wordBoundary}${escaped}${wordBoundary}`, options.caseSensitive ? 'g' : 'gi')
-      }
-    } catch {
-      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Invalid search pattern')
+// Ripgrep-based search implementation
+async function searchWithRipgrep(
+  dirPath: string,
+  query: string,
+  options: {
+    includePatterns?: string[]
+    excludePatterns?: string[]
+    caseSensitive?: boolean
+    wholeWord?: boolean
+    useRegex?: boolean
+  } = {}
+): Promise<Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }>> {
+  return new Promise((resolve, reject) => {
+    const args: string[] = ['--json']
+
+    if (!options.caseSensitive) {
+      args.push('-i')
     }
-    
-    const excludePatterns = options?.excludePatterns || ['node_modules', '.git', 'dist', '__pycache__']
-    
-    async function searchInDir(dir: string) {
+
+    if (options.wholeWord) {
+      args.push('-w')
+    }
+
+    // Add glob patterns for markdown/text files
+    args.push('--glob', '*.md')
+    args.push('--glob', '*.markdown')
+    args.push('--glob', '*.txt')
+
+    // Add exclude patterns
+    const excludePatterns = options.excludePatterns || ['node_modules', '.git', 'dist', '__pycache__']
+    for (const pattern of excludePatterns) {
+      args.push('--glob', `!${pattern}`)
+    }
+
+    // Build search pattern
+    let searchPattern = query
+    if (!options.useRegex) {
+      // Escape regex special characters
+      searchPattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    }
+
+    args.push(searchPattern)
+    args.push(dirPath)
+
+    let stdout = ''
+    let stderr = ''
+
+    const rgProcess = spawn(rgPath, args)
+
+    rgProcess.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+
+    rgProcess.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    rgProcess.on('error', (error) => {
+      console.error('Ripgrep error:', error)
+      reject(error)
+    })
+
+    rgProcess.on('close', (code) => {
+      if (code !== 0 && code !== 1) { // 0 = matches found, 1 = no matches
+        console.error('Ripgrep stderr:', stderr)
+        return resolve([])
+      }
+
+      const results: Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }> = []
+
       try {
-        const entries = await fs.readdir(dir, { withFileTypes: true })
-        
-        for (const entry of entries) {
-          if (entry.name.startsWith('.')) continue
-          
-          const fullPath = path.join(dir, entry.name)
-          
-          if (entry.isDirectory()) {
-            if (!excludePatterns.includes(entry.name)) {
-              await searchInDir(fullPath)
+        const lines = stdout.trim().split('\n')
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+
+          try {
+            const json = JSON.parse(line)
+
+            if (json.type === 'match') {
+              const filePath = json.data.path.text
+              const lineNumber = json.data.line_number
+              const lineContent = json.data.lines.text.replace(/\r?\n$/, '')
+
+              for (const submatch of json.data.submatches) {
+                results.push({
+                  filePath,
+                  lineNumber,
+                  lineContent,
+                  matchStart: submatch.start,
+                  matchEnd: submatch.end
+                })
+              }
             }
-          } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.txt'))) {
-            if (options?.includePatterns && options.includePatterns.length > 0) {
-              const matches = options.includePatterns.some(p => entry.name.match(new RegExp(p)))
-              if (!matches) continue
-            }
-            
-            try {
-              const content = await fs.readFile(fullPath, 'utf-8')
-              const lines = content.split('\n')
-              
-              lines.forEach((line, index) => {
-                const matches = line.matchAll(pattern)
-                for (const match of matches) {
-                  results.push({
-                    filePath: fullPath,
-                    lineNumber: index + 1,
-                    lineContent: line,
-                    matchStart: match.index || 0,
-                    matchEnd: (match.index || 0) + match[0].length
-                  })
-                }
-              })
-            } catch {
-              // Skip files that can't be read
-            }
+          } catch (jsonError) {
+            // Skip invalid JSON lines
+            continue
           }
         }
-      } catch {
-        // Skip directories that can't be read
+
+        resolve(results)
+      } catch (parseError) {
+        console.error('Error parsing ripgrep output:', parseError)
+        resolve([])
       }
+    })
+  })
+}
+
+// Fallback to filesystem-based search if ripgrep fails
+async function searchFallback(
+  dirPath: string,
+  query: string,
+  options: {
+    includePatterns?: string[]
+    excludePatterns?: string[]
+    caseSensitive?: boolean
+    wholeWord?: boolean
+    useRegex?: boolean
+  } = {}
+): Promise<Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }>> {
+  const results: Array<{ filePath: string; lineNumber: number; lineContent: string; matchStart: number; matchEnd: number }> = []
+
+  let pattern: RegExp
+  try {
+    if (options.useRegex) {
+      pattern = new RegExp(query, options.caseSensitive ? 'g' : 'gi')
+    } else {
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const wordBoundary = options.wholeWord ? '\\b' : ''
+      pattern = new RegExp(`${wordBoundary}${escaped}${wordBoundary}`, options.caseSensitive ? 'g' : 'gi')
     }
-    
-    await searchInDir(dirPath)
-    return createSuccessResponse(results)
+  } catch {
+    return results
+  }
+
+  const excludePatterns = options.excludePatterns || ['node_modules', '.git', 'dist', '__pycache__']
+
+  async function searchInDir(dir: string) {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue
+
+        const fullPath = path.join(dir, entry.name)
+
+        if (entry.isDirectory()) {
+          if (!excludePatterns.includes(entry.name)) {
+            await searchInDir(fullPath)
+          }
+        } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.markdown') || entry.name.endsWith('.txt'))) {
+          if (options.includePatterns && options.includePatterns.length > 0) {
+            const matches = options.includePatterns.some(p => entry.name.match(new RegExp(p)))
+            if (!matches) continue
+          }
+
+          try {
+            const content = await fs.readFile(fullPath, 'utf-8')
+            const lines = content.split('\n')
+
+            lines.forEach((line, index) => {
+              const matches = line.matchAll(pattern)
+              for (const match of matches) {
+                results.push({
+                  filePath: fullPath,
+                  lineNumber: index + 1,
+                  lineContent: line,
+                  matchStart: match.index || 0,
+                  matchEnd: (match.index || 0) + match[0].length
+                })
+              }
+            })
+          } catch {
+            // Skip files that can't be read
+          }
+        }
+      }
+    } catch {
+      // Skip directories that can't be read
+    }
+  }
+
+  await searchInDir(dirPath)
+  return results
+}
+
+ipcMain.handle(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, async (_, { dirPath, query, options }: { dirPath: string; query: string; options?: { includePatterns?: string[]; excludePatterns?: string[]; caseSensitive?: boolean; wholeWord?: boolean; useRegex?: boolean } }) => {
+  try {
+    if (!query.trim()) {
+      return createSuccessResponse([])
+    }
+
+    // Try ripgrep first for performance
+    try {
+      const results = await searchWithRipgrep(dirPath, query, options)
+      return createSuccessResponse(results)
+    } catch (rgError) {
+      console.warn('Ripgrep search failed, falling back:', rgError)
+      // Fallback to filesystem-based search
+      const results = await searchFallback(dirPath, query, options)
+      return createSuccessResponse(results)
+    }
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Search failed: ${error.message}`)
