@@ -1,12 +1,14 @@
-import { Plugin, PluginKey } from '@milkdown/prose/state'
+import { Plugin, PluginKey, EditorState } from '@milkdown/prose/state'
 import { Decoration, DecorationSet, EditorView } from '@milkdown/prose/view'
-import { SearchConfig, buildSearchPattern } from '@/utils/search'
+import { Node } from '@milkdown/prose/model'
+import type { SearchConfig } from '@/utils/search'
+import { buildSearchPattern } from '@/utils/search'
 
-export { SearchConfig } from '@/utils/search'
+export type { SearchConfig } from '@/utils/search'
 
 const searchHighlightKey = new PluginKey<DecorationSet>('search-highlight')
 
-function createDecorations(doc: { descendants: (fn: (node: any, pos: number) => void) => void }, config: SearchConfig): DecorationSet {
+function createDecorations(doc: Node, config: SearchConfig): DecorationSet {
   const decorations: Decoration[] = []
 
   if (!config.search.trim()) {
@@ -18,7 +20,7 @@ function createDecorations(doc: { descendants: (fn: (node: any, pos: number) => 
     return DecorationSet.empty
   }
 
-  doc.descendants((node: { isText: boolean; text: string }, pos: number) => {
+  doc.descendants((node: Node, pos: number) => {
     if (node.isText && node.text) {
       let match: RegExpExecArray | null
       while ((match = pattern.exec(node.text)) !== null) {

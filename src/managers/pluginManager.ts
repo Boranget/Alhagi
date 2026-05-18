@@ -1,6 +1,6 @@
 export interface PluginModule {
   name: string
-  import: () => Promise<{ default: any }>
+  import: () => Promise<any>
   isLoaded: boolean
 }
 
@@ -13,97 +13,67 @@ export class PluginManager {
   }
 
   private initializeDefaultPlugins(): void {
-    this.registerPlugin({
-      name: '@milkdown/preset-commonmark',
-      import: () => import('@milkdown/preset-commonmark'),
-      isLoaded: true
-    })
-
-    this.registerPlugin({
-      name: '@milkdown/preset-gfm',
-      import: () => import('@milkdown/preset-gfm'),
-      isLoaded: true
-    })
-
-    this.registerPlugin({
-      name: '@milkdown/plugin-history',
-      import: () => import('@milkdown/plugin-history'),
-      isLoaded: true
-    })
-
-    this.registerPlugin({
-      name: '@milkdown/plugin-clipboard',
-      import: () => import('@milkdown/plugin-clipboard'),
-      isLoaded: true
-    })
-
-    this.registerPlugin({
-      name: '@milkdown/plugin-listener',
-      import: () => import('@milkdown/plugin-listener'),
-      isLoaded: true
-    })
-
-    this.registerAdvancedPlugins()
-  }
-
-  private initializeAdvancedPlugins(): void {
-    const advancedPlugins: PluginModule[] = [
+    const defaultPlugins: PluginModule[] = [
       {
-        name: '@milkdown/plugin-math',
-        import: () => import('@milkdown/plugin-math'),
-        isLoaded: false
+        name: '@milkdown/preset-commonmark',
+        import: async () => {
+          const mod = await import('@milkdown/preset-commonmark')
+          return mod.commonmark
+        },
+        isLoaded: true
       },
       {
-        name: '@milkdown/plugin-diagram',
-        import: () => import('@milkdown/plugin-diagram'),
-        isLoaded: false
-      },
-      {
-        name: '@milkdown/plugin-slash',
-        import: () => import('@milkdown/plugin-slash'),
-        isLoaded: false
-      },
-      {
-        name: '@milkdown/plugin-emoji',
-        import: () => import('@milkdown/plugin-emoji'),
-        isLoaded: false
+        name: '@milkdown/preset-gfm',
+        import: async () => {
+          const mod = await import('@milkdown/preset-gfm')
+          return mod.gfm
+        },
+        isLoaded: true
       },
       {
         name: '@milkdown/plugin-history',
-        import: () => import('@milkdown/plugin-history'),
-        isLoaded: false
+        import: async () => {
+          const mod = await import('@milkdown/plugin-history')
+          return mod.history
+        },
+        isLoaded: true
+      },
+      {
+        name: '@milkdown/plugin-clipboard',
+        import: async () => {
+          const mod = await import('@milkdown/plugin-clipboard')
+          return mod.clipboard
+        },
+        isLoaded: true
+      },
+      {
+        name: '@milkdown/plugin-listener',
+        import: async () => {
+          const mod = await import('@milkdown/plugin-listener')
+          return mod.listener
+        },
+        isLoaded: true
+      },
+      {
+        name: '@milkdown/plugin-prism',
+        import: async () => {
+          const mod = await import('@milkdown/plugin-prism')
+          return mod.prism
+        },
+        isLoaded: true
+      },
+      {
+        name: '@milkdown/plugin-block',
+        import: async () => {
+          const mod = await import('@milkdown/plugin-block')
+          return mod.block
+        },
+        isLoaded: true
       }
     ]
 
-    advancedPlugins.forEach(plugin => this.registerPlugin(plugin))
+    defaultPlugins.forEach(plugin => this.registerPlugin(plugin))
   }
-
-  private advancedPlugins: PluginModule[] = [
-    {
-      name: '@milkdown/plugin-math',
-      import: async () => {
-        const mod = await import('@milkdown/plugin-math')
-        return { default: mod.math }
-      },
-      isLoaded: false
-    },
-    {
-      name: '@milkdown/plugin-diagram',
-      import: async () => {
-        const mod = await import('@milkdown/plugin-diagram')
-        return { default: mod.diagram }
-      },
-      isLoaded: false
-    },
-    {
-      name: '@milkdown/plugin-slash',
-      import: async () => {
-        const mod = await import('@milkdown/plugin-slash')
-        return { default: mod.slash }
-      },
-      isLoaded: false
-    }
-  ]
 
   private registerPlugin(plugin: PluginModule): void {
     this.plugins.set(plugin.name, plugin)
@@ -122,7 +92,7 @@ export class PluginManager {
     }
 
     try {
-      const module = await plugin.import()
+      await plugin.import()
       plugin.isLoaded = true
       return true
     } catch (error) {
@@ -181,18 +151,6 @@ export class PluginManager {
     })
 
     return status
-  }
-
-  async lazyLoadAdvancedPlugins(): Promise<void> {
-    const advancedPlugins = [
-      '@milkdown/plugin-math',
-      '@milkdown/plugin-diagram',
-      '@milkdown/plugin-slash'
-    ]
-
-    for (const pluginName of advancedPlugins) {
-      await this.loadPlugin(pluginName)
-    }
   }
 
   clearCache(): void {

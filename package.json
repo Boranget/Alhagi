@@ -15,6 +15,7 @@
   "dependencies": {
     "@milkdown/core": "^7.5.0",
     "@milkdown/crepe": "^7.5.0",
+    "@milkdown/plugin-block": "^7.21.1",
     "@milkdown/plugin-history": "^7.5.0",
     "@milkdown/plugin-prism": "^7.5.0",
     "@milkdown/preset-commonmark": "^7.5.0",

@@ -1,11 +1,13 @@
 import { ref, watch, nextTick } from 'vue'
-import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx, serializerCtx, schemaCtx } from '@milkdown/core'
-import { DOMSerializer } from '@milkdown/prose'
+import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx, serializerCtx, schemaCtx, parserCtx } from '@milkdown/core'
+import { DOMSerializer } from '@milkdown/prose/model'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
 import { history } from '@milkdown/plugin-history'
 import { clipboard } from '@milkdown/plugin-clipboard'
+import { prism } from '@milkdown/plugin-prism'
+import { block } from '@milkdown/plugin-block'
 import { EditorState } from '@milkdown/prose/state'
 import { EditorView } from '@milkdown/prose/view'
 import type { ViewMode } from '@/types'
@@ -19,7 +21,7 @@ import {
   replaceInProseMirror,
   replaceAllInProseMirror
 } from '@/utils/search'
-import { searchHighlightPlugin, setSearchQuery, clearSearchHighlight } from './searchHighlightPlugin'
+import { searchHighlightPlugin } from './searchHighlightPlugin'
 
 export interface EditorConfig {
   enablePolling: boolean
@@ -110,7 +112,9 @@ export class EditorInstanceManager {
       .use(history)
       .use(clipboard)
       .use(listener)
-      .use(searchHighlightPlugin())
+      .use(prism)
+      .use(block)
+      .use(searchHighlightPlugin() as any)
       .create()
   }
 
@@ -264,23 +268,21 @@ export class EditorInstanceManager {
           
           const editorState = context.get(editorStateCtx)
           const editorView = context.get(editorViewCtx)
+          const parser = context.get(parserCtx)
           
-          if (editorState && editorView) {
-            const state = editorState as { tr: { replaceWith: Function }; doc: { content: { size: number } } }
-            const view = editorView as { dispatch: Function }
+          if (editorState && editorView && parser) {
+            const state = editorState as EditorState
+            const view = editorView as EditorView
+            const markdownParser = parser as { parse: (md: string) => any }
             
-            const { dom: { parser } } = ctx as { dom: { parser: { parse: Function } } }
-            
-            if (parser) {
-              const newDoc = parser.parse(content)
-              const tr = state.tr.replaceWith(
-                0,
-                state.doc.content.size,
-                newDoc.content
-              )
-              view.dispatch(tr)
-              success = true
-            }
+            const newDoc = markdownParser.parse(content)
+            const tr = state.tr.replaceWith(
+              0,
+              state.doc.content.size,
+              newDoc.content
+            )
+            view.dispatch(tr)
+            success = true
           }
         })
         
@@ -735,6 +737,14 @@ export function useEditorManager() {
     return manager?.getHTML() || ''
   }
 
+  const getMarkdown = (): string => {
+    return manager?.getMarkdown() || ''
+  }
+
+  const setMarkdown = async (content: string): Promise<void> => {
+    await manager?.setMarkdown(content)
+  }
+
   return {
     containerRef,
     isReady,
@@ -750,6 +760,8 @@ export function useEditorManager() {
     findMatches,
     replaceMatch,
     replaceAll,
-    getHTML
+    getHTML,
+    getMarkdown,
+    setMarkdown
   }
 }
