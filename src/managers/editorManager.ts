@@ -14,7 +14,7 @@ import { SearchQuery, setSearchState, getSearchState, findNext, findPrev, replac
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { PerformanceMonitor, LRUCache, Debouncer } from '@/utils/performance'
+import { PerformanceMonitor, LRUCache } from '@/utils/performance'
 import { 
   SearchConfig, 
   MatchRange,
@@ -61,7 +61,6 @@ export class EditorInstanceManager {
   private readonly pollingDelay: number
   private config: EditorConfig
   private contentCache: LRUCache<string>
-  private debouncer: Debouncer
   private monitor: PerformanceMonitor
   private readonly MAX_RETRIES = 3
   private retryCount = 0
@@ -73,7 +72,6 @@ export class EditorInstanceManager {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.pollingDelay = this.config.pollingInterval
     this.contentCache = new LRUCache<string>(this.config.cacheSize)
-    this.debouncer = new Debouncer()
     this.monitor = new PerformanceMonitor()
   }
 
@@ -462,7 +460,6 @@ export class EditorInstanceManager {
     eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
 
     this.contentCache.clear()
-    this.debouncer.cancel()
     
     if (this.config.enableMetrics) {
       console.log(this.monitor.getSummary())
