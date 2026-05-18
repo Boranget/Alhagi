@@ -5,6 +5,7 @@ import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { TABS, EDITOR } from '@/constants'
+import type { LineEnding, IPCResponse } from '../../electron-protocol/index'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
   if (!tabState || typeof tabState !== 'object') {
@@ -42,7 +43,7 @@ export function validateTabState(tabState: unknown): tabState is TabState {
     return false
   }
 
-  if (![EDITOR.VIEW_MODES.WYSIWYG, EDITOR.VIEW_MODES.SOURCE, EDITOR.VIEW_MODES.SPLIT].includes(obj.viewMode as string)) {
+  if (![EDITOR.VIEW_MODES.WYSIWYG, EDITOR.VIEW_MODES.SOURCE, EDITOR.VIEW_MODES.SPLIT].includes(obj.viewMode as ViewMode)) {
     console.error('Invalid viewMode field')
     return false
   }
@@ -238,9 +239,9 @@ export const useTabsStore = defineStore('tabs', () => {
     if (!window.electronAPI) return null
 
     const result = await window.electronAPI.openFile()
-    if (!result) return null
+    if (!result.success || !result.data) return null
 
-    const { filePath, content } = result
+    const { filePath, content } = result.data
 
     const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
     if (existingTab) {
@@ -267,7 +268,9 @@ export const useTabsStore = defineStore('tabs', () => {
     if (!window.electronAPI) return null
 
     try {
-      const content = await window.electronAPI.readFile(filePath)
+      const contentResp = await window.electronAPI.readFile(filePath)
+      if (!contentResp.success) return null
+      const content = contentResp.data
       const title = extractTitleFromPath(filePath)
       const tab = createTab({ filePath, content, title })
       switchTab(tab.id)
@@ -288,7 +291,7 @@ export const useTabsStore = defineStore('tabs', () => {
 
     if (tab.filePath) {
       const prefs = usePreferencesStore()
-      const lineEnding = prefs.lineEnding
+      const lineEnding = prefs.lineEnding as LineEnding
       await window.electronAPI.saveFile(tab.filePath, tab.content, lineEnding)
       markClean(tabId)
 
@@ -304,11 +307,12 @@ export const useTabsStore = defineStore('tabs', () => {
     if (!tab || !window.electronAPI) return false
 
     const prefs = usePreferencesStore()
-    const lineEnding = prefs.lineEnding
+    const lineEnding = prefs.lineEnding as LineEnding
     const defaultPath = (tab.title.endsWith('.md') ? tab.title : tab.title + '.md')
-    const filePath = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
+    const filePathResp = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
 
-    if (filePath) {
+    if (filePathResp.success && filePathResp.data) {
+      const filePath = filePathResp.data
       tab.filePath = filePath
       tab.title = extractTitleFromPath(filePath)
       markClean(tabId)

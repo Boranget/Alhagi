@@ -65,26 +65,26 @@ export const eventBus = new SimpleEventBus()
 
 // 使用类型安全的事件常量
 export const AppEvents = {
-  TAB_CREATED: 'app:tab:created',
-  TAB_CLOSED: 'app:tab:closed',
-  TAB_SWITCHED: 'app:tab:switched',
-  TAB_UPDATED: 'app:tab:updated',
-  FILE_OPENED: 'app:file:opened',
-  FILE_SAVED: 'app:file:saved',
-  FOLDER_OPENED: 'app:folder:opened',
-  EDITOR_READY: 'app:editor:ready',
-  EDITOR_DESTROYED: 'app:editor:destroyed',
-  SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed',
-  THEME_CHANGED: 'app:theme:changed',
-  WINDOW_RESIZED: 'app:window:resized',
-  WINDOW_MAXIMIZED: 'app:window:maximized',
-  WINDOW_MINIMIZED: 'app:window:minimized',
-  PREFERENCES_UPDATED: 'app:preferences:updated',
-  CONTENT_CHANGED: 'editor:content:changed',
-  CURSOR_CHANGED: 'editor:cursor:changed',
-  SELECTION_CHANGED: 'editor:selection:changed',
-  SCROLL_CHANGED: 'editor:scroll:changed'
-} as const satisfies Record<AppEventName, string>
+  TAB_CREATED: 'app:tab:created' as const,
+  TAB_CLOSED: 'app:tab:closed' as const,
+  TAB_SWITCHED: 'app:tab:switched' as const,
+  TAB_UPDATED: 'app:tab:updated' as const,
+  FILE_OPENED: 'app:file:opened' as const,
+  FILE_SAVED: 'app:file:saved' as const,
+  FOLDER_OPENED: 'app:folder:opened' as const,
+  EDITOR_READY: 'app:editor:ready' as const,
+  EDITOR_DESTROYED: 'app:editor:destroyed' as const,
+  SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const,
+  THEME_CHANGED: 'app:theme:changed' as const,
+  WINDOW_RESIZED: 'app:window:resized' as const,
+  WINDOW_MAXIMIZED: 'app:window:maximized' as const,
+  WINDOW_MINIMIZED: 'app:window:minimized' as const,
+  PREFERENCES_UPDATED: 'app:preferences:updated' as const,
+  CONTENT_CHANGED: 'editor:content:changed' as const,
+  CURSOR_CHANGED: 'editor:cursor:changed' as const,
+  SELECTION_CHANGED: 'editor:selection:changed' as const,
+  SCROLL_CHANGED: 'editor:scroll:changed' as const
+} as const
 
 export function createEventHook<T = unknown>() {
   const callbacks = ref<Set<EventCallback<T>>>(new Set())

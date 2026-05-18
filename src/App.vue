@@ -318,13 +318,15 @@ function setupElectronListeners() {
   // 监听标签页合并事件
   if (window.electronAPI.onTabMerge) {
     window.electronAPI.onTabMerge((tabData) => {
-      tabsStore.createTab({
+      const tab = tabsStore.createTab({
         title: tabData.title,
         content: tabData.content,
-        filePath: tabData.filePath,
-        isDirty: tabData.isDirty,
+        filePath: tabData.filePath ?? undefined,
         viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
       })
+      if (tabData.isDirty) {
+        tabsStore.updateTab(tab.id, { isDirty: true })
+      }
     })
   }
   
@@ -383,13 +385,15 @@ onMounted(() => {
       if (lastSession) {
         // 恢复上次会话
         lastSession.tabs.forEach((tabData) => {
-          tabsStore.createTab({
+          const tab = tabsStore.createTab({
             title: tabData.title,
             content: tabData.content,
-            filePath: tabData.filePath,
-            isDirty: tabData.isDirty,
+            filePath: tabData.filePath ?? undefined,
             viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
           })
+          if (tabData.isDirty) {
+            tabsStore.updateTab(tab.id, { isDirty: true })
+          }
         })
         if (lastSession.activeTabId) {
           tabsStore.switchTab(lastSession.activeTabId)
@@ -434,7 +438,7 @@ function saveCurrentSession() {
   
   prefsStore.saveSession({
     tabs: sessionTabs,
-    activeTabId: tabsStore.activeTabId
+    activeTabId: tabsStore.activeTabId ?? undefined
   })
 }
 

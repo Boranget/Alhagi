@@ -528,12 +528,11 @@ function detachTab() {
   if (window.electronAPI) {
     // 传递标签数据到新窗口
     window.electronAPI.openNewWindow({
-      type: 'detached-tab',
-      tab: {
+      tabData: {
         id: tab.id,
         title: tab.title,
         content: tab.content,
-        filePath: tab.filePath,
+        filePath: tab.filePath ?? null,
         isDirty: tab.isDirty,
         viewMode: tab.viewMode,
         cursor: tab.cursor

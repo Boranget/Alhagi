@@ -1,5 +1,14 @@
 import { ref, watch, nextTick } from 'vue'
-import { Editor, rootCtx, defaultValueCtx, editorStateCtx, editorViewCtx, serializerCtx, schemaCtx, parserCtx } from '@milkdown/core'
+import { 
+  Editor, 
+  rootCtx, 
+  defaultValueCtx, 
+  editorStateCtx, 
+  editorViewCtx, 
+  serializerCtx, 
+  schemaCtx, 
+  parserCtx 
+} from '@milkdown/core'
 import { DOMSerializer } from '@milkdown/prose/model'
 import { listener, listenerCtx } from '@milkdown/plugin-listener'
 import { commonmark } from '@milkdown/preset-commonmark'
@@ -12,6 +21,8 @@ import { EditorState } from '@milkdown/prose/state'
 import { EditorView } from '@milkdown/prose/view'
 import { SearchQuery, setSearchState, getSearchState, findNext, findPrev, replaceNext, replaceAll as prosemirrorReplaceAll } from 'prosemirror-search'
 import type { ViewMode } from '@/types'
+import type { MilkdownEditorContext, ListenerPluginContext, EditorActionContext } from '@/types/milkdown'
+import type { Schema } from '@milkdown/prose/model'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { PerformanceMonitor, LRUCache } from '@/utils/performance'
@@ -29,16 +40,6 @@ export interface EditorConfig {
   pollingInterval: number
   cacheSize: number
   enableMetrics: boolean
-}
-
-/** 编辑器上下文类型 */
-interface EditorContext {
-  get: (key: unknown) => unknown
-}
-
-/** 监听器上下文类型 */
-interface ListenerContext {
-  markdownUpdated: (cb: (ctx: unknown, markdown: string, prevMarkdown: string) => void) => void
 }
 
 const DEFAULT_CONFIG: EditorConfig = {
@@ -77,11 +78,11 @@ export class EditorInstanceManager {
 
   private createEditorConfig(container: HTMLElement, content: string) {
     return (ctx: unknown) => {
-      const context = ctx as EditorContext & { set: (key: unknown, value: unknown) => void }
+      const context = ctx as MilkdownEditorContext
       context.set(rootCtx, container)
       context.set(defaultValueCtx, content)
 
-      const listenerPlugin = context.get(listenerCtx) as ListenerContext
+      const listenerPlugin = context.get(listenerCtx) as ListenerPluginContext
       
       listenerPlugin.markdownUpdated((_ctx: unknown, markdown: string, prevMarkdown: string) => {
         if (this.currentTabId && markdown !== prevMarkdown && !this.isUpdatingContent) {
@@ -113,7 +114,7 @@ export class EditorInstanceManager {
       .use(listener)
       .use(prism)
       .use(block)
-      .use(searchHighlightPlugin() as any)
+      .use(searchHighlightPlugin)
       .create()
   }
 
@@ -207,9 +208,9 @@ export class EditorInstanceManager {
 
     let markdown = ''
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
-      const serializer = context.get(serializerCtx) as any
-      const view = context.get(editorViewCtx) as any
+      const context = ctx as EditorActionContext
+      const serializer = context.get(serializerCtx) as unknown as { (doc: unknown): string }
+      const view = context.get(editorViewCtx) as EditorView
 
       if (serializer && view) {
         markdown = serializer(view.state.doc)
@@ -263,24 +264,20 @@ export class EditorInstanceManager {
         let success = false
         
         this.editor!.action((ctx) => {
-          const context = ctx as { get: (key: unknown) => unknown }
+          const context = ctx as EditorActionContext
           
-          const editorState = context.get(editorStateCtx)
-          const editorView = context.get(editorViewCtx)
-          const parser = context.get(parserCtx)
+          const editorState = context.get(editorStateCtx) as EditorState
+          const editorView = context.get(editorViewCtx) as EditorView
+          const parser = context.get(parserCtx) as unknown as (text: string) => { content: any }
           
           if (editorState && editorView && parser) {
-            const state = editorState as EditorState
-            const view = editorView as EditorView
-            const markdownParser = parser as { parse: (md: string) => any }
-            
-            const newDoc = markdownParser.parse(content)
-            const tr = state.tr.replaceWith(
+            const newDoc = parser(content)
+            const tr = editorState.tr.replaceWith(
               0,
-              state.doc.content.size,
+              editorState.doc.content.size,
               newDoc.content
             )
-            view.dispatch(tr)
+            editorView.dispatch(tr)
             success = true
           }
         })
@@ -419,8 +416,8 @@ export class EditorInstanceManager {
     try {
       if (this.editor && this.isEditorReady) {
         this.editor.action((ctx) => {
-          const context = ctx as { get: (key: unknown) => unknown }
-          const editorView = context.get(editorViewCtx)
+          const context = ctx as EditorActionContext
+          const editorView = context.get(editorViewCtx) as EditorView
           
           if (!editorView) {
             console.warn('Editor view not available')
@@ -546,7 +543,7 @@ export class EditorInstanceManager {
     }
 
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
+      const context = ctx as EditorActionContext
       const editorView = context.get(editorViewCtx) as EditorView
       
       if (editorView) {
@@ -563,7 +560,7 @@ export class EditorInstanceManager {
     }
 
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
+      const context = ctx as EditorActionContext
       const editorView = context.get(editorViewCtx) as EditorView
       
       if (editorView) {
@@ -573,15 +570,15 @@ export class EditorInstanceManager {
     })
   }
 
-  getEditorView() {
+  getEditorView(): EditorView | null {
     if (!this.editor || !this.isReady()) {
       return null
     }
 
-    let view = null
+    let view: EditorView | null = null
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
-      view = context.get(editorViewCtx)
+      const context = ctx as EditorActionContext
+      view = context.get(editorViewCtx) as EditorView
     })
     return view
   }
@@ -593,18 +590,15 @@ export class EditorInstanceManager {
 
     let matches: MatchRange[] = []
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
+      const context = ctx as EditorActionContext
       const state = context.get(editorStateCtx) as EditorState
       if (state?.doc) {
-        // Use prosemirror-search to find matches
         const query = createSearchQuery(config)
         if (!query.valid) return
         
-        // We'll manually collect matches for compatibility
         const doc = state.doc
         doc.descendants((node, pos) => {
           if (node.isText && node.text) {
-            // Build a simple pattern for matching
             let patternString = config.search
             if (!config.regexp) {
               patternString = patternString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -635,13 +629,11 @@ export class EditorInstanceManager {
   }
 
   replaceMatch(config: SearchConfig, match: MatchRange, replacement: string): boolean {
-    const view = this.getEditorView() as EditorView | null
+    const view = this.getEditorView()
     if (!view) {
       return false
     }
     
-    // For compatibility, we'll just use our content-based replacement
-    // since prosemirror-search doesn't directly support this pattern
     const activeTab = this.tabsStore.activeTab
     if (!activeTab) return false
     
@@ -655,8 +647,6 @@ export class EditorInstanceManager {
   }
 
   replaceAll(config: SearchConfig, replacement: string): number {
-    // For replace all, we'll use our content-based approach
-    // as prosemirror-search doesn't have a built-in replaceAll
     const activeTab = this.tabsStore.activeTab
     if (!activeTab) return 0
     
@@ -665,7 +655,6 @@ export class EditorInstanceManager {
       return 0
     }
     
-    // Update the tab content directly
     const newContent = replaceAllInContent(activeTab.content, config, replacement)
     this.tabsStore.updateTab(activeTab.id, {
       content: newContent,
@@ -682,7 +671,7 @@ export class EditorInstanceManager {
 
     let success = false
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
+      const context = ctx as EditorActionContext
       const editorView = context.get(editorViewCtx) as EditorView
       
       if (editorView) {
@@ -700,7 +689,7 @@ export class EditorInstanceManager {
 
     let success = false
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
+      const context = ctx as EditorActionContext
       const editorView = context.get(editorViewCtx) as EditorView
       
       if (editorView) {
@@ -718,9 +707,9 @@ export class EditorInstanceManager {
 
     let html = ''
     this.editor.action((ctx) => {
-      const context = ctx as { get: (key: unknown) => unknown }
-      const schema = context.get(schemaCtx) as any
-      const view = context.get(editorViewCtx) as any
+      const context = ctx as EditorActionContext
+      const schema = context.get(schemaCtx) as Schema
+      const view = context.get(editorViewCtx) as EditorView
 
       if (schema && view) {
         const div = document.createElement('div')

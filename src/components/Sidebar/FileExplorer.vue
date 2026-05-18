@@ -256,8 +256,8 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
   if (!node || !window.electronAPI) return
   
   const result = await window.electronAPI.selectDirectory()
-  if (result) {
-    const targetDir = result
+  if (result.success && result.data) {
+    const targetDir = result.data
     const sourcePath = node.type === 'file' ? node.path : null
     
     if (!sourcePath) {
@@ -266,12 +266,12 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
     }
     
     const moveResult = await window.electronAPI.moveFile(sourcePath, targetDir)
-    if (moveResult) {
+    if (moveResult.success && moveResult.data) {
       await fileService.refreshTree()
       
       const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === sourcePath)
       if (existingTab) {
-        tabsStore.updateTab(existingTab.id, { filePath: moveResult })
+        tabsStore.updateTab(existingTab.id, { filePath: moveResult.data })
       }
     }
   }
@@ -281,8 +281,8 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
   if (!node || !window.electronAPI) return
   
   const result = await window.electronAPI.selectDirectory()
-  if (result) {
-    const targetDir = result
+  if (result.success && result.data) {
+    const targetDir = result.data
     const sourcePath = node.type === 'file' ? node.path : null
     
     if (!sourcePath) {
@@ -291,7 +291,7 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
     }
     
     const copyResult = await window.electronAPI.copyFile(sourcePath, targetDir)
-    if (copyResult) {
+    if (copyResult.success && copyResult.data) {
       await fileService.refreshTree()
     }
   }
