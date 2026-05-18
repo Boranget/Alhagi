@@ -17,7 +17,6 @@
       >
         <span class="tab-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
         <button
-          v-if="tabsStore.tabCount > 1 || getTab(tabId)?.isDirty"
           class="tab-close"
           @click.stop="handleTabClose(tabId)"
         >
@@ -375,20 +374,11 @@ function closeAllTabs() {
     }
   }
 
-  if (allTabIds.length > 0) {
-    const lastTabId = allTabIds[allTabIds.length - 1]
-    const lastTab = tabsStore.tabs.get(lastTabId)!
-    lastTab.content = ''
-    lastTab.isDirty = false
-    lastTab.filePath = null
-    lastTab.title = '未命名'
-
-    for (let i = 0; i < allTabIds.length - 1; i++) {
-      tabsStore.removeTab(allTabIds[i])
-    }
-
-    tabsStore.switchTab(lastTabId)
+  // 关闭所有标签页
+  for (const tabId of allTabIds) {
+    tabsStore.removeTab(tabId)
   }
+  
   hideContextMenu()
 }
 
@@ -509,12 +499,6 @@ function detachTab() {
   
   const tab = getTab(tabId)
   if (!tab) return
-  
-  if (tabsStore.tabCount <= 1) {
-    alert(t('tabs.cannotDetachLast'))
-    hideContextMenu()
-    return
-  }
   
   if (window.electronAPI) {
     window.electronAPI.openNewWindow({

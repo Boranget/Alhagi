@@ -151,10 +151,6 @@ export const useTabsStore = defineStore('tabs', () => {
   }
 
   function removeTab(tabId: string): boolean {
-    if (tabOrder.value.length === 1 && activeTabId.value === tabId) {
-      return false
-    }
-
     const tab = tabs.value.get(tabId)
     tabs.value.delete(tabId)
     tabOrder.value = tabOrder.value.filter(id => id !== tabId)

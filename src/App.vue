@@ -453,12 +453,16 @@ onMounted(() => {
   }
 })
 
-// 监听标签页数量变化，从欢迎页切换到编辑器
+// 监听标签页数量变化，从欢迎页切换到编辑器，或从编辑器切换到欢迎页
 watch(
   () => tabsStore.tabs.size,
   (newSize) => {
     if (newSize > 0 && isWelcomePage.value) {
+      // 有标签页时，隐藏欢迎页
       isWelcomePage.value = false
+    } else if (newSize === 0 && !isWelcomePage.value) {
+      // 没有标签页时，显示欢迎页
+      isWelcomePage.value = true
     }
   }
 )
