@@ -1,100 +1,109 @@
-import { Plugin, PluginKey, EditorState } from '@milkdown/prose/state'
-import { Decoration, DecorationSet, EditorView } from '@milkdown/prose/view'
-import { Node } from '@milkdown/prose/model'
+import { search, SearchQuery, setSearchState, getSearchState } from 'prosemirror-search'
+import { PluginKey } from '@milkdown/prose/state'
+import type { EditorState } from '@milkdown/prose/state'
+import type { Node } from '@milkdown/prose/model'
 import type { SearchConfig } from '@/utils/search'
-import { buildSearchPattern } from '@/utils/search'
 
+// Export SearchConfig from search utils to maintain compatibility
 export type { SearchConfig } from '@/utils/search'
 
-const searchHighlightKey = new PluginKey<DecorationSet>('search-highlight')
+// Create a plugin key to access the search plugin state
+export const searchPluginKey = new PluginKey('search')
 
-function createDecorations(doc: Node, config: SearchConfig): DecorationSet {
-  const decorations: Decoration[] = []
+// Create the search plugin
+export const searchHighlightPlugin = () => {
+  return search({
+    // We'll manage the state externally
+  })
+}
 
-  if (!config.search.trim()) {
-    return DecorationSet.empty
-  }
+// Convert our SearchConfig to prosemirror-search's SearchQuery
+export function createSearchQuery(config: SearchConfig): SearchQuery {
+  return new SearchQuery({
+    search: config.search,
+    caseSensitive: config.caseSensitive,
+    wholeWord: config.wholeWord,
+    regexp: config.regexp
+  })
+}
 
-  const pattern = buildSearchPattern(config)
-  if (!pattern) {
-    return DecorationSet.empty
-  }
+// Update search state in the editor
+export function setSearchHighlight(
+  state: EditorState,
+  dispatch: (tr: any) => void,
+  config: SearchConfig
+) {
+  const query = createSearchQuery(config)
+  const tr = setSearchState(state.tr, query)
+  dispatch(tr)
+}
 
-  doc.descendants((node: Node, pos: number) => {
+// Clear search highlighting
+export function clearSearchHighlight(
+  state: EditorState,
+  dispatch: (tr: any) => void
+) {
+  const tr = setSearchState(state.tr, new SearchQuery({ search: '' }))
+  dispatch(tr)
+}
+
+// Find all matches in the document (maintains compatibility)
+export function findMatchesInDocument(doc: Node, config: SearchConfig) {
+  // This is a simplified version for compatibility
+  // prosemirror-search handles this internally through the plugin
+  // We still export it for other uses
+  const matches: Array<{ from: number; to: number; text: string }> = []
+  const query = createSearchQuery(config)
+  
+  if (!query.valid) return matches
+
+  // Walk the document and find matches manually for compatibility
+  // Note: prosemirror-search's plugin will do the actual highlighting
+  doc.descendants((node, pos) => {
     if (node.isText && node.text) {
-      let match: RegExpExecArray | null
-      while ((match = pattern.exec(node.text)) !== null) {
-        decorations.push(
-          Decoration.inline(pos + match.index, pos + match.index + match[0].length, {
-            class: 'search-highlight-match'
+      const pattern = buildPattern(config)
+      if (pattern) {
+        let match: RegExpExecArray | null
+        const text = node.text
+        while ((match = pattern.exec(text)) !== null) {
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length,
+            text: match[0]
           })
-        )
-      }
-    }
-  })
-
-  return DecorationSet.create(doc, decorations)
-}
-
-export const searchHighlightPlugin = (initialConfig: Partial<SearchConfig> = {}) => {
-  const defaultConfig: SearchConfig = {
-    search: '',
-    caseSensitive: false,
-    wholeWord: false,
-    regexp: false,
-    ...initialConfig
-  }
-
-  return new Plugin({
-    key: searchHighlightKey,
-
-    state: {
-      init(_, { doc }) {
-        return createDecorations(doc, defaultConfig)
-      },
-
-      apply(tr, oldDecoSet) {
-        let newDecoSet = oldDecoSet.map(tr.mapping, tr.doc)
-
-        const searchMeta = tr.getMeta('search') as SearchConfig | undefined
-        if (searchMeta) {
-          newDecoSet = createDecorations(tr.doc, searchMeta)
-        } else if (tr.docChanged) {
-          const oldState = searchHighlightKey.getState(tr.before)
-          const storedConfig = (oldState as any)?._config || defaultConfig
-          newDecoSet = createDecorations(tr.doc, storedConfig)
         }
-
-        (newDecoSet as any)._config = searchMeta || (oldDecoSet as any)?._config || defaultConfig
-
-        return newDecoSet
-      }
-    },
-
-    props: {
-      decorations(state) {
-        return searchHighlightKey.getState(state) || DecorationSet.empty
       }
     }
+    return true
   })
+  
+  return matches
 }
 
-export function setSearchQuery(view: EditorView, config: SearchConfig) {
-  if (!view) return
-
-  const tr = view.state.tr.setMeta('search', config)
-  view.dispatch(tr)
+// Helper to build regex pattern (maintains compatibility)
+function buildPattern(config: SearchConfig): RegExp | null {
+  if (!config.search) return null
+  
+  let patternString = config.search
+  
+  if (!config.regexp) {
+    patternString = patternString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+  
+  if (config.wholeWord) {
+    patternString = `\\b${patternString}\\b`
+  }
+  
+  const flags = config.caseSensitive ? 'g' : 'gi'
+  
+  try {
+    return new RegExp(patternString, flags)
+  } catch {
+    return null
+  }
 }
 
-export function clearSearchHighlight(view: EditorView) {
-  if (!view) return
-
-  const tr = view.state.tr.setMeta('search', {
-    search: '',
-    caseSensitive: false,
-    wholeWord: false,
-    regexp: false
-  })
-  view.dispatch(tr)
+// Get the current search state
+export function getCurrentSearchState(state: EditorState) {
+  return getSearchState(state)
 }
-

@@ -231,7 +231,8 @@ export function useWorkspaceSearch() {
             }
 
             const existing = groupedByFile.get(result.filePath)!
-            const highlightedText = highlightMatch(result.lineContent, pattern, result.matchStart)
+            const matchText = result.lineContent.substring(result.matchStart, result.matchEnd)
+            const highlightedText = highlightMatch(result.lineContent, matchText, result.matchStart)
             existing.matches.push({
               line: result.lineNumber,
               column: result.matchStart + 1,

@@ -25,6 +25,7 @@
     "@vueuse/core": "^10.9.0",
     "electron-store": "^8.2.0",
     "pinia": "^2.1.7",
+    "prosemirror-search": "^1.1.0",
     "vue": "^3.4.21"
   },
   "devDependencies": {

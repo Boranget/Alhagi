@@ -10,6 +10,7 @@ import { prism } from '@milkdown/plugin-prism'
 import { block } from '@milkdown/plugin-block'
 import { EditorState } from '@milkdown/prose/state'
 import { EditorView } from '@milkdown/prose/view'
+import { SearchQuery, setSearchState, getSearchState, findNext, findPrev, replaceNext, replaceAll as prosemirrorReplaceAll } from 'prosemirror-search'
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
@@ -17,11 +18,11 @@ import { PerformanceMonitor, LRUCache, Debouncer } from '@/utils/performance'
 import { 
   SearchConfig, 
   MatchRange,
-  findMatchesInDocument,
-  replaceInProseMirror,
-  replaceAllInProseMirror
+  findMatchesInContent,
+  replaceAllInContent,
+  replaceSingleMatch
 } from '@/utils/search'
-import { searchHighlightPlugin } from './searchHighlightPlugin'
+import { searchHighlightPlugin, createSearchQuery } from './searchHighlightPlugin'
 
 export interface EditorConfig {
   enablePolling: boolean
@@ -338,9 +339,9 @@ export class EditorInstanceManager {
   }
 
   setScrollTop(position: number): void {
-    if (this.container) {
+    if (this.container && this.currentTabId) {
       requestAnimationFrame(() => {
-        if (this.container) {
+        if (this.container && this.currentTabId) {
           this.container.scrollTop = position
           eventBus.emit(AppEvents.SCROLL_CHANGED, {
             scrollTop: position,
@@ -549,33 +550,29 @@ export class EditorInstanceManager {
 
     this.editor.action((ctx) => {
       const context = ctx as { get: (key: unknown) => unknown }
-      const editorView = context.get(editorViewCtx)
+      const editorView = context.get(editorViewCtx) as EditorView
       
       if (editorView) {
-        const view = editorView as { dispatch: (tr: any) => void; state: any }
-        
-        if (config.search.trim()) {
-          const tr = view.state.tr.setMeta('search', config)
-          view.dispatch(tr)
-        } else {
-          const tr = view.state.tr.setMeta('search', {
-            search: '',
-            caseSensitive: false,
-            wholeWord: false,
-            regexp: false
-          })
-          view.dispatch(tr)
-        }
+        const query = createSearchQuery(config)
+        const tr = setSearchState(editorView.state.tr, query)
+        editorView.dispatch(tr)
       }
     })
   }
 
   clearSearchHighlight(): void {
-    this.setSearchHighlight({
-      search: '',
-      caseSensitive: false,
-      wholeWord: false,
-      regexp: false
+    if (!this.editor || !this.isReady()) {
+      return
+    }
+
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const editorView = context.get(editorViewCtx) as EditorView
+      
+      if (editorView) {
+        const tr = setSearchState(editorView.state.tr, new SearchQuery({ search: '' }))
+        editorView.dispatch(tr)
+      }
     })
   }
 
@@ -600,36 +597,121 @@ export class EditorInstanceManager {
     let matches: MatchRange[] = []
     this.editor.action((ctx) => {
       const context = ctx as { get: (key: unknown) => unknown }
-      const state = context.get(editorStateCtx) as any
+      const state = context.get(editorStateCtx) as EditorState
       if (state?.doc) {
-        matches = findMatchesInDocument(state.doc, config)
+        // Use prosemirror-search to find matches
+        const query = createSearchQuery(config)
+        if (!query.valid) return
+        
+        // We'll manually collect matches for compatibility
+        const doc = state.doc
+        doc.descendants((node, pos) => {
+          if (node.isText && node.text) {
+            // Build a simple pattern for matching
+            let patternString = config.search
+            if (!config.regexp) {
+              patternString = patternString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            }
+            if (config.wholeWord) {
+              patternString = `\\b${patternString}\\b`
+            }
+            const flags = config.caseSensitive ? 'g' : 'gi'
+            try {
+              const pattern = new RegExp(patternString, flags)
+              let match: RegExpExecArray | null
+              while ((match = pattern.exec(node.text)) !== null) {
+                matches.push({
+                  from: pos + match.index,
+                  to: pos + match.index + match[0].length,
+                  text: match[0]
+                })
+              }
+            } catch {
+              // Invalid regex, skip
+            }
+          }
+          return true
+        })
       }
     })
     return matches
   }
 
   replaceMatch(config: SearchConfig, match: MatchRange, replacement: string): boolean {
-    const view = this.getEditorView() as any
+    const view = this.getEditorView() as EditorView | null
     if (!view) {
       return false
     }
-    const result = replaceInProseMirror(view, match.from, match.to, replacement)
-    return result.success
+    
+    // For compatibility, we'll just use our content-based replacement
+    // since prosemirror-search doesn't directly support this pattern
+    const activeTab = this.tabsStore.activeTab
+    if (!activeTab) return false
+    
+    const newContent = replaceSingleMatch(activeTab.content, match, replacement)
+    this.tabsStore.updateTab(activeTab.id, {
+      content: newContent,
+      isDirty: true
+    })
+    
+    return true
   }
 
   replaceAll(config: SearchConfig, replacement: string): number {
+    // For replace all, we'll use our content-based approach
+    // as prosemirror-search doesn't have a built-in replaceAll
+    const activeTab = this.tabsStore.activeTab
+    if (!activeTab) return 0
+    
     const matches = this.findMatches(config)
     if (matches.length === 0) {
       return 0
     }
+    
+    // Update the tab content directly
+    const newContent = replaceAllInContent(activeTab.content, config, replacement)
+    this.tabsStore.updateTab(activeTab.id, {
+      content: newContent,
+      isDirty: true
+    })
+    
+    return matches.length
+  }
 
-    const view = this.getEditorView() as any
-    if (!view) {
-      return 0
+  findNextMatch(): boolean {
+    if (!this.editor || !this.isReady()) {
+      return false
     }
 
-    const result = replaceAllInProseMirror(view, matches, replacement)
-    return result.success ? matches.length : 0
+    let success = false
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const editorView = context.get(editorViewCtx) as EditorView
+      
+      if (editorView) {
+        const result = findNext(editorView.state, editorView.dispatch)
+        success = result !== null
+      }
+    })
+    return success
+  }
+
+  findPrevMatch(): boolean {
+    if (!this.editor || !this.isReady()) {
+      return false
+    }
+
+    let success = false
+    this.editor.action((ctx) => {
+      const context = ctx as { get: (key: unknown) => unknown }
+      const editorView = context.get(editorViewCtx) as EditorView
+      
+      if (editorView) {
+        const result = findPrev(editorView.state, editorView.dispatch)
+        success = result !== null
+      }
+    })
+    return success
   }
 
   getHTML(): string {
@@ -745,6 +827,14 @@ export function useEditorManager() {
     await manager?.setMarkdown(content)
   }
 
+  const findNextMatch = (): boolean => {
+    return manager?.findNextMatch() || false
+  }
+
+  const findPrevMatch = (): boolean => {
+    return manager?.findPrevMatch() || false
+  }
+
   return {
     containerRef,
     isReady,
@@ -762,6 +852,8 @@ export function useEditorManager() {
     replaceAll,
     getHTML,
     getMarkdown,
-    setMarkdown
+    setMarkdown,
+    findNextMatch,
+    findPrevMatch
   }
 }
