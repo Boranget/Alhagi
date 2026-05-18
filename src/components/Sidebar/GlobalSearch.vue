@@ -74,8 +74,8 @@
       <button
         v-if="searchQuery && searchScope !== 'file'"
         class="search-btn link"
-        @click="linkToCurrentFile"
         :title="t('search.linkToCurrentFile')"
+        @click="linkToCurrentFile"
       >
         🔗 {{ t('search.linkToCurrentFile') }}
       </button>

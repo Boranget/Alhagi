@@ -1,43 +1,64 @@
 <template>
   <div class="status-bar">
     <div class="status-left">
+      <button
+        class="status-btn sidebar-toggle"
+        :title="t('statusBar.toggleSidebar')"
+        @click="toggleSidebar"
+      >
+        <Icon :name="prefsStore.showSidebar ? 'collapse-left' : 'expand-right'" size="sm" />
+      </button>
       <span
         v-if="activeTab"
         class="status-item"
+        :title="activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwygMode') : activeTab.viewMode === 'source' ? t('editor.sourceMode') : t('editor.splitMode')"
       >
-        {{ activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwyg') : activeTab.viewMode === 'source' ? t('editor.source') : t('editor.split') }}
+        <Icon :name="activeTab.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab.viewMode === 'source' ? 'code' : 'split'" size="sm" />
       </span>
       <span
         v-if="activeTab?.filePath"
         class="status-item file-path"
+        :title="activeTab.filePath"
       >
-        {{ activeTab.filePath }}
+        <Icon name="file" size="sm" />
+        <span class="file-path-text">{{ activeTab.filePath }}</span>
       </span>
       <span
         v-if="activeTab?.isDirty"
         class="status-item dirty-indicator"
+        :title="t('common.unsavedChanges')"
       >
-        ● {{ t('common.save') }}
+        ●
       </span>
     </div>
     <div class="status-right">
       <span
         class="status-item"
-        :title="t('editor.plainTextChars')"
-      >MD: {{ rawMarkdownChars }} {{ t('editor.characters') }}</span>
+        :title="t('editor.rawMarkdownChars')"
+      >
+        <Icon name="file" size="sm" />
+        <span>{{ rawMarkdownChars }}</span>
+      </span>
       <span
         class="status-item"
         :title="t('statusBar.renderTextCount')"
-      >{{ t('editor.plainTextChars') }}: {{ plainTextChars }} {{ t('editor.characters') }}</span>
-      <span class="status-item">{{ lineCount }} 行</span>
-      <span class="status-item">{{ cursorPosition }}</span>
+      >
+        <Icon name="wysiwyg" size="sm" />
+        <span>{{ plainTextChars }}</span>
+      </span>
+      <span class="status-item" :title="t('editor.lineCount')">
+        <span>{{ lineCount }}Ln</span>
+      </span>
+      <span class="status-item" :title="t('editor.cursorPosition')">
+        <span>{{ cursorPosition }}</span>
+      </span>
       <button
         class="status-btn"
         :class="{ active: prefsStore.typewriterMode }"
         :title="t('editor.typewriterMode')"
         @click="toggleTypewriterMode"
       >
-        {{ t('editor.typewriter') }}
+        <Icon name="typewriter" size="sm" />
       </button>
       <button
         class="status-btn"
@@ -45,14 +66,14 @@
         :title="t('editor.focusMode')"
         @click="toggleFocusMode"
       >
-        {{ t('editor.focus') }}
+        <Icon name="target" size="sm" />
       </button>
       <button
         class="status-btn"
         :title="t('statusBar.switchTheme')"
         @click="prefsStore.toggleTheme()"
       >
-        {{ prefsStore.theme === 'light' || prefsStore.theme === 'system' ? '🌙' : '☀️' }}
+        <Icon :name="prefsStore.theme === 'light' || prefsStore.theme === 'system' ? 'moon' : 'sun'" size="sm" />
       </button>
     </div>
   </div>
@@ -64,6 +85,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
+import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -97,13 +119,17 @@ const lineCount = computed(() => {
 })
 
 const cursorPosition = computed(() => {
-  if (!activeTab.value) return 'Ln 1, Col 1'
+  if (!activeTab.value) return '1:1'
   const content = activeTab.value.content.substring(0, activeTab.value.cursor.from)
   const lines = content.split('\n')
   const line = lines.length
   const col = lines[lines.length - 1].length + 1
-  return `Ln ${line}, Col ${col}`
+  return `${line}:${col}`
 })
+
+function toggleSidebar() {
+  prefsStore.showSidebar = !prefsStore.showSidebar
+}
 
 function toggleTypewriterMode() {
   prefsStore.typewriterMode = !prefsStore.typewriterMode
@@ -160,32 +186,42 @@ onUnmounted(() => {
 .status-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .status-item {
   display: flex;
   align-items: center;
+  gap: 4px;
 
   &.file-path {
-    max-width: 300px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    .file-path-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 
   &.dirty-indicator {
     color: var(--primary-color);
-    font-size: 10px;
+    font-size: 14px;
+    font-weight: bold;
   }
 }
 
 .status-btn {
-  padding: 2px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 11px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
@@ -198,6 +234,11 @@ onUnmounted(() => {
   &.active {
     background: var(--primary-color);
     color: white;
+  }
+
+  &.sidebar-toggle {
+    padding: 2px 4px;
+    margin-left: -4px;
   }
 }
 </style>

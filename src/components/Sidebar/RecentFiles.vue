@@ -8,7 +8,7 @@
           :title="t('sidebar.clearHistory')"
           @click="clearHistory"
         >
-          🗑️
+          <Icon name="trash" size="sm" />
         </button>
       </div>
     </div>
@@ -19,7 +19,7 @@
         class="recent-files-section"
       >
         <div class="section-header">
-          <span class="section-icon">📁</span>
+          <Icon name="folder" size="sm" />
           {{ t('common.openFolder') }}
         </div>
         <div
@@ -28,14 +28,14 @@
           class="recent-file-item"
           @click="openFolder(folder)"
         >
-          <span class="file-icon">📁</span>
+          <Icon name="folder" size="sm" class="file-icon" />
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.unpin')"
             @click.stop="togglePinFolder(folder)"
           >
-            📌
+            <Icon name="pin" size="sm" />
           </button>
         </div>
         <div
@@ -44,14 +44,14 @@
           class="recent-file-item"
           @click="openFolder(folder)"
         >
-          <span class="file-icon">📁</span>
+          <Icon name="folder" size="sm" class="file-icon" />
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.pin')"
             @click.stop="togglePinFolder(folder)"
           >
-            📌
+            <Icon name="pin" size="sm" />
           </button>
         </div>
       </div>
@@ -61,7 +61,7 @@
         class="recent-files-section"
       >
         <div class="section-header">
-          <span class="section-icon">📄</span>
+          <Icon name="file" size="sm" />
           {{ t('common.openFile') }}
         </div>
         <div
@@ -70,14 +70,14 @@
           class="recent-file-item"
           @click="openFile(file)"
         >
-          <span class="file-icon">📄</span>
+          <Icon name="file" size="sm" class="file-icon" />
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.unpin')"
             @click.stop="togglePinFile(file)"
           >
-            📌
+            <Icon name="pin" size="sm" />
           </button>
         </div>
         <div
@@ -86,14 +86,14 @@
           class="recent-file-item"
           @click="openFile(file)"
         >
-          <span class="file-icon">📄</span>
+          <Icon name="file" size="sm" class="file-icon" />
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.pin')"
             @click.stop="togglePinFile(file)"
           >
-            📌
+            <Icon name="pin" size="sm" />
           </button>
         </div>
       </div>
@@ -116,6 +116,7 @@ import { useFileService } from '@/services/fileService'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
+import { Icon } from '@/components/Icons'
 
 const prefs = usePreferencesStore()
 const tabs = useTabsStore()
@@ -179,18 +180,22 @@ function clearHistory() {
 }
 
 .action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px;
   border: none;
   background: transparent;
-  font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
   opacity: 0.7;
   transition: all 0.15s;
+  color: var(--text-secondary);
 
   &:hover {
     background: var(--sidebar-hover-bg);
     opacity: 1;
+    color: var(--text-primary);
   }
 }
 
@@ -216,10 +221,6 @@ function clearHistory() {
   letter-spacing: 0.5px;
 }
 
-.section-icon {
-  font-size: 12px;
-}
-
 .recent-file-item {
   display: flex;
   align-items: center;
@@ -235,8 +236,8 @@ function clearHistory() {
 }
 
 .file-icon {
-  font-size: 14px;
   flex-shrink: 0;
+  color: var(--text-secondary);
 }
 
 .file-name {
@@ -249,19 +250,23 @@ function clearHistory() {
 }
 
 .pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 6px;
   border: none;
   background: transparent;
-  font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
   opacity: 0.5;
   flex-shrink: 0;
   transition: all 0.15s;
+  color: var(--text-secondary);
 
   &:hover {
     opacity: 1;
     background: var(--sidebar-hover-bg);
+    color: var(--text-primary);
   }
 }
 

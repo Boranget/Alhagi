@@ -137,7 +137,6 @@ export class EditorInstanceManager {
       this.editor = await this.createEditor(container, initialContent)
       
       await nextTick()
-      await this.waitForEditorReady()
       
       this.isEditorReady = true
       this.isInitialized = true
@@ -155,18 +154,6 @@ export class EditorInstanceManager {
     } catch (error) {
       console.error('Editor initialization failed:', error)
       await this.handleInitializationError(error as Error, container, initialContent)
-    }
-  }
-
-  private async waitForEditorReady(maxWait: number = 5000): Promise<void> {
-    const startTime = Date.now()
-    
-    while (!this.isEditorReady && Date.now() - startTime < maxWait) {
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-    
-    if (!this.isEditorReady) {
-      throw new Error('Editor did not become ready within timeout')
     }
   }
 
@@ -588,7 +575,7 @@ export class EditorInstanceManager {
       return []
     }
 
-    let matches: MatchRange[] = []
+    const matches: MatchRange[] = []
     this.editor.action((ctx) => {
       const context = ctx as EditorActionContext
       const state = context.get(editorStateCtx) as EditorState

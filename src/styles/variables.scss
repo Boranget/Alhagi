@@ -37,6 +37,9 @@
   --preview-bg: #fafafa;
 
   --scrollbar-color: #d0d0d0;
+  
+  --panel-bg: #ffffff;
+  --panel-hover-bg: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] {
@@ -78,4 +81,7 @@
   --preview-bg: #1e1e1e;
 
   --scrollbar-color: #555555;
+  
+  --panel-bg: #1e1e1e;
+  --panel-hover-bg: rgba(255, 255, 255, 0.05);
 }

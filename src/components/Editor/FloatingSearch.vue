@@ -1,12 +1,25 @@
 <template>
   <Transition name="slide-down">
-    <div v-if="isVisible" class="floating-search-container">
+    <div
+      v-if="isVisible"
+      class="floating-search-container"
+    >
       <div class="floating-search-panel">
         <div class="search-row">
           <div class="search-input-wrapper">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
+            <svg
+              class="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle
+                cx="11"
+                cy="11"
+                r="8"
+              />
+              <path d="M21 21l-4.35-4.35" />
             </svg>
             <input
               ref="searchInputRef"
@@ -19,8 +32,11 @@
               @keydown.escape="handleClose"
               @keydown.up.prevent="navigatePrev"
               @keydown.down.prevent="navigateNext"
-            />
-            <div v-if="searchQuery && matchCount > 0" class="match-counter">
+            >
+            <div
+              v-if="searchQuery && matchCount > 0"
+              class="match-counter"
+            >
               {{ currentMatchIndex + 1 }}/{{ matchCount }}
             </div>
           </div>
@@ -29,21 +45,31 @@
             <button
               class="nav-btn"
               :disabled="matchCount === 0"
-              @click="navigatePrev"
               :title="t('search.previousMatch')"
+              @click="navigatePrev"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 15l-6-6-6 6"/>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 15l-6-6-6 6" />
               </svg>
             </button>
             <button
               class="nav-btn"
               :disabled="matchCount === 0"
-              @click="navigateNext"
               :title="t('search.nextMatch')"
+              @click="navigateNext"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
           </div>
@@ -51,10 +77,16 @@
 
         <div class="replace-row">
           <div class="replace-input-wrapper">
-            <svg class="replace-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>
-              <path d="M18 8l4-4"/>
-              <path d="M18 4l-4 4"/>
+            <svg
+              class="replace-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+              <path d="M18 8l4-4" />
+              <path d="M18 4l-4 4" />
             </svg>
             <input
               v-model="replaceQuery"
@@ -62,7 +94,7 @@
               class="floating-replace-input"
               :placeholder="t('search.replacePlaceholder')"
               @keydown.enter="replaceSingle"
-            />
+            >
           </div>
 
           <div class="action-buttons">
@@ -70,48 +102,84 @@
               v-if="replaceQuery"
               class="action-btn replace"
               :disabled="matchCount === 0"
-              @click="replaceSingle"
               :title="t('search.replace')"
+              @click="replaceSingle"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>
-                <path d="M18 8l4-4"/>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+                <path d="M18 8l4-4" />
               </svg>
             </button>
             <button
               v-if="replaceQuery"
               class="action-btn replace-all"
               :disabled="matchCount === 0"
-              @click="replaceAll"
               :title="t('search.replaceAll')"
+              @click="replaceAll"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
               </svg>
             </button>
             <button
               class="action-btn close"
-              @click="handleClose"
               :title="t('common.close')"
+              @click="handleClose"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
 
         <div class="options-row">
-          <label class="option-toggle" :class="{ active: options.caseSensitive }">
-            <input v-model="options.caseSensitive" type="checkbox" @change="performSearch" />
+          <label
+            class="option-toggle"
+            :class="{ active: options.caseSensitive }"
+          >
+            <input
+              v-model="options.caseSensitive"
+              type="checkbox"
+              @change="performSearch"
+            >
             <span>Aa</span>
           </label>
-          <label class="option-toggle" :class="{ active: options.wholeWord }">
-            <input v-model="options.wholeWord" type="checkbox" @change="performSearch" />
+          <label
+            class="option-toggle"
+            :class="{ active: options.wholeWord }"
+          >
+            <input
+              v-model="options.wholeWord"
+              type="checkbox"
+              @change="performSearch"
+            >
             <span>Ab</span>
           </label>
-          <label class="option-toggle" :class="{ active: options.regex }">
-            <input v-model="options.regex" type="checkbox" @change="performSearch" />
+          <label
+            class="option-toggle"
+            :class="{ active: options.regex }"
+          >
+            <input
+              v-model="options.regex"
+              type="checkbox"
+              @change="performSearch"
+            >
             <span>.*</span>
           </label>
         </div>

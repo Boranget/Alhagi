@@ -25,7 +25,8 @@ const zhCN: Translations = {
     paste: '粘贴',
     ok: '确定',
     yes: '是',
-    no: '否'
+    no: '否',
+    unsavedChanges: '未保存的更改'
   },
   sidebar: {
     fileExplorer: '文件浏览器',
@@ -52,6 +53,9 @@ const zhCN: Translations = {
     typewriterMode: '打字机模式',
     focusMode: '专注模式',
     plainTextChars: '渲染后纯文本字符数',
+    rawMarkdownChars: '原始 Markdown 字符数',
+    lineCount: '行数',
+    cursorPosition: '光标位置',
     characters: '字符'
   },
   tabs: {
@@ -68,7 +72,8 @@ const zhCN: Translations = {
   },
   statusBar: {
     switchTheme: '切换主题',
-    renderTextCount: '渲染后纯文本字符数'
+    renderTextCount: '渲染后纯文本字符数',
+    toggleSidebar: '切换侧边栏'
   },
   search: {
     searchPlaceholder: '搜索...',
@@ -150,7 +155,8 @@ const en: Translations = {
     paste: 'Paste',
     ok: 'OK',
     yes: 'Yes',
-    no: 'No'
+    no: 'No',
+    unsavedChanges: 'Unsaved changes'
   },
   sidebar: {
     fileExplorer: 'File Explorer',
@@ -177,6 +183,9 @@ const en: Translations = {
     typewriterMode: 'Typewriter Mode',
     focusMode: 'Focus Mode',
     plainTextChars: 'Rendered Plain Text Characters',
+    rawMarkdownChars: 'Raw Markdown Character Count',
+    lineCount: 'Line Count',
+    cursorPosition: 'Cursor Position',
     characters: 'chars'
   },
   tabs: {
@@ -193,7 +202,8 @@ const en: Translations = {
   },
   statusBar: {
     switchTheme: 'Switch Theme',
-    renderTextCount: 'Rendered plain text character count'
+    renderTextCount: 'Rendered plain text character count',
+    toggleSidebar: 'Toggle Sidebar'
   },
   search: {
     searchPlaceholder: 'Search...',

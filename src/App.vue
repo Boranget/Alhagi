@@ -4,12 +4,17 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <TabBar v-if="prefsStore.showTabBar" />
-      <div class="main-area">
-        <EnhancedSidebar v-if="prefsStore.showSidebar" />
-        <EditorContainer />
+      <div v-if="isWelcomePage" class="welcome-area">
+        <Welcome />
       </div>
-      <StatusBar v-if="prefsStore.showStatusBar" />
+      <div v-else class="main-area">
+        <EnhancedSidebar v-if="prefsStore.showSidebar" />
+        <div class="editor-wrapper">
+          <TabBar v-if="prefsStore.showTabBar" />
+          <EditorContainer />
+        </div>
+      </div>
+      <StatusBar v-if="prefsStore.showStatusBar && !isWelcomePage" />
     </div>
     <SettingsPanel
       :visible="showSettings"
@@ -19,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, provide, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
@@ -28,6 +33,7 @@ import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
+import Welcome from '@/components/Welcome/Welcome.vue'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
 import { useEditorManager } from '@/managers/editorManager'
@@ -37,6 +43,7 @@ const prefsStore = usePreferencesStore()
 const showSidebar = ref(true)
 const isFullscreen = ref(false)
 const showSettings = ref(false)
+const isWelcomePage = ref(false)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 provide('showSidebar', showSidebar)
@@ -343,6 +350,20 @@ function setupElectronListeners() {
       prefsStore.toggleImmersiveMode()
     })
   }
+  
+  // 监听切换侧边栏事件
+  if (window.electronAPI?.onToggleSidebar) {
+    window.electronAPI.onToggleSidebar(() => {
+      prefsStore.showSidebar = !prefsStore.showSidebar
+    })
+  }
+  
+  // 监听打开设置事件
+  if (window.electronAPI?.onOpenSettings) {
+    window.electronAPI.onOpenSettings(() => {
+      showSettings.value = true
+    })
+  }
 }
 
 watch(
@@ -369,15 +390,18 @@ watch(
 )
 
 onMounted(() => {
+  console.log('[App] onMounted - 初始化应用')
   window.addEventListener('keydown', handleKeydown)
   setupElectronListeners()
   window.addEventListener('beforeunload', saveCurrentSession)
 
   prefsStore.loadPreferences()
+  console.log('[App] launchMode:', prefsStore.launchMode)
   initWritingEnhancement()
   
-  // 实现启动模式逻辑
   const launchMode = prefsStore.launchMode
+  
+  console.log('[App] 启动模式:', launchMode)
   
   switch (launchMode) {
     case 'last-session':
@@ -401,9 +425,10 @@ onMounted(() => {
         if (lastSession.currentFolder) {
           // 恢复文件夹（需要fileService）
         }
+        isWelcomePage.value = false
       } else {
-        // 没有保存的会话，创建默认标签
-        tabsStore.createTab({ title: '未命名' })
+        // 没有保存的会话，显示欢迎页
+        isWelcomePage.value = true
       }
       break
       
@@ -411,19 +436,32 @@ onMounted(() => {
       if (prefsStore.launchFolderPath && window.electronAPI) {
         window.electronAPI.openFolder()
       }
+      isWelcomePage.value = false
       tabsStore.createTab({ title: '未命名' })
       break
       
     case 'empty':
-      // 保持空白，不创建标签
+      // 保持空白，不创建标签，不显示欢迎页
+      isWelcomePage.value = false
       break
       
     case 'welcome':
     default:
-      tabsStore.createTab({ title: '未命名' })
+      // 默认显示欢迎页
+      isWelcomePage.value = true
       break
   }
 })
+
+// 监听标签页数量变化，从欢迎页切换到编辑器
+watch(
+  () => tabsStore.tabs.size,
+  (newSize) => {
+    if (newSize > 0 && isWelcomePage.value) {
+      isWelcomePage.value = false
+    }
+  }
+)
 
 // 保存会话
 function saveCurrentSession() {
@@ -479,10 +517,22 @@ onUnmounted(() => {
   height: 100%;
 }
 
+.welcome-area {
+  flex: 1;
+  overflow: hidden;
+}
+
 .main-area {
   flex: 1;
   display: flex;
   overflow: hidden;
   height: calc(100vh - 36px - 24px);
+}
+
+.editor-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

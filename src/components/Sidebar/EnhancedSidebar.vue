@@ -9,7 +9,7 @@
         :title="tab.label"
         @click="activeSidebarTab = tab.id"
       >
-        {{ tab.icon }}
+        <Icon :name="tab.icon" size="sm" />
       </button>
     </div>
     <div class="sidebar-content">
@@ -27,14 +27,15 @@ import FileExplorer from './FileExplorer.vue'
 import RecentFiles from './RecentFiles.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import DocumentOutline from './DocumentOutline.vue'
+import { Icon } from '@/components/Icons'
 
 const activeSidebarTab = ref<'files' | 'recent' | 'search' | 'outline'>('files')
 
 const sidebarTabs = [
-  { id: 'files' as const, label: '文件资源管理器', icon: '📁' },
-  { id: 'recent' as const, label: '最近文件', icon: '⏰' },
-  { id: 'search' as const, label: '搜索', icon: '🔍' },
-  { id: 'outline' as const, label: '文档大纲', icon: '📑' }
+  { id: 'files' as const, label: '文件资源管理器', icon: 'folder' },
+  { id: 'recent' as const, label: '最近文件', icon: 'file' },
+  { id: 'search' as const, label: '搜索', icon: 'search' },
+  { id: 'outline' as const, label: '文档大纲', icon: 'list' }
 ]
 </script>
 
@@ -57,16 +58,20 @@ const sidebarTabs = [
 }
 
 .sidebar-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 12px;
   border: none;
   background: transparent;
-  font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
+  color: var(--text-secondary);
 
   &:hover {
     background: var(--sidebar-tab-hover-bg);
+    color: var(--text-primary);
   }
 
   &.active {

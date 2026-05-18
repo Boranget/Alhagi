@@ -4,12 +4,13 @@
     :class="{ selected: isSelected, expanded: node.expanded }"
     :style="{ paddingLeft: `${depth * 16 + 8}px` }"
     @click="handleClick"
-    @dblclick="handleDoubleClick"
     @contextmenu="handleContextMenu"
   >
-    <span class="node-icon">
-      {{ nodeIcon }}
-    </span>
+    <Icon 
+      :name="nodeIcon" 
+      size="sm" 
+      class="node-icon"
+    />
     <span class="node-name">{{ node.name }}</span>
     <span
       v-if="node.isDirty"
@@ -35,6 +36,7 @@
 import { computed } from 'vue'
 import type { FileTreeNodeType } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
+import { Icon } from '@/components/Icons'
 
 const props = defineProps<{
   node: FileTreeNodeType
@@ -51,35 +53,35 @@ const tabsStore = useTabsStore()
 
 const nodeIcon = computed(() => {
   if (props.node.type === 'directory') {
-    return props.node.expanded ? '📂' : '📁'
+    return props.node.expanded ? 'folder-open' : 'folder'
   }
   
   const ext = props.node.name.split('.').pop()?.toLowerCase()
   switch (ext) {
     case 'md':
     case 'markdown':
-      return '📝'
+      return 'file'
     case 'json':
-      return '📋'
+      return 'file'
     case 'js':
     case 'ts':
     case 'jsx':
     case 'tsx':
-      return '📜'
+      return 'file'
     case 'html':
-      return '🌐'
+      return 'globe'
     case 'css':
     case 'scss':
     case 'sass':
-      return '🎨'
+      return 'palette'
     case 'png':
     case 'jpg':
     case 'jpeg':
     case 'gif':
     case 'svg':
-      return '🖼️'
+      return 'image'
     default:
-      return '📄'
+      return 'file'
   }
 })
 
@@ -88,12 +90,12 @@ const isSelected = computed(() => {
 })
 
 function handleClick() {
-  emit('select', props.node)
-}
-
-function handleDoubleClick() {
   if (props.node.type === 'directory') {
+    // 文件夹：单击展开/折叠
     emit('toggle', props.node)
+  } else {
+    // 文件：单击选择
+    emit('select', props.node)
   }
 }
 
@@ -122,15 +124,10 @@ function handleContextMenu(event: MouseEvent) {
   &.selected {
     background: var(--primary-color);
     color: white;
-
-    .node-icon {
-      filter: brightness(10);
-    }
   }
 }
 
 .node-icon {
-  font-size: 14px;
   flex-shrink: 0;
 }
 

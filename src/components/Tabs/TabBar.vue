@@ -25,7 +25,11 @@
             v-if="getTab(tabId)?.isDirty"
             class="dirty-indicator"
           >●</span>
-          <span v-else>×</span>
+          <Icon 
+            v-else 
+            name="close" 
+            size="sm" 
+          />
         </button>
       </div>
     </div>
@@ -35,13 +39,13 @@
         title="搜索标签 (Ctrl+P)"
         @click="toggleSearch"
       >
-        🔍
+        <Icon name="search" size="sm" />
       </button>
       <button
         class="new-tab-btn"
         @click="handleNewTab"
       >
-        +
+        <Icon name="plus" size="sm" />
       </button>
     </div>
 
@@ -54,14 +58,14 @@
         class="menu-item"
         @click="saveCurrentTab"
       >
-        <span class="menu-icon">💾</span>
+        <Icon name="save" size="sm" />
         <span class="menu-text">{{ t('common.save') }}</span>
       </div>
       <div
         class="menu-item"
         @click="saveAsCurrentTab"
       >
-        <span class="menu-icon">📄</span>
+        <Icon name="save" size="sm" />
         <span class="menu-text">{{ t('common.saveAs') }}</span>
       </div>
       <div class="menu-divider" />
@@ -69,28 +73,28 @@
         class="menu-item"
         @click="closeCurrentTab"
       >
-        <span class="menu-icon">✕</span>
+        <Icon name="close" size="sm" />
         <span class="menu-text">{{ t('common.close') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeOtherTabs"
       >
-        <span class="menu-icon">📑</span>
+        <Icon name="list" size="sm" />
         <span class="menu-text">{{ t('tabs.closeOtherTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeSavedTabs"
       >
-        <span class="menu-icon">📂</span>
+        <Icon name="folder" size="sm" />
         <span class="menu-text">{{ t('tabs.closeSavedTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeAllTabs"
       >
-        <span class="menu-icon">🗑️</span>
+        <Icon name="trash" size="sm" />
         <span class="menu-text">{{ t('tabs.closeAllTabs') }}</span>
       </div>
       <div
@@ -102,7 +106,7 @@
         class="menu-item"
         @click="copyFilePath"
       >
-        <span class="menu-icon">📋</span>
+        <Icon name="copy" size="sm" />
         <span class="menu-text">{{ t('tabs.copyPath') }}</span>
       </div>
       <div class="menu-divider" />
@@ -110,7 +114,7 @@
         class="menu-item"
         @click="detachTab"
       >
-        <span class="menu-icon">↗️</span>
+        <Icon name="maximize" size="sm" />
         <span class="menu-text">{{ t('tabs.detachToNewWindow') }}</span>
       </div>
     </div>
@@ -138,7 +142,7 @@
             @click="handleSearchSelect(tabId)"
             @mouseenter="selectedIndex = index"
           >
-            <span class="result-icon">📄</span>
+            <Icon name="file" size="sm" />
             <span class="result-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
             <span
               v-if="getTab(tabId)?.filePath"
@@ -163,16 +167,18 @@
       <span>{{ getTab(draggingTabId)?.title || t('tabs.untitled') }}</span>
     </div>
     
-    <!-- 窗口边缘指示器 -->
     <div
       v-if="dragOverWindowEdge.direction && windowList.length > 1"
       class="window-edge-indicator"
       :class="dragOverWindowEdge.direction"
     >
-      <div class="edge-icon">
-        {{ dragOverWindowEdge.direction === 'left' ? '◀' : '▶' }}
+      <Icon 
+        :name="dragOverWindowEdge.direction === 'left' ? 'chevron-left' : 'chevron-right'" 
+        size="lg" 
+      />
+      <div class="edge-text">
+        {{ t('tabs.releaseToMerge') }}
       </div>
-      <div class="edge-text">{{ t('tabs.releaseToMerge') }}</div>
     </div>
   </div>
 </template>
@@ -182,6 +188,7 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
+import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 
@@ -197,7 +204,6 @@ const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const selectedIndex = ref(0)
 
-// 拖拽相关
 const draggingTabId = ref<string | null>(null)
 const dragOverTabId = ref<string | null>(null)
 const ghostStyle = ref({ left: '0px', top: '0px' })
@@ -394,13 +400,11 @@ function copyFilePath() {
   hideContextMenu()
 }
 
-// 拖拽相关函数
 let currentWindowId: number | null = null
 
 async function handleDragStart(event: DragEvent, tabId: string) {
   draggingTabId.value = tabId
   
-  // 获取当前窗口ID和窗口列表
   if (window.electronAPI) {
     try {
       const idResp = await window.electronAPI.getWindowId()
@@ -440,18 +444,14 @@ function handleDragOver(event: DragEvent, tabId: string) {
   if (draggingTabId.value && draggingTabId.value !== tabId) {
     dragOverTabId.value = tabId
     
-    // 检测是否拖拽到窗口边缘
     const edgeThreshold = 50
     const direction: 'left' | 'right' | null = 
       event.clientX < edgeThreshold ? 'left' : 
       event.clientX > window.innerWidth - edgeThreshold ? 'right' : null
     
     if (direction) {
-      // 查找目标窗口
       const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
       if (otherWindows.length > 0) {
-        // 简化处理：如果是左边缘，合并到列表中的第一个其他窗口
-        // 如果是右边缘，同样处理
         dragOverWindowEdge.value = { direction, targetWindowId: otherWindows[0].id }
       } else {
         dragOverWindowEdge.value = { direction: null, targetWindowId: null }
@@ -469,11 +469,9 @@ function handleDrop(event: DragEvent, targetTabId: string) {
     return
   }
   
-  // 检查是否拖拽到窗口边缘，准备合并到其他窗口
   if (dragOverWindowEdge.value.direction && dragOverWindowEdge.value.targetWindowId && window.electronAPI) {
     const tab = getTab(draggingTabId.value)
     if (tab) {
-      // 合并到目标窗口
       window.electronAPI.mergeTab({
         id: tab.id,
         title: tab.title,
@@ -484,23 +482,18 @@ function handleDrop(event: DragEvent, targetTabId: string) {
         cursor: tab.cursor
       }, dragOverWindowEdge.value.targetWindowId)
       
-      // 从当前窗口移除标签
       tabsStore.removeTab(draggingTabId.value)
     }
   } else if (draggingTabId.value !== targetTabId) {
-    // 重新排序标签页
     const currentOrder = [...tabsStore.tabOrder]
     const dragIndex = currentOrder.indexOf(draggingTabId.value)
     const targetIndex = currentOrder.indexOf(targetTabId)
     
     if (dragIndex > -1 && targetIndex > -1) {
-      // 移除拖拽的标签
       currentOrder.splice(dragIndex, 1)
-      // 插入到目标位置
       const insertIndex = dragIndex < targetIndex ? targetIndex : targetIndex + 1
       currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, draggingTabId.value)
       
-      // 更新标签顺序
       tabsStore.tabOrder = currentOrder
     }
   }
@@ -517,16 +510,13 @@ function detachTab() {
   const tab = getTab(tabId)
   if (!tab) return
   
-  // 如果只有一个标签，不允许分离
   if (tabsStore.tabCount <= 1) {
     alert(t('tabs.cannotDetachLast'))
     hideContextMenu()
     return
   }
   
-  // 通过 Electron API 分离到新窗口
   if (window.electronAPI) {
-    // 传递标签数据到新窗口
     window.electronAPI.openNewWindow({
       tabData: {
         id: tab.id,
@@ -539,7 +529,6 @@ function detachTab() {
       }
     })
     
-    // 关闭当前窗口中的标签
     tabsStore.removeTab(tabId)
   } else {
     alert('此功能仅在 Electron 环境下可用')
@@ -551,6 +540,16 @@ function detachTab() {
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
   document.addEventListener('keydown', handleGlobalKeydown)
+  
+  // 标签栏横向滚动支持
+  const tabsContainer = document.querySelector('.tabs-container') as HTMLElement
+  if (tabsContainer) {
+    tabsContainer.addEventListener('wheel', (e: WheelEvent) => {
+      // 直接横向滚动，无需按住Shift
+      e.preventDefault()
+      tabsContainer.scrollLeft += e.deltaY
+    }, { passive: false })
+  }
 })
 
 onUnmounted(() => {
@@ -662,7 +661,6 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 16px;
   cursor: pointer;
   transition: all 0.15s;
 
@@ -681,7 +679,6 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 20px;
   cursor: pointer;
   transition: all 0.15s;
 
@@ -715,11 +712,6 @@ onUnmounted(() => {
   &:hover {
     background: var(--sidebar-hover-bg);
   }
-}
-
-.menu-icon {
-  font-size: 14px;
-  width: 20px;
 }
 
 .menu-text {
@@ -786,10 +778,6 @@ onUnmounted(() => {
   }
 }
 
-.result-icon {
-  font-size: 18px;
-}
-
 .result-title {
   flex: 1;
   font-size: 14px;
@@ -830,7 +818,6 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(to right, rgba(64, 158, 255, 0.8), transparent);
   pointer-events: none;
   z-index: 9998;
   transition: opacity 0.2s;
@@ -845,18 +832,13 @@ onUnmounted(() => {
     background: linear-gradient(to left, rgba(64, 158, 255, 0.8), transparent);
   }
   
-  .edge-icon {
-    font-size: 24px;
-    color: white;
-    margin-bottom: 8px;
-  }
-  
   .edge-text {
     font-size: 11px;
     color: white;
     writing-mode: vertical-rl;
     text-orientation: mixed;
     white-space: nowrap;
+    margin-top: 8px;
   }
 }
 </style>

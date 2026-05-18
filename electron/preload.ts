@@ -130,7 +130,13 @@ const api: ElectronAPI = {
     createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),
   
   onToggleImmersiveMode: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_IMMERSIVE, callback)
+    createMenuListener(MENU_EVENTS.TOGGLE_IMMERSIVE, callback),
+  
+  onToggleSidebar: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_SIDEBAR, callback),
+  
+  onOpenSettings: (callback) => 
+    createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

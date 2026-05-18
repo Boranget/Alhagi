@@ -1,7 +1,10 @@
 <template>
   <div class="editor-container">
     <FloatingSearch ref="floatingSearchRef" />
-    <div class="editor-toolbar">
+    <div
+      v-if="showEditorToolbar"
+      class="editor-toolbar"
+    >
       <div class="toolbar-group">
         <button
           v-for="mode in viewModes"
@@ -11,7 +14,7 @@
           :title="mode.label"
           @click="handleViewModeChange(mode.value)"
         >
-          {{ mode.icon }}
+          <Icon :name="mode.icon" size="sm" />
         </button>
       </div>
       <div class="toolbar-divider" />
@@ -102,10 +105,12 @@ const unsubscribes: (() => void)[] = []
 const { containerRef, currentMode, init, setViewMode, destroy, getManager, getHTML } = useEditorManager()
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
 
+const showEditorToolbar = ref(false)
+
 const viewModes = [
-  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: '◉' },
-  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: t('editor.sourceMode'), icon: '{ }' },
-  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: t('editor.splitMode'), icon: '◈' }
+  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: 'wysiwyg' },
+  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: t('editor.sourceMode'), icon: 'code' },
+  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: t('editor.splitMode'), icon: 'split' }
 ]
 
 const activeTab = computed(() => tabsStore.activeTab)
@@ -308,78 +313,78 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       :deep(.milkdown) {
         outline: none;
-        min-height: 100%;
+        min-height: 0;
         max-width: 800px;
         margin: 0 auto;
+      }
 
-        p {
-          margin: 1em 0;
-          line-height: 1.8;
-        }
+      p {
+        margin: 1em 0;
+        line-height: 1.8;
+      }
 
-        h1, h2, h3, h4, h5, h6 {
-          margin: 1.5em 0 0.5em;
-          font-weight: 600;
-        }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 1.5em 0 0.5em;
+        font-weight: 600;
+      }
 
-        h1 {
-          font-size: 2rem;
-        }
+      h1 {
+        font-size: 2rem;
+      }
 
-        h2 {
-          font-size: 1.75rem;
-        }
+      h2 {
+        font-size: 1.75rem;
+      }
 
-        h3 {
-          font-size: 1.5rem;
-        }
+      h3 {
+        font-size: 1.5rem;
+      }
+
+      code {
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Fira Code', monospace;
+      }
+
+      pre {
+        background: var(--code-bg);
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
 
         code {
-          background: var(--code-bg);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-family: 'Fira Code', monospace;
+          background: none;
+          padding: 0;
+        }
+      }
+
+      blockquote {
+        border-left: 4px solid var(--primary-color);
+        padding-left: 16px;
+        margin: 1em 0;
+        color: var(--text-secondary);
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1em 0;
+
+        th, td {
+          border: 1px solid var(--border-color);
+          padding: 8px 12px;
         }
 
-        pre {
-          background: var(--code-bg);
-          padding: 16px;
-          border-radius: 8px;
-          overflow-x: auto;
-
-          code {
-            background: none;
-            padding: 0;
-          }
+        th {
+          background: var(--table-header-bg);
         }
+      }
 
-        blockquote {
-          border-left: 4px solid var(--primary-color);
-          padding-left: 16px;
-          margin: 1em 0;
-          color: var(--text-secondary);
-        }
-
-        table {
-          border-collapse: collapse;
-          width: 100%;
-          margin: 1em 0;
-
-          th, td {
-            border: 1px solid var(--border-color);
-            padding: 8px 12px;
-          }
-
-          th {
-            background: var(--table-header-bg);
-          }
-        }
-
-        .focus-highlight {
-          background: rgba(59, 130, 246, 0.1);
-          border-radius: 4px;
-          transition: all 0.3s ease;
-        }
+      .focus-highlight {
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 4px;
+        transition: all 0.3s ease;
       }
     }
   }

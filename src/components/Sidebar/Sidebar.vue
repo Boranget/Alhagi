@@ -9,7 +9,7 @@
         :title="tab.label"
         @click="activeSidebarTab = tab.id"
       >
-        {{ tab.icon }}
+        <Icon :name="tab.icon" size="sm" />
       </button>
     </div>
     <div class="sidebar-content">
@@ -41,7 +41,11 @@
               class="folder-header"
               @click="toggleFolder"
             >
-              <span class="folder-icon">{{ isFolderExpanded ? '▼' : '▶' }}</span>
+              <Icon 
+                :name="isFolderExpanded ? 'chevron-down' : 'chevron-right'" 
+                size="sm" 
+                class="folder-icon"
+              />
               <span class="folder-name">{{ currentFolderName }}</span>
             </div>
             <div
@@ -55,7 +59,8 @@
                 :class="{ active: activeFile === file.path }"
                 @click="openFile(file.path)"
               >
-                📄 {{ file.name }}
+                <Icon name="file" size="sm" />
+                <span class="file-name">{{ file.name }}</span>
               </div>
             </div>
           </div>
@@ -117,6 +122,7 @@
 import { ref, computed, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { debounce } from '@/utils/helpers'
+import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 
@@ -130,9 +136,9 @@ const searchResults = ref<Array<{ path: string; preview: string }>>([])
 const headings = ref<Array<{ level: number; id: string; text: string }>>([])
 
 const sidebarTabs = [
-  { id: 'files' as const, label: '文件资源管理器', icon: '📁' },
-  { id: 'search' as const, label: '搜索', icon: '🔍' },
-  { id: 'outline' as const, label: '文档大纲', icon: '📑' }
+  { id: 'files' as const, label: '文件资源管理器', icon: 'folder' },
+  { id: 'search' as const, label: '搜索', icon: 'search' },
+  { id: 'outline' as const, label: '文档大纲', icon: 'list' }
 ]
 
 const currentFolderName = computed(() => {
@@ -211,16 +217,20 @@ function scrollToHeading(id: string) {
 }
 
 .sidebar-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 12px;
   border: none;
   background: transparent;
-  font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
+  color: var(--text-secondary);
 
   &:hover {
     background: var(--sidebar-tab-hover-bg);
+    color: var(--text-primary);
   }
 
   &.active {
@@ -297,8 +307,8 @@ function scrollToHeading(id: string) {
 }
 
 .folder-icon {
-  font-size: 10px;
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .folder-name {
@@ -310,6 +320,9 @@ function scrollToHeading(id: string) {
 }
 
 .file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
   cursor: pointer;
   border-radius: 4px;
@@ -323,6 +336,13 @@ function scrollToHeading(id: string) {
     background: var(--primary-color);
     color: white;
   }
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .search-input-wrapper {

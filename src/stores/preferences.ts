@@ -103,7 +103,7 @@ export interface ThemeColors {
  * 默认偏好设置
  */
 const DEFAULT_PREFERENCES: Preferences = {
-  launchMode: LAUNCH.MODES.RESTORE,
+  launchMode: LAUNCH.MODES.WELCOME,
   launchFolderPath: '',
   autoSave: true,
   autoSaveInterval: AUTO_SAVE.DEFAULT_INTERVAL,
@@ -618,22 +618,20 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * 从 localStorage 加载偏好设置
    */
   function loadPreferences(): void {
+    console.log('[PreferencesStore] 开始加载偏好设置')
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
+        console.log('[PreferencesStore] 找到保存的设置:', saved.substring(0, 200))
         const preferences = JSON.parse(saved) as Partial<Preferences>
         updatePreferences(preferences)
         applyTheme()
       } else {
+        console.log('[PreferencesStore] 未找到保存的设置，使用默认值')
         applyTheme()
       }
     } catch (error) {
-      errorManager.createError(
-        ErrorCode.FILE_READ_ERROR,
-        '加载偏好设置失败，使用默认设置',
-        ErrorSeverity.WARNING,
-        { context: 'preferences.loadPreferences', error }
-      )
+      console.error('[PreferencesStore] 加载偏好设置失败:', error)
       applyTheme()
     }
   }

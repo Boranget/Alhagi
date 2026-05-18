@@ -55,7 +55,6 @@ function createWindow() {
   mainWindow.on('ready-to-show', () => {
     if (windowState.isMaximized) mainWindow?.maximize()
     mainWindow?.show()
-    mainWindow?.webContents.openDevTools()
   })
 
   mainWindow.on('close', () => {
@@ -96,6 +95,9 @@ function createMenu() {
       { label: 'WYSIWYG 模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'wysiwyg') },
       { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
       { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
+      { type: 'separator' },
+      { label: '显示/隐藏侧边栏', accelerator: 'CmdOrCtrl+B', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_SIDEBAR) },
+      { label: '设置', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_SETTINGS) },
       { type: 'separator' },
       { label: '悬浮便签模式', accelerator: 'CmdOrCtrl+Shift+F', click: () => {
         if (mainWindow) {

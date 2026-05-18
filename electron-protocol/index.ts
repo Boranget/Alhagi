@@ -153,7 +153,9 @@ export const MENU_EVENTS = {
   PASTE_AS_PLAIN: 'menu:paste-as-plain',
   CAPTURE_SCREEN: 'menu:capture-screen',
   TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
-  TOGGLE_IMMERSIVE: 'menu:toggle-immersive'
+  TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
+  TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
+  OPEN_SETTINGS: 'menu:open-settings'
 } as const;
 
 // ========== 文件类型常量 ==========
@@ -217,6 +219,8 @@ export interface ElectronAPI {
   onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
   onToggleStickyNoteMode: (callback: () => void) => () => void
   onToggleImmersiveMode: (callback: () => void) => () => void
+  onToggleSidebar: (callback: () => void) => () => void
+  onOpenSettings: (callback: () => void) => () => void
 }
 
 export interface DetachedTabData {

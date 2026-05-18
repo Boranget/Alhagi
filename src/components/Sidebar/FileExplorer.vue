@@ -8,21 +8,21 @@
           :title="t('common.newFile')"
           @click="handleNewFile"
         >
-          📄
+          <Icon name="file" size="sm" />
         </button>
         <button
           class="action-btn"
           :title="t('common.newFolder')"
           @click="handleNewFolder"
         >
-          📁
+          <Icon name="folder" size="sm" />
         </button>
         <button
           class="action-btn"
           :title="t('common.refresh')"
           @click="handleRefresh"
         >
-          🔄
+          <Icon name="refresh" size="sm" />
         </button>
       </div>
     </div>
@@ -66,7 +66,7 @@
         class="context-menu-item"
         @click="handleContextMenuAction(item.id)"
       >
-        <span class="item-icon">{{ item.icon }}</span>
+        <Icon :name="item.icon" size="sm" />
         <span>{{ item.label }}</span>
       </div>
     </div>
@@ -117,6 +117,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath } from '@/utils/helpers'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
+import { Icon } from '@/components/Icons'
 
 const fileService = useFileService()
 const tabsStore = useTabsStore()
@@ -158,14 +159,14 @@ const newItemDialog = ref<NewItemDialog>({
 })
 
 const contextMenuItems: ContextMenuItem[] = [
-  { id: 'new-file', label: t('common.newFile'), icon: '📄' },
-  { id: 'new-folder', label: t('common.newFolder'), icon: '📁' },
-  { id: 'rename', label: t('common.rename'), icon: '✏️' },
-  { id: 'move-to', label: '移动到...', icon: '📦' },
-  { id: 'copy-to', label: '复制到...', icon: '📋' },
-  { id: 'delete', label: t('common.delete'), icon: '🗑️' },
-  { id: 'copy-path', label: '复制路径', icon: '📄' },
-  { id: 'open-in-explorer', label: '在系统文件管理器中显示', icon: '🗂️' }
+  { id: 'new-file', label: t('common.newFile'), icon: 'file' },
+  { id: 'new-folder', label: t('common.newFolder'), icon: 'folder' },
+  { id: 'rename', label: t('common.rename'), icon: 'edit' },
+  { id: 'move-to', label: '移动到...', icon: 'folder' },
+  { id: 'copy-to', label: '复制到...', icon: 'copy' },
+  { id: 'delete', label: t('common.delete'), icon: 'trash' },
+  { id: 'copy-path', label: '复制路径', icon: 'copy' },
+  { id: 'open-in-explorer', label: '在系统文件管理器中显示', icon: 'folder' }
 ]
 
 async function openFolder() {
@@ -415,16 +416,20 @@ onUnmounted(() => {
 }
 
 .action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px 6px;
   border: none;
   background: transparent;
-  font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
+  color: var(--text-secondary);
 
   &:hover {
     background: var(--sidebar-hover-bg);
+    color: var(--text-primary);
   }
 }
 
@@ -499,11 +504,6 @@ onUnmounted(() => {
   &:last-child {
     border-radius: 0 0 4px 4px;
   }
-}
-
-.item-icon {
-  font-size: 12px;
-  width: 16px;
 }
 
 .dialog-overlay {
