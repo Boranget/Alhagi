@@ -55,6 +55,7 @@ function createWindow() {
   mainWindow.on('ready-to-show', () => {
     if (windowState.isMaximized) mainWindow?.maximize()
     mainWindow?.show()
+    mainWindow?.webContents.openDevTools()
   })
 
   mainWindow.on('close', () => {
