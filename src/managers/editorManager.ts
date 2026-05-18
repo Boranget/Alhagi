@@ -33,7 +33,7 @@ import {
   replaceAllInContent,
   replaceSingleMatch
 } from '@/utils/search'
-import { searchHighlightPlugin, createSearchQuery } from './searchHighlightPlugin'
+import { searchHighlightPlugin, createSearchQuery, type SearchHighlightPlugin } from './searchHighlightPlugin'
 
 export interface EditorConfig {
   enablePolling: boolean

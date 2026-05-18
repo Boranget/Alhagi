@@ -17,6 +17,8 @@ export const searchPluginKey = new PluginKey('search')
 
 export const searchHighlightPlugin = $prose(() => search({}))
 
+export type SearchHighlightPlugin = typeof searchHighlightPlugin
+
 export function createSearchQuery(config: SearchConfig): SearchQuery {
   return new SearchQuery({
     search: config.search,

@@ -331,15 +331,15 @@ function setupElectronListeners() {
   }
   
   // 监听切换悬浮便签模式事件
-  if ((window.electronAPI as any).onToggleStickyNoteMode) {
-    (window.electronAPI as any).onToggleStickyNoteMode(() => {
+  if (window.electronAPI?.onToggleStickyNoteMode) {
+    window.electronAPI.onToggleStickyNoteMode(() => {
       prefsStore.toggleStickyNoteMode()
     })
   }
   
   // 监听切换沉浸式模式事件
-  if ((window.electronAPI as any).onToggleImmersiveMode) {
-    (window.electronAPI as any).onToggleImmersiveMode(() => {
+  if (window.electronAPI?.onToggleImmersiveMode) {
+    window.electronAPI.onToggleImmersiveMode(() => {
       prefsStore.toggleImmersiveMode()
     })
   }
