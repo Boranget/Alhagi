@@ -203,10 +203,6 @@ watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => 
   updateEditorHighlight()
 })
 
-function setSearchScope(scope: 'file' | 'folder' | 'all') {
-  setSearchScope(scope)
-}
-
 </script>
 
 <style scoped lang="scss">
