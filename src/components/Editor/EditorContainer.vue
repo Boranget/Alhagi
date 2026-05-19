@@ -435,7 +435,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       .split-source {
         height: 100%;
         flex-shrink: 0;
-        overflow: hidden;
+        overflow: auto;
       }
 
       .split-resizer {
@@ -462,7 +462,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       .split-preview {
         height: 100%;
-        overflow: hidden;
+        overflow: auto;
         flex-shrink: 0;
 
         :deep(.crepe) {
