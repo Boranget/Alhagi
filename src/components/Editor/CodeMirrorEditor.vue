@@ -54,13 +54,28 @@ onUnmounted(() => {
 
 watch(() => props.modelValue, (newValue) => {
   if (editorView && editorView.state.doc.toString() !== newValue) {
-    const state = createCodeMirrorState({
-      content: newValue,
-      dark: props.dark,
-      onChange: handleChange,
-      onFocus: handleFocus
+    // 使用增量更新来保留撤销历史
+    const currentDoc = editorView.state.doc
+    const currentLength = currentDoc.length
+    const newLength = newValue.length
+    
+    // 保留光标位置
+    const selection = editorView.state.selection.main
+    const from = Math.min(selection.from, newLength)
+    const to = Math.min(selection.to, newLength)
+    
+    // 使用 dispatch 和 changes 来增量更新
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: currentLength,
+        insert: newValue
+      },
+      selection: {
+        anchor: from,
+        head: to
+      }
     })
-    editorView.setState(state)
   }
 })
 </script>
