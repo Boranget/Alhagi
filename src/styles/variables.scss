@@ -42,7 +42,7 @@
   --panel-hover-bg: rgba(0, 0, 0, 0.05);
 }
 
-[data-theme="dark"] {
+[data-theme="dark"], .dark {
   --bg-primary: #1b1c1d;
   --bg-secondary: #252627;
   --text-primary: #d8dee9;
@@ -85,3 +85,5 @@
   --panel-bg: #1b1c1d;
   --panel-hover-bg: rgba(255, 255, 255, 0.05);
 }
+
+

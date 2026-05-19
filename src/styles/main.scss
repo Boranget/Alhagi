@@ -71,16 +71,86 @@ textarea {
   color: white;
 }
 
-.milkdown {
-  .editor {
-    outline: none;
-  }
+/* Crepe Editor 主题样式 - 参考官方 website playground */
+.crepe .milkdown {
+  display: flow-root;
+  height: 100%;
+  flex: 1;
 
-  .ProseMirror {
-    outline: none;
-  }
+  --crepe-color-background: #fdfcff;
+  --crepe-color-on-background: #1b1c1d;
+  --crepe-color-surface: #f8f9ff;
+  --crepe-color-surface-low: #f2f3fa;
+  --crepe-color-on-surface: #191c20;
+  --crepe-color-on-surface-variant: #43474e;
+  --crepe-color-outline: #73777f;
+  --crepe-color-primary: #37618e;
+  --crepe-color-secondary: #d7e3f8;
+  --crepe-color-on-secondary: #101c2b;
+  --crepe-color-inverse: #2e3135;
+  --crepe-color-on-inverse: #eff0f7;
+  --crepe-color-inline-code: #ba1a1a;
+  --crepe-color-error: #ba1a1a;
+  --crepe-color-hover: #eceef4;
+  --crepe-color-selected: #e1e2e8;
+  --crepe-color-inline-area: #d8dae0;
+
+  --crepe-font-title: Georgia, 'Times New Roman', Times, serif;
+  --crepe-font-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --crepe-font-code: 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
+
+  --crepe-shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --crepe-shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
 }
 
+.dark .crepe .milkdown, [data-theme="dark"] .crepe .milkdown {
+  --crepe-color-background: #1b1c1d;
+  --crepe-color-on-background: #f8f9ff;
+  --crepe-color-surface: #111418;
+  --crepe-color-surface-low: #191c20;
+  --crepe-color-on-surface: #e1e2e8;
+  --crepe-color-on-surface-variant: #c3c6cf;
+  --crepe-color-outline: #8d9199;
+  --crepe-color-primary: #a1c9fd;
+  --crepe-color-secondary: #3c4858;
+  --crepe-color-on-secondary: #d7e3f8;
+  --crepe-color-inverse: #e1e2e8;
+  --crepe-color-on-inverse: #2e3135;
+  --crepe-color-inline-code: #ffb4ab;
+  --crepe-color-error: #ffb4ab;
+  --crepe-color-hover: #1d2024;
+  --crepe-color-selected: #32353a;
+  --crepe-color-inline-area: #111418;
+
+  --crepe-shadow-1: 0px 1px 2px 0px rgba(255, 255, 255, 0.3), 0px 1px 3px 1px rgba(255, 255, 255, 0.15);
+  --crepe-shadow-2: 0px 1px 2px 0px rgba(255, 255, 255, 0.3), 0px 2px 6px 2px rgba(255, 255, 255, 0.15);
+}
+
+.crepe table td {
+  overflow: auto;
+}
+
+.milkdown * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* CodeMirror 样式 - 参考官方 playground */
+.crepe .cm-editor {
+  height: 100%;
+  font-family: 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
+}
+
+.crepe .cm-scroller {
+  overscroll-behavior: auto;
+}
+
+.crepe .playground-cm .ͼo .cm-content {
+  caret-color: #000 !important;
+}
+
+/* 搜索高亮样式 */
 .search-highlight-match {
   background-color: rgba(255, 204, 0, 0.4);
   border-radius: 2px;
@@ -92,7 +162,7 @@ textarea {
   }
 }
 
-// ProseMirror Search styles
+/* ProseMirror 搜索样式 */
 .ProseMirror-search-match {
   background-color: rgba(255, 204, 0, 0.4);
   border-radius: 2px;
@@ -114,90 +184,5 @@ textarea {
   }
   50% {
     box-shadow: 0 0 0 4px rgba(255, 153, 0, 0.4);
-  }
-}
-
-// Crepe Editor 样式配置
-.milkdown {
-  --crepe-color-background: var(--bg-primary);
-  --crepe-color-on-background: var(--text-primary);
-  --crepe-color-surface: var(--bg-secondary);
-  --crepe-color-surface-low: var(--editor-bg);
-  --crepe-color-on-surface: var(--text-primary);
-  --crepe-color-on-surface-variant: var(--text-secondary);
-  --crepe-color-outline: var(--border-color);
-  --crepe-color-primary: var(--primary-color);
-  --crepe-color-secondary: var(--bg-secondary);
-  --crepe-color-on-secondary: var(--text-primary);
-  --crepe-color-inverse: var(--bg-secondary);
-  --crepe-color-on-inverse: var(--text-primary);
-  --crepe-color-inline-code: var(--danger-color);
-  --crepe-color-error: var(--danger-color);
-  --crepe-color-hover: var(--toolbar-btn-hover-bg);
-  --crepe-color-selected: var(--editor-selection);
-  --crepe-color-inline-area: var(--code-bg);
-
-  --crepe-font-title: Georgia, 'Times New Roman', Times, serif;
-  --crepe-font-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --crepe-font-code: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
-
-  --crepe-shadow-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --crepe-shadow-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-
-  font-family: var(--crepe-font-default);
-
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  .crepe {
-    height: 100%;
-    flex: 1;
-  }
-
-  .cm-editor {
-    height: 100%;
-    font-family: var(--crepe-font-code);
-  }
-
-  .cm-scroller {
-    overflow: auto;
-    overscroll-behavior: auto;
-  }
-
-  // CodeMirror 行号 gutter 样式
-  .cm-gutters {
-    background-color: var(--crepe-color-surface) !important;
-    color: var(--crepe-color-on-surface-variant) !important;
-    border-right: 1px solid var(--crepe-color-outline) !important;
-  }
-
-  .cm-activeLineGutter {
-    background-color: var(--crepe-color-surface-low) !important;
-    color: var(--crepe-color-on-surface) !important;
-  }
-
-  .cm-activeLine {
-    background-color: var(--crepe-color-surface-low) !important;
-  }
-
-  // 代码块内联区域样式
-  .cm-content {
-    caret-color: var(--crepe-color-on-background) !important;
-  }
-
-  .cm-cursor,
-  .cm-dropCursor {
-    border-left-color: var(--crepe-color-on-background) !important;
-  }
-}
-
-// 暗色模式下的 Crepe 样式
-[data-theme="dark"] {
-  .milkdown {
-    --crepe-shadow-1: 0 1px 2px 0 rgba(255, 255, 255, 0.3), 0 1px 3px 1px rgba(255, 255, 255, 0.15);
-    --crepe-shadow-2: 0 1px 2px 0 rgba(255, 255, 255, 0.3), 0 2px 6px 2px rgba(255, 255, 255, 0.15);
   }
 }

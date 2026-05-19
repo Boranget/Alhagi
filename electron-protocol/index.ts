@@ -158,6 +158,7 @@ export const MENU_EVENTS = {
 TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
   TOGGLE_TAB_BAR: 'menu:toggle-tab-bar',
   TOGGLE_STATUS_BAR: 'menu:toggle-status-bar',
+  TOGGLE_THEME: 'menu:toggle-theme',
   OPEN_SETTINGS: 'menu:open-settings',
   EDIT_UNDO: 'menu:edit-undo',
   EDIT_REDO: 'menu:edit-redo'
@@ -228,6 +229,7 @@ export interface ElectronAPI {
 onToggleSidebar: (callback: () => void) => () => void
   onToggleTabBar: (callback: () => void) => () => void
   onToggleStatusBar: (callback: () => void) => () => void
+  onToggleTheme: (callback: () => void) => () => void
   onOpenSettings: (callback: () => void) => () => void
   onEditUndo: (callback: () => void) => () => void
   onEditRedo: (callback: () => void) => () => void

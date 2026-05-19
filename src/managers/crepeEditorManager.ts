@@ -4,8 +4,11 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { getMarkdown } from '@milkdown/kit/utils'
+import { eclipse } from '@uiw/codemirror-theme-eclipse'
+import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
@@ -19,6 +22,7 @@ export class CrepeEditorManager {
   private isUpdatingContent = false
   private isInitialized = false
   private activeEditor: 'crepe' | 'codemirror' | null = null
+  private container: HTMLElement | null = null
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
@@ -35,10 +39,9 @@ export class CrepeEditorManager {
     console.log('[CrepeEditorManager] initialContent length:', initialContent.length)
     console.log('[CrepeEditorManager] isInitialized:', this.isInitialized)
     
-    // 如果已经初始化，先销毁旧的实例
-    if (this.isInitialized && this.crepe) {
-      console.log('[CrepeEditorManager] Already initialized, destroying old instance first')
-      await this.destroy()
+    if (!container) {
+      console.error('[CrepeEditorManager] Container is undefined, cannot initialize')
+      return
     }
 
     const startTime = performance.now()
@@ -46,8 +49,12 @@ export class CrepeEditorManager {
 
     this.content = initialContent
     this.currentTabId = tabId || null
+    this.container = container
 
     console.log('[CrepeEditorManager] Creating Crepe instance...')
+    const isDark = this.isDarkMode()
+    console.log('[CrepeEditorManager] isDark mode:', isDark)
+    
     this.crepe = new Crepe({
       root: container,
       defaultValue: initialContent,
@@ -59,6 +66,11 @@ export class CrepeEditorManager {
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.Placeholder]: true,
         [Crepe.Feature.Cursor]: false, // 启用 Cursor 特性以解决双光标问题
+      },
+      featureConfigs: {
+        [Crepe.Feature.CodeMirror]: {
+          theme: isDark ? undefined : eclipse,
+        },
       },
     })
     console.log('[CrepeEditorManager] Crepe instance created')
@@ -270,6 +282,7 @@ export class CrepeEditorManager {
 
     this.content = ''
     this.currentTabId = null
+    this.container = null
     this.isInitialized = false
     this.contentCache.clear()
 
@@ -330,6 +343,35 @@ export class CrepeEditorManager {
 
   clearCache(): void {
     this.contentCache.clear()
+  }
+
+  private isDarkMode(): boolean {
+    const preferences = usePreferencesStore()
+    const effectiveTheme = preferences.theme === 'system'
+      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light')
+      : preferences.theme
+    return effectiveTheme === 'dark'
+  }
+
+  async updateTheme(): Promise<void> {
+    if (!this.crepe || !this.isInitialized || !this.container) {
+      console.warn('[CrepeEditorManager] Cannot update theme: Crepe not initialized')
+      return
+    }
+
+    console.log('[CrepeEditorManager] Updating theme')
+    
+    // 保存当前状态 - 在 destroy() 之前获取
+    const currentContent = this.getMarkdown()
+    const container = this.container
+    
+    // 先销毁
+    await this.destroy()
+    
+    // 重新初始化 - 传入保存的容器
+    await this.init(container, currentContent, this.currentTabId || undefined)
   }
 }
 

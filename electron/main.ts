@@ -115,6 +115,8 @@ function createMenu() {
       }},
       { label: '沉浸式写作模式', accelerator: 'CmdOrCtrl+Shift+Enter', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_IMMERSIVE) },
       { type: 'separator' },
+      { label: '暗色模式', accelerator: 'CmdOrCtrl+Shift+D', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_THEME) },
+      { type: 'separator' },
       { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => mainWindow?.webContents.isDevToolsOpened() ? mainWindow.webContents.closeDevTools() : mainWindow?.webContents.openDevTools() },
       { type: 'separator' },
       { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },

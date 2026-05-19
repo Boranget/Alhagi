@@ -144,6 +144,9 @@ onToggleSidebar: (callback) =>
   onToggleStatusBar: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_STATUS_BAR, callback),
   
+  onToggleTheme: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_THEME, callback),
+  
   onOpenSettings: (callback) =>
     createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback),
   

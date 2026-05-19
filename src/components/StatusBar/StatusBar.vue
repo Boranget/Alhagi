@@ -97,11 +97,12 @@
       </button>
       <button
         class="status-btn"
+        :class="{ active: isDarkMode }"
         :title="t('statusBar.switchTheme')"
-        @click="prefsStore.toggleTheme()"
+        @click="prefsStore.toggleLightDark()"
       >
         <Icon
-          :name="prefsStore.theme === 'light' || prefsStore.theme === 'system' ? 'moon' : 'sun'"
+          :name="isDarkMode ? 'sun' : 'moon'"
           size="sm"
         />
       </button>
@@ -161,6 +162,14 @@ const cursorPosition = computed(() => {
   const line = lines.length
   const col = lines[lines.length - 1].length + 1
   return `${line}:${col}`
+})
+
+const isDarkMode = computed(() => {
+  if (prefsStore.theme === 'dark') return true
+  if (prefsStore.theme === 'system') {
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  }
+  return false
 })
 
 function toggleSidebar() {

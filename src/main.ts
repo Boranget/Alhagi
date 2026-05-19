@@ -1,9 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
-import './styles/main.scss'
 import '@milkdown/crepe/theme/common/style.css'
-import '@milkdown/crepe/theme/frame.css'
+import './styles/main.scss'
 
 const app = createApp(App)
 const pinia = createPinia()

@@ -124,7 +124,7 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
-const showEditorToolbar = ref(false)
+const showEditorToolbar = ref(true)
 const splitRatio = ref(50)
 const isResizing = ref(false)
 const windowWidth = ref(window.innerWidth)
@@ -416,93 +416,8 @@ function handleEditorKeydown(e: KeyboardEvent) {
         transform: scale(var(--editor-scale, 1));
       }
 
-      :deep(.milkdown) {
-        outline: none;
-        min-height: 0;
-        
-        .milkdown-block-handle {
-          display: none !important;
-        }
-        
-        .ProseMirror {
-          outline: none;
-          caret-color: var(--text-primary, #333);
-          color: var(--editor-text, #333);
-          padding: 8px 16px !important;
-          
-          &.ProseMirror-focused {
-            outline: none;
-          }
-        }
-      }
-
-      p {
-        margin: 1em 0;
-        line-height: 1.8;
-      }
-
-      h1, h2, h3, h4, h5, h6 {
-        margin: 1.5em 0 0.5em;
-        font-weight: 600;
-      }
-
-      h1 {
-        font-size: 2rem;
-      }
-
-      h2 {
-        font-size: 1.75rem;
-      }
-
-      h3 {
-        font-size: 1.5rem;
-      }
-
-      code {
-        background: var(--code-bg);
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: 'Fira Code', monospace;
-      }
-
-      pre {
-        background: var(--code-bg);
-        padding: 16px;
-        border-radius: 8px;
-        overflow-x: auto;
-
-        code {
-          background: none;
-          padding: 0;
-        }
-      }
-
-      blockquote {
-        border-left: 4px solid var(--primary-color);
-        padding-left: 16px;
-        margin: 1em 0;
-        color: var(--text-secondary);
-      }
-
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 1em 0;
-
-        th, td {
-          border: 1px solid var(--border-color);
-          padding: 8px 12px;
-        }
-
-        th {
-          background: var(--table-header-bg);
-        }
-      }
-
-      .focus-highlight {
-        background: rgba(59, 130, 246, 0.1);
-        border-radius: 4px;
-        transition: all 0.3s ease;
+      :deep(.milkdown-block-handle) {
+        display: none !important;
       }
     }
   }
@@ -561,19 +476,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
           max-width: 100%;
           margin: 0 auto;
         }
-
-        :deep(.milkdown) {
-          outline: none;
-          min-height: 0;
-          padding: v-bind(editorPadding);
-          
-          .ProseMirror {
-            outline: none;
-            caret-color: var(--text-primary, #333);
-            color: var(--editor-text, #333);
-            padding: 8px 16px !important;
-          }
-        }
       }
     }
   }
@@ -593,12 +495,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.small-screen {
     :deep(.milkdown-block-handle) {
       display: none !important;
-    }
-
-    :deep(.milkdown) {
-      .crepe, .ProseMirror {
-        transform-origin: top center;
-      }
     }
   }
 }

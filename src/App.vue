@@ -181,6 +181,12 @@ function setupElectronListeners() {
     })
   }
 
+  if (window.electronAPI?.onToggleTheme) {
+    window.electronAPI.onToggleTheme(() => {
+      prefsStore.toggleLightDark()
+    })
+  }
+
   if (window.electronAPI?.onOpenSettings) {
     window.electronAPI.onOpenSettings(() => {
       showSettings.value = true
@@ -227,8 +233,10 @@ watch(
 
 watch(
   () => prefsStore.theme,
-  (theme) => {
+  async (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
+    prefsStore.applyTheme() // 确保正确应用主题
+    await editorManager.updateTheme() // 更新编辑器主题
   }
 )
 

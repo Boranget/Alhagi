@@ -277,6 +277,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
+  function toggleLightDark(): void {
+    const currentTheme = theme.value === UI.THEMES.SYSTEM
+      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
+          ? UI.THEMES.DARK
+          : UI.THEMES.LIGHT)
+      : theme.value
+    
+    theme.value = currentTheme === UI.THEMES.DARK ? UI.THEMES.LIGHT : UI.THEMES.DARK
+    applyTheme()
+    savePreferences()
+  }
+
   function addRecentFile(filePath: string, title: string): void {
     const existingIndex = recentFiles.value.findIndex(f => f.filePath === filePath)
 
@@ -556,6 +568,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     resetToDefaults,
     applyTheme,
     toggleTheme,
+    toggleLightDark,
     addRecentFile,
     removeRecentFile,
     pinRecentFile,
