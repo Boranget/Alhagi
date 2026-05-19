@@ -30,7 +30,7 @@
           name="file"
           size="sm"
         />
-        <span class="file-path-text">{{ activeTab.filePath }}</span>
+        <span class="file-path-text">{{ fileName }}</span>
       </span>
       <span
         v-if="activeTab?.isDirty"
@@ -121,6 +121,12 @@ const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 
 const activeTab = computed(() => tabsStore.activeTab)
+
+// 仅显示文件名，不显示完整路径
+const fileName = computed(() => {
+  if (!activeTab.value?.filePath) return ''
+  return activeTab.value.filePath.split(/[/\\]/).pop() || activeTab.value.filePath
+})
 
 // 原始 Markdown 字符数（不含空白）
 const rawMarkdownChars = computed(() => {
