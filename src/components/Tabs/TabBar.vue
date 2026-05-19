@@ -5,14 +5,21 @@
         v-for="tabId in filteredTabOrder"
         :key="tabId"
         class="tab-item"
-        :class="{ active: tabId === tabsStore.activeTabId, dirty: getTab(tabId)?.isDirty, dragging: draggingTabId === tabId }"
+        :class="{ 
+          active: tabId === tabsStore.activeTabId, 
+          dirty: getTab(tabId)?.isDirty, 
+          dragging: dragState.sourceTabId === tabId,
+          'drag-over': dragState.targetTabId === tabId
+        }"
         draggable="true"
         @click="handleTabClick(tabId)"
         @contextmenu.prevent="showContextMenu($event, tabId)"
         @mousedown.middle="handleTabClose(tabId)"
         @dragstart="handleDragStart($event, tabId)"
-        @dragend="handleDragEnd"
+        @dragend="handleDragEnd($event)"
         @dragover.prevent="handleDragOver($event, tabId)"
+        @dragenter.prevent="handleDragEnter($event, tabId)"
+        @dragleave="handleDragLeave($event)"
         @drop="handleDrop($event, tabId)"
       >
         <span class="tab-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
@@ -191,36 +198,67 @@
       </div>
     </div>
     
-    <div
-      v-if="draggingTabId"
-      class="tab-drag-ghost"
-      :style="ghostStyle"
-    >
-      <span>{{ getTab(draggingTabId)?.title || t('tabs.untitled') }}</span>
-    </div>
-    
-    <div
-      v-if="dragOverWindowEdge.direction && windowList.length > 1"
-      class="window-edge-indicator"
-      :class="dragOverWindowEdge.direction"
-    >
-      <Icon 
-        :name="dragOverWindowEdge.direction === 'left' ? 'chevron-left' : 'chevron-right'" 
-        size="lg" 
-      />
-      <div class="edge-text">
-        {{ t('tabs.releaseToMerge') }}
+    <Teleport to="body">
+      <div
+        v-if="dragState.sourceTabId"
+        class="tab-drag-ghost"
+        :style="ghostStyle"
+      >
+        <span>{{ getTab(dragState.sourceTabId)?.title || t('tabs.untitled') }}</span>
       </div>
-    </div>
+    </Teleport>
+    
+    <Teleport to="body">
+      <div
+        v-if="dragState.targetType === 'windowEdge' && windowList.length > 1"
+        class="window-edge-indicator"
+        :class="dragState.windowEdgeDirection"
+      >
+        <Icon 
+          :name="dragState.windowEdgeDirection === 'left' ? 'chevron-left' : 'chevron-right'" 
+          size="lg" 
+        />
+        <div class="edge-text">
+          {{ t('tabs.releaseToMerge') }}
+        </div>
+      </div>
+    </Teleport>
+    
+    <Teleport to="body">
+      <div
+        v-if="dragState.targetType === 'outsideWindow'"
+        class="outside-window-indicator"
+      >
+        <Icon 
+          name="maximize" 
+          size="lg" 
+        />
+        <div class="outside-text">
+          {{ t('tabs.releaseToNewWindow') }}
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
 import { Icon } from '@/components/Icons'
+
+type DragTargetType = 'none' | 'tab' | 'windowEdge' | 'outsideWindow'
+
+interface DragState {
+  sourceTabId: string | null
+  targetType: DragTargetType
+  targetTabId: string | null
+  targetWindowId: number | null
+  windowEdgeDirection: 'left' | 'right' | null
+  insertIndex: number
+  mousePosition: { x: number, y: number }
+}
 
 const tabsStore = useTabsStore()
 
@@ -236,11 +274,20 @@ const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const selectedIndex = ref(0)
 
-const draggingTabId = ref<string | null>(null)
-const dragOverTabId = ref<string | null>(null)
-const ghostStyle = ref({ left: '0px', top: '0px' })
-const dragOverWindowEdge = ref<{ direction: 'left' | 'right' | null, targetWindowId: number | null }>({ direction: null, targetWindowId: null })
+const dragState = reactive<DragState>({
+  sourceTabId: null,
+  targetType: 'none',
+  targetTabId: null,
+  targetWindowId: null,
+  windowEdgeDirection: null,
+  insertIndex: -1,
+  mousePosition: { x: 0, y: 0 }
+})
+
 const windowList = ref<Array<{ id: number; title: string }>>([])
+let currentWindowId: number | null = null
+let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
+let hasDroppedOnTab = false
 
 const filteredTabOrder = computed(() => {
   if (!searchQuery.value) {
@@ -257,6 +304,11 @@ const filteredTabOrder = computed(() => {
   })
 })
 
+const ghostStyle = computed(() => ({
+  left: `${dragState.mousePosition.x}px`,
+  top: `${dragState.mousePosition.y}px`
+}))
+
 function getTab(tabId: string): TabState | undefined {
   return tabsStore.tabs.get(tabId)
 }
@@ -266,6 +318,33 @@ function getCurrentTab(): TabState | undefined {
     return getTab(contextMenu.value.tabId)
   }
   return undefined
+}
+
+function resetDragState() {
+  dragState.sourceTabId = null
+  dragState.targetType = 'none'
+  dragState.targetTabId = null
+  dragState.targetWindowId = null
+  dragState.windowEdgeDirection = null
+  dragState.insertIndex = -1
+  hasDroppedOnTab = false
+}
+
+async function refreshWindowList() {
+  if (window.electronAPI) {
+    try {
+      const idResp = await window.electronAPI.getWindowId()
+      if (idResp.success && idResp.data) {
+        currentWindowId = idResp.data
+      }
+      const listResp = await window.electronAPI.listWindows()
+      if (listResp.success && listResp.data) {
+        windowList.value = listResp.data
+      }
+    } catch (e) {
+      console.error('Failed to get window info:', e)
+    }
+  }
 }
 
 function handleTabClick(tabId: string) {
@@ -334,7 +413,7 @@ function handleTabClose(tabId: string) {
 }
 
 function handleNewTab() {
-  tabsStore.createTab({ title: t('tabs.untitled') })
+  tabsStore.createTab()
 }
 
 function saveCurrentTab() {
@@ -407,7 +486,6 @@ function closeAllTabs() {
     }
   }
 
-  // 关闭所有标签页
   for (const tabId of allTabIds) {
     tabsStore.removeTab(tabId)
   }
@@ -423,107 +501,227 @@ function copyFilePath() {
   hideContextMenu()
 }
 
-let currentWindowId: number | null = null
-
 async function handleDragStart(event: DragEvent, tabId: string) {
-  draggingTabId.value = tabId
+  dragState.sourceTabId = tabId
+  dragState.targetType = 'none'
+  dragState.targetTabId = null
+  dragState.targetWindowId = null
+  dragState.windowEdgeDirection = null
+  hasDroppedOnTab = false
   
-  if (window.electronAPI) {
-    try {
-      const idResp = await window.electronAPI.getWindowId()
-      if (idResp.success && idResp.data) {
-        currentWindowId = idResp.data
-      }
-      const listResp = await window.electronAPI.listWindows()
-      if (listResp.success && listResp.data) {
-        windowList.value = listResp.data
-      }
-    } catch (e) {
-      console.error('Failed to get window info:', e)
-    }
-  }
+  await refreshWindowList()
   
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', tabId)
     
     setTimeout(() => {
-      if (draggingTabId.value === tabId) {
-        ghostStyle.value = {
-          left: `${event.clientX}px`,
-          top: `${event.clientY}px`
+      if (dragState.sourceTabId === tabId) {
+        dragState.mousePosition = {
+          x: event.clientX,
+          y: event.clientY
         }
       }
     }, 0)
   }
 }
 
-function handleDragEnd() {
-  draggingTabId.value = null
-  dragOverTabId.value = null
+function updateWindowEdgeState(event: DragEvent) {
+  if (!dragState.sourceTabId) return
+  
+  const edgeThreshold = 50
+  const direction: 'left' | 'right' | null = 
+    event.clientX < edgeThreshold ? 'left' : 
+    event.clientX > window.innerWidth - edgeThreshold ? 'right' : null
+  
+  if (direction) {
+    const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
+    if (otherWindows.length > 0) {
+      dragState.targetType = 'windowEdge'
+      dragState.windowEdgeDirection = direction
+      dragState.targetWindowId = otherWindows[0].id
+      return
+    }
+  }
+  
+  dragState.targetType = 'none'
+  dragState.windowEdgeDirection = null
+  dragState.targetWindowId = null
+}
+
+function isMouseOutsideWindow(event: DragEvent): boolean {
+  return (
+    event.clientX < 0 ||
+    event.clientX > window.innerWidth ||
+    event.clientY < 0 ||
+    event.clientY > window.innerHeight
+  )
+}
+
+function handleDragEnter(event: DragEvent, tabId: string) {
+  if (!dragState.sourceTabId || dragState.sourceTabId === tabId) return
+  
+  if (dragLeaveTimer) {
+    clearTimeout(dragLeaveTimer)
+    dragLeaveTimer = null
+  }
+  
+  dragState.targetTabId = tabId
+  dragState.targetType = 'tab'
+  dragState.windowEdgeDirection = null
+  dragState.targetWindowId = null
 }
 
 function handleDragOver(event: DragEvent, tabId: string) {
-  if (draggingTabId.value && draggingTabId.value !== tabId) {
-    dragOverTabId.value = tabId
-    
-    const edgeThreshold = 50
-    const direction: 'left' | 'right' | null = 
-      event.clientX < edgeThreshold ? 'left' : 
-      event.clientX > window.innerWidth - edgeThreshold ? 'right' : null
-    
-    if (direction) {
-      const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
-      if (otherWindows.length > 0) {
-        dragOverWindowEdge.value = { direction, targetWindowId: otherWindows[0].id }
-      } else {
-        dragOverWindowEdge.value = { direction: null, targetWindowId: null }
-      }
-    } else {
-      dragOverWindowEdge.value = { direction: null, targetWindowId: null }
-    }
+  if (!dragState.sourceTabId) return
+  
+  dragState.mousePosition = {
+    x: event.clientX,
+    y: event.clientY
   }
+  
+  if (dragState.sourceTabId === tabId) return
+  
+  const isOutside = isMouseOutsideWindow(event)
+  
+  if (isOutside) {
+    if (dragState.targetType !== 'outsideWindow') {
+      dragState.targetType = 'outsideWindow'
+      dragState.targetTabId = null
+      dragState.windowEdgeDirection = null
+      dragState.targetWindowId = null
+    }
+    return
+  }
+  
+  updateWindowEdgeState(event)
+  
+  if (dragState.targetType === 'none') {
+    dragState.targetTabId = tabId
+    dragState.targetType = 'tab'
+  }
+}
+
+function handleDragLeave(event: DragEvent) {
+  if (!dragState.sourceTabId) return
+  
+  const relatedTarget = event.relatedTarget as HTMLElement | null
+  const tabBar = document.querySelector('.tab-bar')
+  
+  if (relatedTarget && tabBar?.contains(relatedTarget)) {
+    return
+  }
+  
+  dragLeaveTimer = setTimeout(() => {
+    if (dragState.targetType === 'tab') {
+      dragState.targetTabId = null
+      dragState.targetType = 'none'
+    }
+  }, 50)
 }
 
 function handleDrop(event: DragEvent, targetTabId: string) {
   event.preventDefault()
   
-  if (!draggingTabId.value) {
+  if (!dragState.sourceTabId || dragState.sourceTabId === targetTabId) {
     return
   }
   
-  if (dragOverWindowEdge.value.direction && dragOverWindowEdge.value.targetWindowId && window.electronAPI) {
-    const tab = getTab(draggingTabId.value)
-    if (tab) {
-      window.electronAPI.mergeTab({
-        id: tab.id,
-        title: tab.title,
-        content: tab.content,
-        filePath: tab.filePath,
-        isDirty: tab.isDirty,
-        viewMode: tab.viewMode,
-        cursor: tab.cursor
-      }, dragOverWindowEdge.value.targetWindowId)
-      
-      tabsStore.removeTab(draggingTabId.value)
-    }
-  } else if (draggingTabId.value !== targetTabId) {
-    const currentOrder = [...tabsStore.tabOrder]
-    const dragIndex = currentOrder.indexOf(draggingTabId.value)
-    const targetIndex = currentOrder.indexOf(targetTabId)
+  if (dragState.targetType !== 'tab') {
+    return
+  }
+  
+  hasDroppedOnTab = true
+  
+  const currentOrder = [...tabsStore.tabOrder]
+  const dragIndex = currentOrder.indexOf(dragState.sourceTabId)
+  const targetIndex = currentOrder.indexOf(targetTabId)
+  
+  if (dragIndex === -1 || targetIndex === -1) {
+    return
+  }
+  
+  currentOrder.splice(dragIndex, 1)
+  
+  let insertIndex = targetIndex
+  if (dragIndex < targetIndex) {
+    insertIndex = targetIndex
+  } else {
+    insertIndex = targetIndex
+  }
+  
+  const rect = (event.target as HTMLElement).getBoundingClientRect()
+  const isAfterMiddle = event.clientX > rect.left + rect.width / 2
+  
+  if (isAfterMiddle && dragIndex > targetIndex) {
+    insertIndex = targetIndex + 1
+  } else if (!isAfterMiddle && dragIndex < targetIndex) {
+    insertIndex = targetIndex - 1
+  } else if (isAfterMiddle) {
+    insertIndex = targetIndex + 1
+  }
+  
+  insertIndex = Math.max(0, Math.min(insertIndex, currentOrder.length))
+  
+  currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, dragState.sourceTabId)
+  
+  const newDragIndex = currentOrder.indexOf(dragState.sourceTabId)
+  if (newDragIndex !== insertIndex) {
+    currentOrder.splice(newDragIndex, 1)
+    currentOrder.splice(insertIndex, 0, dragState.sourceTabId)
+  }
+  
+  tabsStore.tabOrder = currentOrder
+}
+
+async function handleDragEnd(event: DragEvent) {
+  if (!dragState.sourceTabId) {
+    resetDragState()
+    return
+  }
+  
+  const tab = getTab(dragState.sourceTabId)
+  if (!tab) {
+    resetDragState()
+    return
+  }
+  
+  if (hasDroppedOnTab) {
+    resetDragState()
+    return
+  }
+  
+  if (dragState.targetType === 'windowEdge' && dragState.targetWindowId && window.electronAPI) {
+    window.electronAPI.mergeTab({
+      id: tab.id,
+      title: tab.title,
+      content: tab.content,
+      filePath: tab.filePath,
+      isDirty: tab.isDirty,
+      viewMode: tab.viewMode,
+      cursor: tab.cursor
+    }, dragState.targetWindowId)
     
-    if (dragIndex > -1 && targetIndex > -1) {
-      currentOrder.splice(dragIndex, 1)
-      const insertIndex = dragIndex < targetIndex ? targetIndex : targetIndex + 1
-      currentOrder.splice(insertIndex > dragIndex ? insertIndex - 1 : insertIndex, 0, draggingTabId.value)
+    tabsStore.removeTab(dragState.sourceTabId)
+  } else if (dragState.targetType === 'outsideWindow' || isMouseOutsideWindow(event)) {
+    if (window.electronAPI) {
+      window.electronAPI.openNewWindow({
+        tabData: {
+          id: tab.id,
+          title: tab.title,
+          content: tab.content,
+          filePath: tab.filePath ?? null,
+          isDirty: tab.isDirty,
+          viewMode: tab.viewMode,
+          cursor: tab.cursor
+        }
+      })
       
-      tabsStore.tabOrder = currentOrder
+      tabsStore.removeTab(dragState.sourceTabId)
     }
   }
   
-  draggingTabId.value = null
-  dragOverTabId.value = null
-  dragOverWindowEdge.value = { direction: null, targetWindowId: null }
+  resetDragState()
 }
 
 function detachTab() {
@@ -558,11 +756,9 @@ onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
   document.addEventListener('keydown', handleGlobalKeydown)
   
-  // 标签栏横向滚动支持
   const tabsContainer = document.querySelector('.tabs-container') as HTMLElement
   if (tabsContainer) {
     tabsContainer.addEventListener('wheel', (e: WheelEvent) => {
-      // 直接横向滚动，无需按住Shift
       e.preventDefault()
       tabsContainer.scrollLeft += e.deltaY
     }, { passive: false })
@@ -572,6 +768,9 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleGlobalClick)
   document.removeEventListener('keydown', handleGlobalKeydown)
+  if (dragLeaveTimer) {
+    clearTimeout(dragLeaveTimer)
+  }
 })
 </script>
 
@@ -627,6 +826,11 @@ onUnmounted(() => {
   &.dragging {
     opacity: 0.5;
     cursor: grabbing;
+  }
+  
+  &.drag-over {
+    background: var(--sidebar-hover-bg);
+    border-bottom: 2px dashed var(--primary-color);
   }
 }
 
@@ -811,17 +1015,19 @@ onUnmounted(() => {
   text-align: center;
   color: var(--text-secondary);
 }
+</style>
 
+<style>
 .tab-drag-ghost {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
-  background: var(--tab-active-bg);
-  border: 1px solid var(--primary-color);
+  background: var(--tab-active-bg, #fff);
+  border: 1px solid var(--primary-color, #409eff);
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--text-primary, #333);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translate(-50%, -50%);
 }
@@ -856,6 +1062,29 @@ onUnmounted(() => {
     text-orientation: mixed;
     white-space: nowrap;
     margin-top: 8px;
+  }
+}
+
+.outside-window-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(64, 158, 255, 0.9);
+  border-radius: 8px;
+  padding: 20px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 9998;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  color: white;
+  
+  .outside-text {
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 </style>

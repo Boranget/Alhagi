@@ -1,5 +1,8 @@
 <template>
-  <div class="sidebar" :style="{ width: sidebarWidth + 'px' }">
+  <div
+    class="sidebar"
+    :style="{ width: sidebarWidth + 'px' }"
+  >
     <div class="sidebar-tabs">
       <button
         v-for="tab in sidebarTabs"

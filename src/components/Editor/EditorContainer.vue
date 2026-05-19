@@ -1,5 +1,8 @@
 <template>
-  <div class="editor-container" :style="containerStyle">
+  <div
+    class="editor-container"
+    :style="containerStyle"
+  >
     <FloatingSearch ref="floatingSearchRef" />
     <div
       v-if="showEditorToolbar"

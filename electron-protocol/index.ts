@@ -143,6 +143,7 @@ export const IPC_CHANNELS = {
 // ========== 菜单事件常量 ==========
 export const MENU_EVENTS = {
   NEW_FILE: 'menu:new-file',
+  NEW_WINDOW: 'menu:new-window',
   OPEN_FILE: 'menu:open-file',
   OPEN_FOLDER: 'menu:open-folder',
   SAVE: 'menu:save',
@@ -210,6 +211,7 @@ export interface ElectronAPI {
   getWindowId: () => Promise<IPCResponse<number | null>>
   listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string }>>>
   onNewFile: (callback: () => void) => () => void
+  onNewWindow: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void
   onSave: (callback: () => void) => () => void
   onSaveAs: (callback: () => void) => () => void

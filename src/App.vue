@@ -306,6 +306,12 @@ function setupElectronListeners() {
     tabsStore.createTab({ title: '未命名' })
   })
 
+  window.electronAPI.onNewWindow(() => {
+    if (window.electronAPI) {
+      window.electronAPI.openNewWindow()
+    }
+  })
+
   window.electronAPI.onOpenFile(() => {
     tabsStore.openFile()
   })

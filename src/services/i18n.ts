@@ -68,7 +68,8 @@ const zhCN: Translations = {
     copyPath: '复制路径',
     showInFolder: '在文件夹中显示',
     detachToNewWindow: '分离到新窗口',
-    releaseToMerge: '释放以合并到其他窗口'
+    releaseToMerge: '释放以合并到其他窗口',
+    releaseToNewWindow: '释放以创建新窗口'
   },
   statusBar: {
     switchTheme: '切换主题',
@@ -198,7 +199,8 @@ const en: Translations = {
     copyPath: 'Copy Path',
     showInFolder: 'Show in Folder',
     detachToNewWindow: 'Detach to New Window',
-    releaseToMerge: 'Release to merge to other window'
+    releaseToMerge: 'Release to merge to other window',
+    releaseToNewWindow: 'Release to create new window'
   },
   statusBar: {
     switchTheme: 'Switch Theme',

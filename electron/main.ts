@@ -74,6 +74,7 @@ function createMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
     { label: '文件', submenu: [
       { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send(MENU_EVENTS.NEW_FILE) },
+      { label: '新建窗口', accelerator: 'CmdOrCtrl+Shift+N', click: () => mainWindow?.webContents.send(MENU_EVENTS.NEW_WINDOW) },
       { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_FILE) },
       { label: '打开文件夹', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_FOLDER) },
       { type: 'separator' },

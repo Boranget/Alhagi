@@ -103,6 +103,16 @@ export const useTabsStore = defineStore('tabs', () => {
 
   const tabCount = computed(() => tabs.value.size)
 
+  function generateUntitledTitle(): string {
+    const untitledCount = Array.from(tabs.value.values()).filter(tab => 
+      tab.title.startsWith(TABS.NEW_TAB_TITLE)
+    ).length
+    if (untitledCount === 0) {
+      return TABS.NEW_TAB_TITLE
+    }
+    return `${TABS.NEW_TAB_TITLE}-${untitledCount}`
+  }
+
   function createTab(options: {
     filePath?: string
     content?: string
@@ -115,7 +125,7 @@ export const useTabsStore = defineStore('tabs', () => {
       filePath: options.filePath || null,
       content: options.content || '',
       isDirty: false,
-      title: options.title || TABS.NEW_TAB_TITLE,
+      title: options.title || generateUntitledTitle(),
       active: false,
       cursor: { from: 0, to: 0 },
       scrollTop: 0,
