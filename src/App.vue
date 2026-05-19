@@ -44,6 +44,7 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -107,8 +108,9 @@ function setupElectronListeners() {
     }
   })
 
-  window.electronAPI.onViewMode(() => {
-    // View mode changes handled by components
+  window.electronAPI.onViewMode((mode: string) => {
+    console.log('[App] View mode changed from menu:', mode)
+    eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode)
   })
 
   window.electronAPI.onCopyAsMarkdown(() => {

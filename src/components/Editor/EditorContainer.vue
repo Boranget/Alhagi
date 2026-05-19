@@ -196,29 +196,57 @@ const handleCodeMirrorFocus = () => {
 const handleViewModeChange = async (mode: ViewMode) => {
   const prevMode = currentMode.value
   
-  if (mode === prevMode) return
+  console.log('[EditorContainer] Changing view mode from', prevMode, 'to', mode)
   
+  if (mode === prevMode) {
+    console.log('[EditorContainer] Mode unchanged, skipping')
+    return
+  }
+  
+  // 如果切换到非 WYSIWYG 模式，先获取当前内容
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       sourceContent.value = editorManager.getMarkdown()
+      console.log('[EditorContainer] Got markdown content, length:', sourceContent.value.length)
     }
   }
 
+  // 如果切换到 WYSIWYG 模式，需要先设置内容
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
+    console.log('[EditorContainer] Switching to WYSIWYG, setting markdown content')
     if (editorManager.isReady()) {
       await editorManager.setMarkdown(sourceContent.value)
     }
   }
 
+  // 更新模式
   currentMode.value = mode
   editorManager.setViewMode(mode)
   
-  // 当视图模式改变时，我们需要重新初始化 Crepe 到新的容器中
+  // 等待 DOM 更新
   await nextTick()
-  if (crepeContainer.value) {
-    const currentContent = activeTab.value?.content || ''
-    const currentTabId = activeTab.value?.id
-    await editorManager.init(crepeContainer.value, currentContent, currentTabId)
+  
+  // 只有在 WYSIWYG 或分屏模式下才需要初始化 Crepe
+  if (mode === EDITOR.VIEW_MODES.WYSIWYG || mode === EDITOR.VIEW_MODES.SPLIT) {
+    console.log('[EditorContainer] Initializing Crepe for mode:', mode)
+    console.log('[EditorContainer] crepeContainer:', crepeContainer.value)
+    
+    if (crepeContainer.value) {
+      const currentContent = activeTab.value?.content || ''
+      const currentTabId = activeTab.value?.id
+      console.log('[EditorContainer] Content length:', currentContent.length, 'TabId:', currentTabId)
+      
+      try {
+        await editorManager.init(crepeContainer.value, currentContent, currentTabId)
+        console.log('[EditorContainer] Crepe initialized successfully')
+      } catch (error) {
+        console.error('[EditorContainer] Failed to initialize Crepe:', error)
+      }
+    } else {
+      console.error('[EditorContainer] crepeContainer is null after mode change!')
+    }
+  } else {
+    console.log('[EditorContainer] Source mode, no need to initialize Crepe')
   }
 }
 
