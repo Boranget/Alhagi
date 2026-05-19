@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-container">
+  <div class="editor-container" :style="containerStyle">
     <FloatingSearch ref="floatingSearchRef" />
     <div
       v-if="showEditorToolbar"
@@ -49,32 +49,38 @@
         ref="crepeContainer"
         class="wysiwyg-editor"
       />
-      <textarea
+      <div
         v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-        ref="sourceRef"
-        v-model="sourceContent"
-        class="source-editor"
-        @input="handleSourceInput"
-        @keydown="handleSourceKeydown"
-        @scroll="handleSourceScroll"
-      />
+        class="source-editor-wrapper"
+      >
+        <CodeMirrorEditor
+          :model-value="sourceContent"
+          @update:model-value="handleCodeMirrorChange"
+        />
+      </div>
       <div
         v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
         class="split-view"
       >
-        <textarea
-          ref="splitSourceRef"
-          v-model="sourceContent"
-          class="split-source"
-          @input="handleSourceInput"
-          @keydown="handleSourceKeydown"
-          @scroll="handleSourceScroll"
-        />
         <div
-          ref="splitPreviewRef"
+          class="split-source"
+          :style="{ width: `${splitRatio}%` }"
+        >
+          <CodeMirrorEditor
+            :model-value="sourceContent"
+            @update:model-value="handleCodeMirrorChange"
+          />
+        </div>
+        <div
+          class="split-resizer"
+          @mousedown="handleResizerMouseDown"
+        >
+          <div class="split-resizer-handle" />
+        </div>
+        <div
+          ref="crepeContainerSplit"
           class="split-preview"
-          @scroll="handlePreviewScroll"
-          v-html="previewHTML"
+          :style="{ width: `${100 - splitRatio}%` }"
         />
       </div>
     </div>
@@ -82,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
@@ -94,6 +100,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
+import CodeMirrorEditor from './CodeMirrorEditor.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -101,15 +108,16 @@ const prefsStore = usePreferencesStore()
 const editorManager = useCrepeEditorManager()
 
 const crepeContainer = ref<HTMLElement | null>(null)
-const sourceRef = ref<HTMLTextAreaElement | null>(null)
-const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
-const splitPreviewRef = ref<HTMLElement | null>(null)
+const crepeContainerSplit = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
-const previewHTML = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
 const showEditorToolbar = ref(false)
+const splitRatio = ref(50)
+const isResizing = ref(false)
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
 
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
@@ -122,10 +130,23 @@ const viewModes = [
 
 const activeTab = computed(() => tabsStore.activeTab)
 
+const isSmallScreen = computed(() => windowWidth.value < 800)
+const editorPadding = computed(() => isSmallScreen.value ? '10px' : '30px 80px')
+const editorScale = computed(() => {
+  if (windowWidth.value < 600) return 0.8
+  if (windowWidth.value < 1000) return 0.9
+  return 1
+})
+
+const containerStyle = computed(() => ({
+  '--editor-scale': editorScale.value.toString()
+}))
+
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
   'typewriter-mode': prefsStore.typewriterMode,
-  'focus-mode': prefsStore.focusMode
+  'focus-mode': prefsStore.focusMode,
+  'small-screen': isSmallScreen.value
 }))
 
 watch(activeTab, async (tab, oldTab) => {
@@ -145,18 +166,26 @@ watch(activeTab, async (tab, oldTab) => {
     
     // 更新源码内容
     sourceContent.value = tab.content
-    updatePreview()
   }
 }, { immediate: true })
 
+const handleCodeMirrorChange = (val: string) => {
+  sourceContent.value = val
+  handleSourceContentChange(val)
+}
+
 const handleViewModeChange = async (mode: ViewMode) => {
+  const prevMode = currentMode.value
+  
+  if (mode === prevMode) return
+  
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       sourceContent.value = editorManager.getMarkdown()
     }
   }
 
-  if (mode === EDITOR.VIEW_MODES.WYSIWYG && currentMode.value !== EDITOR.VIEW_MODES.WYSIWYG) {
+  if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       await editorManager.setMarkdown(sourceContent.value)
     }
@@ -164,74 +193,71 @@ const handleViewModeChange = async (mode: ViewMode) => {
 
   currentMode.value = mode
   editorManager.setViewMode(mode)
-  updatePreview()
+  
+  // 如果切换到分屏模式，需要将编辑器实例移动到分屏容器中
+  if (mode === EDITOR.VIEW_MODES.SPLIT && prevMode !== EDITOR.VIEW_MODES.SPLIT) {
+    await nextTick()
+    if (crepeContainerSplit.value && editorManager.isReady()) {
+      // 重新初始化编辑器到分屏容器
+      const currentContent = sourceContent.value
+      const currentTabId = activeTab.value?.id
+      await editorManager.init(crepeContainerSplit.value, currentContent, currentTabId)
+    }
+  } else if (prevMode === EDITOR.VIEW_MODES.SPLIT && mode !== EDITOR.VIEW_MODES.SPLIT) {
+    // 切换回单视图模式
+    await nextTick()
+    if (crepeContainer.value && editorManager.isReady()) {
+      const currentContent = sourceContent.value
+      const currentTabId = activeTab.value?.id
+      await editorManager.init(crepeContainer.value, currentContent, currentTabId)
+    }
+  }
 }
 
-const handleSourceInput = debounce(() => {
+const handleResizerMouseDown = (e: MouseEvent) => {
+  isResizing.value = true
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+const handleResizerMouseMove = (e: MouseEvent) => {
+  if (!isResizing.value) return
+  
+  const container = document.querySelector('.split-view') as HTMLElement
+  if (!container) return
+  
+  const rect = container.getBoundingClientRect()
+  let newRatio = ((e.clientX - rect.left) / rect.width) * 100
+  newRatio = Math.max(20, Math.min(80, newRatio))
+  splitRatio.value = newRatio
+}
+
+const handleResizerMouseUp = () => {
+  isResizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
+
+const handleSourceContentChange = debounce((newContent: unknown) => {
+  const content = newContent as string
   if (activeTab.value && editorManager.isReady()) {
     tabsStore.updateTab(activeTab.value.id, {
-      content: sourceContent.value,
+      content: content,
       isDirty: true,
     })
-    editorManager.setMarkdown(sourceContent.value)
-    updatePreview()
+    editorManager.setMarkdown(content)
   }
 }, 100)
 
-function updatePreview() {
-  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT) {
-    previewHTML.value = editorManager.getHTML() || ''
-  }
-}
-
-function handleSourceKeydown(e: KeyboardEvent) {
-  if (e.key === 'Tab') {
-    e.preventDefault()
-    const textarea = e.target as HTMLTextAreaElement
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end)
-    textarea.selectionStart = textarea.selectionEnd = start + 2
-    sourceContent.value = textarea.value
-  }
-}
-
-let isScrollingFromSource = false
-let isScrollingFromPreview = false
-
-function handleSourceScroll(e: Event) {
-  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT && !isScrollingFromPreview) {
-    isScrollingFromSource = true
-    const source = e.target as HTMLTextAreaElement
-    if (splitPreviewRef.value) {
-      const sourceScrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight || 1)
-      splitPreviewRef.value.scrollTop = sourceScrollRatio * (splitPreviewRef.value.scrollHeight - splitPreviewRef.value.clientHeight)
-    }
-    setTimeout(() => {
-      isScrollingFromSource = false
-    }, 50)
-  }
-}
-
-function handlePreviewScroll(e: Event) {
-  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT && !isScrollingFromSource) {
-    isScrollingFromPreview = true
-    const preview = e.target as HTMLElement
-    if (splitSourceRef.value) {
-      const previewScrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1)
-      splitSourceRef.value.scrollTop = previewScrollRatio * (splitSourceRef.value.scrollHeight - splitSourceRef.value.clientHeight)
-    }
-    setTimeout(() => {
-      isScrollingFromPreview = false
-    }, 50)
-  }
+const handleWindowResize = () => {
+  windowWidth.value = window.innerWidth
+  windowHeight.value = window.innerHeight
 }
 
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
     sourceContent.value = data.content
-    updatePreview()
   }
 })
 unsubscribes.push(unsubscribeContentChanged)
@@ -246,6 +272,12 @@ const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payloa
   }
 })
 unsubscribes.push(unsubscribeEditorReady)
+
+const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, async (mode) => {
+  console.log('[EditorContainer] View mode changed via menu:', mode)
+  await handleViewModeChange(mode as 'wysiwyg' | 'source' | 'split')
+})
+unsubscribes.push(unsubscribeViewModeChanged)
 
 onMounted(async () => {
   console.log('[EditorContainer] onMounted called')
@@ -273,14 +305,18 @@ onMounted(async () => {
   }
   
   window.addEventListener('keydown', handleEditorKeydown)
+  window.addEventListener('resize', handleWindowResize)
+  document.addEventListener('mousemove', handleResizerMouseMove)
+  document.addEventListener('mouseup', handleResizerMouseUp)
 })
 
 onUnmounted(async () => {
   console.log('[EditorContainer] onUnmounted called - NOT destroying editor (singleton mode)')
   unsubscribes.forEach(unsubscribe => unsubscribe())
-  // 不再销毁编辑器，因为它是单例模式
-  // await editorManager.destroy()
   window.removeEventListener('keydown', handleEditorKeydown)
+  window.removeEventListener('resize', handleWindowResize)
+  document.removeEventListener('mousemove', handleResizerMouseMove)
+  document.removeEventListener('mouseup', handleResizerMouseUp)
   console.log('[EditorContainer] Event listeners cleaned up')
 })
 
@@ -350,7 +386,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.mode-wysiwyg {
     .wysiwyg-editor {
       height: 100%;
-      padding: 30px 80px;
+      padding: v-bind(editorPadding);
       overflow: auto;
       transition: all 0.3s ease;
       display: flex;
@@ -364,6 +400,8 @@ function handleEditorKeydown(e: KeyboardEvent) {
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
+        transform-origin: top center;
+        transform: scale(var(--editor-scale, 1));
       }
 
       :deep(.milkdown) {
@@ -454,18 +492,9 @@ function handleEditorKeydown(e: KeyboardEvent) {
   }
 
   &.mode-source {
-    .source-editor {
+    .source-editor-wrapper {
       width: 100%;
       height: 100%;
-      padding: 20px 40px;
-      border: none;
-      outline: none;
-      resize: none;
-      background: var(--editor-bg);
-      color: var(--editor-text);
-      font-family: 'Fira Code', 'Consolas', monospace;
-      font-size: 14px;
-      line-height: 1.6;
     }
   }
 
@@ -475,54 +504,85 @@ function handleEditorKeydown(e: KeyboardEvent) {
       height: 100%;
 
       .split-source {
-        width: 50%;
         height: 100%;
-        padding: 20px;
-        border: none;
-        border-right: 1px solid var(--border-color);
-        outline: none;
-        resize: none;
-        background: var(--editor-bg);
-        color: var(--editor-text);
-        font-family: 'Fira Code', 'Consolas', monospace;
-        font-size: 14px;
-        line-height: 1.6;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+
+      .split-resizer {
+        width: 6px;
+        background: var(--border-color);
+        cursor: col-resize;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.15s;
+        flex-shrink: 0;
+
+        &:hover {
+          background: var(--primary-color);
+        }
+
+        .split-resizer-handle {
+          width: 2px;
+          height: 30px;
+          background: var(--text-secondary);
+          border-radius: 1px;
+        }
       }
 
       .split-preview {
-        width: 50%;
         height: 100%;
-        padding: 20px;
-        overflow: auto;
-        background: var(--preview-bg);
+        overflow: hidden;
+        flex-shrink: 0;
 
-        h1, h2, h3 {
-          margin: 1em 0 0.5em;
+        :deep(.crepe) {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          height: 100%;
+          width: 100%;
+          max-width: 100%;
+          margin: 0 auto;
         }
 
-        p {
-          margin: 0.5em 0;
-        }
-
-        code {
-          background: var(--code-bg);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-family: 'Fira Code', monospace;
+        :deep(.milkdown) {
+          outline: none;
+          min-height: 0;
+          padding: v-bind(editorPadding);
+          
+          .ProseMirror {
+            outline: none;
+            caret-color: var(--text-primary, #333);
+            color: var(--editor-text, #333);
+            padding: 8px 16px !important;
+          }
         }
       }
     }
   }
 
   &.typewriter-mode {
-    .wysiwyg-editor, .source-editor, .split-source {
+    .wysiwyg-editor, .source-editor-wrapper, .split-source {
       scroll-behavior: smooth;
     }
   }
 
   &.focus-mode {
-    .wysiwyg-editor, .source-editor {
+    .wysiwyg-editor, .source-editor-wrapper {
       background: var(--bg-primary);
+    }
+  }
+
+  &.small-screen {
+    :deep(.milkdown-block-handle) {
+      display: none !important;
+    }
+
+    :deep(.milkdown) {
+      .crepe, .ProseMirror {
+        transform-origin: top center;
+      }
     }
   }
 }

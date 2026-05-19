@@ -74,6 +74,7 @@ export const AppEvents = {
   FOLDER_OPENED: 'app:folder:opened' as const,
   EDITOR_READY: 'app:editor:ready' as const,
   EDITOR_DESTROYED: 'app:editor:destroyed' as const,
+  VIEW_MODE_CHANGED: 'app:view-mode-changed' as const,
   SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const,
   THEME_CHANGED: 'app:theme:changed' as const,
   WINDOW_RESIZED: 'app:window:resized' as const,

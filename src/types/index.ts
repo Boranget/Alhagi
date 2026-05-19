@@ -69,6 +69,7 @@ export interface AppEventPayloads {
   'app:folder:opened': { folderPath: string }
   'app:editor:ready': { tabId?: string | null }
   'app:editor:destroyed': { tabId?: string | null }
+  'app:view-mode-changed': ViewMode
   'app:sidebar:view-changed': SidebarView
   'app:theme:changed': Theme
   'app:window:resized': { width: number; height: number }

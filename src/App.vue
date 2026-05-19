@@ -43,6 +43,7 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -322,7 +323,7 @@ function setupElectronListeners() {
   })
 
   window.electronAPI.onViewMode((mode) => {
-    editorManager.setViewMode(mode as 'wysiwyg' | 'source' | 'split')
+    eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode as 'wysiwyg' | 'source' | 'split')
   })
 
   window.electronAPI.onCopyAsMarkdown(() => {

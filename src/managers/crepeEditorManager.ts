@@ -47,7 +47,7 @@ export class CrepeEditorManager {
       defaultValue: initialContent,
       features: {
         [Crepe.Feature.BlockEdit]: true,
-        [Crepe.Feature.CodeMirror]: true,
+        [Crepe.Feature.CodeMirror]: true, // LaTeX 功能需要启用 CodeMirror
         [Crepe.Feature.LinkTooltip]: true,
         [Crepe.Feature.Table]: true,
         [Crepe.Feature.Toolbar]: false,
