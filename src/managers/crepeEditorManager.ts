@@ -366,12 +366,13 @@ export class CrepeEditorManager {
     // 保存当前状态 - 在 destroy() 之前获取
     const currentContent = this.getMarkdown()
     const container = this.container
+    const tabId = this.currentTabId
     
     // 先销毁
     await this.destroy()
     
     // 重新初始化 - 传入保存的容器
-    await this.init(container, currentContent, this.currentTabId || undefined)
+    await this.init(container, currentContent, tabId || undefined)
   }
 }
 

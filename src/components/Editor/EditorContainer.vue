@@ -131,8 +131,6 @@ const windowWidth = ref(window.innerWidth)
 const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
 
-const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
-
 const viewModes = [
   { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: 'wysiwyg' },
   { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: t('editor.sourceMode'), icon: 'code' },

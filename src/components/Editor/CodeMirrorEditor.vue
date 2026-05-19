@@ -6,20 +6,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { EditorView } from '@codemirror/view'
 import { createCodeMirrorView, createCodeMirrorState } from './codemirror/setup'
+import { usePreferencesStore } from '@/stores/preferences'
 
 interface Props {
   modelValue: string
-  dark?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  dark: false
-})
+const props = defineProps<Props>()
 
 const emit = defineEmits(['update:modelValue', 'focus'])
+
+const prefsStore = usePreferencesStore()
+
+// 计算当前是否为暗色模式
+const isDarkMode = computed(() => {
+  if (prefsStore.theme === 'dark') return true
+  if (prefsStore.theme === 'system') {
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  }
+  return false
+})
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
@@ -33,23 +42,38 @@ const handleFocus = () => {
   emit('focus')
 }
 
-onMounted(() => {
+function initEditor() {
   if (editorRef.value) {
     editorView = createCodeMirrorView({
       root: editorRef.value,
       content: props.modelValue,
-      dark: props.dark,
+      dark: isDarkMode.value,
       onChange: handleChange,
       onFocus: handleFocus
     })
   }
-})
+}
 
-onUnmounted(() => {
+function destroyEditor() {
   if (editorView) {
     editorView.destroy()
     editorView = null
   }
+}
+
+onMounted(() => {
+  initEditor()
+})
+
+onUnmounted(() => {
+  destroyEditor()
+})
+
+// 监听暗色模式变化，重新创建编辑器以切换主题
+watch(isDarkMode, () => {
+  console.log('[CodeMirrorEditor] Theme changed, recreating editor')
+  destroyEditor()
+  initEditor()
 })
 
 watch(() => props.modelValue, (newValue) => {

@@ -240,6 +240,25 @@ watch(
   }
 )
 
+// 监听系统主题变化
+let systemThemeListener: ((e: MediaQueryListEvent) => void) | null = null
+
+function setupSystemThemeListener() {
+  if (systemThemeListener) {
+    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener)
+  }
+  
+  systemThemeListener = async (e: MediaQueryListEvent) => {
+    if (prefsStore.theme === 'system') {
+      console.log('[App] System theme changed:', e.matches ? 'dark' : 'light')
+      prefsStore.applyTheme()
+      await editorManager.updateTheme()
+    }
+  }
+  
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeListener)
+}
+
 watch(
   () => tabsStore.tabs.size,
   (newSize) => {
@@ -253,6 +272,7 @@ watch(
 
 onMounted(() => {
   setupElectronListeners()
+  setupSystemThemeListener()
   window.addEventListener('beforeunload', saveCurrentSession)
 
   prefsStore.loadPreferences()
@@ -318,6 +338,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('beforeunload', saveCurrentSession)
+  if (systemThemeListener) {
+    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener)
+  }
   if (autoSaveTimer) {
     clearTimeout(autoSaveTimer)
   }
