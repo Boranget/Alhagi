@@ -52,13 +52,13 @@ export class CrepeEditorManager {
       root: container,
       defaultValue: initialContent,
       features: {
-        [Crepe.Feature.BlockEdit]: true,
+        [Crepe.Feature.BlockEdit]: false, // 禁用 BlockEdit 以关闭 milkdown-block-handle 功能
         [Crepe.Feature.CodeMirror]: true, // LaTeX 功能需要启用 CodeMirror
         [Crepe.Feature.LinkTooltip]: true,
         [Crepe.Feature.Table]: true,
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.Placeholder]: true,
-        [Crepe.Feature.Cursor]: true, // 启用 Cursor 特性以解决双光标问题
+        [Crepe.Feature.Cursor]: false, // 启用 Cursor 特性以解决双光标问题
       },
     })
     console.log('[CrepeEditorManager] Crepe instance created')

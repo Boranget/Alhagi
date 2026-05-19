@@ -142,7 +142,7 @@ const viewModes = [
 const activeTab = computed(() => tabsStore.activeTab)
 
 const isSmallScreen = computed(() => windowWidth.value < 800)
-const editorPadding = computed(() => isSmallScreen.value ? '10px' : '30px 80px')
+const editorPadding = computed(() => isSmallScreen.value ? '10px' : '40px 100px')
 const editorScale = computed(() => {
   if (windowWidth.value < 600) return 0.8
   if (windowWidth.value < 1000) return 0.9
@@ -419,6 +419,10 @@ function handleEditorKeydown(e: KeyboardEvent) {
       :deep(.milkdown) {
         outline: none;
         min-height: 0;
+        
+        .milkdown-block-handle {
+          display: none !important;
+        }
         
         .ProseMirror {
           outline: none;
