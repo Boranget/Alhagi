@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<Props>(), {
   dark: false
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'focus'])
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
@@ -29,13 +29,18 @@ const handleChange = (getString: () => string) => {
   emit('update:modelValue', newValue)
 }
 
+const handleFocus = () => {
+  emit('focus')
+}
+
 onMounted(() => {
   if (editorRef.value) {
     editorView = createCodeMirrorView({
       root: editorRef.value,
       content: props.modelValue,
       dark: props.dark,
-      onChange: handleChange
+      onChange: handleChange,
+      onFocus: handleFocus
     })
   }
 })
@@ -52,7 +57,8 @@ watch(() => props.modelValue, (newValue) => {
     const state = createCodeMirrorState({
       content: newValue,
       dark: props.dark,
-      onChange: handleChange
+      onChange: handleChange,
+      onFocus: handleFocus
     })
     editorView.setState(state)
   }

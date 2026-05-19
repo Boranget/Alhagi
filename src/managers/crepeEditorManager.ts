@@ -18,9 +18,15 @@ export class CrepeEditorManager {
   private contentCache: LRUCache<string>
   private isUpdatingContent = false
   private isInitialized = false
+  private activeEditor: 'crepe' | 'codemirror' | null = null
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
+  }
+
+  setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
+    this.activeEditor = editor
+    console.log('[CrepeEditorManager] Active editor set to:', editor)
   }
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
@@ -94,7 +100,7 @@ export class CrepeEditorManager {
     if (!this.crepe) return this.content
 
     try {
-      const markdown = this.crepe.editor.action(getMarkdown())
+      const markdown = this.crepe.getMarkdown()
       return markdown || this.content
     } catch (error) {
       console.error('[CrepeEditorManager] Failed to get markdown:', error)
@@ -123,30 +129,36 @@ export class CrepeEditorManager {
     const startTime = performance.now()
 
     try {
+      // 使用 Crepe 的内置方法更安全
+      // 我们可以用 Crepe 的 API 或者更安全的方式处理
       this.crepe.editor.action((ctx) => {
-        const view = ctx.get(editorViewCtx)
-        const parser = ctx.get(parserCtx)
-        const doc = parser(content)
+        try {
+          const view = ctx.get(editorViewCtx)
+          const parser = ctx.get(parserCtx)
+          const doc = parser(content)
 
-        if (!doc) {
-          console.error('[CrepeEditorManager] Failed to parse markdown')
-          return
+          if (!doc) {
+            console.error('[CrepeEditorManager] Failed to parse markdown')
+            return
+          }
+
+          const state = view.state
+          const { from } = state.selection
+          let tr = state.tr
+
+          tr = tr.replace(
+            0,
+            state.doc.content.size,
+            new Slice(doc.content, 0, 0)
+          )
+
+          const docSize = doc.content.size
+          const safeFrom = Math.min(from, docSize - 2)
+          tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
+          view.dispatch(tr)
+        } catch (innerError) {
+          console.error('[CrepeEditorManager] Error updating editor:', innerError)
         }
-
-        const state = view.state
-        const { from } = state.selection
-        let tr = state.tr
-
-        tr = tr.replace(
-          0,
-          state.doc.content.size,
-          new Slice(doc.content, 0, 0)
-        )
-
-        const docSize = doc.content.size
-        const safeFrom = Math.min(from, docSize - 2)
-        tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
-        view.dispatch(tr)
       })
 
       const setTime = performance.now() - startTime
@@ -270,6 +282,14 @@ export class CrepeEditorManager {
     }
 
     console.log('[CrepeEditorManager] Content updated, length:', markdown.length)
+    console.log('[CrepeEditorManager] Current view mode:', this.currentMode)
+    console.log('[CrepeEditorManager] Active editor:', this.activeEditor)
+
+    // 如果当前用户正在编辑 CodeMirror，就不应该由 Crepe 更新
+    if (this.activeEditor === 'codemirror') {
+      console.log('[CrepeEditorManager] CodeMirror is active, skipping content update from Crepe')
+      return
+    }
 
     this.content = markdown
 

@@ -43,46 +43,55 @@
     <div
       class="editor-content"
       :class="contentClasses"
+      :style="{ transform: `scale(${editorScale})`, transformOrigin: 'top center' }"
     >
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG"
-        ref="crepeContainer"
-        class="wysiwyg-editor"
-      />
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-        class="source-editor-wrapper"
-      >
-        <CodeMirrorEditor
-          :model-value="sourceContent"
-          @update:model-value="handleCodeMirrorChange"
-        />
-      </div>
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="split-view"
-      >
+      <!-- WYSIWYG 模式：只显示 Crepe 编辑器 -->
+      <template v-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
         <div
-          class="split-source"
-          :style="{ width: `${splitRatio}%` }"
-        >
+          ref="crepeContainer"
+          class="wysiwyg-editor"
+          @focus="handleCrepeFocus"
+        />
+      </template>
+
+      <!-- 源码模式：只显示 CodeMirror -->
+      <template v-else-if="currentMode === EDITOR.VIEW_MODES.SOURCE">
+        <div class="source-editor-wrapper">
           <CodeMirrorEditor
             :model-value="sourceContent"
             @update:model-value="handleCodeMirrorChange"
+            @focus="handleCodeMirrorFocus"
           />
         </div>
-        <div
-          class="split-resizer"
-          @mousedown="handleResizerMouseDown"
-        >
-          <div class="split-resizer-handle" />
+      </template>
+
+      <!-- 分屏模式：显示两个并排的容器 -->
+      <template v-else>
+        <div class="split-view">
+          <div
+            class="split-source"
+            :style="{ width: `${splitRatio}%` }"
+          >
+            <CodeMirrorEditor
+              :model-value="sourceContent"
+              @update:model-value="handleCodeMirrorChange"
+              @focus="handleCodeMirrorFocus"
+            />
+          </div>
+          <div
+            class="split-resizer"
+            @mousedown="handleResizerMouseDown"
+          >
+            <div class="split-resizer-handle" />
+          </div>
+          <div
+            ref="crepeContainer"
+            class="split-preview"
+            :style="{ width: `${100 - splitRatio}%` }"
+            @focus="handleCrepeFocus"
+          />
         </div>
-        <div
-          ref="crepeContainerSplit"
-          class="split-preview"
-          :style="{ width: `${100 - splitRatio}%` }"
-        />
-      </div>
+      </template>
     </div>
   </div>
 </template>
@@ -170,8 +179,18 @@ watch(activeTab, async (tab, oldTab) => {
 }, { immediate: true })
 
 const handleCodeMirrorChange = (val: string) => {
+  // 编辑 CodeMirror 时设置 activeEditor 为 codemirror
+  editorManager.setActiveEditor('codemirror')
   sourceContent.value = val
   handleSourceContentChange(val)
+}
+
+const handleCrepeFocus = () => {
+  editorManager.setActiveEditor('crepe')
+}
+
+const handleCodeMirrorFocus = () => {
+  editorManager.setActiveEditor('codemirror')
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
@@ -194,23 +213,12 @@ const handleViewModeChange = async (mode: ViewMode) => {
   currentMode.value = mode
   editorManager.setViewMode(mode)
   
-  // 如果切换到分屏模式，需要将编辑器实例移动到分屏容器中
-  if (mode === EDITOR.VIEW_MODES.SPLIT && prevMode !== EDITOR.VIEW_MODES.SPLIT) {
-    await nextTick()
-    if (crepeContainerSplit.value && editorManager.isReady()) {
-      // 重新初始化编辑器到分屏容器
-      const currentContent = sourceContent.value
-      const currentTabId = activeTab.value?.id
-      await editorManager.init(crepeContainerSplit.value, currentContent, currentTabId)
-    }
-  } else if (prevMode === EDITOR.VIEW_MODES.SPLIT && mode !== EDITOR.VIEW_MODES.SPLIT) {
-    // 切换回单视图模式
-    await nextTick()
-    if (crepeContainer.value && editorManager.isReady()) {
-      const currentContent = sourceContent.value
-      const currentTabId = activeTab.value?.id
-      await editorManager.init(crepeContainer.value, currentContent, currentTabId)
-    }
+  // 当视图模式改变时，我们需要重新初始化 Crepe 到新的容器中
+  await nextTick()
+  if (crepeContainer.value) {
+    const currentContent = activeTab.value?.content || ''
+    const currentTabId = activeTab.value?.id
+    await editorManager.init(crepeContainer.value, currentContent, currentTabId)
   }
 }
 
@@ -257,6 +265,8 @@ const handleWindowResize = () => {
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
+    // 只有当我们不是正在编辑 CodeMirror 时，才更新 sourceContent
+    // CrepeEditorManager 已经在 handleMarkdownUpdate 中做了这个判断
     sourceContent.value = data.content
   }
 })

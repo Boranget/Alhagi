@@ -57,6 +57,7 @@ const basicSetup: Extension = [
 interface StateOptions {
   dark: boolean
   onChange: (getString: () => string) => void
+  onFocus?: () => void
   content: string
 }
 
@@ -64,6 +65,7 @@ export const createCodeMirrorState = ({
   onChange,
   content,
   dark,
+  onFocus,
 }: StateOptions) => {
   return EditorState.create({
     doc: content,
@@ -74,6 +76,7 @@ export const createCodeMirrorState = ({
       EditorView.updateListener.of((viewUpdate) => {
         onCodeMirrorUpdate(onChange, viewUpdate)
       }),
+      onFocus ? EditorView.domEventHandlers({ focus: onFocus }) : [],
     ],
   })
 }
