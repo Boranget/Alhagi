@@ -1,172 +1,107 @@
-import { ref } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
-
-export type ExportFormat = 'html' | 'pdf' | 'txt'
-
-export interface ExportOptions {
-  format: ExportFormat
-  includeStyles?: boolean
-  title?: string
-  author?: string
-}
-
-const HTML_STYLES = `
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          line-height: 1.6;
-          max-width: 800px;
-          margin: 40px auto;
-          padding: 20px;
-          color: #333;
-        }
-        h1, h2, h3 { color: #2c3e50; margin-top: 1.5em; }
-        code {
-          background: #f4f4f4;
-          padding: 2px 6px;
-          border-radius: 3px;
-          font-family: 'Fira Code', Consolas, monospace;
-        }
-        pre {
-          background: #f4f4f4;
-          padding: 16px;
-          border-radius: 6px;
-          overflow-x: auto;
-        }
-        blockquote {
-          border-left: 4px solid #3498db;
-          padding-left: 16px;
-          margin-left: 0;
-          color: #7f8c8d;
-        }
-        img { max-width: 100%; height: auto; }
-        a { color: #3498db; }
-      </style>
-`
-
-function wrapHtml(content: string, title?: string, includeStyles = true): string {
-  return `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title || '导出文档'}</title>
-  ${includeStyles ? HTML_STYLES : ''}
-</head>
-<body>
-  ${content}
-</body>
-</html>
-  `.trim()
-}
-
-function downloadFile(content: string, filename: string, mimeType: string) {
-  if (window.electronAPI) {
-    return window.electronAPI.saveAsFile(content, filename)
-  } else {
-    const blob = new Blob([content], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-    return Promise.resolve(filename)
-  }
-}
-
-type Exporter = (content: string, title: string, options: ExportOptions) => Promise<boolean>
 
 export function useExport() {
   const tabsStore = useTabsStore()
   const editorManager = useCrepeEditorManager()
-  const { getHTML, getMarkdown } = editorManager
-  const isExporting = ref(false)
-  const exportError = ref<string | null>(null)
-  
-  const exporters: Record<ExportFormat, Exporter> = {
-    async html(_content: string, title: string, options: ExportOptions): Promise<boolean> {
-      // 使用 Milkdown 的 getHTML() 获取准确的 HTML
-      const htmlContent = getHTML()
-      const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
-      const filePath = await downloadFile(fullHtml, `${title || '未命名'}.html`, 'text/html')
-      return !!filePath
-    },
-    
-    async txt(_content: string, title: string): Promise<boolean> {
-      // 使用 Milkdown 的 getMarkdown() 获取准确的 Markdown
-      const markdownContent = getMarkdown()
-      const filePath = await downloadFile(markdownContent, `${title || '未命名'}.txt`, 'text/plain')
-      return !!filePath
-    },
-    
-    async pdf(_content: string, title: string, options: ExportOptions): Promise<boolean> {
-      // 使用 Milkdown 的 getHTML() 获取准确的 HTML
-      const htmlContent = getHTML()
-      const fullHtml = wrapHtml(htmlContent, title, options.includeStyles)
-      
-      const printWindow = window.open('', '_blank')
-      if (printWindow) {
-        printWindow.document.write(fullHtml)
-        printWindow.document.close()
-        printWindow.print()
-        printWindow.close()
-        return true
-      }
-      return false
-    }
+
+  function escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
   }
-  
-  async function exportDocument(options: ExportOptions): Promise<boolean> {
-    const activeTab = tabsStore.activeTab
-    if (!activeTab) {
-      exportError.value = '没有活动标签页'
-      return false
-    }
-    
-    isExporting.value = true
-    exportError.value = null
-    
+
+  function getFullHtml(title: string): string {
+    let content = ''
     try {
-      const exporter = exporters[options.format]
-      const title = options.title || activeTab.title
-      const success = await exporter(activeTab.content, title, options)
-      return success
+      content = editorManager.getHTML()
     } catch (error) {
-      exportError.value = `导出失败: ${error}`
-      console.error('Export error:', error)
-      return false
-    } finally {
-      isExporting.value = false
+      console.error('[useExport] Failed to get HTML content for export:', error)
+      content = ''
     }
+
+    if (!content && tabsStore.activeTab) {
+      content = `<div class="markdown-body">${tabsStore.activeTab.content}</div>`
+    }
+
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
+    blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #666; }
+    pre { background: #f4f4f4; padding: 16px; overflow-x: auto; border-radius: 4px; }
+    img { max-width: 100%; }
+    a { color: #0066cc; }
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`
   }
-  
+
+  function exportFile(content: string, title: string, format: 'md' | 'html' | 'txt') {
+    let exportContent = content
+    let mimeType = 'text/markdown'
+    let extension = '.md'
+
+    if (format === 'html') {
+      exportContent = getFullHtml(title)
+      mimeType = 'text/html'
+      extension = '.html'
+    } else if (format === 'txt') {
+      exportContent = content
+      mimeType = 'text/plain'
+      extension = '.txt'
+    }
+
+    const blob = new Blob([exportContent], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+
+    const baseName = title.replace(/\.md$/, '')
+    a.href = url
+    a.download = `${baseName}${extension}`
+    a.click()
+
+    URL.revokeObjectURL(url)
+  }
+
   function showExportDialog() {
     const activeTab = tabsStore.activeTab
-    if (!activeTab) {
-      alert('请先打开一个文件')
-      return
-    }
-    
-    const format = prompt('选择导出格式 (html/pdf/txt):', 'html')
-    if (format) {
-      const validFormats: ExportFormat[] = ['html', 'pdf', 'txt']
-      if (validFormats.includes(format as ExportFormat)) {
-        exportDocument({
-          format: format as ExportFormat,
-          title: activeTab.title,
-          includeStyles: true
-        })
-      }
+    if (!activeTab) return
+
+    const exportOptions = [
+      { label: 'Markdown (.md)', value: 'md' },
+      { label: 'HTML (.html)', value: 'html' },
+      { label: 'Plain Text (.txt)', value: 'txt' }
+    ]
+
+    const selectedOption = prompt(
+      '选择导出格式：\n' + exportOptions.map((opt, i) => `${i + 1}. ${opt.label}`).join('\n'),
+      '1'
+    )
+
+    if (!selectedOption) return
+
+    const optionIndex = parseInt(selectedOption) - 1
+    if (optionIndex >= 0 && optionIndex < exportOptions.length) {
+      const option = exportOptions[optionIndex]
+      exportFile(activeTab.content, activeTab.title, option.value as 'md' | 'html' | 'txt')
     }
   }
-  
+
   return {
-    isExporting,
-    exportError,
-    exportDocument,
-    showExportDialog
+    showExportDialog,
+    exportFile,
+    getFullHtml
   }
 }

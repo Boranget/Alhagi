@@ -120,7 +120,7 @@ async function openFolder() {
   }
 }
 
-function openRecentFile(file: any) {
+function openRecentFile(file: { filePath: string; title: string }) {
   if (file.filePath) {
     tabsStore.openRecentFile(file.filePath)
   }

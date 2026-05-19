@@ -97,7 +97,10 @@ export class CrepeEditorManager {
   }
 
   getMarkdown(): string {
-    if (!this.crepe) return this.content
+    if (!this.crepe || !this.isInitialized) {
+      console.warn('[CrepeEditorManager] Cannot get markdown: Crepe not initialized')
+      return this.content
+    }
 
     try {
       const markdown = this.crepe.getMarkdown()
@@ -175,18 +178,24 @@ export class CrepeEditorManager {
   }
 
   getHTML(): string {
-    if (!this.crepe) return ''
+    if (!this.crepe || !this.isInitialized) {
+      console.warn('[CrepeEditorManager] Cannot get HTML: Crepe not initialized')
+      return ''
+    }
 
     try {
       let html = ''
       this.crepe.editor.action((ctx) => {
-        const view = ctx.get(editorViewCtx)
-
-        if (view) {
-          const dom = view.dom.querySelector('.milkdown')
-          if (dom) {
-            html = dom.innerHTML
+        try {
+          const view = ctx.get(editorViewCtx)
+          if (view) {
+            const dom = view.dom.querySelector('.milkdown')
+            if (dom) {
+              html = dom.innerHTML
+            }
           }
+        } catch (innerError) {
+          console.error('[CrepeEditorManager] Failed to get editor view context:', innerError)
         }
       })
       return html
