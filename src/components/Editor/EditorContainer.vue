@@ -132,11 +132,15 @@ watch(activeTab, async (tab, oldTab) => {
   if (tab) {
     console.log('[EditorContainer] Tab changed:', tab.id, 'content length:', tab.content.length)
     
-    // 如果是标签页切换，需要更新编辑器内容
-    if (oldTab && tab.id !== oldTab.id && editorManager.isReady()) {
-      console.log('[EditorContainer] Switching to tab:', tab.id)
-      await editorManager.switchToTab(tab.id)
-      console.log('[EditorContainer] Switched to tab:', tab.id, 'content:', tab.content.substring(0, 50))
+    // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
+    if (editorManager.isReady()) {
+      if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
+        console.log('[EditorContainer] Switching to tab:', tab.id)
+        await editorManager.switchToTab(tab.id)
+        console.log('[EditorContainer] Switched to tab:', tab.id, 'content:', tab.content.substring(0, 50))
+      }
+    } else {
+      console.log('[EditorContainer] Editor not ready yet, will sync after init')
     }
     
     // 更新源码内容
@@ -232,6 +236,17 @@ const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payloa
 })
 unsubscribes.push(unsubscribeContentChanged)
 
+const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
+  const data = payload as { tabId: string | null }
+  console.log('[EditorContainer] Editor ready event received:', data)
+  
+  if (activeTab.value && editorManager.isReady()) {
+    console.log('[EditorContainer] Syncing content after editor ready')
+    await editorManager.switchToTab(activeTab.value.id)
+  }
+})
+unsubscribes.push(unsubscribeEditorReady)
+
 onMounted(async () => {
   console.log('[EditorContainer] onMounted called')
   console.log('[EditorContainer] crepeContainer:', crepeContainer.value)
@@ -245,6 +260,11 @@ onMounted(async () => {
     try {
       await editorManager.init(crepeContainer.value, initialContent, tabId)
       console.log('[EditorContainer] EditorManager initialized successfully')
+      
+      if (tabId && initialContent) {
+        console.log('[EditorContainer] Syncing content after init')
+        await editorManager.switchToTab(tabId)
+      }
     } catch (error) {
       console.error('[EditorContainer] Failed to initialize:', error)
     }

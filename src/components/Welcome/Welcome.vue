@@ -121,17 +121,8 @@ async function openFolder() {
 }
 
 function openRecentFile(file: any) {
-  if (window.electronAPI && file.filePath) {
-    window.electronAPI.readFile(file.filePath).then((result: any) => {
-      if (result.success) {
-        tabsStore.createTab({
-          title: file.title,
-          content: result.content,
-          filePath: file.filePath
-        })
-        prefsStore.addRecentFile(file.filePath, file.title)
-      }
-    })
+  if (file.filePath) {
+    tabsStore.openRecentFile(file.filePath)
   }
 }
 </script>
@@ -150,6 +141,10 @@ function openRecentFile(file: any) {
   max-width: 600px;
   text-align: center;
   padding: 40px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .welcome-title {
@@ -157,12 +152,14 @@ function openRecentFile(file: any) {
   color: var(--text-primary);
   margin-bottom: 12px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .welcome-subtitle {
   font-size: 16px;
   color: var(--text-secondary);
   margin-bottom: 48px;
+  flex-shrink: 0;
 }
 
 .welcome-actions {
@@ -170,6 +167,7 @@ function openRecentFile(file: any) {
   gap: 16px;
   justify-content: center;
   margin-bottom: 48px;
+  flex-shrink: 0;
 }
 
 .action-button {
@@ -210,6 +208,10 @@ function openRecentFile(file: any) {
 
 .welcome-section {
   text-align: left;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .section-title {
@@ -217,12 +219,17 @@ function openRecentFile(file: any) {
   color: var(--text-primary);
   margin-bottom: 20px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .recent-files-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: 300px;
 }
 
 .recent-file-item {
