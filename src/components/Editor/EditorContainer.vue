@@ -14,7 +14,10 @@
           :title="mode.label"
           @click="handleViewModeChange(mode.value)"
         >
-          <Icon :name="mode.icon" size="sm" />
+          <Icon
+            :name="mode.icon"
+            size="sm"
+          />
         </button>
       </div>
       <div class="toolbar-divider" />
@@ -43,7 +46,7 @@
     >
       <div
         v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG"
-        ref="wysiwygRef"
+        ref="crepeContainer"
         class="wysiwyg-editor"
       />
       <textarea
@@ -71,6 +74,7 @@
           ref="splitPreviewRef"
           class="split-preview"
           @scroll="handlePreviewScroll"
+          v-html="previewHTML"
         />
       </div>
     </div>
@@ -78,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, inject } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
@@ -86,40 +90,29 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
-import type { EditorInstanceManager } from '@/managers/editorManager'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { t } from '@/services/i18n'
+import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 
-// 从父组件注入共享的 editorManager
-const editorManager = inject<ReturnType<typeof import('@/managers/editorManager').useEditorManager>>('editorManager')
+const editorManager = useCrepeEditorManager()
 
-if (!editorManager) {
-  console.error('[EditorContainer] EditorManager not provided by parent')
-}
-
-const wysiwygRef = ref<HTMLElement | null>(null)
+const crepeContainer = ref<HTMLElement | null>(null)
 const sourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitSourceRef = ref<HTMLTextAreaElement | null>(null)
 const splitPreviewRef = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
+const previewHTML = ref('')
+const currentMode = ref<ViewMode>('wysiwyg')
+const showEditorToolbar = ref(false)
 const unsubscribes: (() => void)[] = []
 
-// 使用注入的 editorManager
-const containerRef = editorManager?.containerRef || ref<HTMLElement | null>(null)
-const currentMode = editorManager?.currentMode || ref<ViewMode>('wysiwyg')
-const init = editorManager?.init || (async () => {})
-const setViewMode = editorManager?.setViewMode || (() => {})
-const destroy = editorManager?.destroy || (async () => {})
-const getManager = editorManager?.getManager || (() => null)
-const getHTML = editorManager?.getHTML || (() => '')
 const { toggleTypewriterMode, toggleFocusMode } = useWritingEnhancement()
-
-const showEditorToolbar = ref(false)
 
 const viewModes = [
   { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: 'wysiwyg' },
@@ -135,62 +128,55 @@ const contentClasses = computed(() => ({
   'focus-mode': prefsStore.focusMode
 }))
 
-// 监听标签页内容变化，同步到源码编辑器
-const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
-  const data = payload as { tabId: string; content: string }
-  if (data && data.tabId === activeTab.value?.id) {
-    sourceContent.value = data.content
-    updatePreview()
-  }
-})
-unsubscribes.push(unsubscribeContentChanged)
-
-// 监听标签页切换
-watch(activeTab, (tab) => {
+watch(activeTab, async (tab, oldTab) => {
   if (tab) {
+    console.log('[EditorContainer] Tab changed:', tab.id, 'content length:', tab.content.length)
+    
+    // 如果是标签页切换，需要更新编辑器内容
+    if (oldTab && tab.id !== oldTab.id && editorManager.isReady()) {
+      console.log('[EditorContainer] Switching to tab:', tab.id)
+      await editorManager.switchToTab(tab.id)
+      console.log('[EditorContainer] Switched to tab:', tab.id, 'content:', tab.content.substring(0, 50))
+    }
+    
+    // 更新源码内容
     sourceContent.value = tab.content
+    updatePreview()
   }
 }, { immediate: true })
 
 const handleViewModeChange = async (mode: ViewMode) => {
-  const manager = getManager()
-
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
-    // 切换到源码或分屏模式时，获取当前WYSIWYG内容同步到源码
-    if (manager && manager.isReady()) {
-      sourceContent.value = manager.getMarkdown()
+    if (editorManager.isReady()) {
+      sourceContent.value = editorManager.getMarkdown()
     }
   }
 
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && currentMode.value !== EDITOR.VIEW_MODES.WYSIWYG) {
-    // 从源码模式切换回WYSIWYG时，同步源码内容到编辑器
-    if (manager && manager.isReady()) {
-      await manager.setMarkdown(sourceContent.value)
+    if (editorManager.isReady()) {
+      await editorManager.setMarkdown(sourceContent.value)
     }
   }
 
-  setViewMode(mode)
+  currentMode.value = mode
+  editorManager.setViewMode(mode)
   updatePreview()
 }
 
 const handleSourceInput = debounce(() => {
-  const manager = getManager()
-  
-  if (activeTab.value && manager?.isReady()) {
+  if (activeTab.value && editorManager.isReady()) {
     tabsStore.updateTab(activeTab.value.id, {
       content: sourceContent.value,
-      isDirty: true
+      isDirty: true,
     })
-    
-    manager.setMarkdown(sourceContent.value)
+    editorManager.setMarkdown(sourceContent.value)
     updatePreview()
   }
 }, 100)
 
 function updatePreview() {
-  if ((currentMode.value === EDITOR.VIEW_MODES.SPLIT) && splitPreviewRef.value) {
-    const html = getHTML()
-    splitPreviewRef.value.innerHTML = html
+  if (currentMode.value === EDITOR.VIEW_MODES.SPLIT) {
+    previewHTML.value = editorManager.getHTML() || ''
   }
 }
 
@@ -214,11 +200,9 @@ function handleSourceScroll(e: Event) {
     isScrollingFromSource = true
     const source = e.target as HTMLTextAreaElement
     if (splitPreviewRef.value) {
-      // 同步滚动比例，不是直接同步 scrollTop
       const sourceScrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight || 1)
       splitPreviewRef.value.scrollTop = sourceScrollRatio * (splitPreviewRef.value.scrollHeight - splitPreviewRef.value.clientHeight)
     }
-    // 短暂延迟后清除标志
     setTimeout(() => {
       isScrollingFromSource = false
     }, 50)
@@ -230,7 +214,6 @@ function handlePreviewScroll(e: Event) {
     isScrollingFromPreview = true
     const preview = e.target as HTMLElement
     if (splitSourceRef.value) {
-      // 同步滚动比例
       const previewScrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1)
       splitSourceRef.value.scrollTop = previewScrollRatio * (splitSourceRef.value.scrollHeight - splitSourceRef.value.clientHeight)
     }
@@ -240,19 +223,45 @@ function handlePreviewScroll(e: Event) {
   }
 }
 
+const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+  const data = payload as { tabId: string; content: string }
+  if (data && data.tabId === activeTab.value?.id) {
+    sourceContent.value = data.content
+    updatePreview()
+  }
+})
+unsubscribes.push(unsubscribeContentChanged)
+
 onMounted(async () => {
-  if (wysiwygRef.value) {
-    containerRef.value = wysiwygRef.value
-    await init()
+  console.log('[EditorContainer] onMounted called')
+  console.log('[EditorContainer] crepeContainer:', crepeContainer.value)
+  console.log('[EditorContainer] activeTab:', activeTab.value)
+  
+  if (crepeContainer.value) {
+    const initialContent = activeTab.value?.content || ''
+    const tabId = activeTab.value?.id
+    console.log('[EditorContainer] Initializing with content length:', initialContent.length)
+    
+    try {
+      await editorManager.init(crepeContainer.value, initialContent, tabId)
+      console.log('[EditorContainer] EditorManager initialized successfully')
+    } catch (error) {
+      console.error('[EditorContainer] Failed to initialize:', error)
+    }
+  } else {
+    console.error('[EditorContainer] crepeContainer is null!')
   }
   
   window.addEventListener('keydown', handleEditorKeydown)
 })
 
 onUnmounted(async () => {
+  console.log('[EditorContainer] onUnmounted called - NOT destroying editor (singleton mode)')
   unsubscribes.forEach(unsubscribe => unsubscribe())
-  await destroy()
+  // 不再销毁编辑器，因为它是单例模式
+  // await editorManager.destroy()
   window.removeEventListener('keydown', handleEditorKeydown)
+  console.log('[EditorContainer] Event listeners cleaned up')
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {
@@ -321,15 +330,36 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.mode-wysiwyg {
     .wysiwyg-editor {
       height: 100%;
-      padding: 20px 40px;
+      padding: 30px 80px;
       overflow: auto;
       transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+
+      :deep(.crepe) {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        height: 100%;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+      }
 
       :deep(.milkdown) {
         outline: none;
         min-height: 0;
-        max-width: 800px;
-        margin: 0 auto;
+        
+        .ProseMirror {
+          outline: none;
+          caret-color: var(--text-primary, #333);
+          color: var(--editor-text, #333);
+          padding: 8px 16px !important;
+          
+          &.ProseMirror-focused {
+            outline: none;
+          }
+        }
       }
 
       p {

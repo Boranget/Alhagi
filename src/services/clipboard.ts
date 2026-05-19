@@ -1,8 +1,9 @@
 import { useTabsStore } from '@/stores/tabs'
-import { useEditorManager } from '@/managers/editorManager'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 export function useClipboard() {
-  const { getMarkdown, getHTML } = useEditorManager()
+  const editorManager = useCrepeEditorManager()
+  const { getMarkdown, getHTML } = editorManager
 
   function copyAsMarkdown(): boolean {
     const tabs = useTabsStore()

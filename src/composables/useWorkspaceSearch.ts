@@ -1,10 +1,10 @@
 import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileService } from '@/services/fileService'
-import { useEditorManager } from '@/managers/editorManager'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
+import { useEditorSearch } from '@/managers/crepeEditorManager'
 
 export type SearchScope = 'file' | 'folder' | 'all'
 export type SearchMode = 'floating' | 'sidebar'
@@ -28,7 +28,7 @@ export interface SearchResult {
 export function useWorkspaceSearch() {
   const tabsStore = useTabsStore()
   const fileService = useFileService()
-  const { setSearchHighlight, clearSearchHighlight } = useEditorManager()
+  const { setSearchHighlight, clearSearchHighlight } = useEditorSearch()
 
   const isVisible = ref(false)
   const searchQuery = ref('')

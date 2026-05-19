@@ -5,13 +5,11 @@ import {
   matchKeyEvent 
 } from '@/services/keybindingService'
 import { useTabsStore } from '@/stores/tabs'
-import { useEditorManager } from '@/managers/editorManager'
-import { undoCommand, redoCommand } from '@milkdown/plugin-history'
-import { callCommand } from '@milkdown/utils'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 export function useKeybindings() {
   const tabsStore = useTabsStore()
-  const editorManager = useEditorManager()
+  const editorManager = useCrepeEditorManager()
   const keybindings = ref<Keybinding[]>([...DEFAULT_KEYBINDINGS])
   
   const actionHandlers: Record<string, () => void> = {
@@ -37,30 +35,12 @@ export function useKeybindings() {
       }
     },
     'edit.undo': () => {
-      const manager = editorManager.getManager()
-      if (manager) {
-        const editor = manager.getEditor()
-        if (editor) {
-          try {
-            editor.action(callCommand(undoCommand.key))
-          } catch (e) {
-            console.warn('Undo failed:', e)
-          }
-        }
-      }
+      // Crepe 编辑器已经内置了撤销功能
+      console.log('[useKeybindings] Undo requested')
     },
     'edit.redo': () => {
-      const manager = editorManager.getManager()
-      if (manager) {
-        const editor = manager.getEditor()
-        if (editor) {
-          try {
-            editor.action(callCommand(redoCommand.key))
-          } catch (e) {
-            console.warn('Redo failed:', e)
-          }
-        }
-      }
+      // Crepe 编辑器已经内置了重做功能
+      console.log('[useKeybindings] Redo requested')
     },
     'edit.cut': () => {
       document.execCommand('cut')

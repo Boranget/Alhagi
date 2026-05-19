@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
-import { useEditorManager } from '@/managers/editorManager'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 export type ExportFormat = 'html' | 'pdf' | 'txt'
 
@@ -81,7 +81,8 @@ type Exporter = (content: string, title: string, options: ExportOptions) => Prom
 
 export function useExport() {
   const tabsStore = useTabsStore()
-  const { getHTML, getMarkdown } = useEditorManager()
+  const editorManager = useCrepeEditorManager()
+  const { getHTML, getMarkdown } = editorManager
   const isExporting = ref(false)
   const exportError = ref<string | null>(null)
   

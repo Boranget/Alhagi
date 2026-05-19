@@ -8,7 +8,10 @@
           :title="t('sidebar.clearHistory')"
           @click="clearHistory"
         >
-          <Icon name="trash" size="sm" />
+          <Icon
+            name="trash"
+            size="sm"
+          />
         </button>
       </div>
     </div>
@@ -19,7 +22,10 @@
         class="recent-files-section"
       >
         <div class="section-header">
-          <Icon name="folder" size="sm" />
+          <Icon
+            name="folder"
+            size="sm"
+          />
           {{ t('common.openFolder') }}
         </div>
         <div
@@ -28,14 +34,21 @@
           class="recent-file-item"
           @click="openFolder(folder)"
         >
-          <Icon name="folder" size="sm" class="file-icon" />
+          <Icon
+            name="folder"
+            size="sm"
+            class="file-icon"
+          />
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.unpin')"
             @click.stop="togglePinFolder(folder)"
           >
-            <Icon name="pin" size="sm" />
+            <Icon
+              name="pin"
+              size="sm"
+            />
           </button>
         </div>
         <div
@@ -44,14 +57,21 @@
           class="recent-file-item"
           @click="openFolder(folder)"
         >
-          <Icon name="folder" size="sm" class="file-icon" />
+          <Icon
+            name="folder"
+            size="sm"
+            class="file-icon"
+          />
           <span class="file-name">{{ folder.name }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.pin')"
             @click.stop="togglePinFolder(folder)"
           >
-            <Icon name="pin" size="sm" />
+            <Icon
+              name="pin"
+              size="sm"
+            />
           </button>
         </div>
       </div>
@@ -61,7 +81,10 @@
         class="recent-files-section"
       >
         <div class="section-header">
-          <Icon name="file" size="sm" />
+          <Icon
+            name="file"
+            size="sm"
+          />
           {{ t('common.openFile') }}
         </div>
         <div
@@ -70,14 +93,21 @@
           class="recent-file-item"
           @click="openFile(file)"
         >
-          <Icon name="file" size="sm" class="file-icon" />
+          <Icon
+            name="file"
+            size="sm"
+            class="file-icon"
+          />
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.unpin')"
             @click.stop="togglePinFile(file)"
           >
-            <Icon name="pin" size="sm" />
+            <Icon
+              name="pin"
+              size="sm"
+            />
           </button>
         </div>
         <div
@@ -86,14 +116,21 @@
           class="recent-file-item"
           @click="openFile(file)"
         >
-          <Icon name="file" size="sm" class="file-icon" />
+          <Icon
+            name="file"
+            size="sm"
+            class="file-icon"
+          />
           <span class="file-name">{{ file.title }}</span>
           <button
             class="pin-btn"
             :title="t('sidebar.pin')"
             @click.stop="togglePinFile(file)"
           >
-            <Icon name="pin" size="sm" />
+            <Icon
+              name="pin"
+              size="sm"
+            />
           </button>
         </div>
       </div>

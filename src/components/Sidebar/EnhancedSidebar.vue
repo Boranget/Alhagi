@@ -9,7 +9,10 @@
         :title="tab.label"
         @click="activeSidebarTab = tab.id"
       >
-        <Icon :name="tab.icon" size="sm" />
+        <Icon
+          :name="tab.icon"
+          size="sm"
+        />
       </button>
     </div>
     <div class="sidebar-content">

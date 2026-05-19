@@ -38,13 +38,19 @@
         title="搜索标签 (Ctrl+P)"
         @click="toggleSearch"
       >
-        <Icon name="search" size="sm" />
+        <Icon
+          name="search"
+          size="sm"
+        />
       </button>
       <button
         class="new-tab-btn"
         @click="handleNewTab"
       >
-        <Icon name="plus" size="sm" />
+        <Icon
+          name="plus"
+          size="sm"
+        />
       </button>
     </div>
 
@@ -57,14 +63,20 @@
         class="menu-item"
         @click="saveCurrentTab"
       >
-        <Icon name="save" size="sm" />
+        <Icon
+          name="save"
+          size="sm"
+        />
         <span class="menu-text">{{ t('common.save') }}</span>
       </div>
       <div
         class="menu-item"
         @click="saveAsCurrentTab"
       >
-        <Icon name="save" size="sm" />
+        <Icon
+          name="save"
+          size="sm"
+        />
         <span class="menu-text">{{ t('common.saveAs') }}</span>
       </div>
       <div class="menu-divider" />
@@ -72,28 +84,40 @@
         class="menu-item"
         @click="closeCurrentTab"
       >
-        <Icon name="close" size="sm" />
+        <Icon
+          name="close"
+          size="sm"
+        />
         <span class="menu-text">{{ t('common.close') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeOtherTabs"
       >
-        <Icon name="list" size="sm" />
+        <Icon
+          name="list"
+          size="sm"
+        />
         <span class="menu-text">{{ t('tabs.closeOtherTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeSavedTabs"
       >
-        <Icon name="folder" size="sm" />
+        <Icon
+          name="folder"
+          size="sm"
+        />
         <span class="menu-text">{{ t('tabs.closeSavedTabs') }}</span>
       </div>
       <div
         class="menu-item"
         @click="closeAllTabs"
       >
-        <Icon name="trash" size="sm" />
+        <Icon
+          name="trash"
+          size="sm"
+        />
         <span class="menu-text">{{ t('tabs.closeAllTabs') }}</span>
       </div>
       <div
@@ -105,7 +129,10 @@
         class="menu-item"
         @click="copyFilePath"
       >
-        <Icon name="copy" size="sm" />
+        <Icon
+          name="copy"
+          size="sm"
+        />
         <span class="menu-text">{{ t('tabs.copyPath') }}</span>
       </div>
       <div class="menu-divider" />
@@ -113,7 +140,10 @@
         class="menu-item"
         @click="detachTab"
       >
-        <Icon name="maximize" size="sm" />
+        <Icon
+          name="maximize"
+          size="sm"
+        />
         <span class="menu-text">{{ t('tabs.detachToNewWindow') }}</span>
       </div>
     </div>
@@ -141,7 +171,10 @@
             @click="handleSearchSelect(tabId)"
             @mouseenter="selectedIndex = index"
           >
-            <Icon name="file" size="sm" />
+            <Icon
+              name="file"
+              size="sm"
+            />
             <span class="result-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
             <span
               v-if="getTab(tabId)?.filePath"

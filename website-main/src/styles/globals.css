@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+@config "../../tailwind.config.js";
+
+html,
+body,
+#__next {
+  @apply min-h-screen;
+}
+
+#__next {
+  @apply flex flex-col;
+}
+
+body {
+  @apply bg-[#fdfcff] text-gray-900 dark:bg-[#1b1c1d] dark:text-gray-50;
+}
+
+div[data-milkdown-root='true'] {
+  @apply h-full;
+}
+
+.milkdown {
+  @apply h-full;
+}
+
+button.main-button {
+  @apply shadow-sm transition hover:shadow-md active:shadow-none;
+}
+
+html {
+  scroll-padding-top: 76px;
+}
+
+button.button-primary {
+  @apply bg-nord-primary text-nord-foreground;
+  &:hover {
+    background-color: color-mix(in srgb, #5e81ac, white 8%);
+  }
+  &:active {
+    background-color: color-mix(in srgb, #5e81ac, white 12%);
+  }
+}
+
+button.button-default {
+  @apply bg-nord-foreground text-nord-neutral dark:bg-nord-foreground-dark dark:text-nord-neutral-dark;
+  &:hover {
+    background-color: color-mix(in srgb, #494e59 8%, white);
+  }
+  &:active {
+    background-color: color-mix(in srgb, #494e59 12%, white);
+  }
+}
+
+.dark {
+  button.button-default {
+    &:hover {
+      background-color: color-mix(in srgb, #494e59 16%, black);
+    }
+    &:active {
+      background-color: color-mix(in srgb, #494e59 12%, black);
+    }
+  }
+}

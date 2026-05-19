@@ -8,21 +8,30 @@
           :title="t('common.newFile')"
           @click="handleNewFile"
         >
-          <Icon name="file" size="sm" />
+          <Icon
+            name="file"
+            size="sm"
+          />
         </button>
         <button
           class="action-btn"
           :title="t('common.newFolder')"
           @click="handleNewFolder"
         >
-          <Icon name="folder" size="sm" />
+          <Icon
+            name="folder"
+            size="sm"
+          />
         </button>
         <button
           class="action-btn"
           :title="t('common.refresh')"
           @click="handleRefresh"
         >
-          <Icon name="refresh" size="sm" />
+          <Icon
+            name="refresh"
+            size="sm"
+          />
         </button>
       </div>
     </div>
@@ -66,7 +75,10 @@
         class="context-menu-item"
         @click="handleContextMenuAction(item.id)"
       >
-        <Icon :name="item.icon" size="sm" />
+        <Icon
+          :name="item.icon"
+          size="sm"
+        />
         <span>{{ item.label }}</span>
       </div>
     </div>

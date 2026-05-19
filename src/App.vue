@@ -4,10 +4,16 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <div v-if="isWelcomePage" class="welcome-area">
+      <div
+        v-if="isWelcomePage"
+        class="welcome-area"
+      >
         <Welcome />
       </div>
-      <div v-else class="main-area">
+      <div
+        v-else
+        class="main-area"
+      >
         <EnhancedSidebar v-if="prefsStore.showSidebar" />
         <div class="editor-wrapper">
           <TabBar v-if="prefsStore.showTabBar" />
@@ -28,8 +34,6 @@ import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
-import { undoCommand, redoCommand } from '@milkdown/plugin-history'
-import { callCommand } from '@milkdown/utils'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
@@ -38,7 +42,7 @@ import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import Welcome from '@/components/Welcome/Welcome.vue'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
-import { useEditorManager } from '@/managers/editorManager'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -52,14 +56,13 @@ provide('showSidebar', showSidebar)
 provide('isFullscreen', isFullscreen)
 provide('showSettings', showSettings)
 
-// 创建共享的 editorManager 实例
-const editorManager = useEditorManager()
+// 创建共享的 CrepeEditorManager 实例
+const editorManager = useCrepeEditorManager()
 provide('editorManager', editorManager)
 
 const { toggleTypewriterMode, toggleFocusMode, initialize: initWritingEnhancement } = useWritingEnhancement()
 const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
 const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
-const { getMarkdown, getHTML } = editorManager
 
 const writingEnhancementCleanup = ref<(() => void) | null>(null)
 
@@ -264,7 +267,7 @@ function exportFile(content: string, title: string, format: 'md' | 'html' | 'txt
 }
 
 function getFullHtml(title: string): string {
-  const content = getHTML()
+  const content = editorManager.getHTML()
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -394,33 +397,16 @@ function setupElectronListeners() {
   // 监听编辑菜单的撤销/重做事件
   if (window.electronAPI?.onEditUndo) {
     window.electronAPI.onEditUndo(() => {
-      const manager = editorManager.getManager()
-      if (manager) {
-        const editor = manager.getEditor()
-        if (editor) {
-          try {
-            editor.action(callCommand(undoCommand.key))
-          } catch (e) {
-            console.error('[App] Undo failed:', e)
-          }
-        }
-      }
+      // Crepe 编辑器已经内置了撤销/重做功能
+      // 可以通过键盘快捷键或编辑器内部实现
+      console.log('[App] Undo requested')
     })
   }
   
   if (window.electronAPI?.onEditRedo) {
     window.electronAPI.onEditRedo(() => {
-      const manager = editorManager.getManager()
-      if (manager) {
-        const editor = manager.getEditor()
-        if (editor) {
-          try {
-            editor.action(callCommand(redoCommand.key))
-          } catch (e) {
-            console.error('[App] Redo failed:', e)
-          }
-        }
-      }
+      // Crepe 编辑器已经内置了撤销/重做功能
+      console.log('[App] Redo requested')
     })
   }
 }

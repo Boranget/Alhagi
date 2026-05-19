@@ -6,21 +6,30 @@
         :title="t('statusBar.toggleSidebar')"
         @click="toggleSidebar"
       >
-        <Icon :name="prefsStore.showSidebar ? 'collapse-left' : 'expand-right'" size="sm" />
+        <Icon
+          :name="prefsStore.showSidebar ? 'collapse-left' : 'expand-right'"
+          size="sm"
+        />
       </button>
       <span
         v-if="activeTab"
         class="status-item"
         :title="activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwygMode') : activeTab.viewMode === 'source' ? t('editor.sourceMode') : t('editor.splitMode')"
       >
-        <Icon :name="activeTab.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab.viewMode === 'source' ? 'code' : 'split'" size="sm" />
+        <Icon
+          :name="activeTab.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab.viewMode === 'source' ? 'code' : 'split'"
+          size="sm"
+        />
       </span>
       <span
         v-if="activeTab?.filePath"
         class="status-item file-path"
         :title="activeTab.filePath"
       >
-        <Icon name="file" size="sm" />
+        <Icon
+          name="file"
+          size="sm"
+        />
         <span class="file-path-text">{{ activeTab.filePath }}</span>
       </span>
       <span
@@ -36,20 +45,32 @@
         class="status-item"
         :title="t('editor.rawMarkdownChars')"
       >
-        <Icon name="file" size="sm" />
+        <Icon
+          name="file"
+          size="sm"
+        />
         <span>{{ rawMarkdownChars }}</span>
       </span>
       <span
         class="status-item"
         :title="t('statusBar.renderTextCount')"
       >
-        <Icon name="wysiwyg" size="sm" />
+        <Icon
+          name="wysiwyg"
+          size="sm"
+        />
         <span>{{ plainTextChars }}</span>
       </span>
-      <span class="status-item" :title="t('editor.lineCount')">
+      <span
+        class="status-item"
+        :title="t('editor.lineCount')"
+      >
         <span>{{ lineCount }}Ln</span>
       </span>
-      <span class="status-item" :title="t('editor.cursorPosition')">
+      <span
+        class="status-item"
+        :title="t('editor.cursorPosition')"
+      >
         <span>{{ cursorPosition }}</span>
       </span>
       <button
@@ -58,7 +79,10 @@
         :title="t('editor.typewriterMode')"
         @click="toggleTypewriterMode"
       >
-        <Icon name="typewriter" size="sm" />
+        <Icon
+          name="typewriter"
+          size="sm"
+        />
       </button>
       <button
         class="status-btn"
@@ -66,14 +90,20 @@
         :title="t('editor.focusMode')"
         @click="toggleFocusMode"
       >
-        <Icon name="target" size="sm" />
+        <Icon
+          name="target"
+          size="sm"
+        />
       </button>
       <button
         class="status-btn"
         :title="t('statusBar.switchTheme')"
         @click="prefsStore.toggleTheme()"
       >
-        <Icon :name="prefsStore.theme === 'light' || prefsStore.theme === 'system' ? 'moon' : 'sun'" size="sm" />
+        <Icon
+          :name="prefsStore.theme === 'light' || prefsStore.theme === 'system' ? 'moon' : 'sun'"
+          size="sm"
+        />
       </button>
     </div>
   </div>

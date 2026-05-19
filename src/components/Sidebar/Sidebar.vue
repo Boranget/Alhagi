@@ -9,7 +9,10 @@
         :title="tab.label"
         @click="activeSidebarTab = tab.id"
       >
-        <Icon :name="tab.icon" size="sm" />
+        <Icon
+          :name="tab.icon"
+          size="sm"
+        />
       </button>
     </div>
     <div class="sidebar-content">
@@ -59,7 +62,10 @@
                 :class="{ active: activeFile === file.path }"
                 @click="openFile(file.path)"
               >
-                <Icon name="file" size="sm" />
+                <Icon
+                  name="file"
+                  size="sm"
+                />
                 <span class="file-name">{{ file.name }}</span>
               </div>
             </div>

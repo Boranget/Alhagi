@@ -1,40 +1,75 @@
 <template>
   <div class="welcome-container">
     <div class="welcome-content">
-      <h1 class="welcome-title">欢迎使用顾念笔记</h1>
-      <p class="welcome-subtitle">一个简洁而强大的 Markdown 编辑器</p>
+      <h1 class="welcome-title">
+        欢迎使用顾念笔记
+      </h1>
+      <p class="welcome-subtitle">
+        一个简洁而强大的 Markdown 编辑器
+      </p>
       
       <div class="welcome-actions">
-        <button class="action-button primary" @click="createNewFile">
-          <Icon name="plus" size="lg" />
+        <button
+          class="action-button primary"
+          @click="createNewFile"
+        >
+          <Icon
+            name="plus"
+            size="lg"
+          />
           <span class="action-text">新建文件</span>
         </button>
         
-        <button class="action-button" @click="openExistingFile">
-          <Icon name="file" size="lg" />
+        <button
+          class="action-button"
+          @click="openExistingFile"
+        >
+          <Icon
+            name="file"
+            size="lg"
+          />
           <span class="action-text">打开文件</span>
         </button>
         
-        <button class="action-button" @click="openFolder">
-          <Icon name="folder-open" size="lg" />
+        <button
+          class="action-button"
+          @click="openFolder"
+        >
+          <Icon
+            name="folder-open"
+            size="lg"
+          />
           <span class="action-text">打开文件夹</span>
         </button>
       </div>
       
       <div class="welcome-section">
-        <h2 class="section-title">最近文件</h2>
-        <div v-if="recentFiles.length > 0" class="recent-files-list">
+        <h2 class="section-title">
+          最近文件
+        </h2>
+        <div
+          v-if="recentFiles.length > 0"
+          class="recent-files-list"
+        >
           <div 
             v-for="file in recentFiles" 
             :key="file.filePath"
             class="recent-file-item"
             @click="openRecentFile(file)"
           >
-            <Icon name="file" size="sm" />
+            <Icon
+              name="file"
+              size="sm"
+            />
             <span class="file-name">{{ file.title }}</span>
           </div>
         </div>
-        <div v-else class="no-files">暂无最近文件</div>
+        <div
+          v-else
+          class="no-files"
+        >
+          暂无最近文件
+        </div>
       </div>
     </div>
   </div>
