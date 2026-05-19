@@ -58,6 +58,7 @@ export class CrepeEditorManager {
         [Crepe.Feature.Table]: true,
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.Placeholder]: true,
+        [Crepe.Feature.Cursor]: true, // 启用 Cursor 特性以解决双光标问题
       },
     })
     console.log('[CrepeEditorManager] Crepe instance created')

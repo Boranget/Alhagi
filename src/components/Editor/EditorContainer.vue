@@ -46,7 +46,6 @@
     <div
       class="editor-content"
       :class="contentClasses"
-      :style="{ transform: `scale(${editorScale})`, transformOrigin: 'top center' }"
     >
       <!-- WYSIWYG 模式：只显示 Crepe 编辑器 -->
       <template v-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
