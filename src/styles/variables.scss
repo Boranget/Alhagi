@@ -1,87 +1,87 @@
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --text-primary: #333333;
+  --bg-primary: #fdfcff;
+  --bg-secondary: #f5f5f7;
+  --text-primary: #1a1a1a;
   --text-secondary: #666666;
-  --border-color: #e0e0e0;
-  --primary-color: #409eff;
-  --danger-color: #f56c6c;
-  --success-color: #67c23a;
-  --warning-color: #e6a23c;
+  --border-color: #e5e5e5;
+  --primary-color: #5e81ac;
+  --danger-color: #bf616a;
+  --success-color: #a3be8c;
+  --warning-color: #d08770;
 
   --editor-bg: #ffffff;
-  --editor-text: #333333;
-  --editor-selection: #b3d8ff;
-  --code-bg: #f5f7fa;
-  --table-header-bg: #fafafa;
+  --editor-text: #1a1a1a;
+  --editor-selection: #c8e1ff;
+  --code-bg: #f8fafc;
+  --table-header-bg: #f5f5f7;
 
-  --tab-bar-bg: #f0f0f0;
-  --tab-bg: #e8e8e8;
+  --tab-bar-bg: #f0f0f2;
+  --tab-bg: #e8e8ec;
   --tab-active-bg: #ffffff;
-  --tab-hover-bg: #e0e0e0;
+  --tab-hover-bg: #e0e0e4;
   --close-btn-hover-bg: rgba(0, 0, 0, 0.1);
 
   --sidebar-bg: #fafafa;
   --sidebar-hover-bg: rgba(0, 0, 0, 0.05);
   --sidebar-tab-hover-bg: rgba(0, 0, 0, 0.08);
 
-  --toolbar-bg: #f8f8f8;
+  --toolbar-bg: #f8f8fa;
   --toolbar-btn-hover-bg: rgba(0, 0, 0, 0.05);
 
-  --statusbar-bg: #f5f5f5;
+  --statusbar-bg: #f5f5f7;
   --statusbar-hover-bg: rgba(0, 0, 0, 0.08);
 
   --input-bg: #ffffff;
-  --result-item-bg: #f5f7fa;
+  --result-item-bg: #f8fafc;
 
   --preview-bg: #fafafa;
 
-  --scrollbar-color: #d0d0d0;
+  --scrollbar-color: #c0c0c0;
   
   --panel-bg: #ffffff;
   --panel-hover-bg: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #d4d4d4;
-  --text-secondary: #9cdcfe;
-  --border-color: #404040;
-  --primary-color: #4fc3f7;
-  --danger-color: #ef5350;
-  --success-color: #66bb6a;
-  --warning-color: #ffa726;
+  --bg-primary: #1b1c1d;
+  --bg-secondary: #252627;
+  --text-primary: #d8dee9;
+  --text-secondary: #a0aec0;
+  --border-color: #3d3d3d;
+  --primary-color: #81a1c1;
+  --danger-color: #bf616a;
+  --success-color: #a3be8c;
+  --warning-color: #d08770;
 
-  --editor-bg: #1e1e1e;
-  --editor-text: #d4d4d4;
-  --editor-selection: #264f78;
-  --code-bg: #2d2d2d;
-  --table-header-bg: #252526;
+  --editor-bg: #1b1c1d;
+  --editor-text: #d8dee9;
+  --editor-selection: #3b4252;
+  --code-bg: #252627;
+  --table-header-bg: #1e1f20;
 
-  --tab-bar-bg: #252526;
-  --tab-bg: #2d2d2e;
-  --tab-active-bg: #1e1e1e;
-  --tab-hover-bg: #3c3c3c;
+  --tab-bar-bg: #1e1f20;
+  --tab-bg: #2a2b2c;
+  --tab-active-bg: #1b1c1d;
+  --tab-hover-bg: #353637;
   --close-btn-hover-bg: rgba(255, 255, 255, 0.1);
 
-  --sidebar-bg: #252526;
+  --sidebar-bg: #1e1f20;
   --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
   --sidebar-tab-hover-bg: rgba(255, 255, 255, 0.08);
 
-  --toolbar-bg: #2d2d2d;
+  --toolbar-bg: #252627;
   --toolbar-btn-hover-bg: rgba(255, 255, 255, 0.05);
 
-  --statusbar-bg: #252526;
+  --statusbar-bg: #1e1f20;
   --statusbar-hover-bg: rgba(255, 255, 255, 0.08);
 
-  --input-bg: #3c3c3c;
-  --result-item-bg: #2d2d2d;
+  --input-bg: #2a2b2c;
+  --result-item-bg: #252627;
 
-  --preview-bg: #1e1e1e;
+  --preview-bg: #1b1c1d;
 
-  --scrollbar-color: #555555;
+  --scrollbar-color: #4a4a4a;
   
-  --panel-bg: #1e1e1e;
+  --panel-bg: #1b1c1d;
   --panel-hover-bg: rgba(255, 255, 255, 0.05);
 }

@@ -169,6 +169,18 @@ function setupElectronListeners() {
     })
   }
 
+  if (window.electronAPI?.onToggleTabBar) {
+    window.electronAPI.onToggleTabBar(() => {
+      prefsStore.showTabBar = !prefsStore.showTabBar
+    })
+  }
+
+  if (window.electronAPI?.onToggleStatusBar) {
+    window.electronAPI.onToggleStatusBar(() => {
+      prefsStore.showStatusBar = !prefsStore.showStatusBar
+    })
+  }
+
   if (window.electronAPI?.onOpenSettings) {
     window.electronAPI.onOpenSettings(() => {
       showSettings.value = true

@@ -135,10 +135,16 @@ const api: ElectronAPI = {
   onToggleImmersiveMode: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_IMMERSIVE, callback),
   
-  onToggleSidebar: (callback) => 
+onToggleSidebar: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_SIDEBAR, callback),
   
-  onOpenSettings: (callback) => 
+  onToggleTabBar: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_TAB_BAR, callback),
+  
+  onToggleStatusBar: (callback) => 
+    createMenuListener(MENU_EVENTS.TOGGLE_STATUS_BAR, callback),
+  
+  onOpenSettings: (callback) =>
     createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback),
   
   onEditUndo: (callback) => {

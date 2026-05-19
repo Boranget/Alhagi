@@ -117,3 +117,87 @@ textarea {
   }
 }
 
+// Crepe Editor 样式配置
+.milkdown {
+  --crepe-color-background: var(--bg-primary);
+  --crepe-color-on-background: var(--text-primary);
+  --crepe-color-surface: var(--bg-secondary);
+  --crepe-color-surface-low: var(--editor-bg);
+  --crepe-color-on-surface: var(--text-primary);
+  --crepe-color-on-surface-variant: var(--text-secondary);
+  --crepe-color-outline: var(--border-color);
+  --crepe-color-primary: var(--primary-color);
+  --crepe-color-secondary: var(--bg-secondary);
+  --crepe-color-on-secondary: var(--text-primary);
+  --crepe-color-inverse: var(--bg-secondary);
+  --crepe-color-on-inverse: var(--text-primary);
+  --crepe-color-inline-code: var(--danger-color);
+  --crepe-color-error: var(--danger-color);
+  --crepe-color-hover: var(--toolbar-btn-hover-bg);
+  --crepe-color-selected: var(--editor-selection);
+  --crepe-color-inline-area: var(--code-bg);
+
+  --crepe-font-title: Georgia, 'Times New Roman', Times, serif;
+  --crepe-font-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --crepe-font-code: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
+
+  --crepe-shadow-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --crepe-shadow-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+
+  font-family: var(--crepe-font-default);
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .crepe {
+    height: 100%;
+    flex: 1;
+  }
+
+  .cm-editor {
+    height: 100%;
+    font-family: var(--crepe-font-code);
+  }
+
+  .cm-scroller {
+    overflow: auto;
+    overscroll-behavior: auto;
+  }
+
+  // CodeMirror 行号 gutter 样式
+  .cm-gutters {
+    background-color: var(--crepe-color-surface) !important;
+    color: var(--crepe-color-on-surface-variant) !important;
+    border-right: 1px solid var(--crepe-color-outline) !important;
+  }
+
+  .cm-activeLineGutter {
+    background-color: var(--crepe-color-surface-low) !important;
+    color: var(--crepe-color-on-surface) !important;
+  }
+
+  .cm-activeLine {
+    background-color: var(--crepe-color-surface-low) !important;
+  }
+
+  // 代码块内联区域样式
+  .cm-content {
+    caret-color: var(--crepe-color-on-background) !important;
+  }
+
+  .cm-cursor,
+  .cm-dropCursor {
+    border-left-color: var(--crepe-color-on-background) !important;
+  }
+}
+
+// 暗色模式下的 Crepe 样式
+[data-theme="dark"] {
+  .milkdown {
+    --crepe-shadow-1: 0 1px 2px 0 rgba(255, 255, 255, 0.3), 0 1px 3px 1px rgba(255, 255, 255, 0.15);
+    --crepe-shadow-2: 0 1px 2px 0 rgba(255, 255, 255, 0.3), 0 2px 6px 2px rgba(255, 255, 255, 0.15);
+  }
+}

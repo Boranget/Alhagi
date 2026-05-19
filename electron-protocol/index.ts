@@ -155,7 +155,9 @@ export const MENU_EVENTS = {
   CAPTURE_SCREEN: 'menu:capture-screen',
   TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
   TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
-  TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
+TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
+  TOGGLE_TAB_BAR: 'menu:toggle-tab-bar',
+  TOGGLE_STATUS_BAR: 'menu:toggle-status-bar',
   OPEN_SETTINGS: 'menu:open-settings',
   EDIT_UNDO: 'menu:edit-undo',
   EDIT_REDO: 'menu:edit-redo'
@@ -223,7 +225,9 @@ export interface ElectronAPI {
   onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
   onToggleStickyNoteMode: (callback: () => void) => () => void
   onToggleImmersiveMode: (callback: () => void) => () => void
-  onToggleSidebar: (callback: () => void) => () => void
+onToggleSidebar: (callback: () => void) => () => void
+  onToggleTabBar: (callback: () => void) => () => void
+  onToggleStatusBar: (callback: () => void) => () => void
   onOpenSettings: (callback: () => void) => () => void
   onEditUndo: (callback: () => void) => () => void
   onEditRedo: (callback: () => void) => () => void

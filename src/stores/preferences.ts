@@ -227,6 +227,41 @@ export const usePreferencesStore = defineStore('preferences', () => {
       : theme.value
 
     document.documentElement.setAttribute('data-theme', effectiveTheme)
+    
+    // 添加 dark 类以支持 Tailwind CSS 和其他基于类的样式
+    document.documentElement.classList.toggle('dark', effectiveTheme === UI.THEMES.DARK)
+    
+    // 订阅系统主题变化（仅当主题设置为 SYSTEM 时）
+    if (theme.value === UI.THEMES.SYSTEM) {
+      subscribeToSystemTheme()
+    } else {
+      unsubscribeFromSystemTheme()
+    }
+  }
+
+  let systemThemeListener: ((event: MediaQueryListEvent) => void) | null = null
+
+  function subscribeToSystemTheme(): void {
+    unsubscribeFromSystemTheme()
+    
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    systemThemeListener = (event: MediaQueryListEvent) => {
+      if (theme.value === UI.THEMES.SYSTEM) {
+        const newTheme = event.matches ? UI.THEMES.DARK : UI.THEMES.LIGHT
+        document.documentElement.setAttribute('data-theme', newTheme)
+        document.documentElement.classList.toggle('dark', newTheme === UI.THEMES.DARK)
+      }
+    }
+    
+    media.addEventListener('change', systemThemeListener)
+  }
+
+  function unsubscribeFromSystemTheme(): void {
+    if (systemThemeListener) {
+      const media = window.matchMedia('(prefers-color-scheme: dark)')
+      media.removeEventListener('change', systemThemeListener)
+      systemThemeListener = null
+    }
   }
 
   function toggleTheme(): void {

@@ -98,8 +98,10 @@ function createMenu() {
       { label: 'WYSIWYG 模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'wysiwyg') },
       { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
       { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
-      { type: 'separator' },
+{ type: 'separator' },
       { label: '显示/隐藏侧边栏', accelerator: 'CmdOrCtrl+B', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_SIDEBAR) },
+      { label: '显示/隐藏标签栏', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_TAB_BAR) },
+      { label: '显示/隐藏状态栏', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_STATUS_BAR) },
       { label: '设置', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_SETTINGS) },
       { type: 'separator' },
       { label: '悬浮便签模式', accelerator: 'CmdOrCtrl+Shift+F', click: () => {
