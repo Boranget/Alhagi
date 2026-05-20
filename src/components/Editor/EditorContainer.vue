@@ -50,15 +50,11 @@
             <div class="split-resizer-handle" />
           </div>
           <div
-            class="split-preview"
+            ref="crepeContainer"
+            class="crepe split-preview"
             :style="{ width: `${100 - splitRatio}%` }"
-          >
-            <div
-              ref="crepeContainer"
-              class="crepe split-preview-content"
-              @focus="handleCrepeFocus"
-            />
-          </div>
+            @focus="handleCrepeFocus"
+          />
         </div>
       </template>
     </div>
@@ -351,14 +347,9 @@ function handleEditorKeydown(e: KeyboardEvent) {
       transition: all 0.3s ease;
       display: block;
       min-height: 0;
-      padding: 16px 16px;
 
-      @media (min-width: 768px) {
-        padding: 20px 32px;
-      }
-
-      @media (min-width: 1024px) {
-        padding: 20px 64px;
+      &::-webkit-scrollbar {
+        width: 12px;
       }
 
       :deep(.crepe) {
@@ -377,6 +368,15 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       :deep(.ProseMirror) {
         outline: none;
+        padding: 16px 16px !important;
+
+        @media (min-width: 768px) {
+          padding: 20px 32px !important;
+        }
+
+        @media (min-width: 1024px) {
+          padding: 20px 64px !important;
+        }
       }
 
       :deep(.milkdown-block-handle) {
@@ -393,6 +393,12 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       :deep(.codemirror-editor) {
         height: 100%;
+
+        :deep(.cm-scroller) {
+          &::-webkit-scrollbar {
+            width: 12px;
+          }
+        }
 
         :deep(.cm-content) {
           padding: 16px 16px !important;
@@ -425,6 +431,12 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
           :deep(.codemirror-editor) {
             height: 100%;
+
+            :deep(.cm-scroller) {
+              &::-webkit-scrollbar {
+                width: 12px;
+              }
+            }
 
             :deep(.cm-content) {
               padding: 16px 12px 16px 16px !important;
@@ -468,30 +480,43 @@ function handleEditorKeydown(e: KeyboardEvent) {
         overflow-y: auto;
         overflow-x: hidden;
         flex-shrink: 0;
+        transition: all 0.3s ease;
+        display: block;
+        min-height: 0;
 
-        .split-preview-content {
-          padding: 16px 16px 16px 12px;
-          height: 100%;
+        &::-webkit-scrollbar {
+          width: 12px;
+        }
+
+        :deep(.crepe) {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          margin: 0 auto;
+          transform-origin: top center;
+          transform: scale(var(--editor-scale, 1));
+        }
+
+        :deep(.milkdown) {
+          display: block;
+          height: auto;
+        }
+
+        :deep(.ProseMirror) {
+          outline: none;
+          padding: 16px 16px 16px 12px !important;
 
           @media (min-width: 768px) {
-            padding: 20px 32px 20px 12px;
+            padding: 20px 32px 20px 12px !important;
           }
 
           @media (min-width: 1024px) {
-            padding: 20px 64px 20px 12px;
+            padding: 20px 64px 20px 12px !important;
           }
+        }
 
-          :deep(.crepe) {
-            display: block;
-            width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
-          }
-
-          :deep(.milkdown) {
-            display: block;
-            height: auto;
-          }
+        :deep(.milkdown-block-handle) {
+          display: none !important;
         }
       }
     }
