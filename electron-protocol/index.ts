@@ -216,6 +216,7 @@ export interface ElectronAPI {
   onNewFile: (callback: () => void) => () => void
   onNewWindow: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void
+  onOpenFolder: (callback: () => void) => () => void
   onSave: (callback: () => void) => () => void
   onSaveAs: (callback: () => void) => () => void
   onViewMode: (callback: (mode: string) => void) => () => void

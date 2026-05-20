@@ -114,8 +114,8 @@ async function openFolder() {
   if (window.electronAPI) {
     const result = await window.electronAPI.openFolder()
     if (result.success && result.data) {
-      // 使用 fileService 打开文件夹，这样会自动更新文件树
       await fileService.openFolderByPath(result.data.path)
+      tabsStore.createTab({ title: '未命名' })
     }
   }
 }

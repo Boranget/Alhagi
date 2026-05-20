@@ -4,24 +4,16 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <div
-        v-if="isWelcomePage"
-        class="welcome-area"
-      >
-        <Welcome />
-      </div>
-      <div
-        v-else
-        class="main-area"
-      >
-        <EnhancedSidebar v-if="prefsStore.showSidebar" />
-        <div class="editor-wrapper">
-          <TabBar v-if="prefsStore.showTabBar" />
-          <EditorContainer />
+      <EnhancedSidebar v-if="prefsStore.showSidebar" />
+      <div class="editor-wrapper">
+        <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
+        <div class="editor-area">
+          <EditorContainer v-if="tabsStore.tabs.size > 0" />
+          <Welcome v-else />
         </div>
       </div>
-      <StatusBar v-if="prefsStore.showStatusBar && !isWelcomePage" />
     </div>
+    <StatusBar v-if="prefsStore.showStatusBar" />
     <SettingsPanel
       :visible="showSettings"
       @close="showSettings = false"
@@ -33,6 +25,7 @@
 import { ref, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useFileService } from '@/services/fileService'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import TabBar from '@/components/Tabs/TabBar.vue'
@@ -48,8 +41,8 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const fileService = useFileService()
 const showSettings = ref(false)
-const isWelcomePage = ref(false)
 const isFullscreen = ref(false)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -79,8 +72,20 @@ function triggerAutoSave() {
   }, prefsStore.autoSaveInterval * 1000)
 }
 
-function setupElectronListeners() {
-  if (!window.electronAPI) return
+async function openFolderFromMenu() {
+    if (!window.electronAPI) return
+    
+    const result = await window.electronAPI.openFolder()
+    if (result.success && result.data) {
+      await fileService.openFolderByPath(result.data.path)
+      if (tabsStore.tabs.size === 0) {
+        tabsStore.createTab({ title: '未命名' })
+      }
+    }
+  }
+
+  function setupElectronListeners() {
+    if (!window.electronAPI) return
 
   window.electronAPI.onNewFile(() => {
     tabsStore.createTab({ title: '未命名' })
@@ -93,10 +98,14 @@ function setupElectronListeners() {
   })
 
   window.electronAPI.onOpenFile(() => {
-    tabsStore.openFile()
-  })
+      tabsStore.openFile()
+    })
 
-  window.electronAPI.onSave(() => {
+    window.electronAPI.onOpenFolder(() => {
+      openFolderFromMenu()
+    })
+
+    window.electronAPI.onSave(() => {
     if (tabsStore.activeTabId) {
       tabsStore.saveFile(tabsStore.activeTabId)
     }
@@ -110,7 +119,7 @@ function setupElectronListeners() {
 
   window.electronAPI.onViewMode((mode: string) => {
     console.log('[App] View mode changed from menu:', mode)
-    eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode)
+    eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode as 'wysiwyg' | 'source' | 'split')
   })
 
   window.electronAPI.onCopyAsMarkdown(() => {
@@ -261,16 +270,7 @@ function setupSystemThemeListener() {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeListener)
 }
 
-watch(
-  () => tabsStore.tabs.size,
-  (newSize) => {
-    if (newSize > 0 && isWelcomePage.value) {
-      isWelcomePage.value = false
-    } else if (newSize === 0 && !isWelcomePage.value) {
-      isWelcomePage.value = true
-    }
-  }
-)
+
 
 onMounted(() => {
   setupElectronListeners()
@@ -303,9 +303,6 @@ onMounted(() => {
         if (lastSession.activeTabId) {
           tabsStore.switchTab(lastSession.activeTabId)
         }
-        isWelcomePage.value = false
-      } else {
-        isWelcomePage.value = true
       }
       break
     }
@@ -322,18 +319,13 @@ onMounted(() => {
           }
         })
       }
-      isWelcomePage.value = false
       tabsStore.createTab({ title: '未命名' })
       break
     }
 
     case 'empty':
-      isWelcomePage.value = false
-      break
-
     case 'welcome':
     default:
-      isWelcomePage.value = true
       break
   }
 })
@@ -359,36 +351,23 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-primary);
-
-  &.is-fullscreen {
-    .main-area {
-      height: calc(100vh - 36px);
-    }
-  }
 }
 
 .app-content {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.welcome-area {
   flex: 1;
   overflow: hidden;
-}
-
-.main-area {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  height: calc(100vh - 36px - 24px);
 }
 
 .editor-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-area {
+  flex: 1;
   overflow: hidden;
 }
 </style>

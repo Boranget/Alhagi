@@ -105,6 +105,9 @@ const api: ElectronAPI = {
   onOpenFile: (callback) => 
     createMenuListener(MENU_EVENTS.OPEN_FILE, callback),
   
+  onOpenFolder: (callback) => 
+    createMenuListener(MENU_EVENTS.OPEN_FOLDER, callback),
+  
   onSave: (callback) => 
     createMenuListener(MENU_EVENTS.SAVE, callback),
   
