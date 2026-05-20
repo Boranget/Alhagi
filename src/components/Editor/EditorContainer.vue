@@ -33,7 +33,7 @@
         <div class="split-view">
           <div
             class="split-source"
-            :style="{ width: `${splitRatio}%` }"
+            :style="{ width: `calc(${splitRatio}% - 3px)` }"
           >
             <div class="split-source-content">
               <CodeMirrorEditor
@@ -52,7 +52,7 @@
           <div
             ref="crepeContainer"
             class="crepe split-preview"
-            :style="{ width: `${100 - splitRatio}%` }"
+            :style="{ width: `calc(${100 - splitRatio}% - 3px)` }"
             @focus="handleCrepeFocus"
           />
         </div>
