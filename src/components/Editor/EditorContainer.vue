@@ -5,45 +5,6 @@
   >
     <FloatingSearch ref="floatingSearchRef" />
     <div
-      v-if="showEditorToolbar"
-      class="editor-toolbar"
-    >
-      <div class="toolbar-group">
-        <button
-          v-for="mode in viewModes"
-          :key="mode.value"
-          class="toolbar-btn"
-          :class="{ active: currentMode === mode.value }"
-          :title="mode.label"
-          @click="handleViewModeChange(mode.value)"
-        >
-          <Icon
-            :name="mode.icon"
-            size="sm"
-          />
-        </button>
-      </div>
-      <div class="toolbar-divider" />
-      <div class="toolbar-group">
-        <button
-          class="toolbar-btn"
-          :class="{ active: prefsStore.typewriterMode }"
-          :title="t('editor.typewriterMode')"
-          @click="toggleTypewriterMode"
-        >
-          ⌨️
-        </button>
-        <button
-          class="toolbar-btn"
-          :class="{ active: prefsStore.focusMode }"
-          :title="t('editor.focusMode')"
-          @click="toggleFocusMode"
-        >
-          🎯
-        </button>
-      </div>
-    </div>
-    <div
       class="editor-content"
       :class="contentClasses"
     >
@@ -124,18 +85,11 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
-const showEditorToolbar = ref(true)
 const splitRatio = ref(50)
 const isResizing = ref(false)
 const windowWidth = ref(window.innerWidth)
 const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
-
-const viewModes = [
-  { value: EDITOR.VIEW_MODES.WYSIWYG as ViewMode, label: t('editor.wysiwygMode'), icon: 'wysiwyg' },
-  { value: EDITOR.VIEW_MODES.SOURCE as ViewMode, label: t('editor.sourceMode'), icon: 'code' },
-  { value: EDITOR.VIEW_MODES.SPLIT as ViewMode, label: t('editor.splitMode'), icon: 'split' }
-]
 
 const activeTab = computed(() => tabsStore.activeTab)
 
@@ -373,47 +327,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
   flex-direction: column;
   overflow: hidden;
   background: var(--editor-bg);
-}
-
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  background: var(--toolbar-bg);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toolbar-group {
-  display: flex;
-  gap: 4px;
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border-color);
-  margin: 0 8px;
-}
-
-.toolbar-btn {
-  padding: 4px 12px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--toolbar-btn-hover-bg);
-    color: var(--text-primary);
-  }
-
-  &.active {
-    background: var(--primary-color);
-    color: white;
-  }
 }
 
 .editor-content {
