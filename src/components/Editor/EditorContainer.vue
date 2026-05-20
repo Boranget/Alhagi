@@ -35,11 +35,13 @@
             class="split-source"
             :style="{ width: `${splitRatio}%` }"
           >
-            <CodeMirrorEditor
-              :model-value="sourceContent"
-              @update:model-value="handleCodeMirrorChange"
-              @focus="handleCodeMirrorFocus"
-            />
+            <div class="split-source-content">
+              <CodeMirrorEditor
+                :model-value="sourceContent"
+                @update:model-value="handleCodeMirrorChange"
+                @focus="handleCodeMirrorFocus"
+              />
+            </div>
           </div>
           <div
             class="split-resizer"
@@ -48,11 +50,15 @@
             <div class="split-resizer-handle" />
           </div>
           <div
-            ref="crepeContainer"
-            class="crepe split-preview"
+            class="split-preview"
             :style="{ width: `${100 - splitRatio}%` }"
-            @focus="handleCrepeFocus"
-          />
+          >
+            <div
+              ref="crepeContainer"
+              class="crepe split-preview-content"
+              @focus="handleCrepeFocus"
+            />
+          </div>
         </div>
       </template>
     </div>
@@ -345,6 +351,15 @@ function handleEditorKeydown(e: KeyboardEvent) {
       transition: all 0.3s ease;
       display: block;
       min-height: 0;
+      padding: 16px 16px;
+
+      @media (min-width: 768px) {
+        padding: 20px 32px;
+      }
+
+      @media (min-width: 1024px) {
+        padding: 20px 64px;
+      }
 
       :deep(.crepe) {
         display: block;
@@ -373,9 +388,24 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.mode-source {
     .source-editor-wrapper {
       flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
       min-height: 0;
+
+      :deep(.codemirror-editor) {
+        height: 100%;
+
+        :deep(.cm-content) {
+          padding: 16px 16px !important;
+
+          @media (min-width: 768px) {
+            padding: 20px 32px !important;
+          }
+
+          @media (min-width: 1024px) {
+            padding: 20px 64px !important;
+          }
+        }
+      }
     }
   }
 
@@ -388,8 +418,27 @@ function handleEditorKeydown(e: KeyboardEvent) {
       .split-source {
         height: 100%;
         flex-shrink: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
+
+        .split-source-content {
+          height: 100%;
+
+          :deep(.codemirror-editor) {
+            height: 100%;
+
+            :deep(.cm-content) {
+              padding: 16px 12px 16px 16px !important;
+
+              @media (min-width: 768px) {
+                padding: 20px 12px 20px 32px !important;
+              }
+
+              @media (min-width: 1024px) {
+                padding: 20px 12px 20px 64px !important;
+              }
+            }
+          }
+        }
       }
 
       .split-resizer {
@@ -420,16 +469,29 @@ function handleEditorKeydown(e: KeyboardEvent) {
         overflow-x: hidden;
         flex-shrink: 0;
 
-        :deep(.crepe) {
-          display: block;
-          width: 100%;
-          max-width: 100%;
-          margin: 0 auto;
-        }
+        .split-preview-content {
+          padding: 16px 16px 16px 12px;
+          height: 100%;
 
-        :deep(.milkdown) {
-          display: block;
-          height: auto;
+          @media (min-width: 768px) {
+            padding: 20px 32px 20px 12px;
+          }
+
+          @media (min-width: 1024px) {
+            padding: 20px 64px 20px 12px;
+          }
+
+          :deep(.crepe) {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+          }
+
+          :deep(.milkdown) {
+            display: block;
+            height: auto;
+          }
         }
       }
     }

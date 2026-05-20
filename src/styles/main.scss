@@ -135,17 +135,9 @@ textarea {
   box-sizing: border-box;
 }
 
-/* 覆盖 Crepe 编辑器的默认 padding - 响应式 */
+/* 覆盖 Crepe 编辑器的默认 padding */
 .crepe > .milkdown > .ProseMirror {
-  padding: 16px 16px !important;
-  
-  @media (min-width: 768px) {
-    padding: 20px 32px !important;
-  }
-  
-  @media (min-width: 1100px) {
-    padding: 20px 256px !important;
-  }
+  padding: 0 !important;
 }
 
 /* CodeMirror 样式 - 参考官方 playground */
