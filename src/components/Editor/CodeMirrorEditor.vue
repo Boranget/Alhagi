@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { createCodeMirrorView, reconfigureTheme } from './codemirror/setup'
+import { createCodeMirrorView, createCodeMirrorState } from './codemirror/setup'
 import { usePreferencesStore } from '@/stores/preferences'
 
 interface Props {
@@ -69,12 +69,11 @@ onUnmounted(() => {
   destroyEditor()
 })
 
-// 监听暗色模式变化，原地切换 CodeMirror 主题，避免销毁重建编辑器
-watch(isDarkMode, (dark) => {
-  if (editorView) {
-    console.log('[CodeMirrorEditor] Theme changed, reconfiguring theme')
-    reconfigureTheme(editorView, dark)
-  }
+// 监听暗色模式变化，重新创建编辑器以切换主题
+watch(isDarkMode, () => {
+  console.log('[CodeMirrorEditor] Theme changed, recreating editor')
+  destroyEditor()
+  initEditor()
 })
 
 watch(() => props.modelValue, (newValue) => {

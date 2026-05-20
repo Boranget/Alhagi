@@ -4,7 +4,6 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { getMarkdown } from '@milkdown/kit/utils'
-import { Compartment } from '@codemirror/state'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
@@ -13,9 +12,6 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
-
-// 用于在运行时切换代码块的 CodeMirror 主题，避免重建编辑器实例
-const codeBlockThemeCompartment = new Compartment()
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -73,9 +69,7 @@ export class CrepeEditorManager {
       },
       featureConfigs: {
         [Crepe.Feature.CodeMirror]: {
-          // 不直接传递 theme，而是通过 Compartment 实现运行时主题切换
-          theme: null as any,
-          extensions: [codeBlockThemeCompartment.of(isDark ? nord : eclipse)],
+          theme: isDark ? undefined : eclipse,
         },
       },
     })
@@ -362,53 +356,23 @@ export class CrepeEditorManager {
   }
 
   async updateTheme(): Promise<void> {
-    if (!this.crepe || !this.isInitialized) {
+    if (!this.crepe || !this.isInitialized || !this.container) {
       console.warn('[CrepeEditorManager] Cannot update theme: Crepe not initialized')
       return
     }
 
-    // 1. CSS 变量切换由 prefsStore.applyTheme() 处理（已在 App.vue 中调用）
-    // 2. 代码块内部的 CodeMirror 实例需要单独更新主题
-    const isDark = this.isDarkMode()
-    const newTheme = isDark ? nord : eclipse
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-
-      // 遍历 ProseMirror 内部的 docView 结构，找到所有代码块的 CodeMirrorBlock 节点视图
-      function findCodeBlockNodeViews(docView: any): any[] {
-        const views: any[] = []
-        if (docView.nodeView && docView.nodeView.cm) {
-          views.push(docView.nodeView)
-        }
-        if (docView.children && Array.isArray(docView.children)) {
-          for (const child of docView.children) {
-            views.push(...findCodeBlockNodeViews(child))
-          }
-        }
-        return views
-      }
-
-      const codeBlockViews = findCodeBlockNodeViews((view as any).docView)
-
-      if (codeBlockViews.length > 0) {
-        console.log(`[CrepeEditorManager] Updating theme for ${codeBlockViews.length} code block(s)`)
-
-        for (const nodeView of codeBlockViews) {
-          try {
-            if (nodeView.cm) {
-              nodeView.cm.dispatch({
-                effects: codeBlockThemeCompartment.reconfigure(newTheme),
-              })
-            }
-          } catch (error) {
-            console.error('[CrepeEditorManager] Failed to update code block theme:', error)
-          }
-        }
-      }
-
-      console.log('[CrepeEditorManager] Theme updated')
-    })
+    console.log('[CrepeEditorManager] Updating theme')
+    
+    // 保存当前状态 - 在 destroy() 之前获取
+    const currentContent = this.getMarkdown()
+    const container = this.container
+    const tabId = this.currentTabId
+    
+    // 先销毁
+    await this.destroy()
+    
+    // 重新初始化 - 传入保存的容器
+    await this.init(container, currentContent, tabId || undefined)
   }
 }
 

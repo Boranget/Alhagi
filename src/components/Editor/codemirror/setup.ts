@@ -14,7 +14,7 @@ import {
   syntaxHighlighting,
 } from '@codemirror/language'
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
-import { Compartment, EditorState } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import {
   EditorView,
   ViewUpdate,
@@ -29,9 +29,6 @@ import {
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
 import { debounce } from '@/utils/helpers'
-
-// 使用 Compartment 实现原地主题切换，避免销毁重建编辑器
-const themeCompartment = new Compartment()
 
 const basicSetup: Extension = [
   highlightActiveLineGutter(),
@@ -73,7 +70,7 @@ export const createCodeMirrorState = ({
   return EditorState.create({
     doc: content,
     extensions: [
-      themeCompartment.of(dark ? nord : eclipse),
+      dark ? nord : eclipse,
       basicSetup,
       markdown(),
       EditorView.updateListener.of((viewUpdate) => {
@@ -81,13 +78,6 @@ export const createCodeMirrorState = ({
       }),
       onFocus ? EditorView.domEventHandlers({ focus: onFocus }) : [],
     ],
-  })
-}
-
-/** 原地切换 CodeMirror 主题，无需销毁重建编辑器实例 */
-export function reconfigureTheme(editorView: EditorView, dark: boolean): void {
-  editorView.dispatch({
-    effects: themeCompartment.reconfigure(dark ? nord : eclipse),
   })
 }
 
