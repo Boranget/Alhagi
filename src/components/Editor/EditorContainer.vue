@@ -94,7 +94,7 @@ const unsubscribes: (() => void)[] = []
 const activeTab = computed(() => tabsStore.activeTab)
 
 const isSmallScreen = computed(() => windowWidth.value < 800)
-const editorPadding = computed(() => isSmallScreen.value ? '10px' : '40px 100px')
+const editorPadding = computed(() => isSmallScreen.value ? '8px' : '20px 60px')
 const editorScale = computed(() => {
   if (windowWidth.value < 600) return 0.8
   if (windowWidth.value < 1000) return 0.9
