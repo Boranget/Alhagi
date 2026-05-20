@@ -327,32 +327,43 @@ function handleEditorKeydown(e: KeyboardEvent) {
   flex-direction: column;
   overflow: hidden;
   background: var(--editor-bg);
+  min-height: 0; /* 关键：让 flex 子元素能正确计算高度 */
 }
 
 .editor-content {
   flex: 1;
   overflow: hidden;
   position: relative;
+  min-height: 0; /* 关键：让 flex 子元素能正确计算高度 */
+  display: flex;
+  flex-direction: column;
 
   &.mode-wysiwyg {
     .wysiwyg-editor {
-      height: 100%;
+      flex: 1;
       padding: v-bind(editorPadding);
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
+      display: block;
+      min-height: 0;
 
       :deep(.crepe) {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        height: 100%;
+        display: block;
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
         transform-origin: top center;
         transform: scale(var(--editor-scale, 1));
+      }
+
+      :deep(.milkdown) {
+        display: block;
+        height: auto;
+      }
+
+      :deep(.ProseMirror) {
+        outline: none;
       }
 
       :deep(.milkdown-block-handle) {
@@ -363,20 +374,24 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
   &.mode-source {
     .source-editor-wrapper {
-      width: 100%;
-      height: 100%;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
     }
   }
 
   &.mode-split {
     .split-view {
       display: flex;
-      height: 100%;
+      flex: 1;
+      min-height: 0;
 
       .split-source {
         height: 100%;
         flex-shrink: 0;
-        overflow: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
 
       .split-resizer {
@@ -403,17 +418,20 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       .split-preview {
         height: 100%;
-        overflow: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
         flex-shrink: 0;
 
         :deep(.crepe) {
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-          height: 100%;
+          display: block;
           width: 100%;
           max-width: 100%;
           margin: 0 auto;
+        }
+
+        :deep(.milkdown) {
+          display: block;
+          height: auto;
         }
       }
     }

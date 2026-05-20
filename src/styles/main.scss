@@ -73,9 +73,8 @@ textarea {
 
 /* Crepe Editor 主题样式 - 参考官方 website playground */
 .crepe .milkdown {
-  display: flow-root;
-  height: 100%;
-  flex: 1;
+  display: block;
+  height: auto;
 
   --crepe-color-background: #fdfcff;
   --crepe-color-on-background: #1b1c1d;

@@ -352,12 +352,14 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-primary);
+  min-height: 0;
 }
 
 .app-content {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .editor-wrapper {
@@ -365,10 +367,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .editor-area {
   flex: 1;
   overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>
