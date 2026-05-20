@@ -135,16 +135,6 @@ const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
 const newItemInput = ref<HTMLInputElement | null>(null)
 
-console.log('[FileExplorer.vue] Component created, currentFolder:', fileStore.currentFolder, 'fileTree length:', fileStore.fileTree.length)
-
-watch(() => fileStore.currentFolder, (newVal, oldVal) => {
-  console.log('[FileExplorer.vue] currentFolder changed:', oldVal, '->', newVal)
-})
-
-watch(() => fileStore.fileTree, (newVal, oldVal) => {
-  console.log('[FileExplorer.vue] fileTree changed:', oldVal?.length ?? 0, '->', newVal.length)
-}, { deep: true })
-
 interface ContextMenu {
   show: boolean
   x: number
@@ -393,7 +383,7 @@ async function handleDelete(node: FileTreeNodeType | null) {
 
 function handleOpenInExplorer(node: FileTreeNodeType | null) {
   if (!node || !window.electronAPI) return
-  console.log('Open in explorer:', node.path)
+  // Open in system file explorer
 }
 
 async function handleRefresh() {

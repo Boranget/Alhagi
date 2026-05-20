@@ -36,11 +36,9 @@ export function useKeybindings() {
     },
     'edit.undo': () => {
       // Crepe 编辑器已经内置了撤销功能
-      console.log('[useKeybindings] Undo requested')
     },
     'edit.redo': () => {
       // Crepe 编辑器已经内置了重做功能
-      console.log('[useKeybindings] Redo requested')
     },
     'edit.cut': () => {
       document.execCommand('cut')

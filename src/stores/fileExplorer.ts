@@ -10,23 +10,17 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  console.log('[FileExplorerStore] Store initialized')
-
   async function openFolder() {
-    console.log('[FileExplorerStore] openFolder called')
     if (!window.electronAPI) {
       error.value = 'Electron API not available'
-      console.log('[FileExplorerStore] Electron API not available')
       return null
     }
 
     try {
       const response = await window.electronAPI.openFolder()
-      console.log('[FileExplorerStore] openFolder response:', response)
       if (response && response.success && response.data) {
         currentFolder.value = response.data.path
         fileTree.value = response.data.tree
-        console.log('[FileExplorerStore] Folder opened:', currentFolder.value, 'Files count:', fileTree.value.length)
         
         const prefs = usePreferencesStore()
         const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
@@ -155,9 +149,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function refreshTree() {
-    console.log('[FileExplorerStore] refreshTree called, currentFolder:', currentFolder.value)
     if (!currentFolder.value) {
-      console.log('[FileExplorerStore] refreshTree: currentFolder is null, returning')
       return
     }
 
@@ -165,27 +157,21 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
     try {
       const tree = await readDirectory(currentFolder.value)
       fileTree.value = tree
-      console.log('[FileExplorerStore] refreshTree completed, fileTree length:', fileTree.value.length)
     } finally {
       isLoading.value = false
     }
   }
 
   async function openFolderByPath(folderPath: string) {
-    console.log('[FileExplorerStore] openFolderByPath called with path:', folderPath)
     if (!window.electronAPI) {
       error.value = 'Electron API not available'
-      console.log('[FileExplorerStore] openFolderByPath: Electron API not available')
       return null
     }
 
     try {
       const tree = await readDirectory(folderPath)
-      console.log('[FileExplorerStore] openFolderByPath: readDirectory returned', tree.length, 'items')
       currentFolder.value = folderPath
       fileTree.value = tree
-      console.log('[FileExplorerStore] openFolderByPath: currentFolder set to:', currentFolder.value)
-      console.log('[FileExplorerStore] openFolderByPath: fileTree updated with', fileTree.value.length, 'items')
       
       const prefs = usePreferencesStore()
       const folderName = folderPath.split(/[/\\]/).pop() || folderPath

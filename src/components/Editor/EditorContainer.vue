@@ -115,17 +115,11 @@ const contentClasses = computed(() => ({
 
 watch(activeTab, async (tab, oldTab) => {
   if (tab) {
-    console.log('[EditorContainer] Tab changed:', tab.id, 'content length:', tab.content.length)
-    
     // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
     if (editorManager.isReady()) {
       if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-        console.log('[EditorContainer] Switching to tab:', tab.id)
         await editorManager.switchToTab(tab.id)
-        console.log('[EditorContainer] Switched to tab:', tab.id, 'content:', tab.content.substring(0, 50))
       }
-    } else {
-      console.log('[EditorContainer] Editor not ready yet, will sync after init')
     }
     
     // 更新源码内容
@@ -151,10 +145,7 @@ const handleCodeMirrorFocus = () => {
 const handleViewModeChange = async (mode: ViewMode) => {
   const prevMode = currentMode.value
   
-  console.log('[EditorContainer] Changing view mode from', prevMode, 'to', mode)
-  
   if (mode === prevMode) {
-    console.log('[EditorContainer] Mode unchanged, skipping')
     return
   }
   
@@ -162,13 +153,11 @@ const handleViewModeChange = async (mode: ViewMode) => {
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       sourceContent.value = editorManager.getMarkdown()
-      console.log('[EditorContainer] Got markdown content, length:', sourceContent.value.length)
     }
   }
 
   // 如果切换到 WYSIWYG 模式，需要先设置内容
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
-    console.log('[EditorContainer] Switching to WYSIWYG, setting markdown content')
     if (editorManager.isReady()) {
       await editorManager.setMarkdown(sourceContent.value)
     }
@@ -183,25 +172,18 @@ const handleViewModeChange = async (mode: ViewMode) => {
   
   // 只有在 WYSIWYG 或分屏模式下才需要初始化 Crepe
   if (mode === EDITOR.VIEW_MODES.WYSIWYG || mode === EDITOR.VIEW_MODES.SPLIT) {
-    console.log('[EditorContainer] Initializing Crepe for mode:', mode)
-    console.log('[EditorContainer] crepeContainer:', crepeContainer.value)
-    
     if (crepeContainer.value) {
       const currentContent = activeTab.value?.content || ''
       const currentTabId = activeTab.value?.id
-      console.log('[EditorContainer] Content length:', currentContent.length, 'TabId:', currentTabId)
       
       try {
         await editorManager.init(crepeContainer.value, currentContent, currentTabId)
-        console.log('[EditorContainer] Crepe initialized successfully')
       } catch (error) {
         console.error('[EditorContainer] Failed to initialize Crepe:', error)
       }
     } else {
       console.error('[EditorContainer] crepeContainer is null after mode change!')
     }
-  } else {
-    console.log('[EditorContainer] Source mode, no need to initialize Crepe')
   }
 }
 
@@ -257,37 +239,27 @@ unsubscribes.push(unsubscribeContentChanged)
 
 const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
   const data = payload as { tabId: string | null }
-  console.log('[EditorContainer] Editor ready event received:', data)
   
   if (activeTab.value && editorManager.isReady()) {
-    console.log('[EditorContainer] Syncing content after editor ready')
     await editorManager.switchToTab(activeTab.value.id)
   }
 })
 unsubscribes.push(unsubscribeEditorReady)
 
 const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, async (mode) => {
-  console.log('[EditorContainer] View mode changed via menu:', mode)
   await handleViewModeChange(mode as 'wysiwyg' | 'source' | 'split')
 })
 unsubscribes.push(unsubscribeViewModeChanged)
 
 onMounted(async () => {
-  console.log('[EditorContainer] onMounted called')
-  console.log('[EditorContainer] crepeContainer:', crepeContainer.value)
-  console.log('[EditorContainer] activeTab:', activeTab.value)
-  
   if (crepeContainer.value) {
     const initialContent = activeTab.value?.content || ''
     const tabId = activeTab.value?.id
-    console.log('[EditorContainer] Initializing with content length:', initialContent.length)
     
     try {
       await editorManager.init(crepeContainer.value, initialContent, tabId)
-      console.log('[EditorContainer] EditorManager initialized successfully')
       
       if (tabId && initialContent) {
-        console.log('[EditorContainer] Syncing content after init')
         await editorManager.switchToTab(tabId)
       }
     } catch (error) {
@@ -304,13 +276,11 @@ onMounted(async () => {
 })
 
 onUnmounted(async () => {
-  console.log('[EditorContainer] onUnmounted called - NOT destroying editor (singleton mode)')
   unsubscribes.forEach(unsubscribe => unsubscribe())
   window.removeEventListener('keydown', handleEditorKeydown)
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
-  console.log('[EditorContainer] Event listeners cleaned up')
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {

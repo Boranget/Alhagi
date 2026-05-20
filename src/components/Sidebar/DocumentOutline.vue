@@ -182,7 +182,6 @@ function handleCursorChange() {
 onMounted(() => {
   unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
     const data = payload as { content: string; tabId: string }
-    console.log('[DocumentOutline] Content changed, refreshing outline for tab:', data.tabId)
     const activeTab = tabsStore.activeTab
     if (activeTab && activeTab.id === data.tabId) {
       parseHeadings(activeTab.content)
@@ -191,7 +190,6 @@ onMounted(() => {
 
   unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, (payload) => {
     const data = payload as { tabId: string; previousTabId?: string }
-    console.log('[DocumentOutline] Tab switched, refreshing outline for tab:', data.tabId)
     const tab = tabsStore.tabs.get(data.tabId)
     if (tab) {
       parseHeadings(tab.content)

@@ -177,7 +177,7 @@ function parseHeadings(content: string) {
 }
 
 function openFolder() {
-  console.log('Open folder dialog would open here')
+  // Open folder dialog
 }
 
 function toggleFolder() {
@@ -185,7 +185,7 @@ function toggleFolder() {
 }
 
 async function openFile(filePath: string) {
-  console.log('Opening file:', filePath)
+  // Open file handler
 }
 
 const handleSearch = debounce(() => {
@@ -193,7 +193,7 @@ const handleSearch = debounce(() => {
     searchResults.value = []
     return
   }
-  console.log('Searching for:', searchQuery.value)
+  // Search implementation
 }, 300)
 
 function scrollToHeading(id: string) {

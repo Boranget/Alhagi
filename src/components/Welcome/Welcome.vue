@@ -111,17 +111,11 @@ async function openExistingFile() {
 }
 
 async function openFolder() {
-  console.log('[Welcome.vue] openFolder called')
   if (window.electronAPI) {
     const result = await window.electronAPI.openFolder()
-    console.log('[Welcome.vue] openFolder: result:', result)
     if (result.success && result.data) {
-      console.log('[Welcome.vue] openFolder: calling fileStore.openFolderByPath with:', result.data.path)
       await fileStore.openFolderByPath(result.data.path)
-      console.log('[Welcome.vue] openFolder: fileStore.openFolderByPath completed')
     }
-  } else {
-    console.log('[Welcome.vue] openFolder: Electron API not available')
   }
 }
 

@@ -511,16 +511,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   function loadPreferences(): void {
-    console.log('[PreferencesStore] 开始加载偏好设置')
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
-        console.log('[PreferencesStore] 找到保存的设置:', saved.substring(0, 200))
         const preferences = JSON.parse(saved) as Partial<Preferences>
         updatePreferences(preferences)
         applyTheme()
       } else {
-        console.log('[PreferencesStore] 未找到保存的设置，使用默认值')
         applyTheme()
       }
     } catch (error) {

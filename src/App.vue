@@ -73,18 +73,13 @@ function triggerAutoSave() {
 }
 
 async function openFolderFromMenu() {
-    console.log('[App.vue] openFolderFromMenu called')
     if (!window.electronAPI) {
-      console.log('[App.vue] openFolderFromMenu: Electron API not available')
       return
     }
     
     const result = await window.electronAPI.openFolder()
-    console.log('[App.vue] openFolderFromMenu: openFolder result:', result)
     if (result.success && result.data) {
-      console.log('[App.vue] openFolderFromMenu: calling fileStore.openFolderByPath with:', result.data.path)
       await fileStore.openFolderByPath(result.data.path)
-      console.log('[App.vue] openFolderFromMenu: fileStore.openFolderByPath completed')
     }
   }
 
@@ -122,7 +117,6 @@ async function openFolderFromMenu() {
   })
 
   window.electronAPI.onViewMode((mode: string) => {
-    console.log('[App] View mode changed from menu:', mode)
     eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode as 'wysiwyg' | 'source' | 'split')
   })
 
@@ -210,13 +204,13 @@ async function openFolderFromMenu() {
 
   if (window.electronAPI?.onEditUndo) {
     window.electronAPI.onEditUndo(() => {
-      console.log('[App] Undo requested')
+      // Undo handled by editor
     })
   }
 
   if (window.electronAPI?.onEditRedo) {
     window.electronAPI.onEditRedo(() => {
-      console.log('[App] Redo requested')
+      // Redo handled by editor
     })
   }
 }
@@ -265,7 +259,6 @@ function setupSystemThemeListener() {
   
   systemThemeListener = async (e: MediaQueryListEvent) => {
     if (prefsStore.theme === 'system') {
-      console.log('[App] System theme changed:', e.matches ? 'dark' : 'light')
       prefsStore.applyTheme()
       await editorManager.updateTheme()
     }
@@ -282,12 +275,9 @@ onMounted(() => {
   window.addEventListener('beforeunload', saveCurrentSession)
 
   prefsStore.loadPreferences()
-  console.log('[App] launchMode:', prefsStore.launchMode)
   initWritingEnhancement()
 
   const launchMode = prefsStore.launchMode
-
-  console.log('[App] 启动模式:', launchMode)
 
   switch (launchMode) {
     case 'last-session': {

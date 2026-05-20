@@ -30,30 +30,21 @@ export class CrepeEditorManager {
 
   setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.activeEditor = editor
-    console.log('[CrepeEditorManager] Active editor set to:', editor)
   }
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
-    console.log('[CrepeEditorManager] init() called')
-    console.log('[CrepeEditorManager] container:', container)
-    console.log('[CrepeEditorManager] initialContent length:', initialContent.length)
-    console.log('[CrepeEditorManager] isInitialized:', this.isInitialized)
-    
     if (!container) {
       console.error('[CrepeEditorManager] Container is undefined, cannot initialize')
       return
     }
 
     const startTime = performance.now()
-    console.log('[CrepeEditorManager] Initializing with content length:', initialContent.length)
 
     this.content = initialContent
     this.currentTabId = tabId || null
     this.container = container
 
-    console.log('[CrepeEditorManager] Creating Crepe instance...')
     const isDark = this.isDarkMode()
-    console.log('[CrepeEditorManager] isDark mode:', isDark)
     
     this.crepe = new Crepe({
       root: container,
@@ -73,9 +64,7 @@ export class CrepeEditorManager {
         },
       },
     })
-    console.log('[CrepeEditorManager] Crepe instance created')
 
-    console.log('[CrepeEditorManager] Configuring editor...')
     this.crepe.editor
       .config((ctx) => {
         ctx.get(listenerCtx).markdownUpdated(
@@ -86,12 +75,9 @@ export class CrepeEditorManager {
         )
       })
       .use(listener)
-    console.log('[CrepeEditorManager] Editor configured')
 
-    console.log('[CrepeEditorManager] Calling crepe.create()...')
     try {
       await this.crepe.create()
-      console.log('[CrepeEditorManager] crepe.create() completed successfully')
     } catch (error) {
       console.error('[CrepeEditorManager] crepe.create() failed:', error)
       throw error
@@ -99,8 +85,6 @@ export class CrepeEditorManager {
 
     this.isInitialized = true
     const initTime = performance.now() - startTime
-    console.log(`[CrepeEditorManager] Initialized in ${initTime.toFixed(2)}ms`)
-    console.log('[CrepeEditorManager] Editor DOM:', container.innerHTML.substring(0, 200))
 
     if (this.currentTabId) {
       eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
@@ -135,7 +119,6 @@ export class CrepeEditorManager {
     }
 
     if (this.isUpdatingContent) {
-      console.log('[CrepeEditorManager] Skipping setMarkdown: already updating content')
       return
     }
 
@@ -178,7 +161,6 @@ export class CrepeEditorManager {
       })
 
       const setTime = performance.now() - startTime
-      console.log(`[CrepeEditorManager] Set markdown in ${setTime.toFixed(2)}ms`)
 
       if (this.currentTabId) {
         this.contentCache.set(this.currentTabId, content)
@@ -225,8 +207,6 @@ export class CrepeEditorManager {
       const tabsStore = useTabsStore()
       tabsStore.setViewMode(this.currentTabId, mode)
     }
-
-    console.log(`[CrepeEditorManager] View mode changed to: ${mode}`)
   }
 
   getViewMode(): ViewMode {
@@ -240,7 +220,6 @@ export class CrepeEditorManager {
     }
     
     if (this.currentTabId === tabId) {
-      console.log('[CrepeEditorManager] Already on tab:', tabId)
       return
     }
 
@@ -252,19 +231,13 @@ export class CrepeEditorManager {
       return
     }
 
-    console.log(`[CrepeEditorManager] Switching to tab: ${tabId}`)
-    console.log(`[CrepeEditorManager] Tab content length: ${tab.content.length}`)
-    console.log(`[CrepeEditorManager] Current content length: ${this.content.length}`)
-
     const previousTabId = this.currentTabId
     this.currentTabId = tabId
     this.currentMode = tab.viewMode
 
     if (tab.content !== this.content) {
-      console.log(`[CrepeEditorManager] Content differs, calling setMarkdown`)
       await this.setMarkdown(tab.content)
     } else {
-      console.log(`[CrepeEditorManager] Content same, not calling setMarkdown`)
       this.content = tab.content
     }
 
@@ -272,9 +245,6 @@ export class CrepeEditorManager {
   }
 
   async destroy(): Promise<void> {
-    console.log('[CrepeEditorManager] Destroying...')
-    console.trace('[CrepeEditorManager] Destroy call stack:')
-
     if (this.crepe) {
       this.crepe.destroy()
       this.crepe = null
@@ -287,8 +257,6 @@ export class CrepeEditorManager {
     this.contentCache.clear()
 
     eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
-
-    console.log('[CrepeEditorManager] Destroyed')
   }
 
   isReady(): boolean {
@@ -304,13 +272,8 @@ export class CrepeEditorManager {
       return
     }
 
-    console.log('[CrepeEditorManager] Content updated, length:', markdown.length)
-    console.log('[CrepeEditorManager] Current view mode:', this.currentMode)
-    console.log('[CrepeEditorManager] Active editor:', this.activeEditor)
-
     // 如果当前用户正在编辑 CodeMirror，就不应该由 Crepe 更新
     if (this.activeEditor === 'codemirror') {
-      console.log('[CrepeEditorManager] CodeMirror is active, skipping content update from Crepe')
       return
     }
 
@@ -360,8 +323,6 @@ export class CrepeEditorManager {
       console.warn('[CrepeEditorManager] Cannot update theme: Crepe not initialized')
       return
     }
-
-    console.log('[CrepeEditorManager] Updating theme')
     
     // 保存当前状态 - 在 destroy() 之前获取
     const currentContent = this.getMarkdown()
@@ -397,13 +358,11 @@ export function useEditorSearch() {
   const editorManager = useCrepeEditorManager()
   
   function setSearchHighlight(config: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
-    console.log('[CrepeEditorManager] setSearchHighlight called with:', config)
-    // Crepe 还没有内置的搜索高亮 API，这里先记录日志
+    // Crepe 还没有内置的搜索高亮 API
     // 后续可以通过 ProseMirror 的 decorations 实现
   }
   
   function clearSearchHighlight() {
-    console.log('[CrepeEditorManager] clearSearchHighlight called')
     // 清除搜索高亮
   }
   

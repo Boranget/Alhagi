@@ -71,7 +71,6 @@ onUnmounted(() => {
 
 // 监听暗色模式变化，重新创建编辑器以切换主题
 watch(isDarkMode, () => {
-  console.log('[CodeMirrorEditor] Theme changed, recreating editor')
   destroyEditor()
   initEditor()
 })
