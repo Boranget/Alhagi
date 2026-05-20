@@ -150,10 +150,9 @@ export const useTabsStore = defineStore('tabs', () => {
       prefs.addRecentFile(options.filePath, tab.title)
     }
 
-    if (!activeTabId.value) {
-      activeTabId.value = id
-      tab.active = true
-    }
+    // 总是自动切换到新创建的标签页
+    activeTabId.value = id
+    tab.active = true
 
     eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
 
