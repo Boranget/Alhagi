@@ -25,7 +25,7 @@
 import { ref, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useFileService } from '@/services/fileService'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import TabBar from '@/components/Tabs/TabBar.vue'
@@ -41,7 +41,7 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
-const fileService = useFileService()
+const fileStore = useFileExplorerStore()
 const showSettings = ref(false)
 const isFullscreen = ref(false)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -73,14 +73,18 @@ function triggerAutoSave() {
 }
 
 async function openFolderFromMenu() {
-    if (!window.electronAPI) return
+    console.log('[App.vue] openFolderFromMenu called')
+    if (!window.electronAPI) {
+      console.log('[App.vue] openFolderFromMenu: Electron API not available')
+      return
+    }
     
     const result = await window.electronAPI.openFolder()
+    console.log('[App.vue] openFolderFromMenu: openFolder result:', result)
     if (result.success && result.data) {
-      await fileService.openFolderByPath(result.data.path)
-      if (tabsStore.tabs.size === 0) {
-        tabsStore.createTab({ title: '未命名' })
-      }
+      console.log('[App.vue] openFolderFromMenu: calling fileStore.openFolderByPath with:', result.data.path)
+      await fileStore.openFolderByPath(result.data.path)
+      console.log('[App.vue] openFolderFromMenu: fileStore.openFolderByPath completed')
     }
   }
 
@@ -312,10 +316,7 @@ onMounted(() => {
         window.electronAPI.openFolder().then((result: unknown) => {
           const folderResult = result as { success: boolean; data?: { path: string } }
           if (folderResult.success && folderResult.data) {
-            import('@/services/fileService').then(({ useFileService }) => {
-              const fileService = useFileService()
-              fileService.openFolderByPath(folderResult.data!.path)
-            })
+            fileStore.openFolderByPath(folderResult.data!.path)
           }
         })
       }

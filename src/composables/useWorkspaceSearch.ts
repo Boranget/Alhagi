@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
-import { useFileService } from '@/services/fileService'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
@@ -27,7 +27,7 @@ export interface SearchResult {
 
 export function useWorkspaceSearch() {
   const tabsStore = useTabsStore()
-  const fileService = useFileService()
+  const fileStore = useFileExplorerStore()
   const { setSearchHighlight, clearSearchHighlight } = useEditorSearch()
 
   const isVisible = ref(false)
@@ -167,7 +167,7 @@ export function useWorkspaceSearch() {
   }
 
   function searchInFolder(pattern: RegExp) {
-    const folderPath = fileService.currentFolder?.value
+    const folderPath = fileStore.currentFolder
     if (!folderPath) {
       results.value = []
       return

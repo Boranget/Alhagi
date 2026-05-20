@@ -1,12 +1,14 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useExport } from '@/composables/useExport'
 
 export function useKeyboardShortcuts() {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
+  const fileStore = useFileExplorerStore()
   const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
   const { showExportDialog } = useExport()
 
@@ -34,10 +36,7 @@ export function useKeyboardShortcuts() {
               window.electronAPI.openFolder().then((result: unknown) => {
                 const folderResult = result as { success: boolean; data?: { path: string } }
                 if (folderResult.success && folderResult.data) {
-                  import('@/services/fileService').then(({ useFileService }) => {
-                    const fileService = useFileService()
-                    fileService.openFolderByPath(folderResult.data!.path)
-                  })
+                  fileStore.openFolderByPath(folderResult.data!.path)
                 }
               })
             }

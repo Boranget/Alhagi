@@ -149,7 +149,7 @@
 import { computed } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
-import { useFileService } from '@/services/fileService'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
@@ -157,7 +157,7 @@ import { Icon } from '@/components/Icons'
 
 const prefs = usePreferencesStore()
 const tabs = useTabsStore()
-const fileService = useFileService()
+const fileStore = useFileExplorerStore()
 
 const recentFiles = computed(() => prefs.recentFiles)
 const recentFolders = computed(() => prefs.recentFolders)
@@ -172,7 +172,7 @@ function openFile(file: RecentFile) {
 }
 
 async function openFolder(folder: RecentFolder) {
-  await fileService.openFolderByPath(folder.folderPath)
+  await fileStore.openFolderByPath(folder.folderPath)
   eventBus.emit(AppEvents.FOLDER_OPENED, { folderPath: folder.folderPath })
 }
 

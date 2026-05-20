@@ -44,19 +44,19 @@
       </button>
     </div>
     <div
-      v-if="currentFolder"
-      class="file-tree"
-    >
-      <FileTreeNode
-        v-for="node in fileTree"
-        :key="node.path"
-        :node="node"
-        :depth="0"
-        @select="handleSelect"
-        @contextmenu="handleContextMenu"
-        @toggle="handleToggle"
-      />
-    </div>
+    v-if="fileStore.currentFolder"
+    class="file-tree"
+  >
+    <FileTreeNode
+      v-for="node in fileStore.fileTree"
+      :key="node.path"
+      :node="node"
+      :depth="0"
+      @select="handleSelect"
+      @contextmenu="handleContextMenu"
+      @toggle="handleToggle"
+    />
+  </div>
     <div
       v-else
       class="empty-state"
@@ -122,8 +122,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
-import { useFileService } from '@/services/fileService'
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath } from '@/utils/helpers'
@@ -131,10 +131,19 @@ import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
-const fileService = useFileService()
+const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
-const { currentFolder, fileTree } = fileService
 const newItemInput = ref<HTMLInputElement | null>(null)
+
+console.log('[FileExplorer.vue] Component created, currentFolder:', fileStore.currentFolder, 'fileTree length:', fileStore.fileTree.length)
+
+watch(() => fileStore.currentFolder, (newVal, oldVal) => {
+  console.log('[FileExplorer.vue] currentFolder changed:', oldVal, '->', newVal)
+})
+
+watch(() => fileStore.fileTree, (newVal, oldVal) => {
+  console.log('[FileExplorer.vue] fileTree changed:', oldVal?.length ?? 0, '->', newVal.length)
+}, { deep: true })
 
 interface ContextMenu {
   show: boolean
@@ -182,15 +191,15 @@ const contextMenuItems: ContextMenuItem[] = [
 ]
 
 async function openFolder() {
-  const result = await fileService.openFolder()
+  const result = await fileStore.openFolder()
   if (result) {
-    await fileService.refreshTree()
+    await fileStore.refreshTree()
   }
 }
 
 async function handleSelect(node: FileTreeNodeType) {
   if (node.type === 'file' && node.name.endsWith('.md')) {
-    const content = await fileService.openFile(node.path)
+    const content = await fileStore.openFile(node.path)
     if (content !== null) {
       const existingTab = Array.from(tabsStore.tabs.values()).find(
         t => t.filePath === node.path
@@ -221,7 +230,7 @@ function handleContextMenu(event: MouseEvent, node: FileTreeNodeType) {
 
 function handleToggle(node: FileTreeNodeType) {
   if (node.type === 'directory') {
-    fileService.toggleFolder(node)
+    fileStore.toggleFolder(node)
   }
 }
 
@@ -280,7 +289,7 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
     
     const moveResult = await window.electronAPI.moveFile(sourcePath, targetDir)
     if (moveResult.success && moveResult.data) {
-      await fileService.refreshTree()
+      await fileStore.refreshTree()
       
       const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === sourcePath)
       if (existingTab) {
@@ -305,7 +314,7 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
     
     const copyResult = await window.electronAPI.copyFile(sourcePath, targetDir)
     if (copyResult.success && copyResult.data) {
-      await fileService.refreshTree()
+      await fileStore.refreshTree()
     }
   }
 }
@@ -338,19 +347,19 @@ async function confirmNewItem() {
     return
   }
 
-  let parentPath = currentFolder.value || ''
-  if (targetNode) {
-    if (targetNode.type === 'directory') {
-      parentPath = targetNode.path
-    } else {
-      parentPath = targetNode.path.split('/').slice(0, -1).join('/')
+  let parentPath = fileStore.currentFolder || ''
+    if (targetNode) {
+      if (targetNode.type === 'directory') {
+        parentPath = targetNode.path
+      } else {
+        parentPath = targetNode.path.split('/').slice(0, -1).join('/')
+      }
     }
-  }
 
   if (isFolder) {
-    await fileService.createDirectory(parentPath, name)
+    await fileStore.createDirectory(parentPath, name)
   } else {
-    await fileService.createFile(parentPath, name.endsWith('.md') ? name : name + '.md')
+    await fileStore.createFile(parentPath, name.endsWith('.md') ? name : name + '.md')
   }
 
   closeNewItemDialog()
@@ -369,7 +378,7 @@ async function handleRename(node: FileTreeNodeType | null) {
 
   const newName = prompt(t('common.rename') + ':', node.name)
   if (newName && newName !== node.name) {
-    await fileService.renameFile(node.path, newName)
+    await fileStore.renameFile(node.path, newName)
   }
 }
 
@@ -378,7 +387,7 @@ async function handleDelete(node: FileTreeNodeType | null) {
 
   const confirmMsg = node.type === 'directory' ? t('common.delete') + '文件夹?' : t('common.delete') + '文件?'
   if (confirm(confirmMsg)) {
-    await fileService.deleteFile(node.path)
+    await fileStore.deleteFile(node.path)
   }
 }
 
@@ -388,13 +397,13 @@ function handleOpenInExplorer(node: FileTreeNodeType | null) {
 }
 
 async function handleRefresh() {
-  await fileService.refreshTree()
+  await fileStore.refreshTree()
 }
 
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
-  if (currentFolder.value) {
-    fileService.refreshTree()
+  if (fileStore.currentFolder) {
+    fileStore.refreshTree()
   }
 })
 
