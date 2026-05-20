@@ -51,7 +51,7 @@
       <template v-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
         <div
           ref="crepeContainer"
-          class="wysiwyg-editor"
+          class="crepe wysiwyg-editor"
           @focus="handleCrepeFocus"
         />
       </template>
@@ -88,7 +88,7 @@
           </div>
           <div
             ref="crepeContainer"
-            class="split-preview"
+            class="crepe split-preview"
             :style="{ width: `${100 - splitRatio}%` }"
             @focus="handleCrepeFocus"
           />
