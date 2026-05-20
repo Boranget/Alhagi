@@ -235,10 +235,9 @@ watch(
 
 watch(
   () => prefsStore.theme,
-  async (theme) => {
-    document.documentElement.setAttribute('data-theme', theme)
-    prefsStore.applyTheme() // 确保正确应用主题
-    await editorManager.updateTheme() // 更新编辑器主题
+  async () => {
+    prefsStore.applyTheme() // 设置 data-theme 属性和 dark class，触发 CSS 变量切换
+    await editorManager.updateTheme() // 编辑器主题由 CSS 变量处理，无需重建
   }
 )
 
