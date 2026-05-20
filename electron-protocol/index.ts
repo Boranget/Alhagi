@@ -123,7 +123,8 @@ export const IPC_CHANNELS = {
     RENAME: 'file:rename',
     MOVE: 'file:move',
     COPY: 'file:copy',
-    SEARCH_IN_DIRECTORY: 'file:search-in-directory'
+    SEARCH_IN_DIRECTORY: 'file:search-in-directory',
+    SHOW_IN_FOLDER: 'file:show-in-folder'
   },
   DIALOG: {
     SELECT_DIRECTORY: 'dialog:select-directory'
@@ -204,6 +205,7 @@ export interface ElectronAPI {
   moveFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
   copyFile: (sourcePath: string, targetDir: string) => Promise<IPCResponse<string | null>>
   selectDirectory: () => Promise<IPCResponse<string | null>>
+  showInFolder: (filePath: string) => Promise<IPCResponse<boolean>>
   searchInDirectory: (dirPath: string, query: string, options?: SearchOptions) => Promise<IPCResponse<SearchResult[]>>
   minimize: () => Promise<IPCResponse<void>>
   maximize: () => Promise<IPCResponse<void>>

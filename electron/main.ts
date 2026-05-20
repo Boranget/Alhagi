@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
@@ -405,6 +405,17 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.MERGE_TAB, async (_, { tabData, targetWindowI
 
 ipcMain.handle(IPC_CHANNELS.WINDOW.GET_WINDOW_ID, (event) => { const window = BrowserWindow.fromWebContents(event.sender); return createSuccessResponse(window?.id || null) })
 ipcMain.handle(IPC_CHANNELS.WINDOW.LIST_WINDOWS, () => { const windowList = Array.from(windows.entries()).map(([id, win]) => ({ id, title: win.getTitle() })); return createSuccessResponse(windowList) })
+
+ipcMain.handle(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, async (_, filePath: string) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+    shell.showItemInFolder(filePath)
+    return createSuccessResponse(true)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to show in folder: ${error.message}`)
+  }
+})
 
 app.whenReady().then(() => { createMenu(); createWindow() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

@@ -142,6 +142,17 @@
         />
         <span class="menu-text">{{ t('tabs.copyPath') }}</span>
       </div>
+      <div
+        v-if="getCurrentTab()?.filePath"
+        class="menu-item"
+        @click="showInFolder"
+      >
+        <Icon
+          name="folder-open"
+          size="sm"
+        />
+        <span class="menu-text">{{ t('tabs.showInFolder') }}</span>
+      </div>
       <div class="menu-divider" />
       <div
         class="menu-item"
@@ -497,6 +508,18 @@ function copyFilePath() {
   const tab = getCurrentTab()
   if (tab?.filePath) {
     navigator.clipboard.writeText(tab.filePath)
+  }
+  hideContextMenu()
+}
+
+async function showInFolder() {
+  const tab = getCurrentTab()
+  if (tab?.filePath && window.electronAPI) {
+    try {
+      await window.electronAPI.showInFolder(tab.filePath)
+    } catch (error) {
+      console.error('Failed to show in folder:', error)
+    }
   }
   hideContextMenu()
 }

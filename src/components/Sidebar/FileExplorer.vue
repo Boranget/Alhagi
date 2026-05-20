@@ -381,9 +381,13 @@ async function handleDelete(node: FileTreeNodeType | null) {
   }
 }
 
-function handleOpenInExplorer(node: FileTreeNodeType | null) {
+async function handleOpenInExplorer(node: FileTreeNodeType | null) {
   if (!node || !window.electronAPI) return
-  // Open in system file explorer
+  try {
+    await window.electronAPI.showInFolder(node.path)
+  } catch (error) {
+    console.error('Failed to open in explorer:', error)
+  }
 }
 
 async function handleRefresh() {

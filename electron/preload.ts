@@ -66,11 +66,14 @@ const api: ElectronAPI = {
   copyFile: (sourcePath, targetDir) => 
     createIpcHandler(IPC_CHANNELS.FILE.COPY, { sourcePath, targetDir }),
   
-  searchInDirectory: (dirPath, query, options) => 
-    createIpcHandler(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, { dirPath, query, options }),
-  
   selectDirectory: () => 
     createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
+  
+  showInFolder: (filePath) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, filePath),
+  
+  searchInDirectory: (dirPath, query, options) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, { dirPath, query, options }),
   
   minimize: () => 
     createIpcHandler(IPC_CHANNELS.WINDOW.MINIMIZE),
