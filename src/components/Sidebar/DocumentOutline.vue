@@ -44,6 +44,8 @@ const flatHeadings = ref<HeadingItem[]>([])
 const activePos = ref<number | null>(null)  // 使用 pos 作为唯一标识
 const cursorLine = ref(0)
 const isManualClick = ref(false) // 标记是否是手动点击
+let scrollContainer: HTMLElement | null = null
+let scrollHandler: ((event: Event) => void) | null = null
 
 const activeTab = computed(() => tabsStore.activeTab)
 
@@ -107,6 +109,140 @@ function updateActiveHeading() {
 }
 
 /**
+ * 初始化滚动监听
+ * 
+ * 在 WYSIWYG 和分屏模式下，监听编辑器的滚动事件，
+ * 实现大纲高亮跟随编辑器滚动位置实时更新。
+ */
+function initScrollListener() {
+  // 先移除旧的监听器，避免重复绑定
+  if (scrollContainer && scrollHandler) {
+    scrollContainer.removeEventListener('scroll', scrollHandler)
+  }
+
+  const tab = activeTab.value
+  if (!tab) return
+
+  const mode = tab.viewMode
+  
+  // 只在 WYSIWYG 和分屏模式下需要监听滚动
+  // 源码模式不需要滚动同步
+  if (mode !== EDITOR.VIEW_MODES.WYSIWYG && mode !== EDITOR.VIEW_MODES.SPLIT) {
+    return
+  }
+
+  // 找到 Crepe 编辑器的滚动容器
+  const editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+  if (!editorElement) {
+    console.warn('[DocumentOutline] Scroll container not found')
+    return
+  }
+
+  scrollContainer = editorElement
+  
+  // 创建节流版本的滚动处理函数（100ms）
+  // 避免频繁更新影响性能
+  let lastUpdateTime = 0
+  scrollHandler = () => {
+    const now = Date.now()
+    // 节流：至少间隔 100ms 才更新一次
+    if (now - lastUpdateTime < 100) return
+    lastUpdateTime = now
+
+    // 如果是手动点击后的短时间内，不自动更新
+    // 避免与用户操作冲突
+    if (isManualClick.value) return
+
+    // 根据视口位置更新活跃标题
+    updateActiveHeadingByViewport()
+  }
+
+  // 添加滚动监听，使用 passive 优化性能
+  scrollContainer.addEventListener('scroll', scrollHandler, { passive: true })
+}
+
+/**
+ * 根据视口位置更新活跃标题
+ * 
+ * 核心逻辑：
+ * 1. 直接遍历 DOM 中的所有标题元素（h1-h6）
+ * 2. 找到距离视口顶部最近的标题
+ * 3. 通过 pos 精确匹配到 flatHeadings 中的标题
+ */
+function updateActiveHeadingByViewport() {
+  if (!flatHeadings.value.length || !scrollContainer) {
+    activePos.value = null
+    return
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const viewportTop = containerRect.top + 20 // 留 20px 边距，让标题不紧贴顶部
+
+  // 步骤 1: 直接遍历 DOM 中的所有标题元素
+  const allHeadings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  
+  let nearestElement: HTMLElement | null = null
+  let minDistance = Infinity
+
+  // 步骤 2: 找到距离视口顶部最近的标题元素
+  for (const element of Array.from(allHeadings)) {
+    const el = element as HTMLElement
+    const rect = el.getBoundingClientRect()
+    const distance = rect.top - viewportTop
+
+    // 找到距离视口顶部最近且在视口内的标题
+    // distance >= -50 允许标题稍微超出视口顶部
+    if (distance >= -50 && distance < minDistance) {
+      minDistance = distance
+      nearestElement = el
+    }
+  }
+
+  // 步骤 3: 将找到的 DOM 元素匹配到 flatHeadings 中的 pos
+  let matchedPos: number | null = null
+  
+  if (nearestElement) {
+    // 策略：通过 ProseMirror 的 nodeDOM 反向查找 pos
+    // 由于我们没有直接的 DOM -> pos 映射，需要通过其他方式
+    // 这里我们尝试通过文本内容和层级来匹配
+    const elementText = nearestElement.textContent?.trim() || ''
+    const elementTag = nearestElement.tagName.toLowerCase()
+    const elementLevel = parseInt(elementTag.substring(1)) || 1
+    
+    // 查找所有匹配的候选项（文本 + 层级匹配）
+    const candidates = flatHeadings.value.filter(h => 
+      h.text === elementText && h.level === elementLevel
+    )
+    
+    if (candidates.length === 1) {
+      // 只有一个匹配，直接使用
+      matchedPos = candidates[0].pos ?? null
+    } else if (candidates.length > 1) {
+      // 有多个相同文本和层级的标题，选择距离光标最近的
+      if (cursorLine.value > 0) {
+        let closestCandidate = candidates[0]
+        let minLineDiff = Math.abs(candidates[0].line - cursorLine.value)
+        
+        for (let i = 1; i < candidates.length; i++) {
+          const lineDiff = Math.abs(candidates[i].line - cursorLine.value)
+          if (lineDiff < minLineDiff) {
+            minLineDiff = lineDiff
+            closestCandidate = candidates[i]
+          }
+        }
+        
+        matchedPos = closestCandidate.pos ?? null
+      } else {
+        // 没有光标信息，使用第一个匹配
+        matchedPos = candidates[0].pos ?? null
+      }
+    }
+  }
+
+  activePos.value = matchedPos
+}
+
+/**
  * 点击大纲条目 - 滚动到标题
  */
 function handleHeadingClick(node: HeadingTreeNode) {
@@ -153,6 +289,7 @@ let unsubscribeContentChanged: (() => void) | null = null
 let unsubscribeTabSwitched: (() => void) | null = null
 let unsubscribeCursorChanged: (() => void) | null = null
 let unsubscribeEditorReady: (() => void) | null = null
+let unsubscribeViewModeChanged: (() => void) | null = null
 
 onMounted(() => {
   unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
@@ -171,6 +308,10 @@ onMounted(() => {
     refreshOutline()
     activePos.value = null
     cursorLine.value = 0
+    // 标签切换后重新初始化滚动监听
+    setTimeout(() => {
+      initScrollListener()
+    }, 100)
   })
 
 // 监听光标变化
@@ -196,8 +337,21 @@ onMounted(() => {
 
       // 其他情况（源码模式、分屏源码区）：不更新大纲定位
       cursorLine.value = 0
-      activeSlug.value = null
+      activePos.value = null
     }
+  })
+
+  // 初始化滚动监听（延迟执行，确保 DOM 已渲染）
+  setTimeout(() => {
+    initScrollListener()
+  }, 200)
+
+  // 监听视图模式切换，重新初始化滚动监听
+  unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, () => {
+    // 视图模式切换后重新初始化滚动监听
+    setTimeout(() => {
+      initScrollListener()
+    }, 100)
   })
 })
 
@@ -206,6 +360,14 @@ onUnmounted(() => {
   unsubscribeTabSwitched?.()
   unsubscribeCursorChanged?.()
   unsubscribeEditorReady?.()
+  unsubscribeViewModeChanged?.()
+  
+  // 清理滚动监听
+  if (scrollContainer && scrollHandler) {
+    scrollContainer.removeEventListener('scroll', scrollHandler)
+    scrollContainer = null
+    scrollHandler = null
+  }
 })
 </script>
 
