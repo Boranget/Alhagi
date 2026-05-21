@@ -24,17 +24,6 @@
       />
 
       <template v-else>
-        <div
-          v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
-          ref="crepeContainer"
-          class="crepe"
-          :class="{
-            'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
-            'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
-          }"
-          @focus="handleCrepeFocus"
-        />
-
         <CodeMirrorEditor
           v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
           :model-value="sourceContent"
@@ -62,6 +51,17 @@
         >
           <div class="split-resizer-handle" />
         </div>
+
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
+          ref="crepeContainer"
+          class="crepe"
+          :class="{
+            'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
+            'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
+          }"
+          @focus="handleCrepeFocus"
+        />
       </template>
     </div>
   </div>
