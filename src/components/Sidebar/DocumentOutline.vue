@@ -132,13 +132,65 @@ function initScrollListener() {
   }
 
   // 找到 Crepe 编辑器的滚动容器
-  const editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+  // WYSIWYG 模式：.crepe.wysiwyg-editor
+  // 分屏模式：.crepe.split-preview（预览区域）
+  let editorElement: HTMLElement | null = null
+  
+  if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
+    editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+  } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
+    // 分屏模式下，优先使用 activeEditor，如果为 null 则默认监听预览区
+    const activeEditor = editorManager.getActiveEditor()
+    
+    // 如果 activeEditor 是 crepe 或 null（未设置），都监听预览区
+    if (activeEditor === 'crepe' || activeEditor === null) {
+      editorElement = document.querySelector('.crepe.split-preview') as HTMLElement
+    }
+    // 如果 activeEditor 是 codemirror，不监听（用户在源码区编辑）
+  }
+  
   if (!editorElement) {
-    console.warn('[DocumentOutline] Scroll container not found')
+    console.warn('[DocumentOutline] Scroll container not found for mode:', mode, ', will retry...')
+    
+    // 延迟重试，最多重试 10 次
+    let retries = 0
+    const maxRetries = 10
+    const retryInterval = setInterval(() => {
+      retries++
+      
+      if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
+        editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+      } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
+        const activeEditor = editorManager.getActiveEditor()
+        // 如果 activeEditor 是 crepe 或 null，都尝试查找预览区
+        if (activeEditor === 'crepe' || activeEditor === null) {
+          editorElement = document.querySelector('.crepe.split-preview') as HTMLElement
+        }
+      }
+      
+      if (editorElement || retries >= maxRetries) {
+        clearInterval(retryInterval)
+        
+        if (editorElement) {
+          scrollContainer = editorElement
+          setupScrollHandler()
+        } else {
+          console.error('[DocumentOutline] Failed to find scroll container after', maxRetries, 'retries')
+        }
+      }
+    }, 200)
     return
   }
 
   scrollContainer = editorElement
+  setupScrollHandler()
+}
+
+/**
+ * 设置滚动处理函数
+ */
+function setupScrollHandler() {
+  if (!scrollContainer) return
   
   // 创建节流版本的滚动处理函数（100ms）
   // 避免频繁更新影响性能
