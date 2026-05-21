@@ -275,22 +275,7 @@ const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, asyn
 })
 unsubscribes.push(unsubscribeViewModeChanged)
 
-onMounted(async () => {
-  if (isEditorFile.value && crepeContainer.value) {
-    const initialContent = activeTab.value?.content || ''
-    const tabId = activeTab.value?.id
-    
-    try {
-      await editorManager.init(crepeContainer.value, initialContent, tabId)
-      
-      if (tabId && initialContent) {
-        await editorManager.switchToTab(tabId)
-      }
-    } catch (error) {
-      console.error('[EditorContainer] Failed to initialize:', error)
-    }
-  }
-  
+onMounted(() => {
   window.addEventListener('keydown', handleEditorKeydown)
   window.addEventListener('resize', handleWindowResize)
   document.addEventListener('mousemove', handleResizerMouseMove)
