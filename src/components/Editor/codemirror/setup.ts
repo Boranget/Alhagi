@@ -58,6 +58,7 @@ interface StateOptions {
   dark: boolean
   onChange: (getString: () => string) => void
   onFocus?: () => void
+  onBlur?: () => void
   onSelectionChange?: () => void
   content: string
 }
@@ -67,6 +68,7 @@ export const createCodeMirrorState = ({
   content,
   dark,
   onFocus,
+  onBlur,
   onSelectionChange,
 }: StateOptions) => {
   return EditorState.create({
@@ -76,13 +78,20 @@ export const createCodeMirrorState = ({
       basicSetup,
       markdown(),
       EditorView.updateListener.of((viewUpdate) => {
+        if (viewUpdate.focusChanged) {
+          if (viewUpdate.view.hasFocus) {
+            onFocus?.()
+          } else {
+            onBlur?.()
+          }
+        }
+        
         onCodeMirrorUpdate(onChange, viewUpdate)
-        // 选区变化时通知
+        
         if (onSelectionChange && viewUpdate.selectionSet) {
           onSelectionChange()
         }
       }),
-      onFocus ? EditorView.domEventHandlers({ focus: onFocus }) : [],
     ],
   })
 }

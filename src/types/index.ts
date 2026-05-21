@@ -76,6 +76,7 @@ export interface AppEventPayloads {
   'app:window:maximized': undefined
   'app:window:minimized': undefined
   'app:preferences:updated': undefined
+  'editor:active-editor-changed': { editor: 'crepe' | 'codemirror' | null }
 'editor:content:changed': { content: string; tabId: string }
   'editor:cursor:changed': { from: number; to: number; tabId: string }
   'editor:selection:changed': { from: number; to: number; tabId: string }

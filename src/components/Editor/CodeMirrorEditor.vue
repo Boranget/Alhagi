@@ -19,7 +19,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const emit = defineEmits(['update:modelValue', 'focus'])
+const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
 
 const prefsStore = usePreferencesStore()
 const tabsStore = useTabsStore()
@@ -45,6 +45,10 @@ const handleFocus = () => {
   emit('focus')
 }
 
+const handleBlur = () => {
+  emit('blur')
+}
+
 function emitCursorChange() {
   if (!editorView) return
   const tabId = tabsStore.activeTab?.id
@@ -61,6 +65,7 @@ function initEditor() {
       dark: isDarkMode.value,
       onChange: handleChange,
       onFocus: handleFocus,
+      onBlur: handleBlur,
       onSelectionChange: emitCursorChange,
     })
   }

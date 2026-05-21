@@ -81,6 +81,7 @@ export const AppEvents = {
   WINDOW_MAXIMIZED: 'app:window:maximized' as const,
   WINDOW_MINIMIZED: 'app:window:minimized' as const,
   PREFERENCES_UPDATED: 'app:preferences:updated' as const,
+  ACTIVE_EDITOR_CHANGED: 'editor:active-editor-changed' as const,
   CONTENT_CHANGED: 'editor:content:changed' as const,
 CURSOR_CHANGED: 'editor:cursor:changed' as const,
   SELECTION_CHANGED: 'editor:selection:changed' as const,

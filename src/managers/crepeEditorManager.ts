@@ -33,6 +33,7 @@ export class CrepeEditorManager {
 
 setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.activeEditor = editor
+    eventBus.emit(AppEvents.ACTIVE_EDITOR_CHANGED, { editor })
   }
 
   getActiveEditor(): 'crepe' | 'codemirror' | null {
@@ -488,10 +489,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
 
     if (this.content === markdown) {
-      return
-    }
-
-    if (this.activeEditor === 'codemirror') {
       return
     }
 

@@ -37,6 +37,7 @@
         :model-value="sourceContent"
         @update:model-value="handleCodeMirrorChange"
         @focus="handleCodeMirrorFocus"
+        @blur="handleCodeMirrorBlur"
       />
 
       <!-- CodeMirror 编辑器 - 分屏源码模式 -->
@@ -48,6 +49,7 @@
           :model-value="sourceContent"
           @update:model-value="handleCodeMirrorChange"
           @focus="handleCodeMirrorFocus"
+          @blur="handleCodeMirrorBlur"
         />
       </div>
 
@@ -136,8 +138,6 @@ watch(activeTab, async (tab, oldTab) => {
 }, { immediate: true })
 
 const handleCodeMirrorChange = (val: string) => {
-  // 编辑 CodeMirror 时设置 activeEditor 为 codemirror
-  editorManager.setActiveEditor('codemirror')
   sourceContent.value = val
   handleSourceContentChange(val)
 }
@@ -148,6 +148,10 @@ const handleCrepeFocus = () => {
 
 const handleCodeMirrorFocus = () => {
   editorManager.setActiveEditor('codemirror')
+}
+
+const handleCodeMirrorBlur = () => {
+  editorManager.setActiveEditor(null)
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
@@ -208,7 +212,11 @@ const handleSourceContentChange = debounce((newContent: unknown) => {
       content: content,
       isDirty: true,
     })
-    editorManager.setMarkdown(content)
+    
+    const activeEditor = editorManager.getActiveEditor()
+    if (activeEditor === 'codemirror') {
+      editorManager.setMarkdown(content)
+    }
   }
 }, 100)
 
@@ -220,9 +228,10 @@ const handleWindowResize = () => {
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
-    // 只有当我们不是正在编辑 CodeMirror 时，才更新 sourceContent
-    // CrepeEditorManager 已经在 handleMarkdownUpdate 中做了这个判断
-    sourceContent.value = data.content
+    const activeEditor = editorManager.getActiveEditor()
+    if (activeEditor !== 'codemirror') {
+      sourceContent.value = data.content
+    }
   }
 })
 unsubscribes.push(unsubscribeContentChanged)
