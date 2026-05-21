@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TabState, ViewMode } from '@/types'
+import type { TabState, ViewMode, FileType } from '@/types'
 import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { TABS, EDITOR } from '@/constants'
+import { TABS, EDITOR, FILE } from '@/constants'
 import type { LineEnding, IPCResponse } from '../../electron-protocol/index'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
@@ -15,7 +15,7 @@ export function validateTabState(tabState: unknown): tabState is TabState {
   const obj = tabState as Record<string, unknown>
   const requiredFields = [
     'id', 'filePath', 'content', 'isDirty', 'title', 'active',
-    'cursor', 'scrollTop', 'viewMode', 'undoStack', 'redoStack',
+    'cursor', 'scrollTop', 'viewMode', 'fileType', 'undoStack', 'redoStack',
     'createdAt', 'lastModified', 'lastSaved'
   ]
 
@@ -48,12 +48,39 @@ export function validateTabState(tabState: unknown): tabState is TabState {
     return false
   }
 
+  if (!['editor', 'image', 'unsupported'].includes(obj.fileType as string)) {
+    console.error('Invalid fileType field')
+    return false
+  }
+
   if (!Array.isArray(obj.undoStack) || !Array.isArray(obj.redoStack)) {
     console.error('Invalid history stacks')
     return false
   }
 
   return true
+}
+
+export function detectFileType(filePath: string | null): FileType {
+  if (!filePath) {
+    return 'editor'
+  }
+  
+  const ext = filePath.split('.').pop()?.toLowerCase()
+  
+  if (!ext) {
+    return 'unsupported'
+  }
+  
+  if (FILE.MARKDOWN_EXTENSIONS.some(mdExt => mdExt === `.${ext}`)) {
+    return 'editor'
+  }
+  
+  if (FILE.IMAGE_EXTENSIONS.some(imgExt => imgExt === `.${ext}`)) {
+    return 'image'
+  }
+  
+  return 'unsupported'
 }
 
 export function createDefaultTabState(id: string): TabState {
@@ -67,6 +94,7 @@ export function createDefaultTabState(id: string): TabState {
     cursor: { from: 0, to: 0 },
     scrollTop: 0,
     viewMode: EDITOR.VIEW_MODES.WYSIWYG,
+    fileType: 'editor',
     undoStack: [],
     redoStack: [],
     createdAt: Date.now(),
@@ -118,11 +146,15 @@ export const useTabsStore = defineStore('tabs', () => {
     content?: string
     title?: string
     viewMode?: ViewMode
+    fileType?: FileType
   } = {}): TabState {
     const id = generateUUID()
+    const filePath = options.filePath || null
+    const fileType = options.fileType || detectFileType(filePath)
+    
     const tab: TabState = {
       id,
-      filePath: options.filePath || null,
+      filePath,
       content: options.content || '',
       isDirty: false,
       title: options.title || generateUntitledTitle(),
@@ -130,6 +162,7 @@ export const useTabsStore = defineStore('tabs', () => {
       cursor: { from: 0, to: 0 },
       scrollTop: 0,
       viewMode: options.viewMode || EDITOR.VIEW_MODES.WYSIWYG,
+      fileType,
       undoStack: [],
       redoStack: [],
       createdAt: Date.now(),

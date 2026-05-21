@@ -8,9 +8,8 @@
       class="editor-content"
       :class="contentClasses"
     >
-      <!-- 不支持的文件格式提示 -->
       <div 
-        v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
+        v-if="isUnsupportedFile"
         class="unsupported-file-message"
       >
         <Icon name="file" size="lg" class="message-icon" />
@@ -19,48 +18,51 @@
         <p class="hint">{{ t('editor.onlyMarkdownSupported') }}</p>
       </div>
 
-      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
-        ref="crepeContainer"
-        class="crepe"
-        :class="{
-          'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
-          'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
-        }"
-        @focus="handleCrepeFocus"
+      <ImagePreview
+        v-else-if="isImageFile"
+        :file-path="activeTab?.filePath ?? null"
       />
 
-      <!-- CodeMirror 编辑器 - 源码模式 -->
-      <CodeMirrorEditor
-        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-        :model-value="sourceContent"
-        @update:model-value="handleCodeMirrorChange"
-        @focus="handleCodeMirrorFocus"
-        @blur="handleCodeMirrorBlur"
-      />
+      <template v-else>
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
+          ref="crepeContainer"
+          class="crepe"
+          :class="{
+            'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
+            'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
+          }"
+          @focus="handleCrepeFocus"
+        />
 
-      <!-- CodeMirror 编辑器 - 分屏源码模式 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="editor-split-source"
-      >
         <CodeMirrorEditor
+          v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
           :model-value="sourceContent"
           @update:model-value="handleCodeMirrorChange"
           @focus="handleCodeMirrorFocus"
           @blur="handleCodeMirrorBlur"
         />
-      </div>
 
-      <!-- 分屏分割线 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="split-resizer"
-        @mousedown="handleResizerMouseDown"
-      >
-        <div class="split-resizer-handle" />
-      </div>
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+          class="editor-split-source"
+        >
+          <CodeMirrorEditor
+            :model-value="sourceContent"
+            @update:model-value="handleCodeMirrorChange"
+            @focus="handleCodeMirrorFocus"
+            @blur="handleCodeMirrorBlur"
+          />
+        </div>
+
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+          class="split-resizer"
+          @mousedown="handleResizerMouseDown"
+        >
+          <div class="split-resizer-handle" />
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -69,7 +71,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
@@ -79,6 +80,7 @@ import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
 import CodeMirrorEditor from './CodeMirrorEditor.vue'
+import ImagePreview from './ImagePreview.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -98,6 +100,10 @@ const unsubscribes: (() => void)[] = []
 
 const activeTab = computed(() => tabsStore.activeTab)
 
+const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
+const isImageFile = computed(() => activeTab.value?.fileType === 'image')
+const isUnsupportedFile = computed(() => activeTab.value?.fileType === 'unsupported')
+
 const isSmallScreen = computed(() => windowWidth.value < 800)
 const editorScale = computed(() => {
   if (windowWidth.value < 600) return 0.8
@@ -105,35 +111,50 @@ const editorScale = computed(() => {
   return 1
 })
 
-// 检查文件是否为支持的格式（仅支持 Markdown）
-function isSupportedFileType(filePath: string | null): boolean {
-  if (!filePath) return true // 没有文件路径时（欢迎页）显示编辑器
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  return ext === 'md' || ext === 'markdown'
-}
-
 const containerStyle = computed(() => ({
   '--editor-scale': editorScale.value.toString()
 }))
 
 const contentClasses = computed(() => ({
-  [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': prefsStore.typewriterMode,
-  'focus-mode': prefsStore.focusMode,
+  [`mode-${currentMode.value}`]: isEditorFile.value,
+  'typewriter-mode': prefsStore.typewriterMode && isEditorFile.value,
+  'focus-mode': prefsStore.focusMode && isEditorFile.value,
   'small-screen': isSmallScreen.value
 }))
 
 watch(activeTab, async (tab, oldTab) => {
-  if (tab) {
-    // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
-    if (editorManager.isReady()) {
-      if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
+  if (!tab) return
+  
+  if (isEditorFile.value) {
+    sourceContent.value = tab.content
+    currentMode.value = tab.viewMode
+    
+    await nextTick()
+    
+    if (!crepeContainer.value) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    if (!editorManager.isReady() && crepeContainer.value) {
+      await editorManager.init(crepeContainer.value, tab.content, tab.id)
+      await editorManager.switchToTab(tab.id)
+    } else if (editorManager.isReady() && crepeContainer.value) {
+      const containerContent = crepeContainer.value.innerHTML.trim()
+      if (!containerContent) {
+        await editorManager.init(crepeContainer.value, tab.content, tab.id)
+        await editorManager.switchToTab(tab.id)
+      } else {
+        if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
+          await editorManager.switchToTab(tab.id)
+        }
+      }
+    } else if (editorManager.isReady() && !crepeContainer.value) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+      if (crepeContainer.value) {
+        await editorManager.init(crepeContainer.value, tab.content, tab.id)
         await editorManager.switchToTab(tab.id)
       }
     }
-    
-    // 更新源码内容
-    sourceContent.value = tab.content
   }
 }, { immediate: true })
 
@@ -155,29 +176,27 @@ const handleCodeMirrorBlur = () => {
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
+  if (!isEditorFile.value) return
+  
   const prevMode = currentMode.value
   
   if (mode === prevMode) {
     return
   }
   
-  // 如果切换到非 WYSIWYG 模式，同步 Crepe 的内容到 CodeMirror
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editorManager.isReady()) {
     sourceContent.value = editorManager.getMarkdown()
   }
 
-  // 如果切换到 WYSIWYG 模式，同步 CodeMirror 的内容到 Crepe
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       await editorManager.setMarkdown(sourceContent.value)
     }
   }
 
-  // 更新模式
   currentMode.value = mode
   editorManager.setViewMode(mode)
   
-  // 等待 DOM 更新，让 v-show 生效
   await nextTick()
 }
 
@@ -206,6 +225,8 @@ const handleResizerMouseUp = () => {
 }
 
 const handleSourceContentChange = debounce((newContent: unknown) => {
+  if (!isEditorFile.value) return
+  
   const content = newContent as string
   if (activeTab.value && editorManager.isReady()) {
     tabsStore.updateTab(activeTab.value.id, {
@@ -226,6 +247,8 @@ const handleWindowResize = () => {
 }
 
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+  if (!isEditorFile.value) return
+  
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
     const activeEditor = editorManager.getActiveEditor()
@@ -237,6 +260,8 @@ const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payloa
 unsubscribes.push(unsubscribeContentChanged)
 
 const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
+  if (!isEditorFile.value) return
+  
   const data = payload as { tabId: string | null }
   
   if (activeTab.value && editorManager.isReady()) {
@@ -251,7 +276,7 @@ const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, asyn
 unsubscribes.push(unsubscribeViewModeChanged)
 
 onMounted(async () => {
-  if (crepeContainer.value) {
+  if (isEditorFile.value && crepeContainer.value) {
     const initialContent = activeTab.value?.content || ''
     const tabId = activeTab.value?.id
     
@@ -264,8 +289,6 @@ onMounted(async () => {
     } catch (error) {
       console.error('[EditorContainer] Failed to initialize:', error)
     }
-  } else {
-    console.error('[EditorContainer] crepeContainer is null!')
   }
   
   window.addEventListener('keydown', handleEditorKeydown)
@@ -283,6 +306,8 @@ onUnmounted(async () => {
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {
+  if (!isEditorFile.value) return
+  
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault()
     floatingSearchRef.value?.show()
@@ -297,7 +322,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
   flex-direction: column;
   overflow: hidden;
   background: var(--editor-bg);
-  min-height: 0; /* 关键：让 flex 子元素能正确计算高度 */
+  min-height: 0;
 }
 
 .editor-content {
@@ -308,7 +333,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
 
-  // WYSIWYG 模式样式
   &.mode-wysiwyg {
     .editor-wysiwyg {
       flex: 1;
@@ -355,7 +379,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
     }
   }
 
-  // 源码模式样式
   &.mode-source {
     .codemirror-editor {
       flex: 1;
@@ -382,7 +405,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
     }
   }
 
-  // 分屏模式样式
   &.mode-split {
     flex-direction: row;
 
@@ -395,7 +417,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       display: block;
       min-height: 0;
       width: v-bind('`calc(${100 - splitRatio}% - 3px)`');
-      order: 3; /* 确保在最右边 */
+      order: 3;
 
       &::-webkit-scrollbar {
         width: 12px;
@@ -438,7 +460,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       flex-shrink: 0;
       overflow: hidden;
       width: v-bind('`calc(${splitRatio}% - 3px)`');
-      order: 1; /* 确保在最左边 */
+      order: 1;
 
       :deep(.codemirror-editor) {
         height: 100%;
@@ -472,7 +494,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       justify-content: center;
       transition: background-color 0.15s;
       flex-shrink: 0;
-      order: 2; /* 确保在中间 */
+      order: 2;
 
       &:hover {
         background: var(--primary-color);

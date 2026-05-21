@@ -194,6 +194,28 @@ ipcMain.handle(IPC_CHANNELS.FILE.READ, async (_, filePath: string) => {
   }
 })
 
+ipcMain.handle(IPC_CHANNELS.FILE.READ_BINARY, async (_, filePath: string) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+    const buffer = await fs.readFile(filePath)
+    const base64 = buffer.toString('base64')
+    const ext = filePath.split('.').pop()?.toLowerCase()
+    let mimeType = 'application/octet-stream'
+    if (ext === 'png') mimeType = 'image/png'
+    else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg'
+    else if (ext === 'gif') mimeType = 'image/gif'
+    else if (ext === 'svg') mimeType = 'image/svg+xml'
+    else if (ext === 'webp') mimeType = 'image/webp'
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    return createSuccessResponse(dataUrl)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    if (isFileNotFoundError(error)) return createErrorResponse(IPCErrorCode.FILE_NOT_FOUND, `File not found: ${error.message}`)
+    if (isPermissionError(error)) return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_READ_ERROR, `Failed to read file: ${error.message}`)
+  }
+})
+
 ipcMain.handle(IPC_CHANNELS.FILE.OPEN_FOLDER, async () => {
   if (!mainWindow) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not initialized')
   try {

@@ -15,6 +15,7 @@ export interface TabState {
   }
   scrollTop: number
   viewMode: ViewMode
+  fileType: FileType
   undoStack: HistoryItem[]
   redoStack: HistoryItem[]
   createdAt: number
@@ -31,6 +32,8 @@ export interface HistoryItem {
 }
 
 export type ViewMode = 'wysiwyg' | 'source' | 'split'
+
+export type FileType = 'editor' | 'image' | 'unsupported'
 
 export type SidebarView = 'files' | 'recent' | 'search' | 'extensions' | 'settings'
 

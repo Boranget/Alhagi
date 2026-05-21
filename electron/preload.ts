@@ -42,6 +42,9 @@ const api: ElectronAPI = {
   readFile: (filePath) => 
     createIpcHandler(IPC_CHANNELS.FILE.READ, filePath),
   
+  readBinaryFile: (filePath) => 
+    createIpcHandler(IPC_CHANNELS.FILE.READ_BINARY, filePath),
+  
   openFolder: () => 
     createIpcHandler(IPC_CHANNELS.FILE.OPEN_FOLDER),
   

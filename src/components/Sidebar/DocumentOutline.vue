@@ -4,7 +4,13 @@
       <span>{{ t('documentOutline') }}</span>
     </div>
     <div
-      v-if="treeData.length > 0"
+      v-if="!isEditorFile"
+      class="empty-state"
+    >
+      <p>{{ t('outlineNotAvailable') }}</p>
+    </div>
+    <div
+      v-else-if="treeData.length > 0"
       class="outline-tree"
     >
       <OutlineTreeItem
@@ -58,9 +64,10 @@ let scrollHandler: ((event: Event) => void) | null = null
 const domPosCache = new Map<HTMLElement, number>()
 
 const activeTab = computed(() => tabsStore.activeTab)
+const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
 const treeData = computed<HeadingTreeNode[]>(() => {
-  if (!flatHeadings.value.length) return []
+  if (!isEditorFile.value || !flatHeadings.value.length) return []
   return listToTree(flatHeadings.value)
 })
 
@@ -72,26 +79,25 @@ const treeData = computed<HeadingTreeNode[]>(() => {
  */
 function ensureOutlineReady() {
   const tab = activeTab.value
-  if (!tab) return
+  if (!tab || !isEditorFile.value) {
+    flatHeadings.value = []
+    cleanupScrollListener()
+    isOutlineInitialized.value = false
+    return
+  }
 
   console.log('[DocumentOutline] ensureOutlineReady called, mode:', tab.viewMode)
 
-  // 1. 刷新大纲数据
   refreshOutline()
 
-  // 2. 如果需要滚动跟踪，初始化滚动监听
   if (shouldTrackPosition()) {
     console.log('[DocumentOutline] shouldTrackPosition returned true')
     
-    // 每次都需要检查是否需要重新初始化
-    // 因为标签切换或视图模式切换可能改变了滚动容器
     const currentContainer = findScrollContainer(tab.viewMode)
     
     console.log('[DocumentOutline] currentContainer:', currentContainer)
     console.log('[DocumentOutline] scrollContainer changed:', currentContainer !== scrollContainer)
     
-    // 分屏模式下，滚动容器可能从 .editor-wysiwyg 变为 .editor-split-preview
-    // 需要强制重新初始化以确保监听正确的容器
     const modeChanged = currentMode !== tab.viewMode
     if (modeChanged) {
       console.log('[DocumentOutline] Mode changed, forcing reinit')
@@ -99,7 +105,6 @@ function ensureOutlineReady() {
     }
     
     if (currentContainer !== scrollContainer) {
-      // 滚动容器变了，需要重新初始化
       isOutlineInitialized.value = false
     }
     
@@ -108,13 +113,11 @@ function ensureOutlineReady() {
       initScrollListener()
       isOutlineInitialized.value = true
     } else {
-      // 已初始化，只重建缓存
       console.log('[DocumentOutline] Already initialized, rebuilding cache')
       buildDomPosCache()
     }
   } else {
     console.log('[DocumentOutline] shouldTrackPosition returned false')
-    // 不需要跟踪，清除状态
     cleanupScrollListener()
     isOutlineInitialized.value = false
   }
@@ -147,20 +150,17 @@ function shouldTrackPosition(): boolean {
  */
 function refreshOutline() {
   const tab = activeTab.value
-  if (!tab) {
+  if (!tab || !isEditorFile.value) {
     flatHeadings.value = []
     return
   }
 
-  // 尝试从 Crepe 获取带 pos 的大纲数据
   if (editorManager.isReady()) {
     flatHeadings.value = editorManager.getHeadingsWithPos()
   } else {
-    // 回退到文本解析方式
     flatHeadings.value = parseHeadings(tab.content)
   }
 
-  // 刷新大纲后，重新建立 DOM-pos 缓存
   setTimeout(() => {
     buildDomPosCache()
   }, CACHE_REBUILD_DELAY_MS)

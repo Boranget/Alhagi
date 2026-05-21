@@ -33,6 +33,7 @@ const zhCN: Translations = {
     globalSearch: '全局搜索',
 documentOutline: '文档大纲',
     noHeadings: '文档中没有标题',
+    outlineNotAvailable: '大纲不可用',
     recentFiles: '最近文件',
     currentFile: '当前文件',
     currentFolder: '当前文件夹',
@@ -60,7 +61,9 @@ documentOutline: '文档大纲',
     cursorPosition: '光标位置',
     characters: '字符',
     unsupportedFileType: '不支持当前文件格式',
-    onlyMarkdownSupported: '当前仅支持编辑 Markdown (.md, .markdown) 文件'
+    onlyMarkdownSupported: '当前仅支持编辑 Markdown (.md, .markdown) 文件',
+    loadingImage: '正在加载图片...',
+    failedToLoadImage: '无法加载图片'
   },
   tabs: {
     untitled: '未命名',
@@ -169,6 +172,7 @@ const en: Translations = {
     globalSearch: 'Global Search',
 documentOutline: 'Document Outline',
     noHeadings: 'No headings found',
+    outlineNotAvailable: 'Outline not available',
     recentFiles: 'Recent Files',
     currentFile: 'Current File',
     currentFolder: 'Current Folder',
@@ -196,7 +200,9 @@ documentOutline: 'Document Outline',
     cursorPosition: 'Cursor Position',
     characters: 'chars',
     unsupportedFileType: 'Unsupported File Format',
-    onlyMarkdownSupported: 'Currently only Markdown (.md, .markdown) files are supported for editing'
+    onlyMarkdownSupported: 'Currently only Markdown (.md, .markdown) files are supported for editing',
+    loadingImage: 'Loading image...',
+    failedToLoadImage: 'Failed to load image'
   },
   tabs: {
     untitled: 'Untitled',

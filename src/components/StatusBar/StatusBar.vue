@@ -12,13 +12,13 @@
         />
       </button>
       <button
-        v-if="activeTab"
+        v-if="isEditorFile"
         class="status-btn mode-toggle"
-        :title="activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwygMode') : activeTab.viewMode === 'source' ? t('editor.sourceMode') : t('editor.splitMode')"
+        :title="activeTab?.viewMode === 'wysiwyg' ? t('editor.wysiwygMode') : activeTab?.viewMode === 'source' ? t('editor.sourceMode') : t('editor.splitMode')"
         @click="toggleViewMode"
       >
         <Icon
-          :name="activeTab.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab.viewMode === 'source' ? 'code' : 'split'"
+          :name="activeTab?.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab?.viewMode === 'source' ? 'code' : 'split'"
           size="sm"
         />
       </button>
@@ -43,6 +43,7 @@
     </div>
     <div class="status-right">
       <span
+        v-if="isEditorFile"
         class="status-item word-count-display"
         :title="prefsStore.wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
         @click="prefsStore.toggleWordCountDisplayType()"
@@ -55,6 +56,7 @@
       </span>
 
       <button
+        v-if="isEditorFile"
         class="status-btn"
         :class="{ active: prefsStore.typewriterMode }"
         :title="t('editor.typewriterMode')"
@@ -66,6 +68,7 @@
         />
       </button>
       <button
+        v-if="isEditorFile"
         class="status-btn"
         :class="{ active: prefsStore.focusMode }"
         :title="t('editor.focusMode')"
@@ -103,6 +106,7 @@ const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 
 const activeTab = computed(() => tabsStore.activeTab)
+const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
 // 仅显示文件名，不显示完整路径
 const fileName = computed(() => {
