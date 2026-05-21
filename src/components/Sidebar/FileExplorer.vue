@@ -188,7 +188,7 @@ async function openFolder() {
 }
 
 async function handleSelect(node: FileTreeNodeType) {
-  if (node.type === 'file' && node.name.endsWith('.md')) {
+  if (node.type === 'file') {
     const content = await fileStore.openFile(node.path)
     if (content !== null) {
       const existingTab = Array.from(tabsStore.tabs.values()).find(

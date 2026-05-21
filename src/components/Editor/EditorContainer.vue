@@ -8,8 +8,18 @@
       class="editor-content"
       :class="contentClasses"
     >
+      <!-- 不支持的文件格式提示 -->
+      <template v-if="activeTab && !isSupportedFileType(activeTab.filePath)">
+        <div class="unsupported-file-message">
+          <Icon name="file" size="lg" class="message-icon" />
+          <h3>{{ t('editor.unsupportedFileType') }}</h3>
+          <p>{{ activeTab?.filePath }}</p>
+          <p class="hint">{{ t('editor.onlyMarkdownSupported') }}</p>
+        </div>
+      </template>
+
       <!-- WYSIWYG 模式：只显示 Crepe 编辑器 -->
-      <template v-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
+      <template v-else-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
         <div
           ref="crepeContainer"
           class="crepe wysiwyg-editor"
@@ -101,6 +111,13 @@ const editorScale = computed(() => {
   if (windowWidth.value < 1000) return 0.9
   return 1
 })
+
+// 检查文件是否为支持的格式（仅支持 Markdown）
+function isSupportedFileType(filePath: string | null): boolean {
+  if (!filePath) return true // 没有文件路径时（欢迎页）显示编辑器
+  const ext = filePath.split('.').pop()?.toLowerCase()
+  return ext === 'md' || ext === 'markdown'
+}
 
 const containerStyle = computed(() => ({
   '--editor-scale': editorScale.value.toString()
@@ -508,6 +525,43 @@ function handleEditorKeydown(e: KeyboardEvent) {
     :deep(.milkdown-block-handle) {
       display: none !important;
     }
+  }
+}
+
+.unsupported-file-message {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
+
+  .message-icon {
+    font-size: 64px;
+    opacity: 0.5;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    max-width: 500px;
+    word-break: break-all;
+  }
+
+  .hint {
+    font-size: 13px;
+    opacity: 0.7;
+    margin-top: 8px;
   }
 }
 </style>

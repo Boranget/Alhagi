@@ -39,7 +39,8 @@ const zhCN: Translations = {
     clearHistory: '清除历史记录',
     pin: '固定',
     unpin: '取消固定',
-    clickToStart: '点击"打开文件夹"开始'
+    clickToStart: '点击"打开文件夹"开始',
+    unsupportedFileType: '不支持当前文件格式'
   },
   editor: {
     wysiwyg: '所见即所得',
@@ -56,7 +57,9 @@ const zhCN: Translations = {
     rawMarkdownChars: '原始 Markdown 字符数',
     lineCount: '行数',
     cursorPosition: '光标位置',
-    characters: '字符'
+    characters: '字符',
+    unsupportedFileType: '不支持当前文件格式',
+    onlyMarkdownSupported: '当前仅支持编辑 Markdown (.md, .markdown) 文件'
   },
   tabs: {
     untitled: '未命名',
@@ -170,7 +173,8 @@ const en: Translations = {
     clearHistory: 'Clear History',
     pin: 'Pin',
     unpin: 'Unpin',
-    clickToStart: 'Click "Open Folder" to start'
+    clickToStart: 'Click "Open Folder" to start',
+    unsupportedFileType: 'Unsupported file format'
   },
   editor: {
     wysiwyg: 'WYSIWYG',
@@ -187,7 +191,9 @@ const en: Translations = {
     rawMarkdownChars: 'Raw Markdown Character Count',
     lineCount: 'Line Count',
     cursorPosition: 'Cursor Position',
-    characters: 'chars'
+    characters: 'chars',
+    unsupportedFileType: 'Unsupported File Format',
+    onlyMarkdownSupported: 'Currently only Markdown (.md, .markdown) files are supported for editing'
   },
   tabs: {
     untitled: 'Untitled',
