@@ -11,7 +11,7 @@
         v-for="(node, index) in treeData"
         :key="node.slug + '-' + index"
         :node="node"
-        :active-slug="activeSlug"
+        :active-pos="activePos"
         :depth="0"
         @select="handleHeadingClick"
       />
@@ -41,8 +41,9 @@ const tabsStore = useTabsStore()
 const editorManager = useCrepeEditorManager()
 
 const flatHeadings = ref<HeadingItem[]>([])
-const activeSlug = ref<string | null>(null)
+const activePos = ref<number | null>(null)  // 使用 pos 作为唯一标识
 const cursorLine = ref(0)
+const isManualClick = ref(false) // 标记是否是手动点击
 
 const activeTab = computed(() => tabsStore.activeTab)
 
@@ -79,20 +80,30 @@ function refreshOutline() {
     flatHeadings.value = []
     return
   }
-  flatHeadings.value = parseHeadings(tab.content)
+  
+  // 尝试从 Crepe 获取带 pos 的大纲数据
+  if (editorManager.isReady()) {
+    flatHeadings.value = editorManager.getHeadingsWithPos()
+  } else {
+    // 回退到文本解析方式
+    flatHeadings.value = parseHeadings(tab.content)
+  }
 }
 
 /**
  * 更新当前活跃的标题
  */
 function updateActiveHeading() {
+  // 如果是手动点击后的短时间内，不自动更新
+  if (isManualClick.value) return
+  
   if (!shouldTrackPosition() || cursorLine.value <= 0) {
-    activeSlug.value = null
+    activePos.value = null
     return
   }
 
   const nearest = findNearestHeading(flatHeadings.value, cursorLine.value)
-  activeSlug.value = nearest?.slug || null
+  activePos.value = nearest?.pos ?? null
 }
 
 /**
@@ -102,19 +113,31 @@ function handleHeadingClick(node: HeadingTreeNode) {
   const tab = activeTab.value
   if (!tab) return
 
+  // 标记为手动点击，暂时禁用自动跟踪
+  isManualClick.value = true
+  
+  // 更新当前激活的标题（使用 pos 作为唯一标识）
+  activePos.value = node.pos ?? null
+
   const mode = tab.viewMode
 
   if (mode === EDITOR.VIEW_MODES.WYSIWYG || mode === EDITOR.VIEW_MODES.SPLIT) {
     // WYSIWYG 或分屏预览模式：使用 Crepe 的 ProseMirror API 滚动
-    editorManager.scrollToHeading(node.label, node.line)
+    // 传递 pos 参数以实现精确定位
+    editorManager.scrollToHeading(node.label, node.line, node.pos)
   }
   // 源码模式和分屏源码区：不需要大纲定位
+  
+  // 500ms 后恢复自动跟踪
+  setTimeout(() => {
+    isManualClick.value = false
+  }, 500)
 }
 
 // 监听标签切换
 watch(activeTab, () => {
   refreshOutline()
-  activeSlug.value = null
+  activePos.value = null
   cursorLine.value = 0
 }, { immediate: true })
 
@@ -129,15 +152,24 @@ watch(
 let unsubscribeContentChanged: (() => void) | null = null
 let unsubscribeTabSwitched: (() => void) | null = null
 let unsubscribeCursorChanged: (() => void) | null = null
+let unsubscribeEditorReady: (() => void) | null = null
 
 onMounted(() => {
   unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
     refreshOutline()
   })
 
+  // 监听编辑器就绪事件，重新生成带 pos 的大纲
+  unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, () => {
+    // Crepe 就绪后，重新生成大纲以获取 pos
+    setTimeout(() => {
+      refreshOutline()
+    }, 100)
+  })
+
   unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
     refreshOutline()
-    activeSlug.value = null
+    activePos.value = null
     cursorLine.value = 0
   })
 
@@ -173,6 +205,7 @@ onUnmounted(() => {
   unsubscribeContentChanged?.()
   unsubscribeTabSwitched?.()
   unsubscribeCursorChanged?.()
+  unsubscribeEditorReady?.()
 })
 </script>
 

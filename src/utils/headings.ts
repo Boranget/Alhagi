@@ -8,6 +8,7 @@ export interface HeadingItem {
   level: number
   slug: string
   line: number
+  pos?: number  // ProseMirror 节点位置
 }
 
 export interface HeadingTreeNode {
@@ -15,13 +16,14 @@ export interface HeadingTreeNode {
   slug: string
   level: number
   line: number
+  pos?: number  // ProseMirror 节点位置
   children: HeadingTreeNode[]
 }
 
 /**
  * 从文本生成 slug，用于标题锚点
  */
-function generateSlug(text: string): string {
+export function generateSlug(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')

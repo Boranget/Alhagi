@@ -11,14 +11,16 @@ class Node {
   label: string
   slug: string
   line: number
+  pos?: number  // ProseMirror 节点位置
   children: Node[]
 
-  constructor(item: { parent: Node | null; level: number | null; label: string; slug: string; line: number }) {
+  constructor(item: { parent: Node | null; level: number | null; label: string; slug: string; line: number; pos?: number }) {
     this.parent = item.parent
     this.level = item.level
     this.label = item.label
     this.slug = item.slug
     this.line = item.line
+    this.pos = item.pos
     this.children = []
   }
 
@@ -68,6 +70,7 @@ export function listToTree(list: HeadingItem[]): HeadingTreeNode[] {
       label: item.text,
       slug: item.slug,
       line: item.line,
+      pos: item.pos,
     })
     parent.addChild(node)
     lastNode = node
@@ -82,6 +85,7 @@ function convertToTreeNode(nodes: Node[]): HeadingTreeNode[] {
     slug: node.slug,
     level: node.level!,
     line: node.line,
+    pos: node.pos,
     children: convertToTreeNode(node.children),
   }))
 }

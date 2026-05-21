@@ -3,7 +3,7 @@
     <div
       class="outline-item"
       :class="{
-        active: activeSlug === node.slug,
+        active: activePos === node.pos,
         [`depth-${depth}`]: true,
       }"
       :title="node.label"
@@ -23,7 +23,7 @@
         v-for="(child, index) in node.children"
         :key="child.slug + '-' + index"
         :node="child"
-        :active-slug="activeSlug"
+        :active-pos="activePos"
         :depth="depth + 1"
         @select="(n: any) => $emit('select', n)"
       />
@@ -38,7 +38,7 @@ import OutlineTreeItem from './OutlineTreeItem.vue'
 
 interface Props {
   node: HeadingTreeNode
-  activeSlug: string | null
+  activePos: number | null
   depth: number
 }
 

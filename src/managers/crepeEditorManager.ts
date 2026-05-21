@@ -7,11 +7,13 @@ import { getMarkdown } from '@milkdown/kit/utils'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
+import type { HeadingItem } from '@/utils/headings'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
+import { generateSlug } from '@/utils/headings'
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -289,120 +291,117 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
    * 在 ProseMirror/WYSIWYG 编辑器中滚动到指定标题
    * 
    * 实现原理（参考 MarkText/Typora）：
-   * 1. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
-   * 2. 定位到真正的滚动容器（.wysiwyg-editor 或 .split-preview）
-   * 3. 计算标题相对于滚动容器的位置
-   * 4. 使用 scrollTo 执行平滑滚动
+   * 1. 直接使用 ProseMirror 节点位置（pos）定位
+   * 2. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
+   * 3. 定位到真正的滚动容器（.wysiwyg-editor 或 .split-preview）
+   * 4. 计算标题相对于滚动容器的位置
+   * 5. 使用 scrollTo 执行平滑滚动
    * 
-   * @param text - 标题文本内容
-   * @param line - 标题所在行号（暂未使用）
+   * @param text - 标题文本内容（仅用于日志，不参与定位）
+   * @param line - 标题所在行号（仅用于日志，不参与定位）
+   * @param pos - ProseMirror 节点位置（必需，用于精确定位）
    */
-  scrollToHeading(text: string, line: number): void {
+  scrollToHeading(text: string, line: number, pos?: number): void {
     if (!this.crepe || !this.isInitialized) return
+    
+    // pos 是必需的，如果没有提供则无法定位
+    if (pos === undefined || pos < 0) {
+      console.warn('[CrepeEditorManager] scrollToHeading: pos is required but not provided')
+      return
+    }
 
     this.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
-        const doc = view.state.doc
-        let targetPos = -1
+        const targetPos = pos
+        
+        // 直接使用 pos 进行定位
+        const resolvedPos = view.state.doc.resolve(targetPos)
+        // 关键：在 transaction 上调用 scrollIntoView()，让 ProseMirror 知道需要滚动
+        const tr = view.state.tr
+          .setSelection(Selection.near(resolvedPos, 1))
+          .scrollIntoView()
+        
+        view.dispatch(tr)
+        view.focus()
 
-        // 遍历 ProseMirror 文档查找匹配的标题节点
-        doc.descendants((node, pos) => {
-          if (targetPos >= 0) return false
-          if (node.type.name === 'heading' && node.textContent.trim() === text.trim()) {
-            targetPos = pos
-            return false
-          }
-        })
-
-        if (targetPos >= 0) {
-          const resolvedPos = view.state.doc.resolve(targetPos)
-          // 关键：在 transaction 上调用 scrollIntoView()，让 ProseMirror 知道需要滚动
-          const tr = view.state.tr
-            .setSelection(Selection.near(resolvedPos, 1))
-            .scrollIntoView()
-          
-          view.dispatch(tr)
-          view.focus()
-
-          // 延迟执行 DOM 滚动，确保 ProseMirror 已更新 DOM
-          setTimeout(() => {
-            try {
-              // 步骤 1: 获取标题对应的 DOM 元素
-              // 优先使用 ProseMirror 的 nodeDOM API，它返回节点对应的真实 DOM
-              const node = view.state.doc.nodeAt(targetPos)
-              let targetElement: HTMLElement | null = null
-              
-              if (node) {
-                const dom = view.nodeDOM(targetPos)
-                if (dom instanceof HTMLElement) {
-                  targetElement = dom
-                } else if (dom && dom.nodeType === Node.TEXT_NODE) {
-                  targetElement = (dom as Text).parentElement
-                }
+        // 延迟执行 DOM 滚动，确保 ProseMirror 已更新 DOM
+        setTimeout(() => {
+          try {
+            // 步骤 1: 获取标题对应的 DOM 元素
+            // 优先使用 ProseMirror 的 nodeDOM API，它返回节点对应的真实 DOM
+            const node = view.state.doc.nodeAt(targetPos)
+            let targetElement: HTMLElement | null = null
+            
+            if (node) {
+              const dom = view.nodeDOM(targetPos)
+              if (dom instanceof HTMLElement) {
+                targetElement = dom
+              } else if (dom && dom.nodeType === Node.TEXT_NODE) {
+                targetElement = (dom as Text).parentElement
               }
-              
-              // 备用方案：如果 nodeDOM 失败，通过 domAtPos 查找最近的 heading 元素
-              if (!targetElement) {
-                const domResult = view.domAtPos(targetPos)
-                if (domResult && domResult.node) {
-                  if (domResult.node.nodeType === Node.ELEMENT_NODE) {
-                    const el = domResult.node as HTMLElement
-                    // 如果直接就是 heading 元素
-                    if (el.tagName && /^H[1-6]$/.test(el.tagName)) {
-                      targetElement = el
-                    } else {
-                      // 否则向上查找最近的 heading 父元素
-                      targetElement = el.closest('h1, h2, h3, h4, h5, h6')
-                    }
-                  } else {
-                    // 文本节点，向上查找 heading
-                    targetElement = (domResult.node as Text).parentElement?.closest('h1, h2, h3, h4, h5, h6') || null
-                  }
-                }
-              }
-              
-              if (!targetElement) return
-              
-              // 步骤 2: 找到真正的滚动容器
-              // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
-              let scrollContainer: HTMLElement | null = targetElement.closest('.wysiwyg-editor, .split-preview')
-              
-              // 如果没找到，尝试从 view.dom 向上查找
-              if (!scrollContainer) {
-                scrollContainer = view.dom.parentElement?.closest('.wysiwyg-editor, .split-preview') || null
-              }
-              
-              if (!scrollContainer) return
-              
-              // 步骤 3: 计算滚动位置
-              // 使用 getBoundingClientRect 获取相对于视口的位置，避免受 CSS transform 影响
-              const elementRect = targetElement.getBoundingClientRect()
-              const containerRect = scrollContainer.getBoundingClientRect()
-              
-              // 计算公式：
-              // relativeTop = 标题相对于视口的位置 - 容器相对于视口的位置
-              //             = 标题相对于容器顶部的位置
-              // targetScrollTop = 当前滚动位置 + 相对位置 - 边距
-              const scrollTop = scrollContainer.scrollTop
-              const relativeTop = elementRect.top - containerRect.top
-              const targetScrollTop = scrollTop + relativeTop - 20 // 留 20px 边距，让标题不紧贴顶部
-              
-              // 步骤 4: 执行平滑滚动
-              // 使用 Math.max(0, ...) 确保滚动位置不为负数
-              scrollContainer.scrollTo({
-                top: Math.max(0, targetScrollTop),
-                behavior: 'smooth'
-              })
-            } catch (scrollError) {
-              console.error('[CrepeEditorManager] Smooth scroll error:', scrollError)
             }
-          }, 50)
+            
+            // 备用方案：如果 nodeDOM 失败，通过 domAtPos 查找最近的 heading 元素
+            if (!targetElement) {
+              const domResult = view.domAtPos(targetPos)
+              if (domResult && domResult.node) {
+                if (domResult.node.nodeType === Node.ELEMENT_NODE) {
+                  const el = domResult.node as HTMLElement
+                  // 如果直接就是 heading 元素
+                  if (el.tagName && /^H[1-6]$/.test(el.tagName)) {
+                    targetElement = el
+                  } else {
+                    // 否则向上查找最近的 heading 父元素
+                    targetElement = el.closest('h1, h2, h3, h4, h5, h6')
+                  }
+                } else {
+                  // 文本节点，向上查找 heading
+                  targetElement = (domResult.node as Text).parentElement?.closest('h1, h2, h3, h4, h5, h6') || null
+                }
+              }
+            }
+            
+            if (!targetElement) return
+            
+            // 步骤 2: 找到真正的滚动容器
+            // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
+            let scrollContainer: HTMLElement | null = targetElement.closest('.wysiwyg-editor, .split-preview')
+            
+            // 如果没找到，尝试从 view.dom 向上查找
+            if (!scrollContainer) {
+              scrollContainer = view.dom.parentElement?.closest('.wysiwyg-editor, .split-preview') || null
+            }
+            
+            if (!scrollContainer) return
+            
+            // 步骤 3: 计算滚动位置
+            // 使用 getBoundingClientRect 获取相对于视口的位置，避免受 CSS transform 影响
+            const elementRect = targetElement.getBoundingClientRect()
+            const containerRect = scrollContainer.getBoundingClientRect()
+            
+            // 计算公式：
+            // relativeTop = 标题相对于视口的位置 - 容器相对于视口的位置
+            //             = 标题相对于容器顶部的位置
+            // targetScrollTop = 当前滚动位置 + 相对位置 - 边距
+            const scrollTop = scrollContainer.scrollTop
+            const relativeTop = elementRect.top - containerRect.top
+            const targetScrollTop = scrollTop + relativeTop - 20 // 留 20px 边距，让标题不紧贴顶部
+            
+            // 步骤 4: 执行平滑滚动
+            // 使用 Math.max(0, ...) 确保滚动位置不为负数
+            scrollContainer.scrollTo({
+              top: Math.max(0, targetScrollTop),
+              behavior: 'smooth'
+            })
+          } catch (scrollError) {
+            console.error('[CrepeEditorManager] Smooth scroll error:', scrollError)
+          }
+        }, 50)
 
-          // 额外触发一次光标变化通知，更新大纲高亮状态
-          const { from, to } = view.state.selection
-          this.emitCursorChange(from, to)
-        }
+        // 额外触发一次光标变化通知，更新大纲高亮状态
+        const { from, to } = view.state.selection
+        this.emitCursorChange(from, to)
       } catch (error) {
         console.error('[CrepeEditorManager] scrollToHeading error:', error)
       }
@@ -428,6 +427,48 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
     return line
+  }
+
+  /**
+   * 从 ProseMirror 文档中获取所有标题及其节点位置
+   * 
+   * @returns 包含 pos 信息的标题列表
+   */
+  getHeadingsWithPos(): HeadingItem[] {
+    if (!this.crepe || !this.isInitialized) return []
+    
+    const headings: HeadingItem[] = []
+    
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        const doc = view.state.doc
+        
+        // 遍历 ProseMirror 文档查找所有标题节点
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'heading') {
+            const text = node.textContent.trim()
+            const level = node.attrs.level || 1
+            
+            // 计算行号（通过统计之前的换行符）
+            const textBefore = doc.textBetween(0, pos)
+            const line = textBefore.split('\n').length
+            
+            headings.push({
+              text,
+              level,
+              slug: generateSlug(text),
+              line,
+              pos  // 存储 ProseMirror 节点位置
+            })
+          }
+        })
+      } catch (error) {
+        console.error('[CrepeEditorManager] Failed to get headings with pos:', error)
+      }
+    })
+    
+    return headings
   }
 
   private emitCursorChange(from: number, to: number): void {
