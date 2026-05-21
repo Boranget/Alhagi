@@ -78,7 +78,8 @@ documentOutline: '文档大纲',
   statusBar: {
     switchTheme: '切换主题',
     renderTextCount: '渲染后纯文本字符数',
-    toggleSidebar: '切换侧边栏'
+    toggleSidebar: '切换侧边栏',
+    wordCountDisplay: '字数统计显示'
   },
   search: {
     searchPlaceholder: '搜索...',
@@ -213,7 +214,8 @@ documentOutline: 'Document Outline',
   statusBar: {
     switchTheme: 'Switch Theme',
     renderTextCount: 'Rendered plain text character count',
-    toggleSidebar: 'Toggle Sidebar'
+    toggleSidebar: 'Toggle Sidebar',
+    wordCountDisplay: 'Word Count Display'
   },
   search: {
     searchPlaceholder: 'Search...',

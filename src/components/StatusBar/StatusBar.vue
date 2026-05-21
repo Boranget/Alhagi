@@ -11,16 +11,17 @@
           size="sm"
         />
       </button>
-      <span
+      <button
         v-if="activeTab"
-        class="status-item"
+        class="status-btn mode-toggle"
         :title="activeTab.viewMode === 'wysiwyg' ? t('editor.wysiwygMode') : activeTab.viewMode === 'source' ? t('editor.sourceMode') : t('editor.splitMode')"
+        @click="toggleViewMode"
       >
         <Icon
           :name="activeTab.viewMode === 'wysiwyg' ? 'wysiwyg' : activeTab.viewMode === 'source' ? 'code' : 'split'"
           size="sm"
         />
-      </span>
+      </button>
       <span
         v-if="activeTab?.filePath"
         class="status-item file-path"
@@ -42,37 +43,17 @@
     </div>
     <div class="status-right">
       <span
-        class="status-item"
-        :title="t('editor.rawMarkdownChars')"
+        class="status-item word-count-display"
+        :title="prefsStore.wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
+        @click="prefsStore.toggleWordCountDisplayType()"
       >
         <Icon
-          name="file"
+          :name="prefsStore.wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
           size="sm"
         />
-        <span>{{ rawMarkdownChars }}</span>
+        <span>{{ currentWordCount }}</span>
       </span>
-      <span
-        class="status-item"
-        :title="t('statusBar.renderTextCount')"
-      >
-        <Icon
-          name="wysiwyg"
-          size="sm"
-        />
-        <span>{{ plainTextChars }}</span>
-      </span>
-      <span
-        class="status-item"
-        :title="t('editor.lineCount')"
-      >
-        <span>{{ lineCount }}Ln</span>
-      </span>
-      <span
-        class="status-item"
-        :title="t('editor.cursorPosition')"
-      >
-        <span>{{ cursorPosition }}</span>
-      </span>
+
       <button
         class="status-btn"
         :class="{ active: prefsStore.typewriterMode }"
@@ -150,18 +131,9 @@ const plainTextChars = computed(() => {
   return text.length
 })
 
-const lineCount = computed(() => {
-  if (!activeTab.value?.content) return 0
-  return activeTab.value.content.split('\n').length
-})
-
-const cursorPosition = computed(() => {
-  if (!activeTab.value) return '1:1'
-  const content = activeTab.value.content.substring(0, activeTab.value.cursor.from)
-  const lines = content.split('\n')
-  const line = lines.length
-  const col = lines[lines.length - 1].length + 1
-  return `${line}:${col}`
+// 当前显示的字数统计
+const currentWordCount = computed(() => {
+  return prefsStore.wordCountDisplayType === 'raw' ? rawMarkdownChars.value : plainTextChars.value
 })
 
 const isDarkMode = computed(() => {
@@ -182,6 +154,28 @@ function toggleTypewriterMode() {
 
 function toggleFocusMode() {
   prefsStore.focusMode = !prefsStore.focusMode
+}
+
+/**
+ * 切换编辑器视图模式：wysiwyg -> source -> split -> wysiwyg
+ */
+function toggleViewMode() {
+  if (!activeTab.value) return
+  
+  const currentMode = activeTab.value.viewMode
+  let nextMode: 'wysiwyg' | 'source' | 'split'
+  
+  // 循环切换：wysiwyg -> source -> split -> wysiwyg
+  if (currentMode === 'wysiwyg') {
+    nextMode = 'source'
+  } else if (currentMode === 'source') {
+    nextMode = 'split'
+  } else {
+    nextMode = 'wysiwyg'
+  }
+  
+  // 触发视图模式切换事件
+  eventBus.emit(AppEvents.VIEW_MODE_CHANGED, nextMode)
 }
 
 let unsubscribeTabSwitched: (() => void) | null = null
@@ -255,6 +249,20 @@ onUnmounted(() => {
     font-size: 14px;
     font-weight: bold;
   }
+
+  &.word-count-display {
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s;
+
+    &:hover {
+      background: var(--statusbar-hover-bg);
+      color: var(--text-primary);
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: -2px -6px;
+    }
+  }
 }
 
 .status-btn {
@@ -282,6 +290,14 @@ onUnmounted(() => {
   &.sidebar-toggle {
     padding: 2px 4px;
     margin-left: -4px;
+  }
+
+  &.mode-toggle {
+    // 模式切换按钮特殊样式
+    &:hover {
+      background: var(--primary-color);
+      color: white;
+    }
   }
 }
 </style>

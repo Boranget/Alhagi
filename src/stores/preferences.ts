@@ -33,6 +33,7 @@ export interface Preferences {
   maxRecentFolders: number
   customThemePath: string
   customThemes: CustomTheme[]
+  wordCountDisplayType: 'raw' | 'rendered'
   lastSession?: {
     tabs: Array<{
       title: string
@@ -95,6 +96,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   maxRecentFolders: 10,
   customThemePath: '',
   customThemes: [],
+  wordCountDisplayType: 'raw',
   lastSession: undefined
 }
 
@@ -130,6 +132,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const maxRecentFolders = ref<number>(DEFAULT_PREFERENCES.maxRecentFolders)
   const customThemePath = ref<string>(DEFAULT_PREFERENCES.customThemePath)
   const customThemes = ref<CustomTheme[]>(DEFAULT_PREFERENCES.customThemes)
+  const wordCountDisplayType = ref<Preferences['wordCountDisplayType']>(DEFAULT_PREFERENCES.wordCountDisplayType)
   const lastSession = ref<Preferences['lastSession']>(DEFAULT_PREFERENCES.lastSession)
 
   // Helper to get all preferences
@@ -163,6 +166,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       maxRecentFolders: maxRecentFolders.value,
       customThemePath: customThemePath.value,
       customThemes: customThemes.value,
+      wordCountDisplayType: wordCountDisplayType.value,
       lastSession: lastSession.value
     }
   }
@@ -201,6 +205,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       case 'maxRecentFolders': maxRecentFolders.value = value as number; break
       case 'customThemePath': customThemePath.value = value as string; break
       case 'customThemes': customThemes.value = value as CustomTheme[]; break
+      case 'wordCountDisplayType': wordCountDisplayType.value = value as Preferences['wordCountDisplayType']; break
       case 'lastSession': lastSession.value = value as Preferences['lastSession']; break
     }
     savePreferences()
@@ -496,6 +501,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
+  function toggleWordCountDisplayType(): void {
+    wordCountDisplayType.value = wordCountDisplayType.value === 'raw' ? 'rendered' : 'raw'
+    savePreferences()
+  }
+
   function savePreferences(): void {
     try {
       const preferences = getAllPreferences()
@@ -556,6 +566,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     maxRecentFolders,
     customThemePath,
     customThemes,
+    wordCountDisplayType,
     lastSession,
 
     // Methods
@@ -579,6 +590,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     resetToBuiltInTheme,
     toggleStickyNoteMode,
     toggleImmersiveMode,
+    toggleWordCountDisplayType,
     savePreferences,
     loadPreferences,
     saveSession,
