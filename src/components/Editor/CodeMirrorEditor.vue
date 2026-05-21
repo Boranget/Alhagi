@@ -10,6 +10,8 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { EditorView } from '@codemirror/view'
 import { createCodeMirrorView, createCodeMirrorState } from './codemirror/setup'
 import { usePreferencesStore } from '@/stores/preferences'
+import { eventBus, AppEvents } from '@/events/eventBus'
+import { useTabsStore } from '@/stores/tabs'
 
 interface Props {
   modelValue: string
@@ -20,6 +22,7 @@ const props = defineProps<Props>()
 const emit = defineEmits(['update:modelValue', 'focus'])
 
 const prefsStore = usePreferencesStore()
+const tabsStore = useTabsStore()
 
 // 计算当前是否为暗色模式
 const isDarkMode = computed(() => {
@@ -42,6 +45,14 @@ const handleFocus = () => {
   emit('focus')
 }
 
+function emitCursorChange() {
+  if (!editorView) return
+  const tabId = tabsStore.activeTab?.id
+  if (!tabId) return
+  const { from, to } = editorView.state.selection.main
+  eventBus.emit(AppEvents.CURSOR_CHANGED, { from, to, tabId })
+}
+
 function initEditor() {
   if (editorRef.value) {
     editorView = createCodeMirrorView({
@@ -49,7 +60,8 @@ function initEditor() {
       content: props.modelValue,
       dark: isDarkMode.value,
       onChange: handleChange,
-      onFocus: handleFocus
+      onFocus: handleFocus,
+      onSelectionChange: emitCursorChange,
     })
   }
 }

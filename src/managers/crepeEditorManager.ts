@@ -23,13 +23,25 @@ export class CrepeEditorManager {
   private isInitialized = false
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
+  private cursorChangeHandler: ((from: number, to: number) => void) | null = null
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
   }
 
-  setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
+setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.activeEditor = editor
+  }
+
+  getActiveEditor(): 'crepe' | 'codemirror' | null {
+    return this.activeEditor
+  }
+
+  /**
+   * 注册光标变化回调，供大纲组件使用
+   */
+  onCursorChange(handler: (from: number, to: number) => void): void {
+    this.cursorChangeHandler = handler
   }
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
@@ -50,13 +62,13 @@ export class CrepeEditorManager {
       root: container,
       defaultValue: initialContent,
       features: {
-        [Crepe.Feature.BlockEdit]: false, // 禁用 BlockEdit 以关闭 milkdown-block-handle 功能
-        [Crepe.Feature.CodeMirror]: true, // LaTeX 功能需要启用 CodeMirror
+        [Crepe.Feature.BlockEdit]: false,
+        [Crepe.Feature.CodeMirror]: true,
         [Crepe.Feature.LinkTooltip]: true,
         [Crepe.Feature.Table]: true,
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.Placeholder]: true,
-        [Crepe.Feature.Cursor]: false, // 启用 Cursor 特性以解决双光标问题
+        [Crepe.Feature.Cursor]: false,
       },
       featureConfigs: {
         [Crepe.Feature.CodeMirror]: {
@@ -73,6 +85,17 @@ export class CrepeEditorManager {
             this.handleMarkdownUpdate(markdown)
           }, 200)
         )
+
+        // 监听编辑器更新（包括光标/选区变化）
+        ctx.get(listenerCtx).updated((ctx) => {
+          try {
+            const view = ctx.get(editorViewCtx)
+            const { from, to } = view.state.selection
+            this.emitCursorChange(from, to)
+          } catch {
+            // 初始化时可能还拿不到 view
+          }
+        })
       })
       .use(listener)
 
@@ -128,8 +151,6 @@ export class CrepeEditorManager {
     const startTime = performance.now()
 
     try {
-      // 使用 Crepe 的内置方法更安全
-      // 我们可以用 Crepe 的 API 或者更安全的方式处理
       this.crepe.editor.action((ctx) => {
         try {
           const view = ctx.get(editorViewCtx)
@@ -254,6 +275,7 @@ export class CrepeEditorManager {
     this.currentTabId = null
     this.container = null
     this.isInitialized = false
+    this.cursorChangeHandler = null
     this.contentCache.clear()
 
     eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
@@ -261,6 +283,162 @@ export class CrepeEditorManager {
 
   isReady(): boolean {
     return this.isInitialized && this.crepe !== null
+  }
+
+  /**
+   * 在 ProseMirror/WYSIWYG 编辑器中滚动到指定标题
+   * 
+   * 实现原理（参考 MarkText/Typora）：
+   * 1. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
+   * 2. 定位到真正的滚动容器（.wysiwyg-editor 或 .split-preview）
+   * 3. 计算标题相对于滚动容器的位置
+   * 4. 使用 scrollTo 执行平滑滚动
+   * 
+   * @param text - 标题文本内容
+   * @param line - 标题所在行号（暂未使用）
+   */
+  scrollToHeading(text: string, line: number): void {
+    if (!this.crepe || !this.isInitialized) return
+
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        const doc = view.state.doc
+        let targetPos = -1
+
+        // 遍历 ProseMirror 文档查找匹配的标题节点
+        doc.descendants((node, pos) => {
+          if (targetPos >= 0) return false
+          if (node.type.name === 'heading' && node.textContent.trim() === text.trim()) {
+            targetPos = pos
+            return false
+          }
+        })
+
+        if (targetPos >= 0) {
+          const resolvedPos = view.state.doc.resolve(targetPos)
+          // 关键：在 transaction 上调用 scrollIntoView()，让 ProseMirror 知道需要滚动
+          const tr = view.state.tr
+            .setSelection(Selection.near(resolvedPos, 1))
+            .scrollIntoView()
+          
+          view.dispatch(tr)
+          view.focus()
+
+          // 延迟执行 DOM 滚动，确保 ProseMirror 已更新 DOM
+          setTimeout(() => {
+            try {
+              // 步骤 1: 获取标题对应的 DOM 元素
+              // 优先使用 ProseMirror 的 nodeDOM API，它返回节点对应的真实 DOM
+              const node = view.state.doc.nodeAt(targetPos)
+              let targetElement: HTMLElement | null = null
+              
+              if (node) {
+                const dom = view.nodeDOM(targetPos)
+                if (dom instanceof HTMLElement) {
+                  targetElement = dom
+                } else if (dom && dom.nodeType === Node.TEXT_NODE) {
+                  targetElement = (dom as Text).parentElement
+                }
+              }
+              
+              // 备用方案：如果 nodeDOM 失败，通过 domAtPos 查找最近的 heading 元素
+              if (!targetElement) {
+                const domResult = view.domAtPos(targetPos)
+                if (domResult && domResult.node) {
+                  if (domResult.node.nodeType === Node.ELEMENT_NODE) {
+                    const el = domResult.node as HTMLElement
+                    // 如果直接就是 heading 元素
+                    if (el.tagName && /^H[1-6]$/.test(el.tagName)) {
+                      targetElement = el
+                    } else {
+                      // 否则向上查找最近的 heading 父元素
+                      targetElement = el.closest('h1, h2, h3, h4, h5, h6')
+                    }
+                  } else {
+                    // 文本节点，向上查找 heading
+                    targetElement = (domResult.node as Text).parentElement?.closest('h1, h2, h3, h4, h5, h6') || null
+                  }
+                }
+              }
+              
+              if (!targetElement) return
+              
+              // 步骤 2: 找到真正的滚动容器
+              // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
+              let scrollContainer: HTMLElement | null = targetElement.closest('.wysiwyg-editor, .split-preview')
+              
+              // 如果没找到，尝试从 view.dom 向上查找
+              if (!scrollContainer) {
+                scrollContainer = view.dom.parentElement?.closest('.wysiwyg-editor, .split-preview') || null
+              }
+              
+              if (!scrollContainer) return
+              
+              // 步骤 3: 计算滚动位置
+              // 使用 getBoundingClientRect 获取相对于视口的位置，避免受 CSS transform 影响
+              const elementRect = targetElement.getBoundingClientRect()
+              const containerRect = scrollContainer.getBoundingClientRect()
+              
+              // 计算公式：
+              // relativeTop = 标题相对于视口的位置 - 容器相对于视口的位置
+              //             = 标题相对于容器顶部的位置
+              // targetScrollTop = 当前滚动位置 + 相对位置 - 边距
+              const scrollTop = scrollContainer.scrollTop
+              const relativeTop = elementRect.top - containerRect.top
+              const targetScrollTop = scrollTop + relativeTop - 20 // 留 20px 边距，让标题不紧贴顶部
+              
+              // 步骤 4: 执行平滑滚动
+              // 使用 Math.max(0, ...) 确保滚动位置不为负数
+              scrollContainer.scrollTo({
+                top: Math.max(0, targetScrollTop),
+                behavior: 'smooth'
+              })
+            } catch (scrollError) {
+              console.error('[CrepeEditorManager] Smooth scroll error:', scrollError)
+            }
+          }, 50)
+
+          // 额外触发一次光标变化通知，更新大纲高亮状态
+          const { from, to } = view.state.selection
+          this.emitCursorChange(from, to)
+        }
+      } catch (error) {
+        console.error('[CrepeEditorManager] scrollToHeading error:', error)
+      }
+    })
+  }
+
+  /**
+   * 获取当前光标在 WYSIWYG 编辑器中所在的行号（相对于整个文档文本）
+   */
+  getCurrentCursorLine(): number {
+    if (!this.crepe || !this.isInitialized) return 0
+
+    let line = 0
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        const { from } = view.state.selection
+        // 通过内容文本计算行号
+        const text = view.state.doc.textBetween(0, from)
+        line = text.split('\n').length
+      } catch {
+        line = 0
+      }
+    })
+    return line
+  }
+
+  private emitCursorChange(from: number, to: number): void {
+    if (this.currentTabId) {
+      eventBus.emit(AppEvents.CURSOR_CHANGED, {
+        from,
+        to,
+        tabId: this.currentTabId,
+      })
+    }
+    this.cursorChangeHandler?.(from, to)
   }
 
   private handleMarkdownUpdate(markdown: string): void {
@@ -272,7 +450,6 @@ export class CrepeEditorManager {
       return
     }
 
-    // 如果当前用户正在编辑 CodeMirror，就不应该由 Crepe 更新
     if (this.activeEditor === 'codemirror') {
       return
     }
@@ -324,15 +501,11 @@ export class CrepeEditorManager {
       return
     }
     
-    // 保存当前状态 - 在 destroy() 之前获取
     const currentContent = this.getMarkdown()
     const container = this.container
     const tabId = this.currentTabId
     
-    // 先销毁
     await this.destroy()
-    
-    // 重新初始化 - 传入保存的容器
     await this.init(container, currentContent, tabId || undefined)
   }
 }
@@ -359,7 +532,6 @@ export function useEditorSearch() {
   
   function setSearchHighlight(config: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
     // Crepe 还没有内置的搜索高亮 API
-    // 后续可以通过 ProseMirror 的 decorations 实现
   }
   
   function clearSearchHighlight() {

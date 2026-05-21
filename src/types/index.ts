@@ -76,10 +76,11 @@ export interface AppEventPayloads {
   'app:window:maximized': undefined
   'app:window:minimized': undefined
   'app:preferences:updated': undefined
-  'editor:content:changed': { content: string; tabId: string }
+'editor:content:changed': { content: string; tabId: string }
   'editor:cursor:changed': { from: number; to: number; tabId: string }
   'editor:selection:changed': { from: number; to: number; tabId: string }
   'editor:scroll:changed': { scrollTop: number; tabId: string }
+  'editor:scroll-to-heading': { slug: string; text: string; line: number }
 }
 
 export type AppEventName = keyof AppEventPayloads

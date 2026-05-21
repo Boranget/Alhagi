@@ -31,7 +31,8 @@ const zhCN: Translations = {
   sidebar: {
     fileExplorer: '文件浏览器',
     globalSearch: '全局搜索',
-    documentOutline: '文档大纲',
+documentOutline: '文档大纲',
+    noHeadings: '文档中没有标题',
     recentFiles: '最近文件',
     currentFile: '当前文件',
     currentFolder: '当前文件夹',
@@ -165,7 +166,8 @@ const en: Translations = {
   sidebar: {
     fileExplorer: 'File Explorer',
     globalSearch: 'Global Search',
-    documentOutline: 'Document Outline',
+documentOutline: 'Document Outline',
+    noHeadings: 'No headings found',
     recentFiles: 'Recent Files',
     currentFile: 'Current File',
     currentFolder: 'Current Folder',
