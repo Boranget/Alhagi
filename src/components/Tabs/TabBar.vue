@@ -2,7 +2,7 @@
   <div class="tab-bar">
     <div class="tabs-container">
       <div
-        v-for="tabId in filteredTabOrder"
+        v-for="tabId in tabsStore.tabOrder"
         :key="tabId"
         class="tab-item"
         :class="{ 
@@ -40,16 +40,6 @@
       </div>
     </div>
     <div class="tab-actions">
-      <button
-        class="search-btn"
-        title="搜索标签 (Ctrl+P)"
-        @click="toggleSearch"
-      >
-        <Icon
-          name="search"
-          size="sm"
-        />
-      </button>
       <button
         class="new-tab-btn"
         @click="handleNewTab"
@@ -165,49 +155,6 @@
         <span class="menu-text">{{ t('tabs.detachToNewWindow') }}</span>
       </div>
     </div>
-
-    <div
-      v-if="showSearch"
-      class="tab-search-overlay"
-      @click.self="toggleSearch"
-    >
-      <div class="tab-search-modal">
-        <input
-          ref="searchInput"
-          v-model="searchQuery"
-          class="tab-search-input"
-          :placeholder="t('search.searchPlaceholder')"
-          @keydown.enter="handleSearchEnter"
-          @keydown.esc="toggleSearch"
-        >
-        <div class="tab-search-results">
-          <div
-            v-for="(tabId, index) in filteredTabOrder"
-            :key="tabId"
-            class="tab-search-result"
-            :class="{ active: selectedIndex === index }"
-            @click="handleSearchSelect(tabId)"
-            @mouseenter="selectedIndex = index"
-          >
-            <Icon
-              name="file"
-              size="sm"
-            />
-            <span class="result-title">{{ getTab(tabId)?.title || t('tabs.untitled') }}</span>
-            <span
-              v-if="getTab(tabId)?.filePath"
-              class="result-path"
-            >{{ getTab(tabId)?.filePath }}</span>
-          </div>
-          <div
-            v-if="filteredTabOrder.length === 0"
-            class="tab-search-empty"
-          >
-            {{ t('search.noResults') }}
-          </div>
-        </div>
-      </div>
-    </div>
     
     <Teleport to="body">
       <div
@@ -253,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
@@ -280,11 +227,6 @@ const contextMenu = ref({
   tabId: null as string | null
 })
 
-const showSearch = ref(false)
-const searchQuery = ref('')
-const searchInput = ref<HTMLInputElement | null>(null)
-const selectedIndex = ref(0)
-
 const dragState = reactive<DragState>({
   sourceTabId: null,
   targetType: 'none',
@@ -299,21 +241,6 @@ const windowList = ref<Array<{ id: number; title: string }>>([])
 let currentWindowId: number | null = null
 let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
 let hasDroppedOnTab = false
-
-const filteredTabOrder = computed(() => {
-  if (!searchQuery.value) {
-    return tabsStore.tabOrder
-  }
-  const query = searchQuery.value.toLowerCase()
-  return tabsStore.tabOrder.filter((tabId) => {
-    const tab = tabsStore.tabs.get(tabId)
-    if (!tab) return false
-    return (
-      tab.title.toLowerCase().includes(query) ||
-      (tab.filePath && tab.filePath.toLowerCase().includes(query))
-    )
-  })
-})
 
 const ghostStyle = computed(() => ({
   left: `${dragState.mousePosition.x}px`,
@@ -379,34 +306,8 @@ function hideContextMenu() {
   contextMenu.value.tabId = null
 }
 
-function toggleSearch() {
-  showSearch.value = !showSearch.value
-  if (showSearch.value) {
-    searchQuery.value = ''
-    selectedIndex.value = 0
-    nextTick(() => {
-      searchInput.value?.focus()
-    })
-  }
-}
-
-function handleSearchEnter() {
-  if (filteredTabOrder.value.length > 0) {
-    tabsStore.switchTab(filteredTabOrder.value[selectedIndex.value])
-    toggleSearch()
-  }
-}
-
-function handleSearchSelect(tabId: string) {
-  tabsStore.switchTab(tabId)
-  toggleSearch()
-}
-
-function handleGlobalKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-    e.preventDefault()
-    toggleSearch()
-  }
+function handleGlobalKeydown() {
+  // 暂时不需要全局键盘事件处理
 }
 
 function handleGlobalClick() {
@@ -966,77 +867,6 @@ onUnmounted(() => {
   height: 1px;
   background: var(--border-color);
   margin: 4px 0;
-}
-
-.tab-search-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  z-index: 1000;
-  padding-top: 100px;
-}
-
-.tab-search-modal {
-  background: var(--sidebar-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 500px;
-  max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-}
-
-.tab-search-input {
-  width: 100%;
-  padding: 16px;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 16px;
-  outline: none;
-}
-
-.tab-search-results {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.tab-search-result {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover,
-  &.active {
-    background: var(--sidebar-hover-bg);
-  }
-}
-
-.result-title {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.result-path {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.tab-search-empty {
-  padding: 32px;
-  text-align: center;
-  color: var(--text-secondary);
 }
 </style>
 
