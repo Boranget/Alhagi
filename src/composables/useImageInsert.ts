@@ -109,7 +109,7 @@ export function useImageInsert() {
   }
   
   function insertMarkdownAtCursor(markdown: string) {
-    const textarea = document.querySelector('.editor-source, .editor-split-source') as HTMLTextAreaElement
+    const textarea = document.querySelector('.codemirror-wrapper.editor-source textarea, .codemirror-wrapper.editor-split-source textarea') as HTMLTextAreaElement
     
     if (textarea) {
       const start = textarea.selectionStart

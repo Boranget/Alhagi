@@ -24,17 +24,13 @@
       />
 
       <template v-else>
-        <CodeMirrorEditor
-          v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-          :model-value="sourceContent"
-          @update:model-value="handleCodeMirrorChange"
-          @focus="handleCodeMirrorFocus"
-          @blur="handleCodeMirrorBlur"
-        />
-
         <div
-          v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-          class="editor-split-source"
+          v-show="currentMode === EDITOR.VIEW_MODES.SOURCE || currentMode === EDITOR.VIEW_MODES.SPLIT"
+          class="codemirror-wrapper"
+          :class="{
+            'editor-source': currentMode === EDITOR.VIEW_MODES.SOURCE,
+            'editor-split-source': currentMode === EDITOR.VIEW_MODES.SPLIT
+          }"
         >
           <CodeMirrorEditor
             :model-value="sourceContent"
@@ -365,7 +361,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
   }
 
   &.mode-source {
-    .codemirror-editor {
+    .codemirror-wrapper.editor-source {
       flex: 1;
       overflow: hidden;
       min-height: 0;
@@ -440,32 +436,28 @@ function handleEditorKeydown(e: KeyboardEvent) {
       }
     }
 
-    .editor-split-source {
+    .codemirror-wrapper.editor-split-source {
       height: 100%;
       flex-shrink: 0;
       overflow: hidden;
       width: v-bind('`calc(${splitRatio}% - 3px)`');
       order: 1;
 
-      :deep(.codemirror-editor) {
-        height: 100%;
+      :deep(.cm-scroller) {
+        &::-webkit-scrollbar {
+          width: 12px;
+        }
+      }
 
-        :deep(.cm-scroller) {
-          &::-webkit-scrollbar {
-            width: 12px;
-          }
+      :deep(.cm-content) {
+        padding: 16px 12px 16px 16px !important;
+
+        @media (min-width: 768px) {
+          padding: 20px 12px 20px 32px !important;
         }
 
-        :deep(.cm-content) {
-          padding: 16px 12px 16px 16px !important;
-
-          @media (min-width: 768px) {
-            padding: 20px 12px 20px 32px !important;
-          }
-
-          @media (min-width: 1024px) {
-            padding: 20px 12px 20px 64px !important;
-          }
+        @media (min-width: 1024px) {
+          padding: 20px 12px 20px 64px !important;
         }
       }
     }
@@ -495,13 +487,13 @@ function handleEditorKeydown(e: KeyboardEvent) {
   }
 
   &.typewriter-mode {
-    .editor-wysiwyg, .codemirror-editor, .editor-split-source, .editor-split-preview {
+    .editor-wysiwyg, .codemirror-wrapper, .editor-split-preview {
       scroll-behavior: smooth;
     }
   }
 
   &.focus-mode {
-    .editor-wysiwyg, .codemirror-editor {
+    .editor-wysiwyg, .codemirror-wrapper {
       background: var(--bg-primary);
     }
   }
