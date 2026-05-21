@@ -9,64 +9,56 @@
       :class="contentClasses"
     >
       <!-- 不支持的文件格式提示 -->
-      <template v-if="activeTab && !isSupportedFileType(activeTab.filePath)">
-        <div class="unsupported-file-message">
-          <Icon name="file" size="lg" class="message-icon" />
-          <h3>{{ t('editor.unsupportedFileType') }}</h3>
-          <p>{{ activeTab?.filePath }}</p>
-          <p class="hint">{{ t('editor.onlyMarkdownSupported') }}</p>
-        </div>
-      </template>
+      <div 
+        v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
+        class="unsupported-file-message"
+      >
+        <Icon name="file" size="lg" class="message-icon" />
+        <h3>{{ t('editor.unsupportedFileType') }}</h3>
+        <p>{{ activeTab?.filePath }}</p>
+        <p class="hint">{{ t('editor.onlyMarkdownSupported') }}</p>
+      </div>
 
-      <!-- WYSIWYG 模式：只显示 Crepe 编辑器 -->
-      <template v-else-if="currentMode === EDITOR.VIEW_MODES.WYSIWYG">
-        <div
-          ref="crepeContainer"
-          class="crepe wysiwyg-editor"
-          @focus="handleCrepeFocus"
+      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
+        ref="crepeContainer"
+        class="crepe"
+        :class="{
+          'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
+          'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
+        }"
+        @focus="handleCrepeFocus"
+      />
+
+      <!-- CodeMirror 编辑器 - 源码模式 -->
+      <CodeMirrorEditor
+        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
+        :model-value="sourceContent"
+        @update:model-value="handleCodeMirrorChange"
+        @focus="handleCodeMirrorFocus"
+      />
+
+      <!-- CodeMirror 编辑器 - 分屏源码模式 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+        class="editor-split-source"
+      >
+        <CodeMirrorEditor
+          :model-value="sourceContent"
+          @update:model-value="handleCodeMirrorChange"
+          @focus="handleCodeMirrorFocus"
         />
-      </template>
+      </div>
 
-      <!-- 源码模式：只显示 CodeMirror -->
-      <template v-else-if="currentMode === EDITOR.VIEW_MODES.SOURCE">
-        <div class="source-editor-wrapper">
-          <CodeMirrorEditor
-            :model-value="sourceContent"
-            @update:model-value="handleCodeMirrorChange"
-            @focus="handleCodeMirrorFocus"
-          />
-        </div>
-      </template>
-
-      <!-- 分屏模式：显示两个并排的容器 -->
-      <template v-else>
-        <div class="split-view">
-          <div
-            class="split-source"
-            :style="{ width: `calc(${splitRatio}% - 3px)` }"
-          >
-            <div class="split-source-content">
-              <CodeMirrorEditor
-                :model-value="sourceContent"
-                @update:model-value="handleCodeMirrorChange"
-                @focus="handleCodeMirrorFocus"
-              />
-            </div>
-          </div>
-          <div
-            class="split-resizer"
-            @mousedown="handleResizerMouseDown"
-          >
-            <div class="split-resizer-handle" />
-          </div>
-          <div
-            ref="crepeContainer"
-            class="crepe split-preview"
-            :style="{ width: `calc(${100 - splitRatio}% - 3px)` }"
-            @focus="handleCrepeFocus"
-          />
-        </div>
-      </template>
+      <!-- 分屏分割线 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+        class="split-resizer"
+        @mousedown="handleResizerMouseDown"
+      >
+        <div class="split-resizer-handle" />
+      </div>
     </div>
   </div>
 </template>
@@ -92,7 +84,6 @@ const prefsStore = usePreferencesStore()
 const editorManager = useCrepeEditorManager()
 
 const crepeContainer = ref<HTMLElement | null>(null)
-const crepeContainerSplit = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
@@ -166,14 +157,12 @@ const handleViewModeChange = async (mode: ViewMode) => {
     return
   }
   
-  // 如果切换到非 WYSIWYG 模式，先获取当前内容
-  if (mode !== EDITOR.VIEW_MODES.WYSIWYG) {
-    if (editorManager.isReady()) {
-      sourceContent.value = editorManager.getMarkdown()
-    }
+  // 如果切换到非 WYSIWYG 模式，同步 Crepe 的内容到 CodeMirror
+  if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editorManager.isReady()) {
+    sourceContent.value = editorManager.getMarkdown()
   }
 
-  // 如果切换到 WYSIWYG 模式，需要先设置内容
+  // 如果切换到 WYSIWYG 模式，同步 CodeMirror 的内容到 Crepe
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
     if (editorManager.isReady()) {
       await editorManager.setMarkdown(sourceContent.value)
@@ -184,24 +173,8 @@ const handleViewModeChange = async (mode: ViewMode) => {
   currentMode.value = mode
   editorManager.setViewMode(mode)
   
-  // 等待 DOM 更新
+  // 等待 DOM 更新，让 v-show 生效
   await nextTick()
-  
-  // 只有在 WYSIWYG 或分屏模式下才需要初始化 Crepe
-  if (mode === EDITOR.VIEW_MODES.WYSIWYG || mode === EDITOR.VIEW_MODES.SPLIT) {
-    if (crepeContainer.value) {
-      const currentContent = activeTab.value?.content || ''
-      const currentTabId = activeTab.value?.id
-      
-      try {
-        await editorManager.init(crepeContainer.value, currentContent, currentTabId)
-      } catch (error) {
-        console.error('[EditorContainer] Failed to initialize Crepe:', error)
-      }
-    } else {
-      console.error('[EditorContainer] crepeContainer is null after mode change!')
-    }
-  }
 }
 
 const handleResizerMouseDown = (e: MouseEvent) => {
@@ -213,7 +186,7 @@ const handleResizerMouseDown = (e: MouseEvent) => {
 const handleResizerMouseMove = (e: MouseEvent) => {
   if (!isResizing.value) return
   
-  const container = document.querySelector('.split-view') as HTMLElement
+  const container = document.querySelector('.editor-content.mode-split') as HTMLElement
   if (!container) return
   
   const rect = container.getBoundingClientRect()
@@ -322,12 +295,13 @@ function handleEditorKeydown(e: KeyboardEvent) {
   flex: 1;
   overflow: hidden;
   position: relative;
-  min-height: 0; /* 关键：让 flex 子元素能正确计算高度 */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 
+  // WYSIWYG 模式样式
   &.mode-wysiwyg {
-    .wysiwyg-editor {
+    .editor-wysiwyg {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
@@ -372,11 +346,90 @@ function handleEditorKeydown(e: KeyboardEvent) {
     }
   }
 
+  // 源码模式样式
   &.mode-source {
-    .source-editor-wrapper {
+    .codemirror-editor {
       flex: 1;
       overflow: hidden;
       min-height: 0;
+
+      :deep(.cm-scroller) {
+        &::-webkit-scrollbar {
+          width: 12px;
+        }
+      }
+
+      :deep(.cm-content) {
+        padding: 16px 16px !important;
+
+        @media (min-width: 768px) {
+          padding: 20px 32px !important;
+        }
+
+        @media (min-width: 1024px) {
+          padding: 20px 64px !important;
+        }
+      }
+    }
+  }
+
+  // 分屏模式样式
+  &.mode-split {
+    flex-direction: row;
+
+    .crepe.editor-split-preview {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+      display: block;
+      min-height: 0;
+      width: v-bind('`calc(${100 - splitRatio}% - 3px)`');
+      order: 3; /* 确保在最右边 */
+
+      &::-webkit-scrollbar {
+        width: 12px;
+      }
+
+      :deep(.crepe) {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        transform-origin: top center;
+        transform: scale(var(--editor-scale, 1));
+      }
+
+      :deep(.milkdown) {
+        display: block;
+        height: auto;
+      }
+
+      :deep(.ProseMirror) {
+        outline: none;
+        padding: 16px 16px 16px 12px !important;
+
+        @media (min-width: 768px) {
+          padding: 20px 32px 20px 12px !important;
+        }
+
+        @media (min-width: 1024px) {
+          padding: 20px 64px 20px 12px !important;
+        }
+      }
+
+      :deep(.milkdown-block-handle) {
+        display: none !important;
+      }
+    }
+
+    .editor-split-source {
+      height: 100%;
+      flex-shrink: 0;
+      overflow: hidden;
+      width: v-bind('`calc(${splitRatio}% - 3px)`');
+      order: 1; /* 确保在最左边 */
 
       :deep(.codemirror-editor) {
         height: 100%;
@@ -388,135 +441,51 @@ function handleEditorKeydown(e: KeyboardEvent) {
         }
 
         :deep(.cm-content) {
-          padding: 16px 16px !important;
+          padding: 16px 12px 16px 16px !important;
 
           @media (min-width: 768px) {
-            padding: 20px 32px !important;
+            padding: 20px 12px 20px 32px !important;
           }
 
           @media (min-width: 1024px) {
-            padding: 20px 64px !important;
+            padding: 20px 12px 20px 64px !important;
           }
         }
       }
     }
-  }
 
-  &.mode-split {
-    .split-view {
+    .split-resizer {
+      width: 6px;
+      background: var(--border-color);
+      cursor: col-resize;
       display: flex;
-      flex: 1;
-      min-height: 0;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.15s;
+      flex-shrink: 0;
+      order: 2; /* 确保在中间 */
 
-      .split-source {
-        height: 100%;
-        flex-shrink: 0;
-        overflow: hidden;
-
-        .split-source-content {
-          height: 100%;
-
-          :deep(.codemirror-editor) {
-            height: 100%;
-
-            :deep(.cm-scroller) {
-              &::-webkit-scrollbar {
-                width: 12px;
-              }
-            }
-
-            :deep(.cm-content) {
-              padding: 16px 12px 16px 16px !important;
-
-              @media (min-width: 768px) {
-                padding: 20px 12px 20px 32px !important;
-              }
-
-              @media (min-width: 1024px) {
-                padding: 20px 12px 20px 64px !important;
-              }
-            }
-          }
-        }
+      &:hover {
+        background: var(--primary-color);
       }
 
-      .split-resizer {
-        width: 6px;
-        background: var(--border-color);
-        cursor: col-resize;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background-color 0.15s;
-        flex-shrink: 0;
-
-        &:hover {
-          background: var(--primary-color);
-        }
-
-        .split-resizer-handle {
-          width: 2px;
-          height: 30px;
-          background: var(--text-secondary);
-          border-radius: 1px;
-        }
-      }
-
-      .split-preview {
-        height: 100%;
-        overflow-y: auto;
-        overflow-x: hidden;
-        flex-shrink: 0;
-        transition: all 0.3s ease;
-        display: block;
-        min-height: 0;
-
-        &::-webkit-scrollbar {
-          width: 12px;
-        }
-
-        :deep(.crepe) {
-          display: block;
-          width: 100%;
-          max-width: 100%;
-          margin: 0 auto;
-          transform-origin: top center;
-          transform: scale(var(--editor-scale, 1));
-        }
-
-        :deep(.milkdown) {
-          display: block;
-          height: auto;
-        }
-
-        :deep(.ProseMirror) {
-          outline: none;
-          padding: 16px 16px 16px 12px !important;
-
-          @media (min-width: 768px) {
-            padding: 20px 32px 20px 12px !important;
-          }
-
-          @media (min-width: 1024px) {
-            padding: 20px 64px 20px 12px !important;
-          }
-        }
-
-        :deep(.milkdown-block-handle) {
-          display: none !important;
-        }
+      .split-resizer-handle {
+        width: 2px;
+        height: 30px;
+        background: var(--text-secondary);
+        border-radius: 1px;
       }
     }
   }
 
   &.typewriter-mode {
-    .wysiwyg-editor, .source-editor-wrapper, .split-source {
+    .editor-wysiwyg, .codemirror-editor, .editor-split-source, .editor-split-preview {
       scroll-behavior: smooth;
     }
   }
 
   &.focus-mode {
-    .wysiwyg-editor, .source-editor-wrapper {
+    .editor-wysiwyg, .codemirror-editor {
       background: var(--bg-primary);
     }
   }

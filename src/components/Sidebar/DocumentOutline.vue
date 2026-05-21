@@ -47,6 +47,12 @@ const isManualClick = ref(false) // 标记是否是手动点击
 let scrollContainer: HTMLElement | null = null
 let scrollHandler: ((event: Event) => void) | null = null
 
+/**
+ * 建立 DOM 元素到 pos 的映射缓存
+ * 用于在滚动时快速查找标题对应的 pos
+ */
+const domPosCache = new Map<HTMLElement, number>()
+
 const activeTab = computed(() => tabsStore.activeTab)
 
 const treeData = computed<HeadingTreeNode[]>(() => {
@@ -90,6 +96,11 @@ function refreshOutline() {
     // 回退到文本解析方式
     flatHeadings.value = parseHeadings(tab.content)
   }
+  
+  // 刷新大纲后，重新建立 DOM-pos 缓存
+  setTimeout(() => {
+    buildDomPosCache()
+  }, 50)
 }
 
 /**
@@ -118,33 +129,66 @@ function initScrollListener() {
   // 先移除旧的监听器，避免重复绑定
   if (scrollContainer && scrollHandler) {
     scrollContainer.removeEventListener('scroll', scrollHandler)
+    scrollContainer = null
   }
 
   const tab = activeTab.value
-  if (!tab) return
+  if (!tab) {
+    console.debug('[DocumentOutline] initScrollListener: no active tab')
+    return
+  }
 
   const mode = tab.viewMode
+  console.debug('[DocumentOutline] initScrollListener: tab.viewMode =', mode)
   
   // 只在 WYSIWYG 和分屏模式下需要监听滚动
   // 源码模式不需要滚动同步
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG && mode !== EDITOR.VIEW_MODES.SPLIT) {
+    console.debug('[DocumentOutline] initScrollListener: mode not wysiwyg or split')
     return
   }
 
   // 找到 Crepe 编辑器的滚动容器
-  // WYSIWYG 模式：.crepe.wysiwyg-editor
-  // 分屏模式：.crepe.split-preview（预览区域）
+  // WYSIWYG 模式：.crepe.editor-wysiwyg
+  // 分屏模式：.crepe.editor-split-preview（预览区域）
   let editorElement: HTMLElement | null = null
   
+  console.debug('[DocumentOutline] initScrollListener for mode:', mode)
+  
   if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
-    editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+    // 先查找 .crepe.editor-wysiwyg
+    editorElement = document.querySelector('.crepe.editor-wysiwyg') as HTMLElement
+    console.debug('[DocumentOutline] WYSIWYG: looking for .crepe.editor-wysiwyg, found:', !!editorElement)
+    
+    // 如果没找到，尝试查找滚动容器
+    if (!editorElement) {
+      // 尝试查找 .editor-content.mode-wysiwyg，它才是真正的滚动容器（有 overflow-y: auto）
+      editorElement = document.querySelector('.editor-content.mode-wysiwyg') as HTMLElement
+      console.debug('[DocumentOutline] WYSIWYG: looking for .editor-content.mode-wysiwyg, found:', !!editorElement)
+    }
+    
+    // 如果还是没找到，尝试只找 .crepe
+    if (!editorElement) {
+      const allCrepe = document.querySelectorAll('.crepe')
+      console.debug('[DocumentOutline] WYSIWYG: found', allCrepe.length, 'crepe elements')
+      
+      // 查找有 .editor-wysiwyg 类的元素
+      for (const el of Array.from(allCrepe)) {
+        if ((el as HTMLElement).classList.contains('editor-wysiwyg')) {
+          editorElement = el as HTMLElement
+          console.debug('[DocumentOutline] WYSIWYG: found editor-wysiwyg in crepe elements')
+          break
+        }
+      }
+    }
   } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
     // 分屏模式下，优先使用 activeEditor，如果为 null 则默认监听预览区
     const activeEditor = editorManager.getActiveEditor()
     
     // 如果 activeEditor 是 crepe 或 null（未设置），都监听预览区
     if (activeEditor === 'crepe' || activeEditor === null) {
-      editorElement = document.querySelector('.crepe.split-preview') as HTMLElement
+      editorElement = document.querySelector('.crepe.editor-split-preview') as HTMLElement
+      console.debug('[DocumentOutline] SPLIT: looking for .crepe.editor-split-preview, found:', !!editorElement)
     }
     // 如果 activeEditor 是 codemirror，不监听（用户在源码区编辑）
   }
@@ -159,12 +203,12 @@ function initScrollListener() {
       retries++
       
       if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
-        editorElement = document.querySelector('.crepe.wysiwyg-editor') as HTMLElement
+        editorElement = document.querySelector('.crepe.editor-wysiwyg') as HTMLElement
       } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
         const activeEditor = editorManager.getActiveEditor()
         // 如果 activeEditor 是 crepe 或 null，都尝试查找预览区
         if (activeEditor === 'crepe' || activeEditor === null) {
-          editorElement = document.querySelector('.crepe.split-preview') as HTMLElement
+          editorElement = document.querySelector('.crepe.editor-split-preview') as HTMLElement
         }
       }
       
@@ -172,6 +216,7 @@ function initScrollListener() {
         clearInterval(retryInterval)
         
         if (editorElement) {
+          console.debug('[DocumentOutline] Retry succeeded, found scroll container')
           scrollContainer = editorElement
           setupScrollHandler()
         } else {
@@ -183,6 +228,7 @@ function initScrollListener() {
   }
 
   scrollContainer = editorElement
+  console.debug('[DocumentOutline] Scroll container found, setting up handler')
   setupScrollHandler()
 }
 
@@ -190,7 +236,12 @@ function initScrollListener() {
  * 设置滚动处理函数
  */
 function setupScrollHandler() {
-  if (!scrollContainer) return
+  if (!scrollContainer) {
+    console.error('[DocumentOutline] setupScrollHandler: no scroll container')
+    return
+  }
+  
+  console.debug('[DocumentOutline] setupScrollHandler called')
   
   // 创建节流版本的滚动处理函数（100ms）
   // 避免频繁更新影响性能
@@ -203,7 +254,10 @@ function setupScrollHandler() {
 
     // 如果是手动点击后的短时间内，不自动更新
     // 避免与用户操作冲突
-    if (isManualClick.value) return
+    if (isManualClick.value) {
+      console.debug('[DocumentOutline] Skipping update - isManualClick')
+      return
+    }
 
     // 根据视口位置更新活跃标题
     updateActiveHeadingByViewport()
@@ -211,18 +265,49 @@ function setupScrollHandler() {
 
   // 添加滚动监听，使用 passive 优化性能
   scrollContainer.addEventListener('scroll', scrollHandler, { passive: true })
+  console.debug('[DocumentOutline] Scroll listener added')
+  
+  // 滚动容器建立后，建立 DOM-pos 缓存
+  buildDomPosCache()
+}
+
+function buildDomPosCache() {
+  domPosCache.clear()
+  
+  if (!scrollContainer || !editorManager.isReady()) {
+    console.debug('[DocumentOutline] buildDomPosCache skipped - not ready')
+    return
+  }
+  
+  const allHeadings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  console.debug('[DocumentOutline] Found', allHeadings.length, 'headings in DOM')
+  
+  // 由于 DOM 顺序和 flatHeadings 顺序一致，我们可以按索引匹配
+  Array.from(allHeadings).forEach((element, index) => {
+    const el = element as HTMLElement
+    if (index < flatHeadings.value.length) {
+      const heading = flatHeadings.value[index]
+      if (heading.pos !== undefined) {
+        domPosCache.set(el, heading.pos)
+      }
+    }
+  })
+  
+  console.debug('[DocumentOutline] domPosCache built:', domPosCache.size, 'headings')
 }
 
 /**
  * 根据视口位置更新活跃标题
  * 
  * 核心逻辑：
- * 1. 直接遍历 DOM 中的所有标题元素（h1-h6）
- * 2. 找到距离视口顶部最近的标题
- * 3. 通过 pos 精确匹配到 flatHeadings 中的标题
+ * 1. 通过滚动容器找到视口中的标题元素
+ * 2. 使用 DOM 顺序和 flatHeadings 顺序匹配
  */
 function updateActiveHeadingByViewport() {
+  console.debug('[DocumentOutline] updateActiveHeadingByViewport called')
+  
   if (!flatHeadings.value.length || !scrollContainer) {
+    console.debug('[DocumentOutline] No headings or no scroll container')
     activePos.value = null
     return
   }
@@ -233,11 +318,14 @@ function updateActiveHeadingByViewport() {
   // 步骤 1: 直接遍历 DOM 中的所有标题元素
   const allHeadings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6')
   
+  console.debug('[DocumentOutline] Found', allHeadings.length, 'headings in DOM,', flatHeadings.value.length, 'in flatHeadings')
+  
   let nearestElement: HTMLElement | null = null
+  let nearestIndex = -1
   let minDistance = Infinity
 
   // 步骤 2: 找到距离视口顶部最近的标题元素
-  for (const element of Array.from(allHeadings)) {
+  Array.from(allHeadings).forEach((element, index) => {
     const el = element as HTMLElement
     const rect = el.getBoundingClientRect()
     const distance = rect.top - viewportTop
@@ -247,48 +335,64 @@ function updateActiveHeadingByViewport() {
     if (distance >= -50 && distance < minDistance) {
       minDistance = distance
       nearestElement = el
+      nearestIndex = index
     }
-  }
+  })
 
   // 步骤 3: 将找到的 DOM 元素匹配到 flatHeadings 中的 pos
   let matchedPos: number | null = null
+  let matchStrategy = 'none'
   
-  if (nearestElement) {
-    // 策略：通过 ProseMirror 的 nodeDOM 反向查找 pos
-    // 由于我们没有直接的 DOM -> pos 映射，需要通过其他方式
-    // 这里我们尝试通过文本内容和层级来匹配
-    const elementText = nearestElement.textContent?.trim() || ''
-    const elementTag = nearestElement.tagName.toLowerCase()
-    const elementLevel = parseInt(elementTag.substring(1)) || 1
+  if (nearestElement && nearestIndex >= 0) {
+    const el = nearestElement as HTMLElement
+    const nearestText = el.textContent?.trim() || ''
     
-    // 查找所有匹配的候选项（文本 + 层级匹配）
-    const candidates = flatHeadings.value.filter(h => 
-      h.text === elementText && h.level === elementLevel
-    )
-    
-    if (candidates.length === 1) {
-      // 只有一个匹配，直接使用
-      matchedPos = candidates[0].pos ?? null
-    } else if (candidates.length > 1) {
-      // 有多个相同文本和层级的标题，选择距离光标最近的
-      if (cursorLine.value > 0) {
-        let closestCandidate = candidates[0]
-        let minLineDiff = Math.abs(candidates[0].line - cursorLine.value)
-        
-        for (let i = 1; i < candidates.length; i++) {
-          const lineDiff = Math.abs(candidates[i].line - cursorLine.value)
-          if (lineDiff < minLineDiff) {
-            minLineDiff = lineDiff
-            closestCandidate = candidates[i]
-          }
-        }
-        
-        matchedPos = closestCandidate.pos ?? null
-      } else {
-        // 没有光标信息，使用第一个匹配
-        matchedPos = candidates[0].pos ?? null
+    // 策略 1: 优先通过索引匹配 (最可靠)
+    if (nearestIndex < flatHeadings.value.length) {
+      const heading = flatHeadings.value[nearestIndex]
+      // 验证一下文本是否一致
+      if (heading.text === nearestText) {
+        matchedPos = heading.pos ?? null
+        matchStrategy = 'index'
       }
     }
+    
+    // 策略 2: 如果索引匹配失败，使用缓存
+    if (matchedPos === null && domPosCache.has(el)) {
+      const cachedPos = domPosCache.get(el)!
+      const heading = flatHeadings.value.find(h => h.pos === cachedPos)
+      if (heading) {
+        matchedPos = cachedPos
+        matchStrategy = 'cache'
+      }
+    }
+    
+    // 策略 3: 回退到文本内容和层级匹配
+    if (matchedPos === null) {
+      const elementText = el.textContent?.trim() || ''
+      const elementTag = el.tagName.toLowerCase()
+      const elementLevel = parseInt(elementTag.substring(1)) || 1
+      
+      const candidates = flatHeadings.value.filter(h => 
+        h.text === elementText && h.level === elementLevel
+      )
+      
+      if (candidates.length === 1) {
+        matchedPos = candidates[0].pos ?? null
+        matchStrategy = 'text-single'
+      } else if (candidates.length > 1) {
+        matchedPos = candidates[0].pos ?? null
+        matchStrategy = `text-multi(${candidates.length})`
+      }
+    }
+    
+    console.debug('[DocumentOutline] Scroll match:', {
+      element: el.textContent?.trim(),
+      nearestIndex,
+      strategy: matchStrategy,
+      matchedPos,
+      minDistance
+    })
   }
 
   activePos.value = matchedPos
@@ -348,11 +452,12 @@ onMounted(() => {
     refreshOutline()
   })
 
-  // 监听编辑器就绪事件，重新生成带 pos 的大纲
+  // 监听编辑器就绪事件，重新生成带 pos 的大纲，并初始化滚动监听
   unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, () => {
     // Crepe 就绪后，重新生成大纲以获取 pos
     setTimeout(() => {
       refreshOutline()
+      initScrollListener()
     }, 100)
   })
 

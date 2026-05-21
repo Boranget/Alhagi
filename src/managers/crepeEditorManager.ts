@@ -293,7 +293,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
    * 实现原理（参考 MarkText/Typora）：
    * 1. 直接使用 ProseMirror 节点位置（pos）定位
    * 2. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
-   * 3. 定位到真正的滚动容器（.wysiwyg-editor 或 .split-preview）
+   * 3. 定位到真正的滚动容器（.editor-wysiwyg 或 .editor-split-preview）
    * 4. 计算标题相对于滚动容器的位置
    * 5. 使用 scrollTo 执行平滑滚动
    * 
@@ -366,11 +366,11 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
             
             // 步骤 2: 找到真正的滚动容器
             // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
-            let scrollContainer: HTMLElement | null = targetElement.closest('.wysiwyg-editor, .split-preview')
+            let scrollContainer: HTMLElement | null = targetElement.closest('.editor-wysiwyg, .editor-split-preview')
             
             // 如果没找到，尝试从 view.dom 向上查找
             if (!scrollContainer) {
-              scrollContainer = view.dom.parentElement?.closest('.wysiwyg-editor, .split-preview') || null
+              scrollContainer = view.dom.parentElement?.closest('.editor-wysiwyg, .editor-split-preview') || null
             }
             
             if (!scrollContainer) return
