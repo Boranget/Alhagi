@@ -29,6 +29,7 @@
           'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
         }"
         @focus="handleCrepeFocus"
+        @click="handleCrepeClick"
       />
 
       <!-- CodeMirror 编辑器 - 源码模式 -->
@@ -144,6 +145,12 @@ const handleCodeMirrorChange = (val: string) => {
 
 const handleCrepeFocus = () => {
   editorManager.setActiveEditor('crepe')
+}
+
+const handleCrepeClick = () => {
+  if (editorManager.isReady()) {
+    editorManager.focus()
+  }
 }
 
 const handleCodeMirrorFocus = () => {

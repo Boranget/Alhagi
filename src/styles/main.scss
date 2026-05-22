@@ -75,8 +75,9 @@ textarea {
 .crepe .milkdown {
   display: block;
   height: auto;
+  background-color: transparent !important;
 
-  --crepe-color-background: #fdfcff;
+  --crepe-color-background: transparent;
   --crepe-color-on-background: #1b1c1d;
   --crepe-color-surface: #f8f9ff;
   --crepe-color-surface-low: #f2f3fa;
@@ -103,7 +104,8 @@ textarea {
 }
 
 .dark .crepe .milkdown, [data-theme="dark"] .crepe .milkdown {
-  --crepe-color-background: #1b1c1d;
+  background-color: transparent !important;
+  --crepe-color-background: transparent;
   --crepe-color-on-background: #f8f9ff;
   --crepe-color-surface: #111418;
   --crepe-color-surface-low: #191c20;

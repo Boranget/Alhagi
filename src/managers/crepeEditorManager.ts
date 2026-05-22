@@ -473,6 +473,21 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     return this.isInitialized && this.crepe !== null
   }
 
+  focus(): void {
+    if (!this.crepe || !this.isInitialized) {
+      return
+    }
+    
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        view.focus()
+      } catch (error) {
+        console.error('[CrepeEditorManager] Failed to focus editor:', error)
+      }
+    })
+  }
+
   /**
    * 在 ProseMirror/WYSIWYG 编辑器中滚动到指定标题
    * 
