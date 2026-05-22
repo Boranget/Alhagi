@@ -230,13 +230,36 @@
                   </option>
                 </select>
               </div>
-              <div class="setting-item">
+              <div class="setting-item vertical">
                 <label>图片保存目录</label>
-                <input
-                  v-model="prefsStore.imageStoragePath"
-                  type="text"
-                  placeholder="路径"
-                >
+                <div class="path-help">
+                  <p class="help-text">
+                    设置插入图片时的保存位置。留空则使用默认路径（相对于当前文档目录的 assets/images 文件夹）。
+                  </p>
+                  <p class="help-label">
+                    可用变量：
+                  </p>
+                  <div class="path-variables">
+                    <code>{filename}</code> - 原文件名（不含扩展名）
+                    <code>{filedir}</code> - 当前文档所在目录
+                    <code>{date}</code> - 当前日期（格式：2024-01-15）
+                    <code>{time}</code> - 当前时间（格式：14-30-00）
+                    <code>{datetime}</code> - 日期时间组合
+                  </div>
+                  <p class="help-label">
+                    示例：
+                  </p>
+                  <div class="path-examples">
+                    <p><code>./assets/images</code> - 保存到文档同目录的 assets/images 文件夹</p>
+                    <p><code>./images/{date}</code> - 按日期分组的图片文件夹</p>
+                    <p><code>./assets/{filename}_{datetime}</code> - 带时间戳的文件名</p>
+                  </div>
+                  <input
+                    v-model="prefsStore.imageStoragePath"
+                    type="text"
+                    placeholder="./assets/images"
+                  >
+                </div>
               </div>
             </div>
             
@@ -520,6 +543,72 @@ function openKeyboardSettings() {
   
   &:hover {
     opacity: 0.9;
+  }
+}
+
+.setting-item.vertical {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.path-help {
+  width: 100%;
+  background: var(--panel-hover-bg);
+  border-radius: 6px;
+  padding: 12px;
+  
+  .help-text {
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  
+  .help-label {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  .path-variables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+    
+    code {
+      background: var(--input-bg);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--primary-color);
+    }
+  }
+  
+  .path-examples {
+    margin-bottom: 12px;
+    
+    p {
+      margin: 4px 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    
+    code {
+      background: var(--input-bg);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--primary-color);
+    }
+  }
+  
+  input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 </style>

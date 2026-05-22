@@ -13,10 +13,16 @@
         v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
         class="unsupported-file-message"
       >
-        <Icon name="file" size="lg" class="message-icon" />
+        <Icon
+          name="file"
+          size="lg"
+          class="message-icon"
+        />
         <h3>{{ t('editor.unsupportedFileType') }}</h3>
         <p>{{ activeTab?.filePath }}</p>
-        <p class="hint">{{ t('editor.onlyMarkdownSupported') }}</p>
+        <p class="hint">
+          {{ t('editor.onlyMarkdownSupported') }}
+        </p>
       </div>
 
       <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
@@ -71,9 +77,10 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { useImageInsert } from '@/composables/useImageInsert'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
-import { EDITOR } from '@/constants'
+import { EDITOR, FILE } from '@/constants'
 import type { ViewMode } from '@/types'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { t } from '@/services/i18n'
@@ -85,9 +92,11 @@ const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 
 const editorManager = useCrepeEditorManager()
+const { insertImage } = useImageInsert()
 
 const crepeContainer = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
+const imagePasteHandler = ref<((e: ClipboardEvent) => void) | null>(null)
 
 const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
@@ -231,8 +240,8 @@ const handleWindowResize = () => {
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
-    const activeEditor = editorManager.getActiveEditor()
-    if (activeEditor !== 'codemirror') {
+    // 在非 WYSIWYG 模式下，总是更新 sourceContent
+    if (currentMode.value !== EDITOR.VIEW_MODES.WYSIWYG) {
       sourceContent.value = data.content
     }
   }
@@ -275,6 +284,9 @@ onMounted(async () => {
   window.addEventListener('resize', handleWindowResize)
   document.addEventListener('mousemove', handleResizerMouseMove)
   document.addEventListener('mouseup', handleResizerMouseUp)
+  
+  setupImageDrop()
+  setupImagePaste()
 })
 
 onUnmounted(async () => {
@@ -283,6 +295,11 @@ onUnmounted(async () => {
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
+  
+  const container = crepeContainer.value
+  if (container && imagePasteHandler.value) {
+    container.removeEventListener('paste', imagePasteHandler.value, true)
+  }
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {
@@ -290,6 +307,75 @@ function handleEditorKeydown(e: KeyboardEvent) {
     e.preventDefault()
     floatingSearchRef.value?.show()
   }
+  
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
+    e.preventDefault()
+    handleInsertImage()
+  }
+}
+
+function handleInsertImage() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = FILE.IMAGE_EXTENSIONS.join(',')
+  input.multiple = false
+  
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (file) {
+      await insertImage(file)
+    }
+  }
+  
+  input.click()
+}
+
+function setupImageDrop() {
+  const container = crepeContainer.value
+  if (!container) return
+  
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    e.dataTransfer!.dropEffect = 'copy'
+  })
+  
+  container.addEventListener('drop', async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const files = e.dataTransfer?.files
+    if (!files || files.length === 0) return
+    
+    for (const file of Array.from(files)) {
+      if (FILE.IMAGE_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))) {
+        await insertImage(file)
+      }
+    }
+  })
+}
+
+function setupImagePaste() {
+  const container = crepeContainer.value
+  if (!container) return
+  
+  imagePasteHandler.value = async (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          e.preventDefault()
+          e.stopPropagation()
+          await insertImage(file)
+        }
+        break
+      }
+    }
+  }
+  
+  container.addEventListener('paste', imagePasteHandler.value, true)
 }
 </script>
 

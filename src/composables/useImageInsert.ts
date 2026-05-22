@@ -1,13 +1,11 @@
 import { ref } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { FILE } from '@/constants'
+import { getDirname, getRelativePath } from '@/utils/helpers'
 
 export type ImageInsertMode = 'keep-original' | 'copy-absolute' | 'copy-relative'
-
-export interface ImageInsertOptions {
-  mode: ImageInsertMode
-  customPath?: string
-  useVariables?: boolean
-}
 
 export const PATH_VARIABLES = {
   FILENAME: '{filename}',
@@ -39,99 +37,157 @@ function resolvePathVariables(template: string, context: {
 }
 
 function generateImageName(file: File): string {
-  return `${Date.now()}_${file.name}`
+  const extension = file.name.split('.').pop() || ''
+  const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+  return `${Date.now()}_${nameWithoutExt}.${extension}`
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const dataUrl = reader.result as string
+        const base64Match = dataUrl?.match(/^data:.*?;base64,(.*)$/)
+        
+        if (!base64Match) {
+          console.error('[ImageInsert] Invalid data URL format')
+          reject(new Error('Invalid data URL format'))
+          return
+        }
+        
+        const base64 = base64Match[1]
+        resolve(base64)
+      } catch (err) {
+        console.error('[ImageInsert] Base64 conversion error:', err)
+        reject(err)
+      }
+    }
+    reader.onerror = (err) => {
+      console.error('[ImageInsert] FileReader error:', err)
+      reject(err)
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 export function useImageInsert() {
   const tabsStore = useTabsStore()
+  const prefsStore = usePreferencesStore()
+  const editorManager = useCrepeEditorManager()
   
   const isInserting = ref(false)
-  const lastInsertMode = ref<ImageInsertMode>('keep-original')
   
   async function insertImage(file: File): Promise<string | null> {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
+      console.error('[ImageInsert] No active tab found')
       return null
     }
     
     isInserting.value = true
     
     try {
+      const mode = prefsStore.imageInsertMode
       let imagePath: string
       
-      if (lastInsertMode.value === 'keep-original') {
+      if (mode === 'keep-original') {
+        // keep-original：只写文件名，不复制文件
         imagePath = file.name
-      } else if (lastInsertMode.value === 'copy-absolute') {
-        imagePath = await copyImageToDirectory(file, '')
       } else {
-        imagePath = await copyImageRelative(file)
+        // copy-absolute / copy-relative：复制文件到目标目录，路径格式由 mode 决定
+        imagePath = await copyImageToDirectory(file, mode)
       }
       
-      const markdown = `![${file.name}](${imagePath})`
-      
-      insertMarkdownAtCursor(markdown)
+      const altText = file.name.replace(/\.[^.]+$/, '')
+      // 原样写入 MD，不做 file:// 转换（渲染时由插件统一处理）
+      await editorManager.insertImage(imagePath, altText)
       
       tabsStore.updateTab(activeTab.id, {
         isDirty: true,
         lastModified: Date.now()
       })
       
-      return markdown
+      return imagePath
     } catch (error) {
-      console.error('Failed to insert image:', error)
+      console.error('[ImageInsert] Failed to insert image:', error)
       return null
     } finally {
       isInserting.value = false
     }
   }
   
-  async function copyImageToDirectory(file: File, directory: string): Promise<string> {
-    const targetDir = directory || '/tmp/alhagi-images'
-    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
-    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
+  /**
+   * 复制图片到目标目录
+   *
+   * 核心原则：
+   * - 文件总是保存到绝对路径（确保写入成功）
+   * - 返回的路径格式由 mode 决定：
+   *   copy-absolute → 返回绝对路径（如 D:/project/assets/img.png）
+   *   copy-relative → 返回相对于 MD 文件的路径（如 ./assets/img.png）
+   */
+  async function copyImageToDirectory(file: File, mode: ImageInsertMode): Promise<string> {
+    const activeTab = tabsStore.activeTab
+    const mdFilePath = activeTab?.filePath || ''
+    const mdDir = mdFilePath ? getDirname(mdFilePath) : ''
     
-    const resolvedPath = resolvePathVariables(targetDir, {
-      fileName: fileNameWithoutExt,
-      filePath: file.name
-    })
-    
-    return `${resolvedPath}${fileExt}`
-  }
-  
-  async function copyImageRelative(file: File): Promise<string> {
-    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
-    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
-    const resolvedPath = resolvePathVariables('./assets/{filename}', {
-      fileName: fileNameWithoutExt,
-      filePath: generateImageName(file)
-    })
-    return `${resolvedPath}${fileExt}`
-  }
-  
-  function insertMarkdownAtCursor(markdown: string) {
-    const textarea = document.querySelector('.editor-source textarea, .editor-split-source textarea') as HTMLTextAreaElement
-    
-    if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const text = textarea.value
-      
-      textarea.value = text.substring(0, start) + markdown + text.substring(end)
-      textarea.selectionStart = textarea.selectionEnd = start + markdown.length
-      textarea.focus()
-      
-      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    // 确定目标目录模板
+    let targetDirTemplate = prefsStore.imageStoragePath
+    if (!targetDirTemplate) {
+      targetDirTemplate = mdDir 
+        ? `${mdDir}/${FILE.DEFAULT_IMAGE_FOLDER}`
+        : `./${FILE.DEFAULT_IMAGE_FOLDER}`
     }
+    
+    // 解析为绝对路径（用于实际保存文件）
+    let absoluteTargetDir = targetDirTemplate
+    if (!absoluteTargetDir.match(/^[A-Za-z]:[\\/]/) && !absoluteTargetDir.startsWith('/')) {
+      // 相对路径 → 以 MD 文件目录为基准解析
+      absoluteTargetDir = mdDir
+        ? `${mdDir}/${absoluteTargetDir}`.replace(/\/+/g, '/')
+        : absoluteTargetDir
+    }
+    
+    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
+    
+    let resolvedPath = resolvePathVariables(absoluteTargetDir, {
+      fileName: fileNameWithoutExt,
+      filePath: mdFilePath
+    })
+    
+    if (!resolvedPath.endsWith('/')) {
+      resolvedPath += '/'
+    }
+    
+    const fileName = generateImageName(file)
+    const absolutePath = `${resolvedPath}${fileName}`
+    
+    // 保存文件到磁盘（使用绝对路径）
+    const base64Content = await fileToBase64(file)
+    const saveResult = await (window as any).electronAPI.saveBinaryFile(absolutePath, base64Content)
+    
+    if (!saveResult.success) {
+      throw new Error(saveResult.error?.message || 'Failed to save image')
+    }
+    
+    // 根据模式返回不同格式的路径（写入 MD 的内容）
+    if (mode === 'copy-relative' && mdDir) {
+      // 计算 MD 文件到图片的相对路径
+      return getRelativePath(mdDir, absolutePath)
+    }
+    
+    // copy-absolute：返回绝对路径
+    return absolutePath
   }
   
-  function insertImageByPath(imagePath: string, altText?: string): void {
+  async function insertImageByPath(imagePath: string, altText?: string): Promise<void> {
     const activeTab = tabsStore.activeTab
     if (!activeTab) return
     
-    const alt = altText || imagePath.split('/').pop() || 'image'
-    const markdown = `![${alt}](${imagePath})`
-    
-    insertMarkdownAtCursor(markdown)
+    const alt = altText || imagePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'image'
+    // 原样写入，不做路径转换
+    await editorManager.insertImage(imagePath, alt)
     
     tabsStore.updateTab(activeTab.id, {
       isDirty: true,
@@ -139,12 +195,15 @@ export function useImageInsert() {
     })
   }
   
-  async function selectAndInsertImage(mode: ImageInsertMode = 'keep-original'): Promise<void> {
-    lastInsertMode.value = mode
+  async function selectAndInsertImage(mode?: ImageInsertMode): Promise<void> {
+    if (mode) {
+      prefsStore.setPreference('imageInsertMode', mode)
+    }
     
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'image/*'
+    input.accept = FILE.IMAGE_EXTENSIONS.join(',')
+    input.multiple = false
     
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
@@ -157,21 +216,15 @@ export function useImageInsert() {
   }
   
   function setInsertMode(mode: ImageInsertMode) {
-    lastInsertMode.value = mode
+    prefsStore.setPreference('imageInsertMode', mode)
   }
   
   return {
     isInserting,
-    lastInsertMode,
     insertImage,
     insertImageByPath,
     selectAndInsertImage,
     setInsertMode,
-    resolvePathVariables,
-    ImageInsertMode: {
-      KEEP_ORIGINAL: 'keep-original' as ImageInsertMode,
-      COPY_ABSOLUTE: 'copy-absolute' as ImageInsertMode,
-      COPY_RELATIVE: 'copy-relative' as ImageInsertMode
-    }
+    resolvePathVariables
   }
 }

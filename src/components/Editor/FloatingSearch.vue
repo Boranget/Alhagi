@@ -22,7 +22,10 @@
       </div>
       <div class="right-controls">
         <section class="search">
-          <div class="input-wrapper" :class="{ 'error': !!searchErrorMsg }">
+          <div
+            class="input-wrapper"
+            :class="{ 'error': !!searchErrorMsg }"
+          >
             <svg
               class="search-icon"
               viewBox="0 0 24 24"
@@ -30,7 +33,11 @@
               stroke="currentColor"
               stroke-width="2"
             >
-              <circle cx="11" cy="11" r="8" />
+              <circle
+                cx="11"
+                cy="11"
+                r="8"
+              />
               <path d="M21 21l-4.35-4.35" />
             </svg>
             <input
@@ -46,7 +53,10 @@
               @keydown.down.prevent="navigateNext"
             >
             <div class="controls">
-              <span class="search-result" v-if="searchQuery && matchCount > 0">
+              <span
+                v-if="searchQuery && matchCount > 0"
+                class="search-result"
+              >
                 {{ currentMatchIndex + 1 }} / {{ matchCount }}
               </span>
               <span
@@ -74,24 +84,48 @@
                 .*
               </span>
             </div>
-            <div class="error-msg" v-if="searchErrorMsg">
+            <div
+              v-if="searchErrorMsg"
+              class="error-msg"
+            >
               {{ searchErrorMsg }}
             </div>
           </div>
           <div class="button-group nav-buttons">
-            <button class="button" @click="navigatePrev" :disabled="matchCount === 0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button
+              class="button"
+              :disabled="matchCount === 0"
+              @click="navigatePrev"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <button class="button" @click="navigateNext" :disabled="matchCount === 0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button
+              class="button"
+              :disabled="matchCount === 0"
+              @click="navigateNext"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M9 18l6-6-6-6" />
               </svg>
             </button>
           </div>
         </section>
-        <section class="replace" v-if="showReplace">
+        <section
+          v-if="showReplace"
+          class="replace"
+        >
           <div class="input-wrapper replace-input">
             <svg
               class="replace-icon"
@@ -117,7 +151,12 @@
               :title="t('search.replace')"
               @click="replaceSingle"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7.5 19.5a2.121 2.121 0 0 1-3-3z" />
               </svg>
@@ -128,8 +167,17 @@
               :title="t('search.replaceAll')"
               @click="replaceAll"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                />
                 <path d="M8 15s1.5-2 4-2 4 2 4 2" />
                 <path d="M9 9h.01" />
                 <path d="M15 9h.01" />
@@ -142,7 +190,12 @@
           :title="t('common.close')"
           @click="handleClose"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
@@ -201,7 +254,8 @@ const toggleReplace = () => {
   showReplace.value = !showReplace.value
 }
 
-const toggleOption = (option: keyof typeof options) => {
+type BooleanOptions = 'caseSensitive' | 'wholeWord' | 'regex'
+const toggleOption = (option: BooleanOptions) => {
   options[option] = !options[option]
   performSearch()
 }

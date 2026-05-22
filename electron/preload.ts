@@ -39,6 +39,9 @@ const api: ElectronAPI = {
   saveAsFile: (content, defaultPath, lineEnding) => 
     createIpcHandler(IPC_CHANNELS.FILE.SAVE_AS, { content, defaultPath, lineEnding }),
   
+  saveBinaryFile: (filePath, content) => 
+    createIpcHandler(IPC_CHANNELS.FILE.SAVE_BINARY, { filePath, content }),
+  
   readFile: (filePath) => 
     createIpcHandler(IPC_CHANNELS.FILE.READ, filePath),
   

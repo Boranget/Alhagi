@@ -1,19 +1,19 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
-import { $prose, getMarkdown } from '@milkdown/kit/utils'
+import { $prose, getMarkdown, insert } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice, Fragment } from '@milkdown/kit/prose/model'
 import { Selection, TextSelection, Plugin, PluginKey, EditorState, Transaction } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
+import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
-import { debounce } from '@/utils/helpers'
 import { generateSlug } from '@/utils/headings'
 
 interface SearchQuery {
@@ -169,7 +169,7 @@ const searchPlugin = $prose(() => new Plugin<SearchState>({
       totalMatches: 0
     }),
     apply: (tr: Transaction, value: SearchState, _prevState: EditorState, state: EditorState): SearchState => {
-      let newState = { ...value }
+      const newState = { ...value }
       
       newState.decorations = newState.decorations.map(tr.mapping, tr.doc)
       
@@ -198,6 +198,54 @@ const searchPlugin = $prose(() => new Plugin<SearchState>({
     }
   }
 }))
+
+/**
+ * 图像路径解析插件
+ *
+ * 核心设计原则：MD 内容保持原样，只在渲染时解析图片路径。
+ *
+ * 工作方式：
+ * - 在每次编辑器状态更新后，遍历 DOM 中的所有 <img> 元素
+ * - 对每个 img 的 src 调用 resolveImageToDisplayUrl() 转换为可显示的 URL
+ * - 这个过程不修改 ProseMirror 文档模型，只修改渲染出的 DOM
+ *
+ * 支持的路径类型：
+ * - https://... / http://... → 直接使用
+ * - file://... → 直接使用
+ * - D:/path/... → 添加 file:/// 前缀
+ * - /abs/path → 添加 file:// 前缀
+ * - ./img.png / img.png / ../img.png → 基于 MD 文件目录解析
+ */
+const imagePathPlugin = $prose(() => new Plugin({
+  view(editorView) {
+    // 初始渲染后立即修复图片路径（此时 DOM 可能尚未完成，用 rAF 延迟一帧）
+    requestAnimationFrame(() => {
+      fixImageSources(editorView.dom)
+    })
+
+    return {
+      update() {
+        fixImageSources(editorView.dom)
+      }
+    }
+  }
+}))
+
+function fixImageSources(dom: Element): void {
+  const tabsStore = useTabsStore()
+  const activeTab = tabsStore.activeTab
+  const mdFilePath = activeTab?.filePath || ''
+
+  const imgs = dom.querySelectorAll('img')
+  imgs.forEach((img) => {
+    const src = img.getAttribute('src')
+    if (!src) return
+    const resolved = resolveImageToDisplayUrl(src, mdFilePath)
+    if (resolved !== src) {
+      img.src = resolved
+    }
+  })
+}
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -239,9 +287,11 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
 
     const startTime = performance.now()
 
-    this.content = initialContent
     this.currentTabId = tabId || null
     this.container = container
+    
+    // MD 内容原样使用，不做路径转换（渲染时由 imagePathPlugin 解析路径）
+    this.content = initialContent
 
     const isDark = this.isDarkMode()
     
@@ -286,6 +336,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       })
       .use(listener)
       .use(searchPlugin)
+      .use(imagePathPlugin)
 
     try {
       await this.crepe.create()
@@ -312,6 +363,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
 
     try {
       const markdown = this.crepe.getMarkdown()
+      // MD 内容原样返回，不做路径转换
       return markdown || this.content
     } catch (error) {
       console.error('[CrepeEditorManager] Failed to get markdown:', error)
@@ -334,6 +386,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
 
     this.isUpdatingContent = true
+    
+    // MD 内容原样使用，渲染时由 imagePathPlugin 解析图片路径
     this.content = content
 
     const startTime = performance.now()
@@ -696,6 +750,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       return
     }
 
+    // MD 内容原样存储，不做路径转换
     this.content = markdown
 
     if (this.currentTabId) {
@@ -1029,7 +1084,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
 
       let state = view.state
-      let query = pluginState.query
+      const query = pluginState.query
       
       // 先找到所有匹配项
       const matches = this.findAllMatches(state, query)
@@ -1084,6 +1139,21 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     })
 
     return { replaced: replacedCount }
+  }
+
+  insertImage(imageUrl: string, altText: string): void {
+    if (!this.crepe || !this.isInitialized) {
+      console.warn('[CrepeEditorManager] Cannot insert image: Crepe not initialized')
+      return
+    }
+
+    try {
+      // 路径原样写入 MD，不做 file:// 转换（渲染时由 imagePathPlugin 统一解析）
+      const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
+      this.crepe.editor.action(insert(imageMarkdown, true))
+    } catch (error) {
+      console.error('[CrepeEditorManager] Failed to insert image:', error)
+    }
   }
 }
 

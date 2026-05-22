@@ -44,19 +44,19 @@
       </button>
     </div>
     <div
-    v-if="fileStore.currentFolder"
-    class="file-tree"
-  >
-    <FileTreeNode
-      v-for="node in fileStore.fileTree"
-      :key="node.path"
-      :node="node"
-      :depth="0"
-      @select="handleSelect"
-      @contextmenu="handleContextMenu"
-      @toggle="handleToggle"
-    />
-  </div>
+      v-if="fileStore.currentFolder"
+      class="file-tree"
+    >
+      <FileTreeNode
+        v-for="node in fileStore.fileTree"
+        :key="node.path"
+        :node="node"
+        :depth="0"
+        @select="handleSelect"
+        @contextmenu="handleContextMenu"
+        @toggle="handleToggle"
+      />
+    </div>
     <div
       v-else
       class="empty-state"

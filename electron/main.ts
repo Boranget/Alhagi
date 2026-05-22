@@ -46,7 +46,7 @@ function createWindow() {
     y: windowState.y,
     minWidth: 250,
     minHeight: 300,
-    webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false, webSecurity: false },
     show: false,
     backgroundColor: '#ffffff'
   })
@@ -175,6 +175,52 @@ ipcMain.handle(IPC_CHANNELS.FILE.SAVE_AS, async (_, { content, defaultPath, line
     await fs.writeFile(result.filePath, finalContent, 'utf-8')
     return createSuccessResponse(result.filePath)
   } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    if (isPermissionError(error)) return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.FILE.SAVE_BINARY, async (_, { filePath, content }) => {
+  try {
+    console.log('[Main] Saving binary file:', filePath)
+    console.log('[Main] Content length:', content?.length || 0)
+    console.log('[Main] Content preview:', content?.substring(0, 50) || 'empty')
+    
+    if (!filePath || typeof filePath !== 'string') return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+    
+    // 确保目录存在
+    const dirPath = path.dirname(filePath)
+    console.log('[Main] Directory path:', dirPath)
+    try {
+      await fs.access(dirPath)
+      console.log('[Main] Directory exists')
+    } catch {
+      console.log('[Main] Creating directory')
+      await fs.mkdir(dirPath, { recursive: true })
+    }
+    
+    // 内容应该是 base64 编码的二进制数据
+    console.log('[Main] Decoding base64 to buffer...')
+    const buffer = Buffer.from(content, 'base64')
+    console.log('[Main] Buffer size after decode:', buffer.length)
+    console.log('[Main] Buffer preview:', buffer.toString('hex').substring(0, 50))
+    
+    await fs.writeFile(filePath, buffer)
+    console.log('[Main] File written successfully')
+    
+    // 验证文件已保存
+    const stats = await fs.stat(filePath)
+    console.log('[Main] File saved, size:', stats.size)
+    
+    // 再次读取验证
+    const verifyBuffer = await fs.readFile(filePath)
+    console.log('[Main] Verification read size:', verifyBuffer.length)
+    console.log('[Main] Verification preview:', verifyBuffer.toString('hex').substring(0, 50))
+    
+    return createSuccessResponse(true)
+  } catch (err) {
+    console.error('[Main] Error saving file:', err)
     const error = err as NodeJS.ErrnoException
     if (isPermissionError(error)) return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
     return createErrorResponse(IPCErrorCode.FILE_SAVE_ERROR, `Failed to save file: ${error.message}`)

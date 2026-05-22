@@ -115,6 +115,7 @@ export const IPC_CHANNELS = {
     OPEN: 'file:open',
     SAVE: 'file:save',
     SAVE_AS: 'file:save-as',
+    SAVE_BINARY: 'file:save-binary',
     READ: 'file:read',
     READ_BINARY: 'file:read-binary',
     OPEN_FOLDER: 'file:open-folder',
@@ -196,6 +197,7 @@ export interface ElectronAPI {
   openFile: () => Promise<IPCResponse<{ filePath: string; content: string } | null>>
   saveFile: (filePath: string, content: string, lineEnding?: LineEnding) => Promise<IPCResponse<boolean>>
   saveAsFile: (content: string, defaultPath?: string, lineEnding?: LineEnding) => Promise<IPCResponse<string | null>>
+  saveBinaryFile: (filePath: string, content: string) => Promise<IPCResponse<boolean>>
   readFile: (filePath: string) => Promise<IPCResponse<string>>
   readBinaryFile: (filePath: string) => Promise<IPCResponse<string>>
   openFolder: () => Promise<IPCResponse<{ path: string; tree: FileTreeNode[] } | null>>

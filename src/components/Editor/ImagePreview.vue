@@ -2,16 +2,25 @@
   <div class="image-preview-container">
     <div class="image-preview-header">
       <div class="file-info">
-        <Icon name="image" size="sm" />
+        <Icon
+          name="image"
+          size="sm"
+        />
         <span class="file-name">{{ fileName }}</span>
       </div>
-      <div class="image-dimensions" v-if="imageDimensions">
+      <div
+        v-if="imageDimensions"
+        class="image-dimensions"
+      >
         {{ imageDimensions.width }} × {{ imageDimensions.height }}
       </div>
     </div>
     
     <div class="image-preview-content">
-      <div class="image-wrapper" ref="imageWrapper">
+      <div
+        ref="imageWrapper"
+        class="image-wrapper"
+      >
         <img
           ref="imageRef"
           :src="imageSrc"
@@ -20,47 +29,69 @@
           :class="{ 'loading': isLoading, 'error': hasError }"
           @load="handleImageLoad"
           @error="handleImageError"
-        />
+        >
         
-        <div v-if="isLoading" class="loading-overlay">
+        <div
+          v-if="isLoading"
+          class="loading-overlay"
+        >
           <div class="loading-spinner" />
           <span class="loading-text">{{ t('editor.loadingImage') }}</span>
         </div>
         
-        <div v-if="hasError" class="error-overlay">
-          <Icon name="alert-circle" size="lg" class="error-icon" />
+        <div
+          v-if="hasError"
+          class="error-overlay"
+        >
+          <Icon
+            name="alert-circle"
+            size="lg"
+            class="error-icon"
+          />
           <p>{{ t('editor.failedToLoadImage') }}</p>
         </div>
       </div>
       
-      <div class="image-controls" v-if="!hasError">
+      <div
+        v-if="!hasError"
+        class="image-controls"
+      >
         <button
           class="control-btn"
-          @click="zoomOut"
           :disabled="scale <= 0.25"
           title="缩小"
+          @click="zoomOut"
         >
-          <Icon name="zoom-out" size="sm" />
+          <Icon
+            name="zoom-out"
+            size="sm"
+          />
         </button>
         
         <span class="scale-display">{{ Math.round(scale * 100) }}%</span>
         
         <button
           class="control-btn"
-          @click="zoomIn"
           :disabled="scale >= 3"
           title="放大"
+          @click="zoomIn"
         >
-          <Icon name="zoom-in" size="sm" />
+          <Icon
+            name="zoom-in"
+            size="sm"
+          />
         </button>
         
         <button
           class="control-btn"
-          @click="resetZoom"
           :disabled="scale === 1"
           title="重置缩放"
+          @click="resetZoom"
         >
-          <Icon name="rotate-ccw" size="sm" />
+          <Icon
+            name="rotate-ccw"
+            size="sm"
+          />
         </button>
       </div>
     </div>
