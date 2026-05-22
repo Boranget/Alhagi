@@ -415,8 +415,13 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           )
 
           const docSize = doc.content.size
-          const safeFrom = Math.min(from, docSize - 2)
-          tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
+          if (docSize <= 2) {
+            // 文档极小时（如仅空段落），done 位置为 1，resolve 安全
+            tr = tr.setSelection(Selection.near(tr.doc.resolve(1)))
+          } else {
+            const safeFrom = Math.max(0, Math.min(from, docSize - 2))
+            tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
+          }
           view.dispatch(tr)
         } catch (innerError) {
           console.error('[CrepeEditorManager] Error updating editor:', innerError)
