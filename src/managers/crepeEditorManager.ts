@@ -2,7 +2,7 @@ import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
 import { $prose, getMarkdown } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
-import { Slice } from '@milkdown/kit/prose/model'
+import { Slice, Fragment } from '@milkdown/kit/prose/model'
 import { Selection, TextSelection, Plugin, PluginKey, EditorState, Transaction } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
@@ -32,9 +32,87 @@ interface SearchState {
 
 const searchPluginKey = new PluginKey<SearchState>('search-highlight')
 
+// 文本内容缓存，提升搜索性能
+const TextContentCache = new WeakMap<any, string>()
+
+function textContent(node: any): string {
+  const cached = TextContentCache.get(node)
+  if (cached) return cached
+  
+  let content = ''
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)
+    if (child.isText) {
+      content += child.text
+    } else if (child.isLeaf) {
+      content += '\ufffc'
+    } else {
+      content += ' ' + textContent(child) + ' '
+    }
+  }
+  TextContentCache.set(node, content)
+  return content
+}
+
+// 解析替换文本中的分组占位符 ($1, $& 等)
+function parseReplacement(text: string): Array<string | { group: number; copy: boolean }> {
+  const result: Array<string | { group: number; copy: boolean }> = []
+  let highestSeen = -1
+
+  function add(part: string) {
+    const last = result.length - 1
+    if (last > -1 && typeof result[last] === 'string') {
+      result[last] += part
+    } else {
+      result.push(part)
+    }
+  }
+
+  let remaining = text
+  while (remaining.length) {
+    const match = /\$([$&\d+])/.exec(remaining)
+    if (!match) {
+      add(remaining)
+      return result
+    }
+    if (match.index > 0) {
+      add(remaining.slice(0, match.index + (match[1] === '$' ? 1 : 0)))
+    }
+    if (match[1] !== '$') {
+      const n = match[1] === '&' ? 0 : +match[1]
+      if (highestSeen >= n) {
+        result.push({ group: n, copy: true })
+      } else {
+        highestSeen = n || 1000
+        result.push({ group: n, copy: false })
+      }
+    }
+    remaining = remaining.slice(match.index + match[0].length)
+  }
+  return result
+}
+
+// 获取分组索引
+function getGroupIndices(match: RegExpExecArray): Array<[number, number] | undefined> {
+  if ((match as any).indices) return (match as any).indices
+  const result: Array<[number, number] | undefined> = [[0, match[0].length]]
+  for (let i = 1, pos = 0; i < match.length; i++) {
+    const found = match[i] ? match[0].indexOf(match[i], pos) : -1
+    result.push(found < 0 ? undefined : [found, pos = found + match[i].length])
+  }
+  return result
+}
+
 function buildSearchDecorations(state: EditorState, query: SearchQuery): { decorations: DecorationSet; total: number } {
   const decorations: Decoration[] = []
   let matchIndex = 0
+  
+  console.log('[Search] buildSearchDecorations called with query:', {
+    search: query.search,
+    caseSensitive: query.caseSensitive,
+    wholeWord: query.wholeWord,
+    regexp: query.regexp
+  })
   
   const doc = state.doc
   const sel = state.selection
@@ -46,20 +124,40 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery): { decor
       
       try {
         let pattern = query.search
+        console.log('[Search] Building regex pattern:', {
+          originalSearch: query.search,
+          regexpMode: query.regexp
+        })
+        
         if (!query.regexp) {
           pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          console.log('[Search] Escaped pattern:', pattern)
         }
+        
         if (query.wholeWord) {
           pattern = `\\b${pattern}\\b`
+          console.log('[Search] Whole word pattern:', pattern)
         }
+        
         const flags = query.caseSensitive ? 'g' : 'gi'
         regex = new RegExp(pattern, flags)
-      } catch {
+        console.log('[Search] Final regex created:', regex)
+      } catch (e) {
+        console.error('[Search] Error creating regex:', e)
         return
       }
 
       let match: RegExpExecArray | null
+      console.log('[Search] Searching in text:', text)
+      
       while ((match = regex.exec(text)) !== null) {
+        console.log('[Search] Found match:', {
+          matchText: match[0],
+          index: match.index,
+          from: pos + match.index,
+          to: pos + match.index + match[0].length
+        })
+        
         const from = pos + match.index
         const to = from + match[0].length
         const isActive = from === sel.from && to === sel.to
@@ -70,9 +168,15 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery): { decor
         )
         matchIndex++
       }
+      
+      if (matchIndex === 0) {
+        console.log('[Search] No matches found in text')
+      }
     }
   })
 
+  console.log('[Search] Total matches found:', matchIndex)
+  
   return {
     decorations: DecorationSet.create(doc, decorations),
     total: matchIndex
@@ -662,8 +766,10 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     await this.init(container, currentContent, tabId || undefined)
   }
 
-  private findAllMatches(state: EditorState, query: SearchQuery): Array<{ from: number; to: number }> {
-    const matches: Array<{ from: number; to: number }> = []
+  private findAllMatches(state: EditorState, query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> {
+    console.log('[Search] findAllMatches called with query:', query)
+    
+    const matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
     
     const doc = state.doc
     doc.descendants((node: any, pos: number) => {
@@ -673,34 +779,61 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         
         try {
           let pattern = query.search
+          console.log('[Search] findAllMatches building regex:', {
+            originalSearch: query.search,
+            regexpMode: query.regexp
+          })
+          
           if (!query.regexp) {
             pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            console.log('[Search] findAllMatches escaped pattern:', pattern)
           }
+          
           if (query.wholeWord) {
             pattern = `\\b${pattern}\\b`
+            console.log('[Search] findAllMatches whole word pattern:', pattern)
           }
+          
           const flags = query.caseSensitive ? 'g' : 'gi'
           regex = new RegExp(pattern, flags)
-        } catch {
+          console.log('[Search] findAllMatches final regex:', regex)
+        } catch (e) {
+          console.error('[Search] findAllMatches error creating regex:', e)
           return
         }
 
         let match: RegExpExecArray | null
+        console.log('[Search] findAllMatches searching in text:', text)
+        
         while ((match = regex.exec(text)) !== null) {
-          matches.push({
+          console.log('[Search] findAllMatches found match:', {
+            matchText: match[0],
+            index: match.index,
             from: pos + match.index,
             to: pos + match.index + match[0].length
+          })
+          
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length,
+            match: query.regexp ? match : undefined,
+            matchStart: pos
           })
         }
       }
     })
+    
+    console.log('[Search] findAllMatches returning', matches.length, 'matches')
     
     return matches
   }
 
   // 搜索相关方法
   search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }): { current: number; total: number } {
+    console.log('[Search] search method called with:', query)
+    
     if (!this.crepe || !this.isInitialized) {
+      console.log('[Search] Editor not initialized')
       return { current: 0, total: 0 }
     }
 
@@ -718,10 +851,13 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         regexp: query.regexp ?? false,
       }
 
+      console.log('[Search] Created SearchQuery object:', searchQuery)
+
       const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
       view.dispatch(tr)
 
       const matches = this.findAllMatches(state, searchQuery)
+      console.log('[Search] findAllMatches returned', matches.length, 'matches')
       totalMatches = matches.length
       
       const sel = state.selection
@@ -734,6 +870,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
 
+    console.log('[Search] Returning result:', { current: currentMatchIndex, total: totalMatches })
+    
     return {
       current: currentMatchIndex,
       total: totalMatches
@@ -845,6 +983,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
   }
 
   replaceNext(replacement: string): { current: number; total: number } {
+    console.log('[Search] replaceNext called with replacement:', replacement)
+    
     if (!this.crepe || !this.isInitialized) {
       return { current: 0, total: 0 }
     }
@@ -875,8 +1015,46 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
 
       const match = matches[currentIndex]
-      const tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
-      view.dispatch(tr)
+      console.log('[Search] Found match to replace:', {
+        from: match.from,
+        to: match.to,
+        matchData: match.match
+      })
+      
+      let tr
+      
+      // 支持正则分组替换
+      if (pluginState.query.regexp && match.match) {
+        console.log('[Search] Using regex replacement')
+        
+        // 简化的替换逻辑：直接使用字符串替换而不是复杂的文档切片
+        let replacedText = replacement
+        const regexMatch = match.match
+        
+        console.log('[Search] Original match groups:', regexMatch)
+        
+        // 替换 $&, $1, $2 等
+        replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
+          if (groupId === '&') {
+            return regexMatch[0] || ''
+          }
+          const groupNum = parseInt(groupId, 10)
+          return regexMatch[groupNum] || ''
+        })
+        
+        console.log('[Search] Replaced text:', replacedText)
+        
+        // 简单地替换整个匹配范围
+        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
+      } else {
+        // 普通替换
+        console.log('[Search] Using plain text replacement')
+        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
+      }
+      
+      if (tr) {
+        view.dispatch(tr)
+      }
 
       const newMatches = this.findAllMatches(view.state, pluginState.query)
       totalMatches = newMatches.length
@@ -895,6 +1073,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
   }
 
   replaceAll(replacement: string): { replaced: number } {
+    console.log('[Search] replaceAll called with replacement:', replacement)
+    
     if (!this.crepe || !this.isInitialized) {
       return { replaced: 0 }
     }
@@ -914,6 +1094,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       
       // 先找到所有匹配项
       const matches = this.findAllMatches(state, query)
+      console.log('[Search] replaceAll found', matches.length, 'matches')
       
       if (matches.length === 0) {
         return
@@ -928,9 +1109,37 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           continue
         }
         
-        const tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
-        view.dispatch(tr)
-        replacedCount++
+        let tr
+        
+        // 支持正则分组替换
+        if (query.regexp && match.match) {
+          console.log('[Search] replaceAll using regex replacement for match', i)
+          
+          // 简化的替换逻辑
+          let replacedText = replacement
+          const regexMatch = match.match
+          
+          // 替换 $&, $1, $2 等
+          replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
+            if (groupId === '&') {
+              return regexMatch[0] || ''
+            }
+            const groupNum = parseInt(groupId, 10)
+            return regexMatch[groupNum] || ''
+          })
+          
+          console.log('[Search] replaceAll replaced text:', replacedText)
+          
+          tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
+        } else {
+          // 普通替换
+          tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
+        }
+        
+        if (tr) {
+          view.dispatch(tr)
+          replacedCount++
+        }
         
         state = view.state
         
@@ -940,6 +1149,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
 
+    console.log('[Search] replaceAll replaced', replacedCount, 'items')
+    
     return { replaced: replacedCount }
   }
 }

@@ -74,18 +74,31 @@ export function useWorkspaceSearch() {
   }
 
   function updateEditorHighlight() {
+    console.log('[Search] updateEditorHighlight called')
+    console.log('[Search] Current options:', {
+      search: searchQuery.value,
+      caseSensitive: options.caseSensitive,
+      wholeWord: options.wholeWord,
+      regex: options.regex
+    })
+    
     if (!searchQuery.value.trim()) {
+      console.log('[Search] No search query, clearing highlight')
       clearSearchHighlight()
       totalMatches.value = 0
       currentMatchIndex.value = 0
       return
     }
+    
     const result = setSearchHighlight({
       search: searchQuery.value,
       caseSensitive: options.caseSensitive,
       wholeWord: options.wholeWord,
       regexp: options.regex
     })
+    
+    console.log('[Search] setSearchHighlight returned:', result)
+    
     totalMatches.value = result.total
     currentMatchIndex.value = result.current
   }

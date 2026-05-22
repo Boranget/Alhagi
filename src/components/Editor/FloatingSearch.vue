@@ -228,6 +228,14 @@ watch(searchQuery, (newVal) => {
   }
 })
 
+watch(isVisible, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      searchInputRef.value?.focus()
+    })
+  }
+})
+
 defineExpose({
   show,
   hide,
