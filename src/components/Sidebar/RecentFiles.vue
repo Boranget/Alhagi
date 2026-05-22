@@ -16,137 +16,153 @@
       </div>
     </div>
 
+    <div class="recent-files-tabs">
+      <button
+        class="recent-files-tab"
+        :class="{ active: activeTab === 'files' }"
+        @click="activeTab = 'files'"
+      >
+        <Icon name="file" size="sm" />
+        {{ t('common.openFile') }}
+      </button>
+      <button
+        class="recent-files-tab"
+        :class="{ active: activeTab === 'folders' }"
+        @click="activeTab = 'folders'"
+      >
+        <Icon name="folder" size="sm" />
+        {{ t('common.openFolder') }}
+      </button>
+    </div>
+
     <div class="recent-files-list">
-      <div
-        v-if="pinnedFolders.length > 0 || unpinnedFolders.length > 0"
-        class="recent-files-section"
-      >
-        <div class="section-header">
-          <Icon
-            name="folder"
-            size="sm"
-          />
-          {{ t('common.openFolder') }}
-        </div>
+      <!-- 文件列表 -->
+      <template v-if="activeTab === 'files'">
         <div
-          v-for="folder in pinnedFolders"
-          :key="folder.folderPath"
-          class="recent-file-item"
-          @click="openFolder(folder)"
+          v-if="pinnedFiles.length > 0 || unpinnedFiles.length > 0"
+          class="recent-files-section"
         >
-          <Icon
-            name="folder"
-            size="sm"
-            class="file-icon"
-          />
-          <span class="file-name">{{ folder.name }}</span>
-          <button
-            class="pin-btn"
-            :title="t('sidebar.unpin')"
-            @click.stop="togglePinFolder(folder)"
+          <div
+            v-for="file in pinnedFiles"
+            :key="file.filePath"
+            class="recent-file-item"
+            @click="openFile(file)"
           >
             <Icon
-              name="pin"
+              name="file"
               size="sm"
+              class="file-icon"
             />
-          </button>
-        </div>
-        <div
-          v-for="folder in unpinnedFolders"
-          :key="folder.folderPath"
-          class="recent-file-item"
-          @click="openFolder(folder)"
-        >
-          <Icon
-            name="folder"
-            size="sm"
-            class="file-icon"
-          />
-          <span class="file-name">{{ folder.name }}</span>
-          <button
-            class="pin-btn"
-            :title="t('sidebar.pin')"
-            @click.stop="togglePinFolder(folder)"
+            <span class="file-name">{{ file.title }}</span>
+            <button
+              class="pin-btn"
+              :title="t('sidebar.unpin')"
+              @click.stop="togglePinFile(file)"
+            >
+              <Icon
+                name="pin"
+                size="sm"
+              />
+            </button>
+          </div>
+          <div
+            v-for="file in unpinnedFiles"
+            :key="file.filePath"
+            class="recent-file-item"
+            @click="openFile(file)"
           >
             <Icon
-              name="pin"
+              name="file"
               size="sm"
+              class="file-icon"
             />
-          </button>
+            <span class="file-name">{{ file.title }}</span>
+            <button
+              class="pin-btn"
+              :title="t('sidebar.pin')"
+              @click.stop="togglePinFile(file)"
+            >
+              <Icon
+                name="pin"
+                size="sm"
+              />
+            </button>
+          </div>
         </div>
-      </div>
+        <div
+          v-else
+          class="empty-state"
+        >
+          {{ t('sidebar.clickToStart') }}
+        </div>
+      </template>
 
-      <div
-        v-if="pinnedFiles.length > 0 || unpinnedFiles.length > 0"
-        class="recent-files-section"
-      >
-        <div class="section-header">
-          <Icon
-            name="file"
-            size="sm"
-          />
-          {{ t('common.openFile') }}
-        </div>
+      <!-- 文件夹列表 -->
+      <template v-if="activeTab === 'folders'">
         <div
-          v-for="file in pinnedFiles"
-          :key="file.filePath"
-          class="recent-file-item"
-          @click="openFile(file)"
+          v-if="pinnedFolders.length > 0 || unpinnedFolders.length > 0"
+          class="recent-files-section"
         >
-          <Icon
-            name="file"
-            size="sm"
-            class="file-icon"
-          />
-          <span class="file-name">{{ file.title }}</span>
-          <button
-            class="pin-btn"
-            :title="t('sidebar.unpin')"
-            @click.stop="togglePinFile(file)"
+          <div
+            v-for="folder in pinnedFolders"
+            :key="folder.folderPath"
+            class="recent-file-item"
+            @click="openFolder(folder)"
           >
             <Icon
-              name="pin"
+              name="folder"
               size="sm"
+              class="file-icon"
             />
-          </button>
-        </div>
-        <div
-          v-for="file in unpinnedFiles"
-          :key="file.filePath"
-          class="recent-file-item"
-          @click="openFile(file)"
-        >
-          <Icon
-            name="file"
-            size="sm"
-            class="file-icon"
-          />
-          <span class="file-name">{{ file.title }}</span>
-          <button
-            class="pin-btn"
-            :title="t('sidebar.pin')"
-            @click.stop="togglePinFile(file)"
+            <span class="file-name">{{ folder.name }}</span>
+            <button
+              class="pin-btn"
+              :title="t('sidebar.unpin')"
+              @click.stop="togglePinFolder(folder)"
+            >
+              <Icon
+                name="pin"
+                size="sm"
+              />
+            </button>
+          </div>
+          <div
+            v-for="folder in unpinnedFolders"
+            :key="folder.folderPath"
+            class="recent-file-item"
+            @click="openFolder(folder)"
           >
             <Icon
-              name="pin"
+              name="folder"
               size="sm"
+              class="file-icon"
             />
-          </button>
+            <span class="file-name">{{ folder.name }}</span>
+            <button
+              class="pin-btn"
+              :title="t('sidebar.pin')"
+              @click.stop="togglePinFolder(folder)"
+            >
+              <Icon
+                name="pin"
+                size="sm"
+              />
+            </button>
+          </div>
         </div>
-      </div>
-
-      <div
-        v-if="recentFiles.length === 0 && recentFolders.length === 0"
-        class="empty-state"
-      >
-        {{ t('sidebar.clickToStart') }}
-      </div>
+        <div
+          v-else
+          class="empty-state"
+        >
+          {{ t('sidebar.clickToStart') }}
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
@@ -154,6 +170,8 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
+
+const activeTab = ref<'files' | 'folders'>('files')
 
 const prefs = usePreferencesStore()
 const tabs = useTabsStore()
@@ -186,8 +204,11 @@ function togglePinFolder(folder: RecentFolder) {
 
 function clearHistory() {
   if (confirm(t('sidebar.clearHistory'))) {
-    prefs.clearRecentFiles()
-    prefs.clearRecentFolders()
+    if (activeTab.value === 'files') {
+      prefs.clearRecentFiles()
+    } else {
+      prefs.clearRecentFolders()
+    }
   }
 }
 </script>
@@ -236,6 +257,39 @@ function clearHistory() {
   }
 }
 
+.recent-files-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.recent-files-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--sidebar-hover-bg);
+  }
+
+  &.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+  }
+}
+
 .recent-files-list {
   flex: 1;
   overflow: auto;
@@ -244,18 +298,6 @@ function clearHistory() {
 
 .recent-files-section {
   margin-bottom: 8px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .recent-file-item {
