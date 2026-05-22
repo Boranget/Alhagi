@@ -98,7 +98,9 @@ documentOutline: '文档大纲',
     previousMatch: '上一个匹配',
     nextMatch: '下一个匹配',
     replace: '替换',
-    matchCount: '处匹配'
+    matchCount: '处匹配',
+    invalidRegex: '无效的正则表达式',
+    matchEmpty: '正则表达式匹配空字符串'
   },
   settings: {
     general: '通用',
@@ -233,7 +235,13 @@ documentOutline: 'Document Outline',
     excludePattern: 'Exclude Files',
     searchInFolder: 'Search in Folder',
     replaceAll: 'Replace All',
-    noResults: 'No results found'
+    noResults: 'No results found',
+    previousMatch: 'Previous Match',
+    nextMatch: 'Next Match',
+    replace: 'Replace',
+    matchCount: 'matches',
+    invalidRegex: 'Invalid regular expression',
+    matchEmpty: 'RegExp matches empty string'
   },
   settings: {
     general: 'General',

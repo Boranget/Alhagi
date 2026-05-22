@@ -1,9 +1,10 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
+import { $prose, getMarkdown } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
-import { Selection } from '@milkdown/kit/prose/state'
-import { getMarkdown } from '@milkdown/kit/utils'
+import { Selection, TextSelection, Plugin, PluginKey, EditorState, Transaction } from '@milkdown/kit/prose/state'
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
@@ -14,6 +15,115 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
 import { generateSlug } from '@/utils/headings'
+
+interface SearchQuery {
+  search: string
+  caseSensitive: boolean
+  wholeWord: boolean
+  regexp: boolean
+}
+
+interface SearchState {
+  query: SearchQuery | null
+  decorations: DecorationSet
+  currentMatchIndex: number
+  totalMatches: number
+}
+
+const searchPluginKey = new PluginKey<SearchState>('search-highlight')
+
+function buildSearchDecorations(state: EditorState, query: SearchQuery): { decorations: DecorationSet; total: number } {
+  const decorations: Decoration[] = []
+  let matchIndex = 0
+  
+  const doc = state.doc
+  const sel = state.selection
+  
+  doc.descendants((node: any, pos: number) => {
+    if (node.isText && node.text) {
+      const text = node.text
+      let regex: RegExp | null = null
+      
+      try {
+        let pattern = query.search
+        if (!query.regexp) {
+          pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        }
+        if (query.wholeWord) {
+          pattern = `\\b${pattern}\\b`
+        }
+        const flags = query.caseSensitive ? 'g' : 'gi'
+        regex = new RegExp(pattern, flags)
+      } catch {
+        return
+      }
+
+      let match: RegExpExecArray | null
+      while ((match = regex.exec(text)) !== null) {
+        const from = pos + match.index
+        const to = from + match[0].length
+        const isActive = from === sel.from && to === sel.to
+        decorations.push(
+          Decoration.inline(from, to, {
+            class: isActive ? 'ProseMirror-active-search-match' : 'ProseMirror-search-match'
+          })
+        )
+        matchIndex++
+      }
+    }
+  })
+
+  return {
+    decorations: DecorationSet.create(doc, decorations),
+    total: matchIndex
+  }
+}
+
+const searchPlugin = $prose(() => new Plugin<SearchState>({
+  key: searchPluginKey,
+  props: {
+    decorations: (state) => {
+      const pluginState = searchPluginKey.getState(state)
+      return pluginState?.decorations || DecorationSet.empty
+    }
+  },
+  state: {
+    init: (): SearchState => ({
+      query: null,
+      decorations: DecorationSet.empty,
+      currentMatchIndex: 0,
+      totalMatches: 0
+    }),
+    apply: (tr: Transaction, value: SearchState, _prevState: EditorState, state: EditorState): SearchState => {
+      let newState = { ...value }
+      
+      newState.decorations = newState.decorations.map(tr.mapping, tr.doc)
+      
+      const searchMeta = tr.getMeta(searchPluginKey)
+      if (searchMeta) {
+        const { type, query } = searchMeta
+        if (type === 'set' && query) {
+          newState.query = query
+          const { decorations, total } = buildSearchDecorations(state, query)
+          newState.decorations = decorations
+          newState.totalMatches = total
+          newState.currentMatchIndex = 0
+        } else if (type === 'clear') {
+          newState.query = null
+          newState.decorations = DecorationSet.empty
+          newState.currentMatchIndex = 0
+          newState.totalMatches = 0
+        }
+      } else if (tr.selectionSet && newState.query) {
+        const { decorations, total } = buildSearchDecorations(state, newState.query)
+        newState.decorations = decorations
+        newState.totalMatches = total
+      }
+      
+      return newState
+    }
+  }
+}))
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -101,6 +211,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         })
       })
       .use(listener)
+      .use(searchPlugin)
 
     try {
       await this.crepe.create()
@@ -492,6 +603,10 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       return
     }
 
+    if (this.activeEditor === 'codemirror') {
+      return
+    }
+
     this.content = markdown
 
     if (this.currentTabId) {
@@ -546,6 +661,287 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     await this.destroy()
     await this.init(container, currentContent, tabId || undefined)
   }
+
+  private findAllMatches(state: EditorState, query: SearchQuery): Array<{ from: number; to: number }> {
+    const matches: Array<{ from: number; to: number }> = []
+    
+    const doc = state.doc
+    doc.descendants((node: any, pos: number) => {
+      if (node.isText && node.text && query.search) {
+        const text = node.text
+        let regex: RegExp | null = null
+        
+        try {
+          let pattern = query.search
+          if (!query.regexp) {
+            pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          }
+          if (query.wholeWord) {
+            pattern = `\\b${pattern}\\b`
+          }
+          const flags = query.caseSensitive ? 'g' : 'gi'
+          regex = new RegExp(pattern, flags)
+        } catch {
+          return
+        }
+
+        let match: RegExpExecArray | null
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length
+          })
+        }
+      }
+    })
+    
+    return matches
+  }
+
+  // 搜索相关方法
+  search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }): { current: number; total: number } {
+    if (!this.crepe || !this.isInitialized) {
+      return { current: 0, total: 0 }
+    }
+
+    let totalMatches = 0
+    let currentMatchIndex = 0
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const state = view.state
+      
+      const searchQuery: SearchQuery = {
+        search: query.search,
+        caseSensitive: query.caseSensitive ?? false,
+        wholeWord: query.wholeWord ?? false,
+        regexp: query.regexp ?? false,
+      }
+
+      const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
+      view.dispatch(tr)
+
+      const matches = this.findAllMatches(state, searchQuery)
+      totalMatches = matches.length
+      
+      const sel = state.selection
+      currentMatchIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
+      if (currentMatchIndex === -1 && matches.length > 0) {
+        currentMatchIndex = 0
+        const firstMatch = matches[0]
+        const selectTr = view.state.tr.setSelection(new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to))).scrollIntoView()
+        view.dispatch(selectTr)
+      }
+    })
+
+    return {
+      current: currentMatchIndex,
+      total: totalMatches
+    }
+  }
+
+  clearSearch(): void {
+    if (!this.crepe || !this.isInitialized) {
+      return
+    }
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const tr = view.state.tr.setMeta(searchPluginKey, { type: 'clear' })
+      view.dispatch(tr)
+    })
+  }
+
+  findNext(): { current: number; total: number } {
+    if (!this.crepe || !this.isInitialized) {
+      return { current: 0, total: 0 }
+    }
+
+    let totalMatches = 0
+    let currentMatchIndex = 0
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const state = view.state
+      
+      const pluginState = searchPluginKey.getState(state)
+      if (!pluginState || !pluginState.query || !pluginState.query.search) {
+        return
+      }
+
+      const matches = this.findAllMatches(state, pluginState.query)
+      totalMatches = matches.length
+      
+      if (matches.length === 0) {
+        return
+      }
+
+      const sel = state.selection
+      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
+      
+      if (currentIndex === -1) {
+        currentIndex = 0
+      } else {
+        currentIndex = (currentIndex + 1) % matches.length
+      }
+
+      const nextMatch = matches[currentIndex]
+      const tr = state.tr.setSelection(new TextSelection(state.doc.resolve(nextMatch.from), state.doc.resolve(nextMatch.to))).scrollIntoView()
+      view.dispatch(tr)
+      
+      currentMatchIndex = currentIndex
+    })
+
+    return {
+      current: currentMatchIndex,
+      total: totalMatches
+    }
+  }
+
+  findPrev(): { current: number; total: number } {
+    if (!this.crepe || !this.isInitialized) {
+      return { current: 0, total: 0 }
+    }
+
+    let totalMatches = 0
+    let currentMatchIndex = 0
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const state = view.state
+      
+      const pluginState = searchPluginKey.getState(state)
+      if (!pluginState || !pluginState.query || !pluginState.query.search) {
+        return
+      }
+
+      const matches = this.findAllMatches(state, pluginState.query)
+      totalMatches = matches.length
+      
+      if (matches.length === 0) {
+        return
+      }
+
+      const sel = state.selection
+      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
+      
+      if (currentIndex === -1) {
+        currentIndex = matches.length - 1
+      } else {
+        currentIndex = currentIndex <= 0 ? matches.length - 1 : currentIndex - 1
+      }
+
+      const prevMatch = matches[currentIndex]
+      const tr = state.tr.setSelection(new TextSelection(state.doc.resolve(prevMatch.from), state.doc.resolve(prevMatch.to))).scrollIntoView()
+      view.dispatch(tr)
+      
+      currentMatchIndex = currentIndex
+    })
+
+    return {
+      current: currentMatchIndex,
+      total: totalMatches
+    }
+  }
+
+  replaceNext(replacement: string): { current: number; total: number } {
+    if (!this.crepe || !this.isInitialized) {
+      return { current: 0, total: 0 }
+    }
+
+    let totalMatches = 0
+    let currentMatchIndex = 0
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const state = view.state
+      
+      const pluginState = searchPluginKey.getState(state)
+      if (!pluginState || !pluginState.query || !pluginState.query.search) {
+        return
+      }
+
+      const matches = this.findAllMatches(state, pluginState.query)
+      
+      if (matches.length === 0) {
+        return
+      }
+
+      const sel = state.selection
+      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
+      
+      if (currentIndex === -1) {
+        currentIndex = 0
+      }
+
+      const match = matches[currentIndex]
+      const tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
+      view.dispatch(tr)
+
+      const newMatches = this.findAllMatches(view.state, pluginState.query)
+      totalMatches = newMatches.length
+      currentMatchIndex = 0
+      
+      if (newMatches.length > 0) {
+        const newTr = view.state.tr.setSelection(new TextSelection(view.state.doc.resolve(newMatches[0].from), view.state.doc.resolve(newMatches[0].to))).scrollIntoView()
+        view.dispatch(newTr)
+      }
+    })
+
+    return {
+      current: currentMatchIndex,
+      total: totalMatches
+    }
+  }
+
+  replaceAll(replacement: string): { replaced: number } {
+    if (!this.crepe || !this.isInitialized) {
+      return { replaced: 0 }
+    }
+
+    let replacedCount = 0
+
+    this.crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      
+      const pluginState = searchPluginKey.getState(view.state)
+      if (!pluginState || !pluginState.query || !pluginState.query.search) {
+        return
+      }
+
+      let state = view.state
+      let query = pluginState.query
+      
+      // 先找到所有匹配项
+      const matches = this.findAllMatches(state, query)
+      
+      if (matches.length === 0) {
+        return
+      }
+      
+      // 从后向前替换，避免位置偏移问题
+      for (let i = matches.length - 1; i >= 0; i--) {
+        const match = matches[i]
+        
+        // 检查位置是否还有效（可能前面的替换影响了后面的位置）
+        if (match.to > state.doc.content.size) {
+          continue
+        }
+        
+        const tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
+        view.dispatch(tr)
+        replacedCount++
+        
+        state = view.state
+        
+        if (replacedCount > 10000) {
+          break
+        }
+      }
+    })
+
+    return { replaced: replacedCount }
+  }
 }
 
 let crepeEditorManagerInstance: CrepeEditorManager | null = null
@@ -569,15 +965,40 @@ export function useEditorSearch() {
   const editorManager = useCrepeEditorManager()
   
   function setSearchHighlight(config: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
-    // Crepe 还没有内置的搜索高亮 API
+    if (config.search) {
+      return editorManager.search(config)
+    } else {
+      editorManager.clearSearch()
+      return { current: 0, total: 0 }
+    }
   }
   
   function clearSearchHighlight() {
-    // 清除搜索高亮
+    editorManager.clearSearch()
+  }
+
+  function findNextMatch() {
+    return editorManager.findNext()
+  }
+
+  function findPrevMatch() {
+    return editorManager.findPrev()
+  }
+
+  function replaceNextMatch(replacement: string) {
+    return editorManager.replaceNext(replacement)
+  }
+
+  function replaceAllMatches(replacement: string) {
+    return editorManager.replaceAll(replacement)
   }
   
   return {
     setSearchHighlight,
-    clearSearchHighlight
+    clearSearchHighlight,
+    findNextMatch,
+    findPrevMatch,
+    replaceNextMatch,
+    replaceAllMatches
   }
 }

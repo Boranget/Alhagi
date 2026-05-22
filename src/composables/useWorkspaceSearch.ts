@@ -28,7 +28,14 @@ export interface SearchResult {
 export function useWorkspaceSearch() {
   const tabsStore = useTabsStore()
   const fileStore = useFileExplorerStore()
-  const { setSearchHighlight, clearSearchHighlight } = useEditorSearch()
+  const { 
+    setSearchHighlight, 
+    clearSearchHighlight,
+    findNextMatch,
+    findPrevMatch,
+    replaceNextMatch,
+    replaceAllMatches
+  } = useEditorSearch()
 
   const isVisible = ref(false)
   const searchQuery = ref('')
@@ -69,9 +76,18 @@ export function useWorkspaceSearch() {
   function updateEditorHighlight() {
     if (!searchQuery.value.trim()) {
       clearSearchHighlight()
+      totalMatches.value = 0
+      currentMatchIndex.value = 0
       return
     }
-    setSearchHighlight(getSearchConfig())
+    const result = setSearchHighlight({
+      search: searchQuery.value,
+      caseSensitive: options.caseSensitive,
+      wholeWord: options.wholeWord,
+      regexp: options.regex
+    })
+    totalMatches.value = result.total
+    currentMatchIndex.value = result.current
   }
 
   function escapeRegExp(string: string): string {
@@ -129,7 +145,10 @@ export function useWorkspaceSearch() {
     totalMatches.value = 0
     currentMatchIndex.value = 0
     setTimeout(() => {
-      if (searchScope.value === 'file') searchInActiveFile(pattern)
+      if (searchScope.value === 'file') {
+        searchInActiveFile(pattern)
+        updateEditorHighlight()
+      }
       else if (searchScope.value === 'all') searchInAllTabs(pattern)
       else searchInFolder(pattern)
       isSearching.value = false
@@ -219,15 +238,27 @@ export function useWorkspaceSearch() {
   }
 
   function navigateNext() {
-    if (totalMatches.value === 0) return
-    currentMatchIndex.value = (currentMatchIndex.value + 1) % totalMatches.value
-    scrollToMatch(currentMatchIndex.value)
+    if (searchScope.value === 'file') {
+      const result = findNextMatch()
+      currentMatchIndex.value = result.current
+      totalMatches.value = result.total
+    } else {
+      if (totalMatches.value === 0) return
+      currentMatchIndex.value = (currentMatchIndex.value + 1) % totalMatches.value
+      scrollToMatch(currentMatchIndex.value)
+    }
   }
 
   function navigatePrev() {
-    if (totalMatches.value === 0) return
-    currentMatchIndex.value = currentMatchIndex.value === 0 ? totalMatches.value - 1 : currentMatchIndex.value - 1
-    scrollToMatch(currentMatchIndex.value)
+    if (searchScope.value === 'file') {
+      const result = findPrevMatch()
+      currentMatchIndex.value = result.current
+      totalMatches.value = result.total
+    } else {
+      if (totalMatches.value === 0) return
+      currentMatchIndex.value = currentMatchIndex.value === 0 ? totalMatches.value - 1 : currentMatchIndex.value - 1
+      scrollToMatch(currentMatchIndex.value)
+    }
   }
 
   function scrollToMatch(index: number) {
@@ -249,20 +280,35 @@ export function useWorkspaceSearch() {
   }
 
   function replaceSingle() {
-    if (totalMatches.value === 0 || !replaceQuery.value) return
-    const activeTab = tabsStore.activeTab
-    if (!activeTab) return
-    const pattern = buildSearchPattern()
-    if (!pattern) return
-    const newContent = activeTab.content.replace(pattern, replaceQuery.value)
-    tabsStore.updateTab(activeTab.id, { content: newContent, isDirty: true })
-    performSearch()
+    if (searchScope.value === 'file') {
+      if (!replaceQuery.value) return
+      const result = replaceNextMatch(replaceQuery.value)
+      currentMatchIndex.value = result.current
+      totalMatches.value = result.total
+    } else {
+      if (totalMatches.value === 0 || !replaceQuery.value) return
+      const activeTab = tabsStore.activeTab
+      if (!activeTab) return
+      const pattern = buildSearchPattern()
+      if (!pattern) return
+      const newContent = activeTab.content.replace(pattern, replaceQuery.value)
+      tabsStore.updateTab(activeTab.id, { content: newContent, isDirty: true })
+      performSearch()
+    }
   }
 
   function replaceAll() {
-    if (totalMatches.value === 0 || !replaceQuery.value) return
-    if (searchScope.value === 'file') replaceInActiveFile()
-    else if (searchScope.value === 'all') replaceInAllTabs()
+    if (!replaceQuery.value) return
+    if (searchScope.value === 'file') {
+      const result = replaceAllMatches(replaceQuery.value)
+      if (result.replaced > 0) {
+        performSearch()
+      }
+    } else if (searchScope.value === 'all') {
+      replaceInAllTabs()
+    } else if (searchScope.value === 'folder') {
+      replaceInFolder()
+    }
   }
 
   function replaceInActiveFile() {
@@ -281,6 +327,27 @@ export function useWorkspaceSearch() {
     let replaceCount = 0
     const allTabs = tabsStore.getAllTabs()
     allTabs.forEach((tab) => {
+      const matches = tab.content.match(pattern)
+      if (matches) {
+        const newContent = tab.content.replace(pattern, replaceQuery.value)
+        tabsStore.updateTab(tab.id, { content: newContent, isDirty: true })
+        replaceCount += matches.length
+      }
+    })
+    if (replaceCount > 0) alert(`已替换 ${replaceCount} 处匹配`)
+    performSearch()
+  }
+
+  function replaceInFolder() {
+    // 文件夹范围替换需要后端支持，这里暂时只处理已打开的标签页
+    const pattern = buildSearchPattern()
+    if (!pattern) return
+    const folderPath = fileStore.currentFolder
+    if (!folderPath) return
+    
+    let replaceCount = 0
+    const allTabs = tabsStore.getAllTabs()
+    allTabs.filter(tab => tab.filePath && tab.filePath.startsWith(folderPath)).forEach((tab) => {
       const matches = tab.content.match(pattern)
       if (matches) {
         const newContent = tab.content.replace(pattern, replaceQuery.value)
@@ -333,7 +400,11 @@ export function useWorkspaceSearch() {
     searchScope.value = scope
     if (searchQuery.value) {
       performSearch()
-      updateEditorHighlight()
+      if (scope === 'file') {
+        updateEditorHighlight()
+      } else {
+        clearSearchHighlight()
+      }
     }
   }
 
@@ -358,7 +429,9 @@ export function useWorkspaceSearch() {
 
   const debouncedSearch = debounce(() => {
     performSearch()
-    updateEditorHighlight()
+    if (searchScope.value === 'file') {
+      updateEditorHighlight()
+    }
   }, 300)
 
   function handleSearchInput() {
@@ -368,7 +441,9 @@ export function useWorkspaceSearch() {
   watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => options.regex], () => {
     if (searchMode.value === 'sidebar') {
       performSearch()
-      updateEditorHighlight()
+      if (searchScope.value === 'file') {
+        updateEditorHighlight()
+      }
     }
   })
 
@@ -399,6 +474,7 @@ export function useWorkspaceSearch() {
     replaceAll,
     replaceInActiveFile,
     replaceInAllTabs,
+    replaceInFolder,
     toggleExpand,
     handleMatchClick,
     setSearchScope,

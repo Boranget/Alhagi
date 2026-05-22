@@ -31,7 +31,6 @@
     "electron-store": "^11.0.2",
     "html2canvas": "^1.4.1",
     "pinia": "^2.1.7",
-    "prosemirror-search": "^1.1.0",
     "vue": "^3.4.21"
   },
   "devDependencies": {

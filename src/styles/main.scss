@@ -154,30 +154,15 @@ textarea {
   caret-color: #000 !important;
 }
 
-/* 搜索高亮样式 */
-.search-highlight-match {
-  background-color: rgba(255, 204, 0, 0.4);
-  border-radius: 2px;
-  padding: 1px 2px;
-  box-shadow: 0 0 0 1px rgba(255, 204, 0, 0.6);
-  
-  &:hover {
-    background-color: rgba(255, 204, 0, 0.6);
-  }
-}
-
-/* ProseMirror 搜索样式 */
+/* 搜索高亮样式 - 使用自定义搜索插件的高亮类名 */
 .ProseMirror-search-match {
   background-color: rgba(255, 204, 0, 0.4);
   border-radius: 2px;
-  padding: 1px 2px;
-  box-shadow: 0 0 0 1px rgba(255, 204, 0, 0.3);
 }
 
 .ProseMirror-active-search-match {
-  background-color: rgba(255, 153, 0, 0.6);
+  background-color: rgba(255, 153, 0, 0.7);
   border-radius: 2px;
-  padding: 1px 2px;
   box-shadow: 0 0 0 2px rgba(255, 153, 0, 0.8);
   animation: searchPulse 1.5s ease-in-out infinite;
 }
