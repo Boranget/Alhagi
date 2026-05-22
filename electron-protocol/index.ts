@@ -218,7 +218,7 @@ export interface ElectronAPI {
   openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData }) => Promise<IPCResponse<boolean | number>>
   mergeTab: (tabData: DetachedTabData, targetWindowId: number) => Promise<IPCResponse<boolean>>
   getWindowId: () => Promise<IPCResponse<number | null>>
-  listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string }>>>
+  listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string; bounds: { x: number; y: number; width: number; height: number } }>>>
   onNewFile: (callback: () => void) => () => void
   onNewWindow: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void
@@ -231,6 +231,7 @@ export interface ElectronAPI {
   onPasteAsPlain: (callback: () => void) => () => void
   onCaptureScreen: (callback: () => void) => () => void
   onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
+  onTabDetached: (callback: (tabData: DetachedTabData) => void) => () => void
   onToggleStickyNoteMode: (callback: () => void) => () => void
   onToggleImmersiveMode: (callback: () => void) => () => void
 onToggleSidebar: (callback: () => void) => () => void

@@ -64,7 +64,7 @@ function createWindow() {
     }
   })
 
-  mainWindow.on('closed', () => { windows.delete(mainWindow!.id); mainWindow = null })
+  mainWindow.on('closed', () => { if (mainWindow) { windows.delete(mainWindow.id) }; mainWindow = null })
 
   if (VITE_DEV_SERVER_URL) mainWindow.loadURL(VITE_DEV_SERVER_URL)
   else mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))
@@ -445,8 +445,12 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => { ma
 
 ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
   try {
-    const newWindow = new BrowserWindow({ width: 1200, height: 800, webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false }, show: false, backgroundColor: '#ffffff' })
+    const newWindow = new BrowserWindow({ width: 1200, height: 800, minWidth: 250, minHeight: 300, webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false }, show: false, backgroundColor: '#ffffff' })
     windows.set(newWindow.id, newWindow)
+
+    // 注册 closed 事件：窗口关闭时从 Map 中清理（修复 Object has been destroyed）
+    newWindow.on('closed', () => { windows.delete(newWindow.id) })
+
     newWindow.on('ready-to-show', () => newWindow.show())
     const filePath = options?.filePath
     if (VITE_DEV_SERVER_URL) newWindow.loadURL(filePath ? `${VITE_DEV_SERVER_URL}?file=${encodeURIComponent(filePath)}` : VITE_DEV_SERVER_URL)
@@ -462,7 +466,10 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
 ipcMain.handle(IPC_CHANNELS.WINDOW.MERGE_TAB, async (_, { tabData, targetWindowId }) => {
   try {
     const targetWindow = windows.get(targetWindowId)
-    if (!targetWindow || targetWindow.isDestroyed()) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Target window not found')
+    if (!targetWindow || targetWindow.isDestroyed()) {
+      windows.delete(targetWindowId)
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Target window not found or destroyed')
+    }
     targetWindow.webContents.send('tab:merge', tabData)
     return createSuccessResponse(true)
   } catch (err) {
@@ -472,7 +479,24 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.MERGE_TAB, async (_, { tabData, targetWindowI
 })
 
 ipcMain.handle(IPC_CHANNELS.WINDOW.GET_WINDOW_ID, (event) => { const window = BrowserWindow.fromWebContents(event.sender); return createSuccessResponse(window?.id || null) })
-ipcMain.handle(IPC_CHANNELS.WINDOW.LIST_WINDOWS, () => { const windowList = Array.from(windows.entries()).map(([id, win]) => ({ id, title: win.getTitle() })); return createSuccessResponse(windowList) })
+ipcMain.handle(IPC_CHANNELS.WINDOW.LIST_WINDOWS, () => {
+  const result: Array<{ id: number; title: string; bounds: { x: number; y: number; width: number; height: number } }> = []
+  for (const [id, win] of windows) {
+    // 防御性检查：跳过已销毁的窗口（防止 Object has been destroyed）
+    if (!win || win.isDestroyed()) {
+      windows.delete(id)
+      continue
+    }
+    try {
+      const bounds = win.getBounds()
+      result.push({ id, title: win.getTitle(), bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } })
+    } catch {
+      // 窗口可能在检查后被销毁，静默跳过
+      windows.delete(id)
+    }
+  }
+  return createSuccessResponse(result)
+})
 
 ipcMain.handle(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, async (_, filePath: string) => {
   try {

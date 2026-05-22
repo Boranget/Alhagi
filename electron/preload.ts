@@ -141,6 +141,9 @@ const api: ElectronAPI = {
   onTabMerge: (callback) => 
     createMenuListener('tab:merge', callback),
   
+  onTabDetached: (callback) =>
+    createMenuListener('tab:detached', callback),
+  
   onToggleStickyNoteMode: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),
   

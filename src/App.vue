@@ -57,6 +57,22 @@ const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
 
 useKeyboardShortcuts()
 
+function createTabFromDetachedData(tabData: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number }; scrollTop?: number }) {
+  const tab = tabsStore.createTab({
+    title: tabData.title,
+    content: tabData.content,
+    filePath: tabData.filePath ?? undefined,
+    viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
+  })
+  if (tabData.isDirty) {
+    tabsStore.updateTab(tab.id, { isDirty: true })
+  }
+  if (tabData.scrollTop !== undefined) {
+    tabsStore.updateTab(tab.id, { scrollTop: tabData.scrollTop })
+  }
+  return tab
+}
+
 function triggerAutoSave() {
   if (!prefsStore.autoSave) return
 
@@ -148,15 +164,13 @@ async function openFolderFromMenu() {
 
   if (window.electronAPI.onTabMerge) {
     window.electronAPI.onTabMerge((tabData) => {
-      const tab = tabsStore.createTab({
-        title: tabData.title,
-        content: tabData.content,
-        filePath: tabData.filePath ?? undefined,
-        viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
-      })
-      if (tabData.isDirty) {
-        tabsStore.updateTab(tab.id, { isDirty: true })
-      }
+      createTabFromDetachedData(tabData)
+    })
+  }
+
+  if (window.electronAPI.onTabDetached) {
+    window.electronAPI.onTabDetached((tabData) => {
+      createTabFromDetachedData(tabData)
     })
   }
 
