@@ -107,13 +107,6 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery): { decor
   const decorations: Decoration[] = []
   let matchIndex = 0
   
-  console.log('[Search] buildSearchDecorations called with query:', {
-    search: query.search,
-    caseSensitive: query.caseSensitive,
-    wholeWord: query.wholeWord,
-    regexp: query.regexp
-  })
-  
   const doc = state.doc
   const sel = state.selection
   
@@ -124,40 +117,23 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery): { decor
       
       try {
         let pattern = query.search
-        console.log('[Search] Building regex pattern:', {
-          originalSearch: query.search,
-          regexpMode: query.regexp
-        })
         
         if (!query.regexp) {
           pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          console.log('[Search] Escaped pattern:', pattern)
         }
         
         if (query.wholeWord) {
           pattern = `\\b${pattern}\\b`
-          console.log('[Search] Whole word pattern:', pattern)
         }
         
         const flags = query.caseSensitive ? 'g' : 'gi'
         regex = new RegExp(pattern, flags)
-        console.log('[Search] Final regex created:', regex)
-      } catch (e) {
-        console.error('[Search] Error creating regex:', e)
+      } catch {
         return
       }
 
       let match: RegExpExecArray | null
-      console.log('[Search] Searching in text:', text)
-      
       while ((match = regex.exec(text)) !== null) {
-        console.log('[Search] Found match:', {
-          matchText: match[0],
-          index: match.index,
-          from: pos + match.index,
-          to: pos + match.index + match[0].length
-        })
-        
         const from = pos + match.index
         const to = from + match[0].length
         const isActive = from === sel.from && to === sel.to
@@ -168,15 +144,9 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery): { decor
         )
         matchIndex++
       }
-      
-      if (matchIndex === 0) {
-        console.log('[Search] No matches found in text')
-      }
     }
   })
 
-  console.log('[Search] Total matches found:', matchIndex)
-  
   return {
     decorations: DecorationSet.create(doc, decorations),
     total: matchIndex
@@ -767,8 +737,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
   }
 
   private findAllMatches(state: EditorState, query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> {
-    console.log('[Search] findAllMatches called with query:', query)
-    
     const matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
     
     const doc = state.doc
@@ -779,40 +747,23 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         
         try {
           let pattern = query.search
-          console.log('[Search] findAllMatches building regex:', {
-            originalSearch: query.search,
-            regexpMode: query.regexp
-          })
           
           if (!query.regexp) {
             pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            console.log('[Search] findAllMatches escaped pattern:', pattern)
           }
           
           if (query.wholeWord) {
             pattern = `\\b${pattern}\\b`
-            console.log('[Search] findAllMatches whole word pattern:', pattern)
           }
           
           const flags = query.caseSensitive ? 'g' : 'gi'
           regex = new RegExp(pattern, flags)
-          console.log('[Search] findAllMatches final regex:', regex)
-        } catch (e) {
-          console.error('[Search] findAllMatches error creating regex:', e)
+        } catch {
           return
         }
 
         let match: RegExpExecArray | null
-        console.log('[Search] findAllMatches searching in text:', text)
-        
         while ((match = regex.exec(text)) !== null) {
-          console.log('[Search] findAllMatches found match:', {
-            matchText: match[0],
-            index: match.index,
-            from: pos + match.index,
-            to: pos + match.index + match[0].length
-          })
-          
           matches.push({
             from: pos + match.index,
             to: pos + match.index + match[0].length,
@@ -823,17 +774,12 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
     
-    console.log('[Search] findAllMatches returning', matches.length, 'matches')
-    
     return matches
   }
 
   // 搜索相关方法
   search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }): { current: number; total: number } {
-    console.log('[Search] search method called with:', query)
-    
     if (!this.crepe || !this.isInitialized) {
-      console.log('[Search] Editor not initialized')
       return { current: 0, total: 0 }
     }
 
@@ -851,13 +797,10 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         regexp: query.regexp ?? false,
       }
 
-      console.log('[Search] Created SearchQuery object:', searchQuery)
-
       const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
       view.dispatch(tr)
 
       const matches = this.findAllMatches(state, searchQuery)
-      console.log('[Search] findAllMatches returned', matches.length, 'matches')
       totalMatches = matches.length
       
       const sel = state.selection
@@ -870,8 +813,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
 
-    console.log('[Search] Returning result:', { current: currentMatchIndex, total: totalMatches })
-    
     return {
       current: currentMatchIndex,
       total: totalMatches
@@ -983,8 +924,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
   }
 
   replaceNext(replacement: string): { current: number; total: number } {
-    console.log('[Search] replaceNext called with replacement:', replacement)
-    
     if (!this.crepe || !this.isInitialized) {
       return { current: 0, total: 0 }
     }
@@ -1015,23 +954,13 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
 
       const match = matches[currentIndex]
-      console.log('[Search] Found match to replace:', {
-        from: match.from,
-        to: match.to,
-        matchData: match.match
-      })
-      
       let tr
       
       // 支持正则分组替换
       if (pluginState.query.regexp && match.match) {
-        console.log('[Search] Using regex replacement')
-        
         // 简化的替换逻辑：直接使用字符串替换而不是复杂的文档切片
         let replacedText = replacement
         const regexMatch = match.match
-        
-        console.log('[Search] Original match groups:', regexMatch)
         
         // 替换 $&, $1, $2 等
         replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
@@ -1042,13 +971,10 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           return regexMatch[groupNum] || ''
         })
         
-        console.log('[Search] Replaced text:', replacedText)
-        
         // 简单地替换整个匹配范围
         tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
       } else {
         // 普通替换
-        console.log('[Search] Using plain text replacement')
         tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
       }
       
@@ -1073,8 +999,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
   }
 
   replaceAll(replacement: string): { replaced: number } {
-    console.log('[Search] replaceAll called with replacement:', replacement)
-    
     if (!this.crepe || !this.isInitialized) {
       return { replaced: 0 }
     }
@@ -1094,7 +1018,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       
       // 先找到所有匹配项
       const matches = this.findAllMatches(state, query)
-      console.log('[Search] replaceAll found', matches.length, 'matches')
       
       if (matches.length === 0) {
         return
@@ -1113,8 +1036,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         
         // 支持正则分组替换
         if (query.regexp && match.match) {
-          console.log('[Search] replaceAll using regex replacement for match', i)
-          
           // 简化的替换逻辑
           let replacedText = replacement
           const regexMatch = match.match
@@ -1127,8 +1048,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
             const groupNum = parseInt(groupId, 10)
             return regexMatch[groupNum] || ''
           })
-          
-          console.log('[Search] replaceAll replaced text:', replacedText)
           
           tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
         } else {
@@ -1149,8 +1068,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       }
     })
 
-    console.log('[Search] replaceAll replaced', replacedCount, 'items')
-    
     return { replaced: replacedCount }
   }
 }

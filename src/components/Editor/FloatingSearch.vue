@@ -220,14 +220,7 @@ const handleClose = () => {
 
 const noop = () => {}
 
-watch(searchQuery, (newVal) => {
-  if (newVal) {
-    nextTick(() => {
-      searchInputRef.value?.focus()
-    })
-  }
-})
-
+// 当搜索框显示时聚焦输入框
 watch(isVisible, (newVal) => {
   if (newVal) {
     nextTick(() => {
