@@ -268,7 +268,7 @@ ipcMain.handle(IPC_CHANNELS.FILE.OPEN_FOLDER, async () => {
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
     if (result.canceled || result.filePaths.length === 0) return createSuccessResponse(null)
     const folderPath = result.filePaths[0]
-    const tree = await buildFileTree(folderPath, 3)
+    const tree = await buildFileTree(folderPath, 10)
     return createSuccessResponse({ path: folderPath, tree })
   } catch (err) {
     const error = err as NodeJS.ErrnoException

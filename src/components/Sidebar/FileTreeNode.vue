@@ -27,7 +27,8 @@
       :node="child"
       :depth="depth + 1"
       @select="$emit('select', $event)"
-      @contextmenu="handleContextMenu"
+      @contextmenu="(event: MouseEvent) => $emit('contextmenu', event, child)"
+      @toggle="$emit('toggle', $event)"
     />
   </div>
 </template>

@@ -185,18 +185,12 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
     }
   }
 
-  function toggleFolder(node: FileTreeNodeType) {
+  async function toggleFolder(node: FileTreeNodeType) {
     node.expanded = !node.expanded
     if (node.expanded && node.type === FILE_TYPES.DIRECTORY && (!node.children || node.children.length === 0)) {
-      loadChildren(node)
+      const children = await readDirectory(node.path)
+      node.children = children
     }
-  }
-
-  async function loadChildren(node: FileTreeNodeType) {
-    if (node.type !== FILE_TYPES.DIRECTORY) return
-
-    const children = await readDirectory(node.path)
-    node.children = children
   }
 
   return {
