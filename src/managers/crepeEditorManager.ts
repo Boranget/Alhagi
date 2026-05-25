@@ -348,6 +348,9 @@ export class CrepeEditorManager {
     this.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
+        if (!view || !view.state) {
+          return
+        }
         const targetPos = pos
         
         const resolvedPos = view.state.doc.resolve(targetPos)
@@ -360,6 +363,7 @@ export class CrepeEditorManager {
 
         setTimeout(() => {
           try {
+            if (!view.state) return
             const node = view.state.doc.nodeAt(targetPos)
             let targetElement: HTMLElement | null = null
             
@@ -447,6 +451,9 @@ export class CrepeEditorManager {
     this.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
+        if (!view || !view.state) {
+          return
+        }
         const doc = view.state.doc
         
         doc.descendants((node, pos) => {

@@ -231,6 +231,7 @@ export class EditorSearchManager {
 
     this.editor?.action((ctx: { get: (key: unknown) => EditorView }) => {
       const v = ctx.get(editorViewCtx)
+      if (!v || !v.state) return
       const tr = v.state.tr.setMeta(searchPluginKey, { type: 'clear' })
       v.dispatch(tr)
     })
