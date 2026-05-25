@@ -642,20 +642,22 @@ function setupImagePaste() {
     // WYSIWYG：弱化非当前段落，高亮当前段落
     .editor-wysiwyg, .editor-split-preview {
       :deep(.ProseMirror) {
-        // 所有顶层块级元素默认变暗
+        // 所有顶层块级元素默认变暗——使用 color-mix 而非 opacity，
+        // 避免影响 ::selection 的渲染（父元素 opacity 会限制子元素透明度）
         > * {
-          opacity: 0.25;
-          transition: opacity 0.35s ease;
+          color: color-mix(in srgb, var(--text-primary) 30%, transparent);
+          transition: color 0.35s ease;
         }
 
         // 当前光标所在段落保持明亮
         > *.focus-highlight {
-          opacity: 1;
+          color: var(--text-primary);
         }
 
-        // 被选中的文本仍然可见
+        // 被选中的文本不受影响（color-mix 不会层叠到伪元素）
         ::selection {
-          opacity: 1;
+          background: var(--primary-color);
+          color: white;
         }
       }
     }
@@ -663,17 +665,16 @@ function setupImagePaste() {
     // 源码视图：弱化非当前行
     .codemirror-editor, .editor-split-source {
       :deep(.cm-content) {
-        // CodeMirror 按行渲染，整体轻微变暗
+        transition: opacity 0.35s ease;
+      }
+
+      :deep(.cm-line) {
+        // 按行施加透明度，避免父级 opacity 层叠限制子元素
         opacity: 0.6;
         transition: opacity 0.35s ease;
 
-        .cm-activeLine {
-          opacity: 1 !important;
-        }
-
-        // 光标行保持完整可见
-        .cm-activeLine * {
-          opacity: 1 !important;
+        &.cm-activeLine {
+          opacity: 1;
         }
       }
     }

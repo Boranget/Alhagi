@@ -16,9 +16,16 @@ let scrollTimer: ReturnType<typeof setTimeout> | null = null
 
 /** 找到当前视口内的编辑器滚动容器 */
 function findScrollContainer(): HTMLElement | null {
-  // 按优先级：WYSIWYG → 分屏预览 → CodeMirror
+  // 检查光标是否在 CodeMirror 编辑器中（源码模式 或 分屏源码区）
+  const activeEl = document.activeElement
+  if (activeEl) {
+    const cmContainer = activeEl.closest('.codemirror-editor')
+    if (cmContainer instanceof HTMLElement) return cmContainer
+  }
+
+  // 否则返回 WYSIWYG/分屏预览容器
   return document.querySelector(
-    '.editor-wysiwyg, .editor-split-preview, .codemirror-editor'
+    '.editor-wysiwyg, .editor-split-preview'
   ) as HTMLElement | null
 }
 
@@ -186,10 +193,15 @@ function handleSelectionChange() {
   }
 }
 
-function handleEditorScroll() {
+function handleEditorScroll(event: Event) {
+  const target = event.target as HTMLElement
+  // 只处理编辑器容器内的滚动事件
+  if (!target.closest('.editor-wysiwyg, .editor-split-preview, .codemirror-editor, .editor-split-source')) {
+    return
+  }
+
   // 打字机模式：用户手动滚动时也尝试居中
   if (typewriterActive) {
-    // 加短延时确保滚动完成后再调整
     if (scrollTimer) clearTimeout(scrollTimer)
     scrollTimer = setTimeout(scrollCursorToCenter, 50)
   }
@@ -204,7 +216,7 @@ export function useWritingEnhancement() {
 
   function toggleTypewriterMode() {
     prefsStore.typewriterMode = !prefsStore.typewriterMode
-    applyTypewriterMode()
+    // applyTypewriterMode() 由 initialize() 中的 watcher 统一触发，此处无需重复调用
   }
 
   function toggleFocusMode() {
