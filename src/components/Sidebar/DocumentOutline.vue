@@ -74,21 +74,14 @@ function ensureOutlineReady() {
   const tab = activeTab.value
   if (!tab) return
 
-  console.log('[DocumentOutline] ensureOutlineReady called, mode:', tab.viewMode)
-
   // 1. 刷新大纲数据
   refreshOutline()
 
   // 2. 如果需要滚动跟踪，初始化滚动监听
   if (shouldTrackPosition()) {
-    console.log('[DocumentOutline] shouldTrackPosition returned true')
-    
     // 每次都需要检查是否需要重新初始化
     // 因为标签切换或视图模式切换可能改变了滚动容器
     const currentContainer = findScrollContainer(tab.viewMode)
-    
-    console.log('[DocumentOutline] currentContainer:', currentContainer)
-    console.log('[DocumentOutline] scrollContainer changed:', currentContainer !== scrollContainer)
     
     if (currentContainer !== scrollContainer) {
       // 滚动容器变了，需要重新初始化
@@ -96,16 +89,13 @@ function ensureOutlineReady() {
     }
     
     if (!isOutlineInitialized.value) {
-      console.log('[DocumentOutline] Initializing scroll listener')
       initScrollListener()
       isOutlineInitialized.value = true
     } else {
       // 已初始化，只重建缓存
-      console.log('[DocumentOutline] Already initialized, rebuilding cache')
       buildDomPosCache()
     }
   } else {
-    console.log('[DocumentOutline] shouldTrackPosition returned false')
     // 不需要跟踪，清除状态
     cleanupScrollListener()
     isOutlineInitialized.value = false
@@ -122,16 +112,12 @@ function shouldTrackPosition(): boolean {
   const mode = tab.viewMode
   const activeEditor = editorManager.getActiveEditor()
 
-  console.log('[DocumentOutline] shouldTrackPosition - mode:', mode, ', activeEditor:', activeEditor)
-
   // 源码模式：不需要定位
   if (mode === EDITOR.VIEW_MODES.SOURCE) return false
 
   // 分屏模式下，只有当 activeEditor 是 crepe（预览区）时才定位
   if (mode === EDITOR.VIEW_MODES.SPLIT) {
-    const shouldTrack = activeEditor === 'crepe'
-    console.log('[DocumentOutline] SPLIT mode, shouldTrack:', shouldTrack)
-    return shouldTrack
+    return activeEditor === 'crepe'
   }
 
   // WYSIWYG 模式：需要定位
@@ -171,7 +157,6 @@ function initScrollListener() {
 
   const tab = activeTab.value
   if (!tab) {
-    console.debug('[DocumentOutline] initScrollListener: no active tab')
     return
   }
 
@@ -179,14 +164,12 @@ function initScrollListener() {
 
   // 只在 WYSIWYG 和分屏模式下需要监听滚动
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG && mode !== EDITOR.VIEW_MODES.SPLIT) {
-    console.debug('[DocumentOutline] initScrollListener: mode not wysiwyg or split')
     return
   }
 
   // 查找滚动容器
   const editorElement = findScrollContainer(mode)
   if (!editorElement) {
-    console.warn('[DocumentOutline] Scroll container not found, will retry...')
     retryFindScrollContainer(mode)
     return
   }
@@ -199,19 +182,11 @@ function initScrollListener() {
  * 根据模式查找滚动容器
  */
 function findScrollContainer(mode: string): HTMLElement | null {
-  console.log('[DocumentOutline] findScrollContainer called, mode:', mode)
-  
   // WYSIWYG 和分屏模式分别使用不同的选择器
   if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
-    const wysiwyg = document.querySelector('.editor-wysiwyg') as HTMLElement
-    const split = document.querySelector('.editor-split-preview') as HTMLElement
-    console.log('[DocumentOutline] .editor-wysiwyg:', wysiwyg, ', display:', wysiwyg?.style.display)
-    console.log('[DocumentOutline] .editor-split-preview:', split, ', display:', split?.style.display)
-    return wysiwyg
+    return document.querySelector('.editor-wysiwyg') as HTMLElement
   } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
-    const container = document.querySelector('.editor-split-preview') as HTMLElement
-    console.log('[DocumentOutline] Split preview container:', container, ', display:', container?.style.display)
-    return container
+    return document.querySelector('.editor-split-preview') as HTMLElement
   }
   return null
 }
@@ -254,18 +229,11 @@ function cleanupScrollListener() {
  */
 function setupScrollHandler() {
   if (!scrollContainer) {
-    console.error('[DocumentOutline] setupScrollHandler: scrollContainer is null')
     return
   }
 
-  console.log('[DocumentOutline] setupScrollHandler, container class:', scrollContainer.className)
-  console.log('[DocumentOutline] container display:', scrollContainer.style.display)
-  console.log('[DocumentOutline] container scrollHeight:', scrollContainer.scrollHeight)
-  console.log('[DocumentOutline] container clientHeight:', scrollContainer.clientHeight)
-
   let lastUpdateTime = 0
   scrollHandler = () => {
-    console.log('[DocumentOutline] Scroll event triggered!')
     const now = Date.now()
     // 节流
     if (now - lastUpdateTime < SCROLL_THROTTLE_MS) return

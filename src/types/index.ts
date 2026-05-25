@@ -85,6 +85,8 @@ export interface AppEventPayloads {
   'editor:selection:changed': { from: number; to: number; tabId: string }
   'editor:scroll:changed': { scrollTop: number; tabId: string }
   'editor:scroll-to-heading': { slug: string; text: string; line: number }
+  'editor:undo': undefined
+  'editor:redo': undefined
 }
 
 export type AppEventName = keyof AppEventPayloads

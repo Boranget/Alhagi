@@ -260,6 +260,36 @@ const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, asyn
 })
 unsubscribes.push(unsubscribeViewModeChanged)
 
+const unsubscribeEditUndo = eventBus.on(AppEvents.EDIT_UNDO, () => {
+  if (currentMode.value === 'source' || currentMode.value === 'split') {
+    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as any
+    if (codemirrorEditor?._editableView?.view) {
+      codemirrorEditor._editableView.view.dispatch({
+        userEvent: 'undo'
+      })
+    }
+  }
+  if (editorManager.isReady()) {
+    editorManager.undo()
+  }
+})
+unsubscribes.push(unsubscribeEditUndo)
+
+const unsubscribeEditRedo = eventBus.on(AppEvents.EDIT_REDO, () => {
+  if (currentMode.value === 'source' || currentMode.value === 'split') {
+    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as any
+    if (codemirrorEditor?._editableView?.view) {
+      codemirrorEditor._editableView.view.dispatch({
+        userEvent: 'redo'
+      })
+    }
+  }
+  if (editorManager.isReady()) {
+    editorManager.redo()
+  }
+})
+unsubscribes.push(unsubscribeEditRedo)
+
 onMounted(async () => {
   if (crepeContainer.value) {
     const initialContent = activeTab.value?.content || ''

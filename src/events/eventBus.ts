@@ -86,7 +86,9 @@ export const AppEvents = {
 CURSOR_CHANGED: 'editor:cursor:changed' as const,
   SELECTION_CHANGED: 'editor:selection:changed' as const,
   SCROLL_CHANGED: 'editor:scroll:changed' as const,
-  SCROLL_TO_HEADING: 'editor:scroll-to-heading' as const
+  SCROLL_TO_HEADING: 'editor:scroll-to-heading' as const,
+  EDIT_UNDO: 'editor:undo' as const,
+  EDIT_REDO: 'editor:redo' as const
 } as const
 
 export function createEventHook<T = unknown>() {

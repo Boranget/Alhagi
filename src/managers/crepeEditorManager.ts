@@ -1,10 +1,11 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
-import { insert, $prose } from '@milkdown/kit/utils'
+import { insert, $prose, callCommand } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { Plugin } from '@milkdown/kit/prose/state'
+import { undoCommand, redoCommand } from '@milkdown/plugin-history'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
@@ -587,6 +588,30 @@ export class CrepeEditorManager {
       this.crepe.editor.action(insert(imageMarkdown, true))
     } catch (error) {
       console.error('[CrepeEditorManager] Failed to insert image:', error)
+    }
+  }
+
+  undo(): void {
+    if (!this.crepe || !this.isInitialized) {
+      return
+    }
+
+    try {
+      this.crepe.editor.action(callCommand(undoCommand.key))
+    } catch (error) {
+      console.error('[CrepeEditorManager] Failed to undo:', error)
+    }
+  }
+
+  redo(): void {
+    if (!this.crepe || !this.isInitialized) {
+      return
+    }
+
+    try {
+      this.crepe.editor.action(callCommand(redoCommand.key))
+    } catch (error) {
+      console.error('[CrepeEditorManager] Failed to redo:', error)
     }
   }
 }

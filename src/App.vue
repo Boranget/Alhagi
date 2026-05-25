@@ -219,13 +219,13 @@ async function openFolderFromMenu() {
 
   if (window.electronAPI?.onEditUndo) {
     window.electronAPI.onEditUndo(() => {
-      // Undo handled by editor
+      eventBus.emit(AppEvents.EDIT_UNDO)
     })
   }
 
   if (window.electronAPI?.onEditRedo) {
     window.electronAPI.onEditRedo(() => {
-      // Redo handled by editor
+      eventBus.emit(AppEvents.EDIT_REDO)
     })
   }
 }
