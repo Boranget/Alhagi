@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, screen } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
@@ -15,8 +15,7 @@ import {
   MENU_EVENTS,
   FILE_TYPES,
   LINE_ENDINGS,
-  LineEnding,
-  DetachedTabData
+  LineEnding
 } from '../electron-protocol'
 import { rgPath } from '@vscode/ripgrep'
 
@@ -445,17 +444,38 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => { ma
 
 ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
   try {
-    const newWindow = new BrowserWindow({ width: 1200, height: 800, minWidth: 250, minHeight: 300, webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false }, show: false, backgroundColor: '#ffffff' })
+    const bounds = options?.bounds || { width: 1200, height: 800 }
+    
+    const newWindow = new BrowserWindow({
+      width: bounds.width || 1200,
+      height: bounds.height || 800,
+      x: bounds.x,
+      y: bounds.y,
+      minWidth: 250,
+      minHeight: 300,
+      webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false },
+      show: false,
+      backgroundColor: '#ffffff'
+    })
     windows.set(newWindow.id, newWindow)
 
-    // 注册 closed 事件：窗口关闭时从 Map 中清理（修复 Object has been destroyed）
     newWindow.on('closed', () => { windows.delete(newWindow.id) })
 
     newWindow.on('ready-to-show', () => newWindow.show())
+    
     const filePath = options?.filePath
-    if (VITE_DEV_SERVER_URL) newWindow.loadURL(filePath ? `${VITE_DEV_SERVER_URL}?file=${encodeURIComponent(filePath)}` : VITE_DEV_SERVER_URL)
-    else newWindow.loadFile(filePath ? `${path.join(RENDERER_DIST, 'index.html')}?file=${encodeURIComponent(filePath)}` : path.join(RENDERER_DIST, 'index.html'))
-    if (options?.tabData) newWindow.webContents.once('did-finish-load', () => newWindow.webContents.send('tab:detached', options.tabData))
+    if (VITE_DEV_SERVER_URL) {
+      newWindow.loadURL(filePath ? `${VITE_DEV_SERVER_URL}?file=${encodeURIComponent(filePath)}` : VITE_DEV_SERVER_URL)
+    } else {
+      newWindow.loadFile(filePath ? `${path.join(RENDERER_DIST, 'index.html')}?file=${encodeURIComponent(filePath)}` : path.join(RENDERER_DIST, 'index.html'))
+    }
+    
+    if (options?.tabData) {
+      newWindow.webContents.once('did-finish-load', () => {
+        newWindow.webContents.send('tab:detached', options.tabData)
+      })
+    }
+    
     return createSuccessResponse(newWindow.id)
   } catch (err) {
     const error = err as NodeJS.ErrnoException
@@ -496,6 +516,41 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.LIST_WINDOWS, () => {
     }
   }
   return createSuccessResponse(result)
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.GET_CURSOR_SCREEN_POINT, (event) => {
+  try {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+    }
+    
+    const bounds = window.getBounds()
+    return createSuccessResponse({
+      x: bounds.x,
+      y: bounds.y
+    })
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to get cursor point: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.GET_SCREEN_DISPLAY, () => {
+  try {
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { bounds } = primaryDisplay
+    
+    return createSuccessResponse({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height
+    })
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to get screen display: ${error.message}`)
+  }
 })
 
 ipcMain.handle(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, async (_, filePath: string) => {

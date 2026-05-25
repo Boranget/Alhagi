@@ -139,7 +139,11 @@ export const IPC_CHANNELS = {
     OPEN_NEW_WINDOW: 'window:open-new-window',
     MERGE_TAB: 'window:merge-tab',
     GET_WINDOW_ID: 'window:get-window-id',
-    LIST_WINDOWS: 'window:list-windows'
+    LIST_WINDOWS: 'window:list-windows',
+    GET_CURSOR_SCREEN_POINT: 'window:get-cursor-screen-point',
+    GET_SCREEN_DISPLAY: 'window:get-screen-display',
+    DRAG_START: 'window:drag-start',
+    DRAG_END: 'window:drag-end'
   }
 } as const;
 
@@ -215,10 +219,14 @@ export interface ElectronAPI {
   maximize: () => Promise<IPCResponse<void>>
   close: () => Promise<IPCResponse<void>>
   setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
-  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData }) => Promise<IPCResponse<boolean | number>>
+  getCursorScreenPoint: () => Promise<IPCResponse<{ x: number; y: number } | null>>
+  getScreenDisplay: () => Promise<IPCResponse<{ x: number; y: number; width: number; height: number } | null>>
+  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData; bounds?: { x: number; y: number; width: number; height: number } }) => Promise<IPCResponse<boolean | number>>
   mergeTab: (tabData: DetachedTabData, targetWindowId: number) => Promise<IPCResponse<boolean>>
   getWindowId: () => Promise<IPCResponse<number | null>>
   listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string; bounds: { x: number; y: number; width: number; height: number } }>>>
+  onDragStart: (callback: (tabId: string) => void) => () => void
+  onDragEnd: (callback: () => void) => () => void
   onNewFile: (callback: () => void) => () => void
   onNewWindow: (callback: () => void) => () => void
   onOpenFile: (callback: () => void) => () => void

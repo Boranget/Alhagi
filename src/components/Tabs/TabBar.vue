@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="tab-bar"
-    @dragover.prevent="handleTabBarDragOver($event)"
-  >
+  <div class="tab-bar">
     <div class="tabs-container">
       <div
         v-for="tabId in tabsStore.tabOrder"
@@ -161,16 +158,6 @@
     
     <Teleport to="body">
       <div
-        v-if="dragState.sourceTabId"
-        class="tab-drag-ghost"
-        :style="ghostStyle"
-      >
-        <span>{{ getTab(dragState.sourceTabId)?.title || t('tabs.untitled') }}</span>
-      </div>
-    </Teleport>
-    
-    <Teleport to="body">
-      <div
         v-if="dragState.targetType === 'windowEdge' && windowList.length > 1"
         class="window-edge-indicator"
         :class="dragState.windowEdgeDirection"
@@ -203,25 +190,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
+import { useTabDragDrop } from '@/composables/useTabDragDrop'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
 import { Icon } from '@/components/Icons'
 
-type DragTargetType = 'none' | 'tab' | 'windowEdge' | 'outsideWindow'
-
-interface DragState {
-  sourceTabId: string | null
-  targetType: DragTargetType
-  targetTabId: string | null
-  targetWindowId: number | null
-  windowEdgeDirection: 'left' | 'right' | null
-  insertIndex: number
-  mousePosition: { x: number, y: number }
-}
-
 const tabsStore = useTabsStore()
+
+const {
+  dragState,
+  windowList,
+  handleDragStart,
+  handleDragEnter,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+  handleDragEnd,
+  serializeTabForIPC
+} = useTabDragDrop()
 
 const contextMenu = ref({
   show: false,
@@ -230,51 +218,8 @@ const contextMenu = ref({
   tabId: null as string | null
 })
 
-const dragState = reactive<DragState>({
-  sourceTabId: null,
-  targetType: 'none',
-  targetTabId: null,
-  targetWindowId: null,
-  windowEdgeDirection: null,
-  insertIndex: -1,
-  mousePosition: { x: 0, y: 0 }
-})
-
-interface WindowInfo {
-  id: number
-  title: string
-  bounds: { x: number; y: number; width: number; height: number }
-}
-
-const windowList = ref<WindowInfo[]>([])
-let currentWindowId: number | null = null
-let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
-let hasDroppedOnTab = false
-
-const ghostStyle = computed(() => ({
-  left: `${dragState.mousePosition.x}px`,
-  top: `${dragState.mousePosition.y}px`
-}))
-
 function getTab(tabId: string): TabState | undefined {
   return tabsStore.tabs.get(tabId)
-}
-
-/**
- * 将 Pinia 响应式 TabState 转为纯对象，避免 IPC structured clone 报错。
- * Pinia 的 reactive proxy 内部携带 __v_isReactive 等标记，无法被 serialized clone。
- */
-function serializeTabForIPC(tab: TabState) {
-  return JSON.parse(JSON.stringify({
-    id: tab.id,
-    title: tab.title,
-    content: tab.content,
-    filePath: tab.filePath ?? null,
-    isDirty: tab.isDirty,
-    viewMode: tab.viewMode,
-    cursor: tab.cursor ?? { from: 0, to: 0 },
-    scrollTop: tab.scrollTop ?? 0
-  }))
 }
 
 function getCurrentTab(): TabState | undefined {
@@ -282,33 +227,6 @@ function getCurrentTab(): TabState | undefined {
     return getTab(contextMenu.value.tabId)
   }
   return undefined
-}
-
-function resetDragState() {
-  dragState.sourceTabId = null
-  dragState.targetType = 'none'
-  dragState.targetTabId = null
-  dragState.targetWindowId = null
-  dragState.windowEdgeDirection = null
-  dragState.insertIndex = -1
-  hasDroppedOnTab = false
-}
-
-async function refreshWindowList() {
-  if (window.electronAPI) {
-    try {
-      const idResp = await window.electronAPI.getWindowId()
-      if (idResp.success && idResp.data) {
-        currentWindowId = idResp.data
-      }
-      const listResp = await window.electronAPI.listWindows()
-      if (listResp.success && listResp.data) {
-        windowList.value = listResp.data
-      }
-    } catch (e) {
-      console.error('Failed to get window info:', e)
-    }
-  }
 }
 
 function handleTabClick(tabId: string) {
@@ -451,273 +369,6 @@ async function showInFolder() {
   hideContextMenu()
 }
 
-async function handleDragStart(event: DragEvent, tabId: string) {
-  dragState.sourceTabId = tabId
-  dragState.targetType = 'none'
-  dragState.targetTabId = null
-  dragState.targetWindowId = null
-  dragState.windowEdgeDirection = null
-  hasDroppedOnTab = false
-  
-  await refreshWindowList()
-  
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', tabId)
-    
-    setTimeout(() => {
-      if (dragState.sourceTabId === tabId) {
-        dragState.mousePosition = {
-          x: event.clientX,
-          y: event.clientY
-        }
-      }
-    }, 0)
-  }
-}
-
-function updateWindowEdgeState(event: DragEvent) {
-  if (!dragState.sourceTabId) return
-  
-  const edgeThreshold = 50
-  const direction: 'left' | 'right' | null = 
-    event.clientX < edgeThreshold ? 'left' : 
-    event.clientX > window.innerWidth - edgeThreshold ? 'right' : null
-  
-  if (direction) {
-    const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
-    if (otherWindows.length > 0) {
-      // 用屏幕坐标选择最近的目标窗口
-      const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
-      const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
-      const bestWindow = findWindowAtPoint(otherWindows, screenX, screenY) ?? otherWindows[0]
-      
-      dragState.targetType = 'windowEdge'
-      dragState.windowEdgeDirection = direction
-      dragState.targetWindowId = bestWindow.id
-      dragState.targetTabId = null
-      return
-    }
-  }
-  
-  dragState.targetType = 'none'
-  dragState.windowEdgeDirection = null
-  dragState.targetWindowId = null
-  dragState.targetTabId = null
-}
-
-/**
- * 在窗口列表中查找包含指定屏幕坐标的窗口。
- * 优先精确命中，其次按距离排序（选最近的）。
- */
-function findWindowAtPoint(
-  winList: WindowInfo[],
-  screenX: number,
-  screenY: number
-): WindowInfo | null {
-  let closest: WindowInfo | null = null
-  let closestDist = Infinity
-
-  for (const w of winList) {
-    const { x, y, width, height } = w.bounds
-    if (screenX >= x && screenX <= x + width && screenY >= y && screenY <= y + height) {
-      return w // 精确命中
-    }
-    // 计算到窗口中心的距离
-    const cx = x + width / 2
-    const cy = y + height / 2
-    const dist = Math.sqrt((screenX - cx) ** 2 + (screenY - cy) ** 2)
-    if (dist < closestDist) {
-      closestDist = dist
-      closest = w
-    }
-  }
-  return closest
-}
-
-function isMouseOutsideWindow(event: DragEvent): boolean {
-  return (
-    event.clientX < 0 ||
-    event.clientX > window.innerWidth ||
-    event.clientY < 0 ||
-    event.clientY > window.innerHeight
-  )
-}
-
-/**
- * 标签栏全局 dragover —— 处理鼠标在标签栏空白区域（非 tab 上）时的边缘检测。
- * 当鼠标在具体 tab 上方时，由该 tab 的 handleDragOver 负责。
- */
-function handleTabBarDragOver(event: DragEvent) {
-  if (!dragState.sourceTabId) return
-  
-  dragState.mousePosition = { x: event.clientX, y: event.clientY }
-  
-  // 检查鼠标实际是否在某个 tab 元素上方 → 交给 tab 级 handler
-  const elUnderMouse = document.elementFromPoint(event.clientX, event.clientY)
-  if (elUnderMouse?.closest('.tab-item')) return
-  
-  // 不在任何 tab 上 → 清理 tab 相关状态
-  dragState.targetTabId = null
-  
-  if (isMouseOutsideWindow(event)) {
-    dragState.targetType = 'outsideWindow'
-    dragState.targetTabId = null
-    dragState.windowEdgeDirection = null
-    dragState.targetWindowId = null
-    return
-  }
-  
-  updateWindowEdgeState(event)
-}
-
-/**
- * dragenter 只做一件事：取消 dragleave 的兜底 timer。
- * 状态（targetType/targetTabId）由紧随其后触发的 handleDragOver 统一管理，
- * 避免 dragenter 和 dragover 各自修改状态造成覆盖/冲突。
- */
-function handleDragEnter(_event: DragEvent, tabId: string) {
-  if (!dragState.sourceTabId || dragState.sourceTabId === tabId) return
-  
-  if (dragLeaveTimer) {
-    clearTimeout(dragLeaveTimer)
-    dragLeaveTimer = null
-  }
-}
-
-function handleDragOver(event: DragEvent, tabId: string) {
-  if (!dragState.sourceTabId) return
-  
-  dragState.mousePosition = { x: event.clientX, y: event.clientY }
-  
-  // 不响应源 tab 自身的 dragover
-  if (dragState.sourceTabId === tabId) return
-  
-  if (isMouseOutsideWindow(event)) {
-    dragState.targetType = 'outsideWindow'
-    dragState.targetTabId = null
-    dragState.windowEdgeDirection = null
-    dragState.targetWindowId = null
-    return
-  }
-  
-  updateWindowEdgeState(event)
-  
-  // updateWindowEdgeState 可能将 targetType 设为 'windowEdge' 或 'none'
-  // 只要不是 windowEdge，鼠标就在某个 tab 上 → 设置为 tab
-  if (dragState.targetType !== 'windowEdge') {
-    dragState.targetTabId = tabId
-    dragState.targetType = 'tab'
-  }
-}
-
-function handleDragLeave(_event: DragEvent) {
-  // handleDragOver / handleTabBarDragOver 每次都会重新计算 targetType。
-  // dragleave 不需要立即清理 —— 如果鼠标确实离开了所有 tab，
-  // handleTabBarDragOver 里的 elementFromPoint 检测会接管并清理。
-  // 这里只做延迟兜底清理，防止某些边缘情况下状态残留。
-  if (!dragState.sourceTabId) return
-  
-  if (dragLeaveTimer) clearTimeout(dragLeaveTimer)
-  dragLeaveTimer = setTimeout(() => {
-    if (dragState.targetType === 'tab') {
-      dragState.targetTabId = null
-      dragState.targetType = 'none'
-    }
-  }, 100)
-}
-
-function handleDrop(event: DragEvent, targetTabId: string) {
-  event.preventDefault()
-  
-  if (!dragState.sourceTabId || dragState.sourceTabId === targetTabId) return
-  if (dragState.targetType !== 'tab') return
-  
-  hasDroppedOnTab = true
-  
-  const currentOrder = [...tabsStore.tabOrder]
-  const fromIndex = currentOrder.indexOf(dragState.sourceTabId)
-  const toIndex = currentOrder.indexOf(targetTabId)
-  
-  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
-  
-  // 移除源 tab
-  currentOrder.splice(fromIndex, 1)
-  
-  // 移除后 target 的索引可能偏移了（如果源在目标前面）
-  const adjustedTargetIdx = fromIndex < toIndex ? toIndex - 1 : toIndex
-  
-  // 根据鼠标在目标 tab 的左半边还是右半边决定插入位置
-  const rect = (event.target as HTMLElement).getBoundingClientRect()
-  const dropAfter = event.clientX > rect.left + rect.width / 2
-  
-  const insertAt = dropAfter ? adjustedTargetIdx + 1 : adjustedTargetIdx
-  
-  tabsStore.tabOrder = [
-    ...currentOrder.slice(0, insertAt),
-    dragState.sourceTabId,
-    ...currentOrder.slice(insertAt)
-  ]
-}
-
-async function handleDragEnd(event: DragEvent) {
-  if (!dragState.sourceTabId) {
-    resetDragState()
-    return
-  }
-  
-  const tab = getTab(dragState.sourceTabId)
-  if (!tab) {
-    resetDragState()
-    return
-  }
-  
-  // 已在 handleDrop 中完成 tab 间排序
-  if (hasDroppedOnTab) {
-    resetDragState()
-    return
-  }
-  
-  // 使用屏幕坐标（dragend 时 clientX/Y 可能为 0,0）
-  const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
-  const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
-
-  // 如果 clientX/Y 不可靠（皆为 0），则完全信任 dragState.targetType
-  const coordsUnreliable = event.clientX === 0 && event.clientY === 0
-  
-  if (dragState.targetType === 'windowEdge' && dragState.targetWindowId && window.electronAPI) {
-    try {
-      await window.electronAPI.mergeTab(serializeTabForIPC(tab), dragState.targetWindowId)
-      tabsStore.removeTab(dragState.sourceTabId)
-    } catch (e) {
-      console.error('Failed to merge tab to window edge:', e)
-    }
-  } else if (dragState.targetType === 'outsideWindow' || (!coordsUnreliable && isMouseOutsideWindow(event))) {
-    if (window.electronAPI) {
-      try {
-        const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
-        const targetWindow = 
-          (dragState.targetWindowId 
-            ? otherWindows.find(w => w.id === dragState.targetWindowId) 
-            : null) 
-          ?? findWindowAtPoint(otherWindows, screenX, screenY)
-        
-        if (targetWindow) {
-          await window.electronAPI.mergeTab(serializeTabForIPC(tab), targetWindow.id)
-        } else {
-          await window.electronAPI.openNewWindow({ tabData: serializeTabForIPC(tab) })
-        }
-        
-        tabsStore.removeTab(dragState.sourceTabId)
-      } catch (e) {
-        console.error('Failed to detach tab:', e)
-      }
-    }
-  }
-  
-  resetDragState()
-}
-
 async function detachTab() {
   const tabId = contextMenu.value.tabId
   if (!tabId) return
@@ -756,9 +407,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleGlobalClick)
   document.removeEventListener('keydown', handleGlobalKeydown)
-  if (dragLeaveTimer) {
-    clearTimeout(dragLeaveTimer)
-  }
 })
 </script>
 
@@ -935,7 +583,7 @@ onUnmounted(() => {
 </style>
 
 <style>
-.tab-drag-ghost {
+.tab-drag-image {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
@@ -946,7 +594,10 @@ onUnmounted(() => {
   font-size: 13px;
   color: var(--text-primary, #333);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .window-edge-indicator {

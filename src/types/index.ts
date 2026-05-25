@@ -1,6 +1,6 @@
-import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, LineEnding, SearchResult, SearchOptions } from '../../electron-protocol/index'
+import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData } from '../../electron-protocol/index'
 
-export type { ElectronAPI, LineEnding, SearchResult, SearchOptions }
+export type { ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData }
 
 export interface TabState {
   id: string
@@ -95,4 +95,76 @@ declare global {
   interface Window {
     electronAPI?: ElectronAPI
   }
+}
+
+// ========== 拖放相关类型定义 ==========
+
+/**
+ * 拖放的标签信息
+ * 用于标识正在被拖放的标签及其所属窗口
+ */
+export interface DraggedTabIdentifier {
+  readonly tabId: string
+  readonly windowId: number
+}
+
+/**
+ * 拖放的标签组信息
+ * 用于整组标签拖放操作
+ */
+export interface DraggedTabGroupIdentifier {
+  readonly windowId: number
+}
+
+/**
+ * 拖放操作的目标类型
+ * - none: 无有效目标
+ * - tab: 拖放到另一个标签
+ * - windowEdge: 拖放到窗口边缘（用于拆分窗口）
+ * - outsideWindow: 拖放到窗口外部（用于创建新窗口）
+ */
+export type DropTargetType = 'none' | 'tab' | 'windowEdge' | 'outsideWindow'
+
+/**
+ * 拖放状态接口
+ * 跟踪整个拖放操作的状态信息
+ */
+export interface DragDropState {
+  sourceTabId: string | null
+  targetType: DropTargetType
+  targetTabId: string | null
+  targetWindowId: number | null
+  windowEdgeDirection: 'left' | 'right' | null
+  insertIndex: number
+  mousePosition: { x: number, y: number }
+  isNewWindowOperation: boolean
+}
+
+/**
+ * 窗口信息接口
+ * 包含窗口的基本信息
+ */
+export interface WindowInfo {
+  id: number
+  title: string
+  bounds: { x: number; y: number; width: number; height: number }
+}
+
+/**
+ * 新建窗口选项
+ * 用于控制新窗口的创建参数
+ */
+export interface OpenWindowOptions {
+  bounds?: { x: number; y: number; width?: number; height?: number }
+  tabData?: DetachedTabData
+}
+
+/**
+ * 合并标签选项
+ * 用于将分离的标签合并到指定窗口
+ */
+export interface MergeTabOptions {
+  tabData: DetachedTabData
+  targetWindowId: number
+  insertIndex?: number
 }

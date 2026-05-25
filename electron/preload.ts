@@ -1,8 +1,6 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import { 
-  IPCResponse, 
-  FileTreeNode,
-  DirectoryEntry,
+  IPCResponse,
   ElectronAPI,
   IPC_CHANNELS,
   MENU_EVENTS,
@@ -10,7 +8,7 @@ import {
   DetachedTabData
 } from '../electron-protocol'
 
-export type { IPCResponse, FileTreeNode, DirectoryEntry } from '../electron-protocol'
+export type { IPCResponse, DetachedTabData } from '../electron-protocol'
 
 function createIpcHandler<T>(
   channel: string,
@@ -93,8 +91,20 @@ const api: ElectronAPI = {
   setAlwaysOnTop: (flag) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, flag),
   
-  openNewWindow: (options?: { filePath?: string; tabData?: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number } } }) => 
+  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData; bounds?: { x: number; y: number; width?: number; height?: number } }) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, options),
+  
+  getCursorScreenPoint: () => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.GET_CURSOR_SCREEN_POINT),
+  
+  getScreenDisplay: () => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.GET_SCREEN_DISPLAY),
+  
+  onDragStart: (callback: (tabId: string) => void) => 
+    createMenuListener(IPC_CHANNELS.WINDOW.DRAG_START, callback),
+  
+  onDragEnd: (callback: () => void) => 
+    createMenuListener(IPC_CHANNELS.WINDOW.DRAG_END, callback),
   
   mergeTab: (tabData: DetachedTabData, targetWindowId: number) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.MERGE_TAB, { tabData, targetWindowId }),
