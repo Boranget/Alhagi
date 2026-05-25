@@ -96,6 +96,7 @@ async function openFolderFromMenu() {
     const result = await window.electronAPI.openFolder()
     if (result.success && result.data) {
       await fileStore.openFolderByPath(result.data.path)
+      prefsStore.showSidebar = true
     }
   }
 
@@ -321,6 +322,7 @@ onMounted(() => {
           const folderResult = result as { success: boolean; data?: { path: string } }
           if (folderResult.success && folderResult.data) {
             fileStore.openFolderByPath(folderResult.data!.path)
+            prefsStore.showSidebar = true
           }
         })
       }
