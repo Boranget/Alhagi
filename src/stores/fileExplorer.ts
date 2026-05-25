@@ -62,7 +62,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
 
     try {
       const response = await window.electronAPI.readFile(filePath)
-      if (response && response.success && response.data) {
+      if (response && response.success && response.data !== undefined) {
         return response.data
       }
       return null

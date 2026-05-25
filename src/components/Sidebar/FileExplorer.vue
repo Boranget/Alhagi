@@ -122,12 +122,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { extractTitleFromPath } from '@/utils/helpers'
+import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
@@ -171,16 +171,32 @@ const newItemDialog = ref<NewItemDialog>({
   targetNode: null
 })
 
-const contextMenuItems: ContextMenuItem[] = [
+const baseContextMenuItems: ContextMenuItem[] = [
   { id: 'new-file', label: t('common.newFile'), icon: 'file' },
   { id: 'new-folder', label: t('common.newFolder'), icon: 'folder' },
   { id: 'rename', label: t('common.rename'), icon: 'edit' },
-  { id: 'move-to', label: '移动到...', icon: 'folder' },
-  { id: 'copy-to', label: '复制到...', icon: 'copy' },
   { id: 'delete', label: t('common.delete'), icon: 'trash' },
   { id: 'copy-path', label: '复制路径', icon: 'copy' },
   { id: 'open-in-explorer', label: '在系统文件管理器中显示', icon: 'folder' }
 ]
+
+const fileOnlyMenuItems: ContextMenuItem[] = [
+  { id: 'move-to', label: '移动到...', icon: 'folder' },
+  { id: 'copy-to', label: '复制到...', icon: 'copy' }
+]
+
+const contextMenuItems = computed(() => {
+  if (!contextMenu.value.node) return baseContextMenuItems
+  if (contextMenu.value.node.type === 'file') {
+    const result = [...baseContextMenuItems]
+    const renameIndex = result.findIndex(item => item.id === 'rename')
+    if (renameIndex !== -1) {
+      result.splice(renameIndex + 1, 0, ...fileOnlyMenuItems)
+    }
+    return result
+  }
+  return baseContextMenuItems
+})
 
 async function openFolder() {
   const result = await fileStore.openFolder()
@@ -192,8 +208,20 @@ async function openFolder() {
 
 async function handleSelect(node: FileTreeNodeType) {
   if (node.type === 'file') {
-    const content = await fileStore.openFile(node.path)
-    if (content !== null) {
+    let content: string | null = null
+    
+    if (window.electronAPI) {
+      try {
+        const response = await window.electronAPI.readFile(node.path)
+        if (response && response.success && response.data !== undefined) {
+          content = response.data
+        }
+      } catch (err) {
+        console.error('[FileExplorer] Error reading file:', err)
+      }
+    }
+    
+    if (content !== null && content !== undefined) {
       const existingTab = Array.from(tabsStore.tabs.values()).find(
         t => t.filePath === node.path
       )
@@ -336,23 +364,26 @@ function closeNewItemDialog() {
 
 async function confirmNewItem() {
   const { isFolder, name, targetNode } = newItemDialog.value
+  
   if (!name.trim()) {
     return
   }
 
   let parentPath = fileStore.currentFolder || ''
-    if (targetNode) {
-      if (targetNode.type === 'directory') {
-        parentPath = targetNode.path
-      } else {
-        parentPath = targetNode.path.split('/').slice(0, -1).join('/')
-      }
+  if (targetNode) {
+    if (targetNode.type === 'directory') {
+      parentPath = targetNode.path
+    } else {
+      parentPath = getDirname(targetNode.path)
     }
+  }
+
+  const finalName = isFolder ? name : (name.endsWith('.md') ? name : name + '.md')
 
   if (isFolder) {
     await fileStore.createDirectory(parentPath, name)
   } else {
-    await fileStore.createFile(parentPath, name.endsWith('.md') ? name : name + '.md')
+    await fileStore.createFile(parentPath, finalName)
   }
 
   closeNewItemDialog()

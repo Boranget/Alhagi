@@ -91,10 +91,8 @@ const isSelected = computed(() => {
 
 function handleClick() {
   if (props.node.type === 'directory') {
-    // 文件夹：单击展开/折叠
     emit('toggle', props.node)
   } else {
-    // 文件：单击选择
     emit('select', props.node)
   }
 }
