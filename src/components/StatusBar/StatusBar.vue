@@ -98,12 +98,14 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
 
 const activeTab = computed(() => tabsStore.activeTab)
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
@@ -150,14 +152,6 @@ const isDarkMode = computed(() => {
 
 function toggleSidebar() {
   prefsStore.showSidebar = !prefsStore.showSidebar
-}
-
-function toggleTypewriterMode() {
-  prefsStore.typewriterMode = !prefsStore.typewriterMode
-}
-
-function toggleFocusMode() {
-  prefsStore.focusMode = !prefsStore.focusMode
 }
 
 /**

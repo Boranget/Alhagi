@@ -1,6 +1,10 @@
 <template>
   <div
     class="editor-container"
+    :class="{
+      'focus-mode': prefsStore.focusMode,
+      'typewriter-mode': prefsStore.typewriterMode
+    }"
     :style="containerStyle"
   >
     <FloatingSearch ref="floatingSearchRef" />
@@ -604,15 +608,74 @@ function setupImagePaste() {
     }
   }
 
+  // ── 打字机模式 ──
   &.typewriter-mode {
-    .editor-wysiwyg, .codemirror-editor, .editor-split-source, .editor-split-preview {
-      scroll-behavior: smooth;
+    // WYSIWYG 视图：给 ProseMirror 添加大量上下 padding，
+    // 确保即使文档很短，光标也能被滚动到视口中央
+    .editor-wysiwyg, .editor-split-preview {
+      :deep(.ProseMirror) {
+        padding-top: 45vh !important;
+        padding-bottom: 45vh !important;
+        min-height: 100%;
+      }
+    }
+
+    // 源码视图：通过 scroll-padding 实现类似效果
+    .codemirror-editor {
+      :deep(.cm-scroller) {
+        scroll-padding-top: 45vh;
+        scroll-padding-bottom: 45vh;
+      }
+    }
+
+    // 分屏源码
+    .editor-split-source {
+      :deep(.cm-scroller) {
+        scroll-padding-top: 45vh;
+        scroll-padding-bottom: 45vh;
+      }
     }
   }
 
+  // ── 专注模式 ──
   &.focus-mode {
-    .editor-wysiwyg, .codemirror-editor {
-      background: var(--bg-primary);
+    // WYSIWYG：弱化非当前段落，高亮当前段落
+    .editor-wysiwyg, .editor-split-preview {
+      :deep(.ProseMirror) {
+        // 所有顶层块级元素默认变暗
+        > * {
+          opacity: 0.25;
+          transition: opacity 0.35s ease;
+        }
+
+        // 当前光标所在段落保持明亮
+        > *.focus-highlight {
+          opacity: 1;
+        }
+
+        // 被选中的文本仍然可见
+        ::selection {
+          opacity: 1;
+        }
+      }
+    }
+
+    // 源码视图：弱化非当前行
+    .codemirror-editor, .editor-split-source {
+      :deep(.cm-content) {
+        // CodeMirror 按行渲染，整体轻微变暗
+        opacity: 0.6;
+        transition: opacity 0.35s ease;
+
+        .cm-activeLine {
+          opacity: 1 !important;
+        }
+
+        // 光标行保持完整可见
+        .cm-activeLine * {
+          opacity: 1 !important;
+        }
+      }
     }
   }
 

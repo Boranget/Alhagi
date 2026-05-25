@@ -177,3 +177,40 @@ textarea {
     box-shadow: 0 0 0 4px rgba(255, 153, 0, 0.4);
   }
 }
+
+// ──────────────────────────────────────────
+// 打字机模式 & 专注模式 —— 全局 body 级样式
+// ──────────────────────────────────────────
+
+// 打字机模式：全局平滑滚动
+body.typewriter-mode {
+  .editor-wysiwyg,
+  .editor-split-preview,
+  .codemirror-editor,
+  .editor-split-source {
+    scroll-behavior: auto; // JS 控制 instant 滚动，CSS 不需要 smooth
+  }
+}
+
+// 专注模式：暗色遮罩背景，强化编辑器区域焦点
+body.focus-mode {
+  // 编辑器区域外的元素进一步弱化（需要时可通过深层选择器覆盖）
+  .app-content {
+    // 侧边栏、状态栏等保持原样（不需要额外处理）
+  }
+
+  // 编辑器背景微调
+  .editor-container {
+    background: var(--editor-bg);
+  }
+
+  // CodeMirror 源码模式的活跃行加亮
+  .cm-activeLine {
+    background-color: color-mix(in srgb, var(--primary-color) 8%, transparent) !important;
+  }
+
+  // 暗色主题下 CodeMirror 活跃行
+  [data-theme="dark"] & .cm-activeLine {
+    background-color: color-mix(in srgb, var(--primary-color) 12%, transparent) !important;
+  }
+}
