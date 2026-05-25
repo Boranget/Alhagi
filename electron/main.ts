@@ -64,7 +64,7 @@ function createWindow() {
     }
   })
 
-  mainWindow.on('closed', () => { if (mainWindow) { windows.delete(mainWindow.id) }; mainWindow = null })
+  mainWindow.on('closed', () => { if (mainWindow) { windows.delete(mainWindow.id) } mainWindow = null })
 
   if (VITE_DEV_SERVER_URL) mainWindow.loadURL(VITE_DEV_SERVER_URL)
   else mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))

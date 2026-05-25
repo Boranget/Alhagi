@@ -22,7 +22,10 @@
         :class="{ active: activeTab === 'files' }"
         @click="activeTab = 'files'"
       >
-        <Icon name="file" size="sm" />
+        <Icon
+          name="file"
+          size="sm"
+        />
         {{ t('common.openFile') }}
       </button>
       <button
@@ -30,7 +33,10 @@
         :class="{ active: activeTab === 'folders' }"
         @click="activeTab = 'folders'"
       >
-        <Icon name="folder" size="sm" />
+        <Icon
+          name="folder"
+          size="sm"
+        />
         {{ t('common.openFolder') }}
       </button>
     </div>

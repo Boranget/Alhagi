@@ -1,5 +1,8 @@
 <template>
-  <div class="tab-bar" @dragover.prevent="handleTabBarDragOver($event)">
+  <div
+    class="tab-bar"
+    @dragover.prevent="handleTabBarDragOver($event)"
+  >
     <div class="tabs-container">
       <div
         v-for="tabId in tabsStore.tabOrder"

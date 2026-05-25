@@ -1,12 +1,11 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
-import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
-import { $prose, getMarkdown, insert } from '@milkdown/kit/utils'
+import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
+import { insert, $prose } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
-import { Slice, Fragment } from '@milkdown/kit/prose/model'
-import { Selection, TextSelection, Plugin, PluginKey, EditorState, Transaction } from '@milkdown/kit/prose/state'
-import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
+import { Slice } from '@milkdown/kit/prose/model'
+import { Selection } from '@milkdown/kit/prose/state'
+import { Plugin } from '@milkdown/kit/prose/state'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
-import { nord } from '@uiw/codemirror-theme-nord'
 import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
@@ -15,210 +14,10 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { generateSlug } from '@/utils/headings'
+import { getSearchPlugin, useEditorSearchManager } from './EditorSearchManager'
 
-interface SearchQuery {
-  search: string
-  caseSensitive: boolean
-  wholeWord: boolean
-  regexp: boolean
-}
-
-interface SearchState {
-  query: SearchQuery | null
-  decorations: DecorationSet
-  currentMatchIndex: number
-  totalMatches: number
-}
-
-const searchPluginKey = new PluginKey<SearchState>('search-highlight')
-
-// 文本内容缓存，提升搜索性能
-const TextContentCache = new WeakMap<any, string>()
-
-function textContent(node: any): string {
-  const cached = TextContentCache.get(node)
-  if (cached) return cached
-  
-  let content = ''
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i)
-    if (child.isText) {
-      content += child.text
-    } else if (child.isLeaf) {
-      content += '\ufffc'
-    } else {
-      content += ' ' + textContent(child) + ' '
-    }
-  }
-  TextContentCache.set(node, content)
-  return content
-}
-
-// 解析替换文本中的分组占位符 ($1, $& 等)
-function parseReplacement(text: string): Array<string | { group: number; copy: boolean }> {
-  const result: Array<string | { group: number; copy: boolean }> = []
-  let highestSeen = -1
-
-  function add(part: string) {
-    const last = result.length - 1
-    if (last > -1 && typeof result[last] === 'string') {
-      result[last] += part
-    } else {
-      result.push(part)
-    }
-  }
-
-  let remaining = text
-  while (remaining.length) {
-    const match = /\$([$&\d+])/.exec(remaining)
-    if (!match) {
-      add(remaining)
-      return result
-    }
-    if (match.index > 0) {
-      add(remaining.slice(0, match.index + (match[1] === '$' ? 1 : 0)))
-    }
-    if (match[1] !== '$') {
-      const n = match[1] === '&' ? 0 : +match[1]
-      if (highestSeen >= n) {
-        result.push({ group: n, copy: true })
-      } else {
-        highestSeen = n || 1000
-        result.push({ group: n, copy: false })
-      }
-    }
-    remaining = remaining.slice(match.index + match[0].length)
-  }
-  return result
-}
-
-// 获取分组索引
-function getGroupIndices(match: RegExpExecArray): Array<[number, number] | undefined> {
-  if ((match as any).indices) return (match as any).indices
-  const result: Array<[number, number] | undefined> = [[0, match[0].length]]
-  for (let i = 1, pos = 0; i < match.length; i++) {
-    const found = match[i] ? match[0].indexOf(match[i], pos) : -1
-    result.push(found < 0 ? undefined : [found, pos = found + match[i].length])
-  }
-  return result
-}
-
-function buildSearchDecorations(state: EditorState, query: SearchQuery): { decorations: DecorationSet; total: number } {
-  const decorations: Decoration[] = []
-  let matchIndex = 0
-  
-  const doc = state.doc
-  const sel = state.selection
-  
-  doc.descendants((node: any, pos: number) => {
-    if (node.isText && node.text) {
-      const text = node.text
-      let regex: RegExp | null = null
-      
-      try {
-        let pattern = query.search
-        
-        if (!query.regexp) {
-          pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        }
-        
-        if (query.wholeWord) {
-          pattern = `\\b${pattern}\\b`
-        }
-        
-        const flags = query.caseSensitive ? 'g' : 'gi'
-        regex = new RegExp(pattern, flags)
-      } catch {
-        return
-      }
-
-      let match: RegExpExecArray | null
-      while ((match = regex.exec(text)) !== null) {
-        const from = pos + match.index
-        const to = from + match[0].length
-        const isActive = from === sel.from && to === sel.to
-        decorations.push(
-          Decoration.inline(from, to, {
-            class: isActive ? 'ProseMirror-active-search-match' : 'ProseMirror-search-match'
-          })
-        )
-        matchIndex++
-      }
-    }
-  })
-
-  return {
-    decorations: DecorationSet.create(doc, decorations),
-    total: matchIndex
-  }
-}
-
-const searchPlugin = $prose(() => new Plugin<SearchState>({
-  key: searchPluginKey,
-  props: {
-    decorations: (state) => {
-      const pluginState = searchPluginKey.getState(state)
-      return pluginState?.decorations || DecorationSet.empty
-    }
-  },
-  state: {
-    init: (): SearchState => ({
-      query: null,
-      decorations: DecorationSet.empty,
-      currentMatchIndex: 0,
-      totalMatches: 0
-    }),
-    apply: (tr: Transaction, value: SearchState, _prevState: EditorState, state: EditorState): SearchState => {
-      const newState = { ...value }
-      
-      newState.decorations = newState.decorations.map(tr.mapping, tr.doc)
-      
-      const searchMeta = tr.getMeta(searchPluginKey)
-      if (searchMeta) {
-        const { type, query } = searchMeta
-        if (type === 'set' && query) {
-          newState.query = query
-          const { decorations, total } = buildSearchDecorations(state, query)
-          newState.decorations = decorations
-          newState.totalMatches = total
-          newState.currentMatchIndex = 0
-        } else if (type === 'clear') {
-          newState.query = null
-          newState.decorations = DecorationSet.empty
-          newState.currentMatchIndex = 0
-          newState.totalMatches = 0
-        }
-      } else if (tr.selectionSet && newState.query) {
-        const { decorations, total } = buildSearchDecorations(state, newState.query)
-        newState.decorations = decorations
-        newState.totalMatches = total
-      }
-      
-      return newState
-    }
-  }
-}))
-
-/**
- * 图像路径解析插件
- *
- * 核心设计原则：MD 内容保持原样，只在渲染时解析图片路径。
- *
- * 工作方式：
- * - 在每次编辑器状态更新后，遍历 DOM 中的所有 <img> 元素
- * - 对每个 img 的 src 调用 resolveImageToDisplayUrl() 转换为可显示的 URL
- * - 这个过程不修改 ProseMirror 文档模型，只修改渲染出的 DOM
- *
- * 支持的路径类型：
- * - https://... / http://... → 直接使用
- * - file://... → 直接使用
- * - D:/path/... → 添加 file:/// 前缀
- * - /abs/path → 添加 file:// 前缀
- * - ./img.png / img.png / ../img.png → 基于 MD 文件目录解析
- */
 const imagePathPlugin = $prose(() => new Plugin({
-  view(editorView) {
-    // 初始渲染后立即修复图片路径（此时 DOM 可能尚未完成，用 rAF 延迟一帧）
+  view(editorView: any) {
     requestAnimationFrame(() => {
       fixImageSources(editorView.dom)
     })
@@ -258,12 +57,13 @@ export class CrepeEditorManager {
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
+  private searchManager = useEditorSearchManager()
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
   }
 
-setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
+  setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.activeEditor = editor
     eventBus.emit(AppEvents.ACTIVE_EDITOR_CHANGED, { editor })
   }
@@ -272,9 +72,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     return this.activeEditor
   }
 
-  /**
-   * 注册光标变化回调，供大纲组件使用
-   */
   onCursorChange(handler: (from: number, to: number) => void): void {
     this.cursorChangeHandler = handler
   }
@@ -289,8 +86,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
 
     this.currentTabId = tabId || null
     this.container = container
-    
-    // MD 内容原样使用，不做路径转换（渲染时由 imagePathPlugin 解析路径）
     this.content = initialContent
 
     const isDark = this.isDarkMode()
@@ -323,7 +118,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           }, 200)
         )
 
-        // 监听编辑器更新（包括光标/选区变化）
         ctx.get(listenerCtx).updated((ctx) => {
           try {
             const view = ctx.get(editorViewCtx)
@@ -335,11 +129,12 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         })
       })
       .use(listener)
-      .use(searchPlugin)
+      .use(getSearchPlugin())
       .use(imagePathPlugin)
 
     try {
       await this.crepe.create()
+      this.searchManager.init(this.crepe.editor)
     } catch (error) {
       console.error('[CrepeEditorManager] crepe.create() failed:', error)
       throw error
@@ -363,7 +158,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
 
     try {
       const markdown = this.crepe.getMarkdown()
-      // MD 内容原样返回，不做路径转换
       return markdown || this.content
     } catch (error) {
       console.error('[CrepeEditorManager] Failed to get markdown:', error)
@@ -386,8 +180,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
 
     this.isUpdatingContent = true
-    
-    // MD 内容原样使用，渲染时由 imagePathPlugin 解析图片路径
     this.content = content
 
     const startTime = performance.now()
@@ -416,7 +208,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
 
           const docSize = doc.content.size
           if (docSize <= 2) {
-            // 文档极小时（如仅空段落），done 位置为 1，resolve 安全
             tr = tr.setSelection(Selection.near(tr.doc.resolve(1)))
           } else {
             const safeFrom = Math.max(0, Math.min(from, docSize - 2))
@@ -427,8 +218,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           console.error('[CrepeEditorManager] Error updating editor:', innerError)
         }
       })
-
-      const setTime = performance.now() - startTime
 
       if (this.currentTabId) {
         this.contentCache.set(this.currentTabId, content)
@@ -547,24 +336,9 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     })
   }
 
-  /**
-   * 在 ProseMirror/WYSIWYG 编辑器中滚动到指定标题
-   * 
-   * 实现原理（参考 MarkText/Typora）：
-   * 1. 直接使用 ProseMirror 节点位置（pos）定位
-   * 2. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
-   * 3. 定位到真正的滚动容器（.editor-wysiwyg 或 .editor-split-preview）
-   * 4. 计算标题相对于滚动容器的位置
-   * 5. 使用 scrollTo 执行平滑滚动
-   * 
-   * @param text - 标题文本内容（仅用于日志，不参与定位）
-   * @param line - 标题所在行号（仅用于日志，不参与定位）
-   * @param pos - ProseMirror 节点位置（必需，用于精确定位）
-   */
   scrollToHeading(text: string, line: number, pos?: number): void {
     if (!this.crepe || !this.isInitialized) return
     
-    // pos 是必需的，如果没有提供则无法定位
     if (pos === undefined || pos < 0) {
       console.warn('[CrepeEditorManager] scrollToHeading: pos is required but not provided')
       return
@@ -575,9 +349,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         const view = ctx.get(editorViewCtx)
         const targetPos = pos
         
-        // 直接使用 pos 进行定位
         const resolvedPos = view.state.doc.resolve(targetPos)
-        // 关键：在 transaction 上调用 scrollIntoView()，让 ProseMirror 知道需要滚动
         const tr = view.state.tr
           .setSelection(Selection.near(resolvedPos, 1))
           .scrollIntoView()
@@ -585,11 +357,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         view.dispatch(tr)
         view.focus()
 
-        // 延迟执行 DOM 滚动，确保 ProseMirror 已更新 DOM
         setTimeout(() => {
           try {
-            // 步骤 1: 获取标题对应的 DOM 元素
-            // 优先使用 ProseMirror 的 nodeDOM API，它返回节点对应的真实 DOM
             const node = view.state.doc.nodeAt(targetPos)
             let targetElement: HTMLElement | null = null
             
@@ -602,21 +371,17 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
               }
             }
             
-            // 备用方案：如果 nodeDOM 失败，通过 domAtPos 查找最近的 heading 元素
             if (!targetElement) {
               const domResult = view.domAtPos(targetPos)
               if (domResult && domResult.node) {
                 if (domResult.node.nodeType === Node.ELEMENT_NODE) {
                   const el = domResult.node as HTMLElement
-                  // 如果直接就是 heading 元素
                   if (el.tagName && /^H[1-6]$/.test(el.tagName)) {
                     targetElement = el
                   } else {
-                    // 否则向上查找最近的 heading 父元素
                     targetElement = el.closest('h1, h2, h3, h4, h5, h6')
                   }
                 } else {
-                  // 文本节点，向上查找 heading
                   targetElement = (domResult.node as Text).parentElement?.closest('h1, h2, h3, h4, h5, h6') || null
                 }
               }
@@ -624,32 +389,21 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
             
             if (!targetElement) return
             
-            // 步骤 2: 找到真正的滚动容器
-            // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
             let scrollContainer: HTMLElement | null = targetElement.closest('.editor-wysiwyg, .editor-split-preview')
             
-            // 如果没找到，尝试从 view.dom 向上查找
             if (!scrollContainer) {
               scrollContainer = view.dom.parentElement?.closest('.editor-wysiwyg, .editor-split-preview') || null
             }
             
             if (!scrollContainer) return
             
-            // 步骤 3: 计算滚动位置
-            // 使用 getBoundingClientRect 获取相对于视口的位置，避免受 CSS transform 影响
             const elementRect = targetElement.getBoundingClientRect()
             const containerRect = scrollContainer.getBoundingClientRect()
             
-            // 计算公式：
-            // relativeTop = 标题相对于视口的位置 - 容器相对于视口的位置
-            //             = 标题相对于容器顶部的位置
-            // targetScrollTop = 当前滚动位置 + 相对位置 - 边距
             const scrollTop = scrollContainer.scrollTop
             const relativeTop = elementRect.top - containerRect.top
-            const targetScrollTop = scrollTop + relativeTop - 20 // 留 20px 边距，让标题不紧贴顶部
+            const targetScrollTop = scrollTop + relativeTop - 20
             
-            // 步骤 4: 执行平滑滚动
-            // 使用 Math.max(0, ...) 确保滚动位置不为负数
             scrollContainer.scrollTo({
               top: Math.max(0, targetScrollTop),
               behavior: 'smooth'
@@ -659,7 +413,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           }
         }, 50)
 
-        // 额外触发一次光标变化通知，更新大纲高亮状态
         const { from, to } = view.state.selection
         this.emitCursorChange(from, to)
       } catch (error) {
@@ -668,9 +421,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     })
   }
 
-  /**
-   * 获取当前光标在 WYSIWYG 编辑器中所在的行号（相对于整个文档文本）
-   */
   getCurrentCursorLine(): number {
     if (!this.crepe || !this.isInitialized) return 0
 
@@ -679,7 +429,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       try {
         const view = ctx.get(editorViewCtx)
         const { from } = view.state.selection
-        // 通过内容文本计算行号
         const text = view.state.doc.textBetween(0, from)
         line = text.split('\n').length
       } catch {
@@ -689,11 +438,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     return line
   }
 
-  /**
-   * 从 ProseMirror 文档中获取所有标题及其节点位置
-   * 
-   * @returns 包含 pos 信息的标题列表
-   */
   getHeadingsWithPos(): HeadingItem[] {
     if (!this.crepe || !this.isInitialized) return []
     
@@ -704,13 +448,11 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         const view = ctx.get(editorViewCtx)
         const doc = view.state.doc
         
-        // 遍历 ProseMirror 文档查找所有标题节点
         doc.descendants((node, pos) => {
           if (node.type.name === 'heading') {
             const text = node.textContent.trim()
             const level = node.attrs.level || 1
             
-            // 计算行号（通过统计之前的换行符）
             const textBefore = doc.textBetween(0, pos)
             const line = textBefore.split('\n').length
             
@@ -719,7 +461,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
               level,
               slug: generateSlug(text),
               line,
-              pos  // 存储 ProseMirror 节点位置
+              pos
             })
           }
         })
@@ -755,7 +497,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       return
     }
 
-    // MD 内容原样存储，不做路径转换
     this.content = markdown
 
     if (this.currentTabId) {
@@ -811,339 +552,28 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     await this.init(container, currentContent, tabId || undefined)
   }
 
-  private findAllMatches(state: EditorState, query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> {
-    const matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
-    
-    const doc = state.doc
-    doc.descendants((node: any, pos: number) => {
-      if (node.isText && node.text && query.search) {
-        const text = node.text
-        let regex: RegExp | null = null
-        
-        try {
-          let pattern = query.search
-          
-          if (!query.regexp) {
-            pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          }
-          
-          if (query.wholeWord) {
-            pattern = `\\b${pattern}\\b`
-          }
-          
-          const flags = query.caseSensitive ? 'g' : 'gi'
-          regex = new RegExp(pattern, flags)
-        } catch {
-          return
-        }
-
-        let match: RegExpExecArray | null
-        while ((match = regex.exec(text)) !== null) {
-          matches.push({
-            from: pos + match.index,
-            to: pos + match.index + match[0].length,
-            match: query.regexp ? match : undefined,
-            matchStart: pos
-          })
-        }
-      }
-    })
-    
-    return matches
-  }
-
-  // 搜索相关方法
-  search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }): { current: number; total: number } {
-    if (!this.crepe || !this.isInitialized) {
-      return { current: 0, total: 0 }
-    }
-
-    let totalMatches = 0
-    let currentMatchIndex = 0
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const state = view.state
-      
-      const searchQuery: SearchQuery = {
-        search: query.search,
-        caseSensitive: query.caseSensitive ?? false,
-        wholeWord: query.wholeWord ?? false,
-        regexp: query.regexp ?? false,
-      }
-
-      const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
-      view.dispatch(tr)
-
-      const matches = this.findAllMatches(state, searchQuery)
-      totalMatches = matches.length
-      
-      const sel = state.selection
-      currentMatchIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-      if (currentMatchIndex === -1 && matches.length > 0) {
-        currentMatchIndex = 0
-        const firstMatch = matches[0]
-        const selectTr = view.state.tr.setSelection(new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to))).scrollIntoView()
-        view.dispatch(selectTr)
-      }
-    })
-
-    return {
-      current: currentMatchIndex,
-      total: totalMatches
-    }
+  search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
+    return this.searchManager.search(query)
   }
 
   clearSearch(): void {
-    if (!this.crepe || !this.isInitialized) {
-      return
-    }
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const tr = view.state.tr.setMeta(searchPluginKey, { type: 'clear' })
-      view.dispatch(tr)
-    })
+    this.searchManager.clearSearch()
   }
 
-  findNext(): { current: number; total: number } {
-    if (!this.crepe || !this.isInitialized) {
-      return { current: 0, total: 0 }
-    }
-
-    let totalMatches = 0
-    let currentMatchIndex = 0
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const state = view.state
-      
-      const pluginState = searchPluginKey.getState(state)
-      if (!pluginState || !pluginState.query || !pluginState.query.search) {
-        return
-      }
-
-      const matches = this.findAllMatches(state, pluginState.query)
-      totalMatches = matches.length
-      
-      if (matches.length === 0) {
-        return
-      }
-
-      const sel = state.selection
-      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-      
-      if (currentIndex === -1) {
-        currentIndex = 0
-      } else {
-        currentIndex = (currentIndex + 1) % matches.length
-      }
-
-      const nextMatch = matches[currentIndex]
-      const tr = state.tr.setSelection(new TextSelection(state.doc.resolve(nextMatch.from), state.doc.resolve(nextMatch.to))).scrollIntoView()
-      view.dispatch(tr)
-      
-      currentMatchIndex = currentIndex
-    })
-
-    return {
-      current: currentMatchIndex,
-      total: totalMatches
-    }
+  findNext() {
+    return this.searchManager.findNext()
   }
 
-  findPrev(): { current: number; total: number } {
-    if (!this.crepe || !this.isInitialized) {
-      return { current: 0, total: 0 }
-    }
-
-    let totalMatches = 0
-    let currentMatchIndex = 0
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const state = view.state
-      
-      const pluginState = searchPluginKey.getState(state)
-      if (!pluginState || !pluginState.query || !pluginState.query.search) {
-        return
-      }
-
-      const matches = this.findAllMatches(state, pluginState.query)
-      totalMatches = matches.length
-      
-      if (matches.length === 0) {
-        return
-      }
-
-      const sel = state.selection
-      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-      
-      if (currentIndex === -1) {
-        currentIndex = matches.length - 1
-      } else {
-        currentIndex = currentIndex <= 0 ? matches.length - 1 : currentIndex - 1
-      }
-
-      const prevMatch = matches[currentIndex]
-      const tr = state.tr.setSelection(new TextSelection(state.doc.resolve(prevMatch.from), state.doc.resolve(prevMatch.to))).scrollIntoView()
-      view.dispatch(tr)
-      
-      currentMatchIndex = currentIndex
-    })
-
-    return {
-      current: currentMatchIndex,
-      total: totalMatches
-    }
+  findPrev() {
+    return this.searchManager.findPrev()
   }
 
-  replaceNext(replacement: string): { current: number; total: number } {
-    if (!this.crepe || !this.isInitialized) {
-      return { current: 0, total: 0 }
-    }
-
-    let totalMatches = 0
-    let currentMatchIndex = 0
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      const state = view.state
-      
-      const pluginState = searchPluginKey.getState(state)
-      if (!pluginState || !pluginState.query || !pluginState.query.search) {
-        return
-      }
-
-      const matches = this.findAllMatches(state, pluginState.query)
-      
-      if (matches.length === 0) {
-        return
-      }
-
-      const sel = state.selection
-      let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-      
-      if (currentIndex === -1) {
-        currentIndex = 0
-      }
-
-      const match = matches[currentIndex]
-      let tr
-      
-      // 支持正则分组替换
-      if (pluginState.query.regexp && match.match) {
-        // 简化的替换逻辑：直接使用字符串替换而不是复杂的文档切片
-        let replacedText = replacement
-        const regexMatch = match.match
-        
-        // 替换 $&, $1, $2 等
-        replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
-          if (groupId === '&') {
-            return regexMatch[0] || ''
-          }
-          const groupNum = parseInt(groupId, 10)
-          return regexMatch[groupNum] || ''
-        })
-        
-        // 简单地替换整个匹配范围
-        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
-      } else {
-        // 普通替换
-        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
-      }
-      
-      if (tr) {
-        view.dispatch(tr)
-      }
-
-      const newMatches = this.findAllMatches(view.state, pluginState.query)
-      totalMatches = newMatches.length
-      currentMatchIndex = 0
-      
-      if (newMatches.length > 0) {
-        const newTr = view.state.tr.setSelection(new TextSelection(view.state.doc.resolve(newMatches[0].from), view.state.doc.resolve(newMatches[0].to))).scrollIntoView()
-        view.dispatch(newTr)
-      }
-    })
-
-    return {
-      current: currentMatchIndex,
-      total: totalMatches
-    }
+  replaceNext(replacement: string) {
+    return this.searchManager.replaceNext(replacement)
   }
 
-  replaceAll(replacement: string): { replaced: number } {
-    if (!this.crepe || !this.isInitialized) {
-      return { replaced: 0 }
-    }
-
-    let replacedCount = 0
-
-    this.crepe.editor.action((ctx) => {
-      const view = ctx.get(editorViewCtx)
-      
-      const pluginState = searchPluginKey.getState(view.state)
-      if (!pluginState || !pluginState.query || !pluginState.query.search) {
-        return
-      }
-
-      let state = view.state
-      const query = pluginState.query
-      
-      // 先找到所有匹配项
-      const matches = this.findAllMatches(state, query)
-      
-      if (matches.length === 0) {
-        return
-      }
-      
-      // 从后向前替换，避免位置偏移问题
-      for (let i = matches.length - 1; i >= 0; i--) {
-        const match = matches[i]
-        
-        // 检查位置是否还有效（可能前面的替换影响了后面的位置）
-        if (match.to > state.doc.content.size) {
-          continue
-        }
-        
-        let tr
-        
-        // 支持正则分组替换
-        if (query.regexp && match.match) {
-          // 简化的替换逻辑
-          let replacedText = replacement
-          const regexMatch = match.match
-          
-          // 替换 $&, $1, $2 等
-          replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
-            if (groupId === '&') {
-              return regexMatch[0] || ''
-            }
-            const groupNum = parseInt(groupId, 10)
-            return regexMatch[groupNum] || ''
-          })
-          
-          tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
-        } else {
-          // 普通替换
-          tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
-        }
-        
-        if (tr) {
-          view.dispatch(tr)
-          replacedCount++
-        }
-        
-        state = view.state
-        
-        if (replacedCount > 10000) {
-          break
-        }
-      }
-    })
-
-    return { replaced: replacedCount }
+  replaceAll(replacement: string) {
+    return this.searchManager.replaceAll(replacement)
   }
 
   insertImage(imageUrl: string, altText: string): void {
@@ -1153,7 +583,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
 
     try {
-      // 路径原样写入 MD，不做 file:// 转换（渲染时由 imagePathPlugin 统一解析）
       const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
       this.crepe.editor.action(insert(imageMarkdown, true))
     } catch (error) {
@@ -1178,37 +607,36 @@ export function resetCrepeEditorManager(): void {
   }
 }
 
-// 搜索高亮相关功能
 export function useEditorSearch() {
-  const editorManager = useCrepeEditorManager()
+  const searchManager = useEditorSearchManager()
   
   function setSearchHighlight(config: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
     if (config.search) {
-      return editorManager.search(config)
+      return searchManager.search(config)
     } else {
-      editorManager.clearSearch()
+      searchManager.clearSearch()
       return { current: 0, total: 0 }
     }
   }
   
   function clearSearchHighlight() {
-    editorManager.clearSearch()
+    searchManager.clearSearch()
   }
 
   function findNextMatch() {
-    return editorManager.findNext()
+    return searchManager.findNext()
   }
 
   function findPrevMatch() {
-    return editorManager.findPrev()
+    return searchManager.findPrev()
   }
 
   function replaceNextMatch(replacement: string) {
-    return editorManager.replaceNext(replacement)
+    return searchManager.replaceNext(replacement)
   }
 
   function replaceAllMatches(replacement: string) {
-    return editorManager.replaceAll(replacement)
+    return searchManager.replaceAll(replacement)
   }
   
   return {
