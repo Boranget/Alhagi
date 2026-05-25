@@ -78,6 +78,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useImageInsert } from '@/composables/useImageInsert'
+import { useEditorView } from '@/composables/useEditorView'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR, FILE } from '@/constants'
@@ -93,27 +94,24 @@ const prefsStore = usePreferencesStore()
 
 const editorManager = useCrepeEditorManager()
 const { insertImage } = useImageInsert()
+const {
+  currentMode,
+  splitRatio,
+  isResizing,
+  windowWidth,
+  windowHeight,
+  isSmallScreen,
+  editorScale
+} = useEditorView()
 
 const crepeContainer = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 const imagePasteHandler = ref<((e: ClipboardEvent) => void) | null>(null)
 
 const sourceContent = ref('')
-const currentMode = ref<ViewMode>('wysiwyg')
-const splitRatio = ref(50)
-const isResizing = ref(false)
-const windowWidth = ref(window.innerWidth)
-const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
 
 const activeTab = computed(() => tabsStore.activeTab)
-
-const isSmallScreen = computed(() => windowWidth.value < 800)
-const editorScale = computed(() => {
-  if (windowWidth.value < 600) return 0.8
-  if (windowWidth.value < 1000) return 0.9
-  return 1
-})
 
 // 检查文件是否为支持的格式（仅支持 Markdown）
 function isSupportedFileType(filePath: string | null): boolean {
