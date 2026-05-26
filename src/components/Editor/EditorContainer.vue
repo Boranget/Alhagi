@@ -661,10 +661,11 @@ function setupImagePaste() {
       }
     }
 
-    // 源码视图：所有行默认为 60% 透明度，当前活动行保持 100%
+    // 源码视图：所有行默认为弱化状态，当前活动行保持正常
+    // 使用 CodeMirror 内置的 cm-activeLine 类来高亮当前行
     .codemirror-editor, .editor-split-source {
       :deep(.cm-line) {
-        opacity: 0.6;
+        opacity: 0.1;
         transition: opacity 0.35s ease;
 
         &.cm-activeLine {
