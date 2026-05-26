@@ -83,32 +83,6 @@
               </div>
             </div>
             
-            <!-- 文件行为设置 -->
-            <div
-              v-show="activeSection === 'files'"
-              class="settings-section"
-            >
-              <h3>文件打开行为</h3>
-              <div class="setting-item">
-                <label>
-                  <input
-                    v-model="prefsStore.openFileInNewWindow"
-                    type="checkbox"
-                  >
-                  在新窗口中打开文件
-                </label>
-              </div>
-              <div class="setting-item">
-                <label>
-                  <input
-                    v-model="prefsStore.openFolderInNewWindow"
-                    type="checkbox"
-                  >
-                  在新窗口中打开文件夹
-                </label>
-              </div>
-            </div>
-            
             <!-- 界面设置 -->
             <div
               v-show="activeSection === 'appearance'"
@@ -350,7 +324,6 @@ const showKeyboardSettings = ref(false)
 const sections: SettingsSection[] = [
   { id: 'general', label: '通用' },
   { id: 'save', label: '保存' },
-  { id: 'files', label: '文件' },
   { id: 'appearance', label: '外观' },
   { id: 'editor', label: '编辑器' },
   { id: 'images', label: '图片' },

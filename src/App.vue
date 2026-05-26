@@ -296,6 +296,10 @@ onMounted(() => {
   prefsStore.loadPreferences()
   initWritingEnhancement()
 
+  if (prefsStore.devToolsOnStartup && window.electronAPI) {
+    window.electronAPI.openDevTools()
+  }
+
   const launchMode = prefsStore.launchMode
 
   switch (launchMode) {

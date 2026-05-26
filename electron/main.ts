@@ -536,6 +536,11 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.GET_CURSOR_SCREEN_POINT, (event) => {
   }
 })
 
+ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_DEV_TOOLS, () => {
+  mainWindow?.webContents.openDevTools()
+  return createSuccessResponse(true)
+})
+
 ipcMain.handle(IPC_CHANNELS.WINDOW.GET_SCREEN_DISPLAY, () => {
   try {
     const primaryDisplay = screen.getPrimaryDisplay()

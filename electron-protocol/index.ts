@@ -143,7 +143,8 @@ export const IPC_CHANNELS = {
     GET_CURSOR_SCREEN_POINT: 'window:get-cursor-screen-point',
     GET_SCREEN_DISPLAY: 'window:get-screen-display',
     DRAG_START: 'window:drag-start',
-    DRAG_END: 'window:drag-end'
+    DRAG_END: 'window:drag-end',
+    OPEN_DEV_TOOLS: 'window:open-dev-tools'
   }
 } as const;
 
@@ -221,6 +222,7 @@ export interface ElectronAPI {
   setAlwaysOnTop: (flag: boolean) => Promise<IPCResponse<void>>
   getCursorScreenPoint: () => Promise<IPCResponse<{ x: number; y: number } | null>>
   getScreenDisplay: () => Promise<IPCResponse<{ x: number; y: number; width: number; height: number } | null>>
+  openDevTools: () => Promise<IPCResponse<boolean>>
   openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData; bounds?: { x: number; y: number; width: number; height: number } }) => Promise<IPCResponse<boolean | number>>
   mergeTab: (tabData: DetachedTabData, targetWindowId: number) => Promise<IPCResponse<boolean>>
   getWindowId: () => Promise<IPCResponse<number | null>>

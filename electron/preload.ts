@@ -100,6 +100,9 @@ const api: ElectronAPI = {
   getScreenDisplay: () => 
     createIpcHandler(IPC_CHANNELS.WINDOW.GET_SCREEN_DISPLAY),
   
+  openDevTools: () => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_DEV_TOOLS),
+  
   onDragStart: (callback: (tabId: string) => void) => 
     createMenuListener(IPC_CHANNELS.WINDOW.DRAG_START, callback),
   
