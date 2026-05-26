@@ -34,6 +34,11 @@ export function useTabDragDrop() {
     isNewWindowOperation: false
   })
 
+  let lastTargetType: DropTargetType = 'none'
+  let lastTargetTabId: string | null = null
+  let lastTargetWindowId: number | null = null
+  let lastWindowEdgeDirection: 'left' | 'right' | null = null
+
   const windowList = ref<WindowInfo[]>([])
   let currentWindowId: number | null = null
   let hasDroppedOnTab = false
@@ -48,72 +53,26 @@ export function useTabDragDrop() {
     )
   }
 
-  function updateWindowEdgeState(event: DragEvent): void {
-    const EDGE_THRESHOLD = 50
-
-    // 无论鼠标是否在窗口内，都要检查是否有其他窗口在附近
-    const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
-    
-    if (otherWindows.length > 0) {
-      // 计算屏幕坐标
-      const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
-      const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
-
-      // 找到鼠标位置附近的窗口
-      const targetWindow = findWindowAtPoint(otherWindows, screenX, screenY)
-
-      if (targetWindow) {
-        // 如果是在窗口边缘或窗口外，且鼠标指向其他窗口
-        const isNearEdge = 
-          event.clientX < EDGE_THRESHOLD ||
-          event.clientX > window.innerWidth - EDGE_THRESHOLD ||
-          event.clientY < EDGE_THRESHOLD ||
-          event.clientY > window.innerHeight - EDGE_THRESHOLD ||
-          isMouseOutsideWindow(event)
-
-        if (isNearEdge) {
-          // 确定方向（只是视觉指示，不影响实际功能）
-          const direction: 'left' | 'right' =
-            event.clientX < window.innerWidth / 2 ? 'left' : 'right'
-
-          dragState.targetType = 'windowEdge'
-          dragState.windowEdgeDirection = direction
-          dragState.targetWindowId = targetWindow.id
-          dragState.targetTabId = null
-          return
-        }
-      }
-    }
-
-    // 如果鼠标不在边缘且不在指向其他窗口，且鼠标在窗口内，则不做特殊处理
-    // 保持之前的状态，或重置为 none 让它可以成为 tab 目标
-    if (!isMouseOutsideWindow(event)) {
-      dragState.targetType = 'none'
-      dragState.windowEdgeDirection = null
-      dragState.targetWindowId = null
-      dragState.targetTabId = null
-    }
-  }
-
   function findWindowAtPoint(
     winList: WindowInfo[],
     screenX: number,
     screenY: number
   ): WindowInfo | null {
-    for (const w of winList) {
-      const { x, y, width, height } = w.bounds
-      if (screenX >= x && screenX <= x + width &&
-          screenY >= y && screenY <= y + height) {
-        return w
-      }
-    }
-
     let closest: WindowInfo | null = null
     let closestDist = Infinity
 
     for (const w of winList) {
-      const cx = w.bounds.x + w.bounds.width / 2
-      const cy = w.bounds.y + w.bounds.height / 2
+      const { x, y, width, height } = w.bounds
+      
+      // 先检查是否精确命中
+      if (screenX >= x && screenX <= x + width &&
+          screenY >= y && screenY <= y + height) {
+        return w
+      }
+
+      // 同时计算距离，找到最近的窗口
+      const cx = x + width / 2
+      const cy = y + height / 2
       const dist = Math.sqrt((screenX - cx) ** 2 + (screenY - cy) ** 2)
       if (dist < closestDist) {
         closestDist = dist
@@ -139,27 +98,36 @@ export function useTabDragDrop() {
       height: DEFAULT_HEIGHT
     }
 
-    if (window.electronAPI.getCursorScreenPoint) {
-      try {
-        const cursorPoint = await window.electronAPI.getCursorScreenPoint()
-        const display = window.electronAPI.getScreenDisplay ? await window.electronAPI.getScreenDisplay() : null
+    // 使用 Promise.all 并行获取位置信息
+    try {
+      const promises = []
+      
+      if (window.electronAPI.getCursorScreenPoint) {
+        promises.push(window.electronAPI.getCursorScreenPoint())
+      }
+      
+      if (window.electronAPI.getScreenDisplay) {
+        promises.push(window.electronAPI.getScreenDisplay())
+      }
 
-        if (cursorPoint.success && cursorPoint.data) {
-          bounds.x = Math.max(0, cursorPoint.data.x - OFFSET_X)
-          bounds.y = Math.max(0, cursorPoint.data.y - OFFSET_Y)
+      const results = await Promise.all(promises)
+      
+      // 第一个结果是 cursorPoint，第二个是 display（如果请求了）
+      if (results[0]?.success && results[0]?.data) {
+        bounds.x = Math.max(0, results[0].data.x - OFFSET_X)
+        bounds.y = Math.max(0, results[0].data.y - OFFSET_Y)
 
-          if (display?.success && display.data) {
-            if (bounds.x + DEFAULT_WIDTH > display.data.x + display.data.width) {
-              bounds.x = display.data.x + display.data.width - DEFAULT_WIDTH
-            }
-            if (bounds.y + DEFAULT_HEIGHT > display.data.y + display.data.height) {
-              bounds.y = display.data.y + display.data.height - DEFAULT_HEIGHT
-            }
+        if (results[1]?.success && results[1]?.data) {
+          if (bounds.x + DEFAULT_WIDTH > results[1].data.x + results[1].data.width) {
+            bounds.x = results[1].data.x + results[1].data.width - DEFAULT_WIDTH
+          }
+          if (bounds.y + DEFAULT_HEIGHT > results[1].data.y + results[1].data.height) {
+            bounds.y = results[1].data.y + results[1].data.height - DEFAULT_HEIGHT
           }
         }
-      } catch (e) {
-        console.error('Failed to get cursor position:', e)
       }
+    } catch (e) {
+      console.error('Failed to get cursor position:', e)
     }
 
     const result = await window.electronAPI.openNewWindow({
@@ -199,6 +167,11 @@ export function useTabDragDrop() {
     dragState.sourceTabId = tabId
     hasDroppedOnTab = false
 
+    lastTargetType = 'none'
+    lastTargetTabId = null
+    lastTargetWindowId = null
+    lastWindowEdgeDirection = null
+
     await refreshWindowList()
 
     if (window.electronAPI) {
@@ -227,30 +200,77 @@ export function useTabDragDrop() {
 
   function handleDragOver(event: DragEvent, tabId: string): void {
     if (!dragState.sourceTabId) return
-
     if (dragState.sourceTabId === tabId) return
 
-    dragState.mousePosition = {
-      x: event.clientX,
-      y: event.clientY
-    }
+    // 先获取可能的目标状态（不直接更新响应式对象）
+    let newTargetType: DropTargetType = 'none'
+    let newTargetTabId: string | null = null
+    let newTargetWindowId: number | null = null
+    let newWindowEdgeDirection: 'left' | 'right' | null = null
 
     // 先尝试更新窗口边缘状态（支持合并到其他窗口）
-    updateWindowEdgeState(event)
-    
-    // 如果不是在窗口边缘，再检查是否是拖到窗口外
-    if (dragState.targetType !== 'windowEdge') {
-      if (isMouseOutsideWindow(event)) {
-        dragState.targetType = 'outsideWindow'
-        dragState.targetTabId = null
-        dragState.windowEdgeDirection = null
-        dragState.targetWindowId = null
-        return
-      }
-      
-      dragState.targetTabId = tabId
-      dragState.targetType = 'tab'
+    const edgeResult = checkWindowEdge(event)
+    if (edgeResult.targetWindowId) {
+      newTargetType = 'windowEdge'
+      newTargetWindowId = edgeResult.targetWindowId
+      newWindowEdgeDirection = edgeResult.direction
+    } else if (isMouseOutsideWindow(event)) {
+      newTargetType = 'outsideWindow'
+    } else {
+      newTargetType = 'tab'
+      newTargetTabId = tabId
     }
+
+    // 只有在状态真正改变时才更新响应式对象
+    const shouldUpdate = 
+      newTargetType !== lastTargetType ||
+      newTargetTabId !== lastTargetTabId ||
+      newTargetWindowId !== lastTargetWindowId ||
+      newWindowEdgeDirection !== lastWindowEdgeDirection
+
+    if (shouldUpdate) {
+      dragState.targetType = newTargetType
+      dragState.targetTabId = newTargetTabId
+      dragState.targetWindowId = newTargetWindowId
+      dragState.windowEdgeDirection = newWindowEdgeDirection
+
+      lastTargetType = newTargetType
+      lastTargetTabId = newTargetTabId
+      lastTargetWindowId = newTargetWindowId
+      lastWindowEdgeDirection = newWindowEdgeDirection
+    }
+  }
+
+  function checkWindowEdge(event: DragEvent): { 
+    targetWindowId: number | null, 
+    direction: 'left' | 'right' | null 
+  } {
+    const EDGE_THRESHOLD = 50
+    const direction: 'left' | 'right' | null =
+      event.clientX < EDGE_THRESHOLD ? 'left' :
+      event.clientX > window.innerWidth - EDGE_THRESHOLD ? 'right' : null
+
+    const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
+    if (otherWindows.length > 0) {
+      const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
+      const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
+      const targetWindow = findWindowAtPoint(otherWindows, screenX, screenY)
+      
+      if (targetWindow) {
+        const isNearEdge = 
+          event.clientX < EDGE_THRESHOLD ||
+          event.clientX > window.innerWidth - EDGE_THRESHOLD ||
+          event.clientY < EDGE_THRESHOLD ||
+          event.clientY > window.innerHeight - EDGE_THRESHOLD ||
+          isMouseOutsideWindow(event)
+
+        if (isNearEdge) {
+          const edgeDir = event.clientX < window.innerWidth / 2 ? 'left' : 'right'
+          return { targetWindowId: targetWindow.id, direction: edgeDir }
+        }
+      }
+    }
+    return { targetWindowId: null, direction: null }
   }
 
   function handleDragLeave(_event: DragEvent): void {
@@ -305,7 +325,7 @@ export function useTabDragDrop() {
     return true
   }
 
-  async function handleDragEnd(event: DragEvent): Promise<void> {
+  function handleDragEnd(event: DragEvent): void {
     // 1. 首先清理定时器
     if (dragLeaveTimer) {
       clearTimeout(dragLeaveTimer)
@@ -321,78 +341,95 @@ export function useTabDragDrop() {
       return
     }
 
-    // 4. 获取标签数据
-    const tab = tabsStore.tabs.get(sourceTabId)
-    if (!tab) {
-      console.warn('[DragDrop] Tab not found:', sourceTabId)
-      resetDragState()
-      return
-    }
-
-    // 5. 如果已经在标签上放下，不需要处理
+    // 4. 如果已经在标签上放下，不需要处理
     if (hasDroppedOnTab) {
       resetDragState()
       return
     }
 
-    // 6. 序列化标签数据
-    const tabData = serializeTabForIPC(tab)
+    // 5. 复制状态后立即重置（避免阻塞 UI）
+    const currentDragState = {
+      sourceTabId: dragState.sourceTabId,
+      targetType: dragState.targetType,
+      targetTabId: dragState.targetTabId,
+      targetWindowId: dragState.targetWindowId,
+      windowEdgeDirection: dragState.windowEdgeDirection,
+      insertIndex: dragState.insertIndex,
+      isNewWindowOperation: dragState.isNewWindowOperation
+    }
     
-    // 7. 计算屏幕坐标
+    const currentWindowList = [...windowList.value]
+    const currentWindowIdValue = currentWindowId
+
+    // 6. 立即重置响应式状态，让 UI 先恢复
+    resetDragState()
+
+    // 7. 获取标签数据（在状态重置前获取）
+    const tab = tabsStore.tabs.get(sourceTabId)
+    if (!tab) {
+      console.warn('[DragDrop] Tab not found:', sourceTabId)
+      return
+    }
+
+    // 8. 异步执行实际操作，不阻塞用户界面
+    executeDragEndAsync(
+      event,
+      tab,
+      currentDragState,
+      currentWindowList,
+      currentWindowIdValue
+    ).catch(error => {
+      console.error('[DragDrop] Error during async drag end:', error)
+    })
+  }
+
+  async function executeDragEndAsync(
+    event: DragEvent,
+    tab: TabState,
+    currentDragState: any,
+    currentWindowList: WindowInfo[],
+    currentWindowIdValue: number | null
+  ): Promise<void> {
+    const tabData = serializeTabForIPC(tab)
     const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
     const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
     const coordsUnreliable = event.clientX === 0 && event.clientY === 0
 
-    // 8. 获取其他窗口列表
-    const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
-    
-    // 9. 查找目标窗口
+    const otherWindows = currentWindowList.filter(w => w.id !== currentWindowIdValue)
     let targetWindow: WindowInfo | null = null
     
     if (otherWindows.length > 0) {
-      // 优先使用 dragState 中已有的目标窗口
-      if (dragState.targetWindowId) {
-        targetWindow = otherWindows.find(w => w.id === dragState.targetWindowId) ?? null
+      if (currentDragState.targetWindowId) {
+        targetWindow = otherWindows.find(w => w.id === currentDragState.targetWindowId) ?? null
       }
-      
-      // 如果没有找到，根据鼠标屏幕位置重新查找
       if (!targetWindow) {
         targetWindow = findWindowAtPoint(otherWindows, screenX, screenY)
       }
     }
 
-    // 10. 根据目标类型执行相应操作
-    try {
-      const shouldMerge = 
-        (dragState.targetType === 'windowEdge' && targetWindow) || 
-        (dragState.targetType !== 'windowEdge' && 
-         !coordsUnreliable && 
-         targetWindow &&
-         (isMouseOutsideWindow(event) || 
-          event.clientX < 50 || event.clientX > window.innerWidth - 50))
+    const shouldMerge = 
+      (currentDragState.targetType === 'windowEdge' && targetWindow) || 
+      (currentDragState.targetType !== 'windowEdge' && 
+       !coordsUnreliable && 
+       targetWindow &&
+       (isMouseOutsideWindow(event) || 
+        event.clientX < 50 || event.clientX > window.innerWidth - 50))
 
-      if (shouldMerge && targetWindow) {
-        // 合并到目标窗口
-        const merged = await mergeTabToWindow(tabData, targetWindow.id)
-        if (merged) {
-          tabsStore.removeTab(sourceTabId)
-        }
-      } 
-      else if (
-        dragState.targetType === 'outsideWindow' || 
-        (!coordsUnreliable && isMouseOutsideWindow(event))
-      ) {
-        // 创建新窗口
-        const newWindowId = await createNewWindow(tabData)
-        if (newWindowId) {
-          tabsStore.removeTab(sourceTabId)
-        }
+    if (shouldMerge && targetWindow) {
+      const merged = await mergeTabToWindow(tabData, targetWindow.id)
+      if (merged) {
+        tabsStore.removeTab(currentDragState.sourceTabId)
       }
-    } catch (error) {
-      console.error('[DragDrop] Error during drag end:', error)
+    } 
+    else if (
+      currentDragState.targetType === 'outsideWindow' || 
+      (!coordsUnreliable && isMouseOutsideWindow(event))
+    ) {
+      const newWindowId = await createNewWindow(tabData)
+      if (newWindowId) {
+        tabsStore.removeTab(currentDragState.sourceTabId)
+      }
     }
-
-    resetDragState()
   }
 
   function applyDragImage(event: DragEvent, tab: TabState): void {
