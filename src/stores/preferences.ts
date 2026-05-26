@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { RecentFile, RecentFolder } from '@/types'
 import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
@@ -535,6 +535,38 @@ export const usePreferencesStore = defineStore('preferences', () => {
       applyTheme()
     }
   }
+
+  watch(
+    () => ({
+      launchMode: launchMode.value,
+      launchFolderPath: launchFolderPath.value,
+      autoSave: autoSave.value,
+      autoSaveInterval: autoSaveInterval.value,
+      theme: theme.value,
+      showSidebar: showSidebar.value,
+      showTabBar: showTabBar.value,
+      showStatusBar: showStatusBar.value,
+      hideScrollBars: hideScrollBars.value,
+      isStickyNoteMode: isStickyNoteMode.value,
+      isImmersiveMode: isImmersiveMode.value,
+      typewriterMode: typewriterMode.value,
+      focusMode: focusMode.value,
+      fontSize: fontSize.value,
+      wordWrap: wordWrap.value,
+      imageInsertMode: imageInsertMode.value,
+      imageStoragePath: imageStoragePath.value,
+      language: language.value,
+      devToolsOnStartup: devToolsOnStartup.value,
+      openFileInNewWindow: openFileInNewWindow.value,
+      openFolderInNewWindow: openFolderInNewWindow.value,
+      lineEnding: lineEnding.value,
+      wordCountDisplayType: wordCountDisplayType.value
+    }),
+    () => {
+      savePreferences()
+    },
+    { deep: true }
+  )
 
   return {
     // Getters

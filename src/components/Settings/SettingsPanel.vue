@@ -44,13 +44,13 @@
               <div class="setting-item">
                 <label>启动模式</label>
                 <select v-model="prefsStore.launchMode">
-                  <option value="restore">
+                  <option value="last-session">
                     恢复上次状态
                   </option>
                   <option value="welcome">
                     欢迎页
                   </option>
-                  <option value="blank">
+                  <option value="empty">
                     空白编辑器
                   </option>
                 </select>

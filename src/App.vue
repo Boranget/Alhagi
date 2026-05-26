@@ -4,7 +4,10 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <EnhancedSidebar v-if="prefsStore.showSidebar" />
+      <EnhancedSidebar 
+      v-if="prefsStore.showSidebar" 
+      @open-settings="showSettings = true" 
+    />
       <div class="editor-wrapper">
         <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
         <div class="editor-area">
@@ -242,7 +245,8 @@ function saveCurrentSession() {
 
   prefsStore.saveSession({
     tabs: sessionTabs,
-    activeTabId: tabsStore.activeTabId ?? undefined
+    activeTabId: tabsStore.activeTabId ?? undefined,
+    currentFolder: fileStore.currentFolder ?? undefined
   })
 }
 
@@ -311,6 +315,10 @@ onMounted(() => {
         })
         if (lastSession.activeTabId) {
           tabsStore.switchTab(lastSession.activeTabId)
+        }
+        if (lastSession.currentFolder) {
+          fileStore.openFolderByPath(lastSession.currentFolder)
+          prefsStore.showSidebar = true
         }
       }
       break

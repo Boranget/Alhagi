@@ -4,16 +4,28 @@
     :style="{ width: sidebarWidth + 'px' }"
   >
     <div class="sidebar-tabs">
+      <div class="sidebar-tabs-top">
+        <button
+          v-for="tab in sidebarTabs"
+          :key="tab.id"
+          class="sidebar-tab"
+          :class="{ active: activeSidebarTab === tab.id }"
+          :title="tab.label"
+          @click="activeSidebarTab = tab.id"
+        >
+          <Icon
+            :name="tab.icon"
+            size="sm"
+          />
+        </button>
+      </div>
       <button
-        v-for="tab in sidebarTabs"
-        :key="tab.id"
-        class="sidebar-tab"
-        :class="{ active: activeSidebarTab === tab.id }"
-        :title="tab.label"
-        @click="activeSidebarTab = tab.id"
+        class="sidebar-tab settings-tab"
+        title="设置"
+        @click="emit('open-settings')"
       >
         <Icon
-          :name="tab.icon"
+          name="settings"
           size="sm"
         />
       </button>
@@ -38,6 +50,10 @@ import RecentFiles from './RecentFiles.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import DocumentOutline from './DocumentOutline.vue'
 import { Icon } from '@/components/Icons'
+
+const emit = defineEmits<{
+  (e: 'open-settings'): void
+}>()
 
 const SIDEBAR_MIN_WIDTH = 200
 const SIDEBAR_DEFAULT_WIDTH = 280
@@ -108,6 +124,18 @@ function startResize(e: MouseEvent) {
   border-right: 1px solid var(--border-color);
   flex-shrink: 0;
   align-items: stretch;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.sidebar-tabs-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-tab {
+  margin-top: auto;
 }
 
 .sidebar-tab {
