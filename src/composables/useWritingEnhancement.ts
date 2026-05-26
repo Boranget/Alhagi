@@ -71,43 +71,6 @@ function getCursorYInContainer(container: HTMLElement): number | null {
   return null
 }
 
-/**
- * 找到 ProseMirror 内光标所在的顶层块级元素。
- * 对于嵌套结构（如 blockquote > p、li > p），穿透容器找到最内层块。
- */
-function findCurrentBlock(editor: HTMLElement): HTMLElement | null {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0) return null
-
-  let node: Node | null = selection.getRangeAt(0).startContainer
-
-  // Step 1: 向上遍历找到 .ProseMirror 的直接子元素
-  while (node && node !== editor) {
-    const parent: Node | null = node.parentElement
-    if (parent === editor) break
-    node = parent
-  }
-
-  if (!node || node === editor) return null
-
-  const topBlock = node as HTMLElement
-
-  // Step 2: 如果直接子元素是容器型元素（blockquote, ul, ol, li 等），
-  //         尝试找到光标真正所在的嵌套块级元素
-  const LEAF_BLOCK_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE']
-  if (!LEAF_BLOCK_TAGS.includes(topBlock.tagName)) {
-    const range = selection.getRangeAt(0)
-    const nestedBlocks = topBlock.querySelectorAll(LEAF_BLOCK_TAGS.join(','))
-    for (const nested of nestedBlocks) {
-      if (nested instanceof HTMLElement && range.intersectsNode(nested)) {
-        return nested
-      }
-    }
-  }
-
-  return topBlock
-}
-
 // ──────────────────────────────────────────
 // 打字机模式
 // ──────────────────────────────────────────
@@ -143,53 +106,12 @@ const debouncedScrollCursorToCenter = (() => {
 })()
 
 // ──────────────────────────────────────────
-// 专注模式
-// ──────────────────────────────────────────
-
-function highlightCurrentParagraph() {
-  if (!focusActive) return
-
-  const editor = document.querySelector('.ProseMirror') as HTMLElement | null
-  if (!editor) return
-
-  const currentBlock = findCurrentBlock(editor)
-
-  // 消除旧高亮
-  editor.querySelectorAll('.focus-highlight').forEach(el =>
-    el.classList.remove('focus-highlight')
-  )
-
-  // 添加新高亮
-  if (currentBlock && currentBlock !== editor) {
-    currentBlock.classList.add('focus-highlight')
-  }
-}
-
-function clearAllHighlights() {
-  document.querySelectorAll('.ProseMirror .focus-highlight').forEach(el =>
-    el.classList.remove('focus-highlight')
-  )
-}
-
-// 防抖版
-const debouncedHighlight = (() => {
-  let rafId: ReturnType<typeof requestAnimationFrame> | null = null
-  return () => {
-    if (rafId) cancelAnimationFrame(rafId)
-    rafId = requestAnimationFrame(highlightCurrentParagraph)
-  }
-})()
-
-// ──────────────────────────────────────────
 // 事件处理
 // ──────────────────────────────────────────
 
 function handleSelectionChange() {
   if (typewriterActive) {
     debouncedScrollCursorToCenter()
-  }
-  if (focusActive) {
-    debouncedHighlight()
   }
 }
 
@@ -216,19 +138,16 @@ export function useWritingEnhancement() {
 
   function toggleTypewriterMode() {
     prefsStore.typewriterMode = !prefsStore.typewriterMode
-    // applyTypewriterMode() 由 initialize() 中的 watcher 统一触发，此处无需重复调用
   }
 
   function toggleFocusMode() {
     prefsStore.focusMode = !prefsStore.focusMode
-    // applyFocusMode() 由 initialize() 中的 watcher 统一触发，此处无需重复调用
   }
 
   function applyTypewriterMode() {
     typewriterActive = prefsStore.typewriterMode
     if (typewriterActive) {
       document.body.classList.add('typewriter-mode')
-      // 立即滚动到居中位置
       requestAnimationFrame(scrollCursorToCenter)
     } else {
       document.body.classList.remove('typewriter-mode')
@@ -239,10 +158,8 @@ export function useWritingEnhancement() {
     focusActive = prefsStore.focusMode
     if (focusActive) {
       document.body.classList.add('focus-mode')
-      requestAnimationFrame(highlightCurrentParagraph)
     } else {
       document.body.classList.remove('focus-mode')
-      clearAllHighlights()
     }
   }
 
@@ -254,7 +171,7 @@ export function useWritingEnhancement() {
     applyTypewriterMode()
     applyFocusMode()
 
-    // 监听 store 变化 —— 确保 StatusBar 等直接修改 prefsStore 也能触发副作用
+    // 监听 store 变化
     storeWatchers = [
       watch(() => prefsStore.typewriterMode, () => {
         applyTypewriterMode()
@@ -264,7 +181,7 @@ export function useWritingEnhancement() {
       })
     ]
 
-    // 监听光标位置变化 —— 用于打字机 + 专注模式
+    // 监听光标位置变化 —— 用于打字机
     document.addEventListener('selectionchange', handleSelectionChange)
 
     // 监听编辑器区域滚动 —— 打字机模式用户手动滚动后回正
@@ -286,7 +203,6 @@ export function useWritingEnhancement() {
     document.removeEventListener('scroll', handleEditorScroll, true)
 
     document.body.classList.remove('typewriter-mode', 'focus-mode')
-    clearAllHighlights()
 
     if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null }
   }
@@ -296,8 +212,6 @@ export function useWritingEnhancement() {
     toggleFocusMode,
     initialize,
     cleanup,
-    // 供外部手动触发
-    scrollCursorToCenter,
-    highlightCurrentParagraph
+    scrollCursorToCenter
   }
 }

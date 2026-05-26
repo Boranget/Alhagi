@@ -639,22 +639,21 @@ function setupImagePaste() {
 
   // ── 专注模式 ──
   &.focus-mode {
-    // WYSIWYG：弱化非当前段落，高亮当前段落
+    // WYSIWYG：所有内容块默认为弱化状态
+    // 参考 MarkText 的简洁实现方式
     .editor-wysiwyg, .editor-split-preview {
       :deep(.ProseMirror) {
-        // 所有顶层块级元素默认变暗——使用 color-mix 而非 opacity，
-        // 避免影响 ::selection 的渲染（父元素 opacity 会限制子元素透明度）
+        // 所有 ProseMirror 下的直接子元素都默认弱化
         > * {
-          color: color-mix(in srgb, var(--text-primary) 30%, transparent);
-          transition: color 0.35s ease;
+          opacity: 0.25 !important;
+          transition: opacity 0.35s ease;
+        }
+        
+        // 高优先级选择器：确保 focus-highlight 保持正常
+        > .focus-highlight {
+          opacity: 1 !important;
         }
 
-        // 当前光标所在段落保持明亮
-        > *.focus-highlight {
-          color: var(--text-primary);
-        }
-
-        // 被选中的文本不受影响（color-mix 不会层叠到伪元素）
         ::selection {
           background: var(--primary-color);
           color: white;
@@ -662,14 +661,9 @@ function setupImagePaste() {
       }
     }
 
-    // 源码视图：弱化非当前行
+    // 源码视图：所有行默认为 60% 透明度，当前活动行保持 100%
     .codemirror-editor, .editor-split-source {
-      :deep(.cm-content) {
-        transition: opacity 0.35s ease;
-      }
-
       :deep(.cm-line) {
-        // 按行施加透明度，避免父级 opacity 层叠限制子元素
         opacity: 0.6;
         transition: opacity 0.35s ease;
 

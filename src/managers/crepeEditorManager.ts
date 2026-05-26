@@ -16,6 +16,7 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { generateSlug } from '@/utils/headings'
 import { getSearchPlugin, useEditorSearchManager } from './EditorSearchManager'
+import { focusModePlugin } from '@/plugins/focusModePlugin'
 
 const imagePathPlugin = $prose(() => new Plugin({
   view(editorView: any) {
@@ -132,6 +133,7 @@ export class CrepeEditorManager {
       .use(listener)
       .use(getSearchPlugin())
       .use(imagePathPlugin)
+      .use(focusModePlugin)
 
     try {
       await this.crepe.create()
