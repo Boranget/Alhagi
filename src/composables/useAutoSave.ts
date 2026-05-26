@@ -41,7 +41,6 @@ export function useAutoSave() {
       }
     } catch (e) {
       autoSaveError.value = `Auto-save error: ${e}`
-      console.error('Auto-save failed:', e)
     } finally {
       isAutoSaving.value = false
     }

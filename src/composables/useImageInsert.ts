@@ -51,7 +51,6 @@ async function fileToBase64(file: File): Promise<string> {
         const base64Match = dataUrl?.match(/^data:.*?;base64,(.*)$/)
         
         if (!base64Match) {
-          console.error('[ImageInsert] Invalid data URL format')
           reject(new Error('Invalid data URL format'))
           return
         }
@@ -59,12 +58,10 @@ async function fileToBase64(file: File): Promise<string> {
         const base64 = base64Match[1]
         resolve(base64)
       } catch (err) {
-        console.error('[ImageInsert] Base64 conversion error:', err)
         reject(err)
       }
     }
     reader.onerror = (err) => {
-      console.error('[ImageInsert] FileReader error:', err)
       reject(err)
     }
     reader.readAsDataURL(file)
@@ -81,7 +78,6 @@ export function useImageInsert() {
   async function insertImage(file: File): Promise<string | null> {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
-      console.error('[ImageInsert] No active tab found')
       return null
     }
     
@@ -110,7 +106,6 @@ export function useImageInsert() {
       
       return imagePath
     } catch (error) {
-      console.error('[ImageInsert] Failed to insert image:', error)
       return null
     } finally {
       isInserting.value = false

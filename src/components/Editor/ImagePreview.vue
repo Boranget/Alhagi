@@ -146,7 +146,6 @@ async function loadImage() {
       throw new Error(result.error?.message || 'Failed to load image')
     }
   } catch (error) {
-    console.error('[ImagePreview] Failed to load image:', error)
     hasError.value = true
     imageDataUrl.value = ''
   } finally {

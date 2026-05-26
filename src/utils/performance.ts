@@ -36,7 +36,6 @@ export class PerformanceMonitor {
   measureEnd(name: string): number {
     const start = this.marks.get(name)
     if (!start) {
-      console.warn(`Performance mark '${name}' not found`)
       return 0
     }
     const duration = performance.now() - start

@@ -208,7 +208,6 @@ function retryFindScrollContainer(mode: string) {
       setupScrollHandler()
     } else if (retries >= maxRetries) {
       clearInterval(retryInterval)
-      console.error('[DocumentOutline] Failed to find scroll container after', maxRetries, 'retries')
     }
   }, 200)
 }

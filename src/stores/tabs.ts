@@ -21,40 +21,33 @@ export function validateTabState(tabState: unknown): tabState is TabState {
 
   for (const field of requiredFields) {
     if (!(field in obj)) {
-      console.error(`Missing required field: ${field}`)
       return false
     }
   }
 
   if (typeof obj.id !== 'string' || !obj.id) {
-    console.error('Invalid id field')
     return false
   }
 
   if (typeof obj.content !== 'string') {
-    console.error('Invalid content field')
     return false
   }
 
   if (typeof obj.cursor !== 'object' || 
       typeof (obj.cursor as Record<string, unknown>)?.from !== 'number' || 
       typeof (obj.cursor as Record<string, unknown>)?.to !== 'number') {
-    console.error('Invalid cursor field')
     return false
   }
 
   if (![EDITOR.VIEW_MODES.WYSIWYG, EDITOR.VIEW_MODES.SOURCE, EDITOR.VIEW_MODES.SPLIT].includes(obj.viewMode as ViewMode)) {
-    console.error('Invalid viewMode field')
     return false
   }
 
   if (!['editor', 'image', 'unsupported'].includes(obj.fileType as string)) {
-    console.error('Invalid fileType field')
     return false
   }
 
   if (!Array.isArray(obj.undoStack) || !Array.isArray(obj.redoStack)) {
-    console.error('Invalid history stacks')
     return false
   }
 
@@ -171,7 +164,6 @@ export const useTabsStore = defineStore('tabs', () => {
     }
 
     if (!validateTabState(tab)) {
-      console.error('Invalid tab state created, using defaults')
       Object.assign(tab, createDefaultTabState(id))
     }
 
@@ -315,7 +307,6 @@ export const useTabsStore = defineStore('tabs', () => {
       eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
       return tab
     } catch (e) {
-      console.error('Failed to open recent file:', e)
       return null
     }
   }

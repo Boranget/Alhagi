@@ -127,7 +127,6 @@ export function useTabDragDrop() {
         }
       }
     } catch (e) {
-      console.error('Failed to get cursor position:', e)
     }
 
     const result = await window.electronAPI.openNewWindow({
@@ -367,7 +366,6 @@ export function useTabDragDrop() {
     // 7. 获取标签数据（在状态重置前获取）
     const tab = tabsStore.tabs.get(sourceTabId)
     if (!tab) {
-      console.warn('[DragDrop] Tab not found:', sourceTabId)
       return
     }
 
@@ -379,7 +377,6 @@ export function useTabDragDrop() {
       currentWindowList,
       currentWindowIdValue
     ).catch(error => {
-      console.error('[DragDrop] Error during async drag end:', error)
     })
   }
 
@@ -467,7 +464,6 @@ export function useTabDragDrop() {
           windowList.value = listResp.data
         }
       } catch (e) {
-        console.error('Failed to get window info:', e)
       }
     }
   }

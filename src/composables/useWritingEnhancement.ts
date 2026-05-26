@@ -120,7 +120,6 @@ function scrollCursorToCenter() {
       animatedScrollTo(scrollContainer, targetScrollTop, 100)
     }
   } catch (error) {
-    console.error('[Typewriter] Error:', error)
   }
 }
 

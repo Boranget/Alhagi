@@ -42,7 +42,6 @@ class SimpleEventBus implements EventBus {
         try {
           callback(payload)
         } catch (error) {
-          console.error(`Error in event handler for "${event}":`, error)
         }
       })
     }
@@ -107,7 +106,6 @@ export function createEventHook<T = unknown>() {
         try {
           cb(payload)
         } catch (error) {
-          console.error('Event hook error:', error)
         }
       })
     },

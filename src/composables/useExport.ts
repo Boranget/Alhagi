@@ -19,7 +19,6 @@ export function useExport() {
     try {
       content = editorManager.getHTML()
     } catch (error) {
-      console.error('[useExport] Failed to get HTML content for export:', error)
       content = ''
     }
 

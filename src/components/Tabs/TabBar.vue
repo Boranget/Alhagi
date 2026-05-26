@@ -363,7 +363,6 @@ async function showInFolder() {
     try {
       await window.electronAPI.showInFolder(tab.filePath)
     } catch (error) {
-      console.error('Failed to show in folder:', error)
     }
   }
   hideContextMenu()
@@ -381,7 +380,6 @@ async function detachTab() {
       await window.electronAPI.openNewWindow({ tabData: serializeTabForIPC(tab) })
       tabsStore.removeTab(tabId)
     } catch (e) {
-      console.error('Failed to detach tab:', e)
       alert('分离标签页失败，请重试')
     }
   } else {

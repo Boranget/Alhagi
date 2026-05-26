@@ -77,7 +77,6 @@ ${content}
       document.execCommand('insertText', false, cleanText)
       return true
     } catch (e) {
-      console.error('Failed to paste as plain text:', e)
       return false
     }
   }

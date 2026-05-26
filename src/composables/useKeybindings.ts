@@ -118,7 +118,6 @@ export function useKeybindings() {
         return true
       }
     } catch {
-      console.error('Failed to import keybindings')
     }
     return false
   }

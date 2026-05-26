@@ -217,7 +217,6 @@ async function handleSelect(node: FileTreeNodeType) {
           content = response.data
         }
       } catch (err) {
-        console.error('[FileExplorer] Error reading file:', err)
       }
     }
     
@@ -304,7 +303,6 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
     const sourcePath = node.type === 'file' ? node.path : null
     
     if (!sourcePath) {
-      console.error('Cannot move a directory')
       return
     }
     
@@ -329,7 +327,6 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
     const sourcePath = node.type === 'file' ? node.path : null
     
     if (!sourcePath) {
-      console.error('Cannot copy a directory')
       return
     }
     
@@ -420,7 +417,6 @@ async function handleOpenInExplorer(node: FileTreeNodeType | null) {
   try {
     await window.electronAPI.showInFolder(node.path)
   } catch (error) {
-    console.error('Failed to open in explorer:', error)
   }
 }
 

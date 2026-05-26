@@ -31,7 +31,6 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       return null
     } catch (e) {
       error.value = `Failed to open folder: ${e}`
-      console.error('[FileExplorerStore] Error opening folder:', e)
       return null
     }
   }
@@ -52,7 +51,6 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
         children: entry.isDirectory ? [] : undefined
       }))
     } catch (e) {
-      console.error('Failed to read directory:', e)
       return []
     }
   }
@@ -180,7 +178,6 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       return { path: folderPath, tree }
     } catch (e) {
       error.value = `Failed to open folder: ${e}`
-      console.error('[FileExplorerStore] Error in openFolderByPath:', e)
       return null
     }
   }

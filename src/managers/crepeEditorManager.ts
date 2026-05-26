@@ -96,7 +96,6 @@ export class CrepeEditorManager {
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
     if (!container) {
-      console.error('[CrepeEditorManager] Container is undefined, cannot initialize')
       return
     }
 
@@ -156,7 +155,6 @@ export class CrepeEditorManager {
       await this.crepe.create()
       this.searchManager.init(this.crepe.editor)
     } catch (error) {
-      console.error('[CrepeEditorManager] crepe.create() failed:', error)
       throw error
     }
 
@@ -172,7 +170,6 @@ export class CrepeEditorManager {
 
   getMarkdown(): string {
     if (!this.crepe || !this.isInitialized) {
-      console.warn('[CrepeEditorManager] Cannot get markdown: Crepe not initialized')
       return this.content
     }
 
@@ -180,14 +177,12 @@ export class CrepeEditorManager {
       const markdown = this.crepe.getMarkdown()
       return markdown || this.content
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to get markdown:', error)
       return this.content
     }
   }
 
   async setMarkdown(content: string): Promise<void> {
     if (!this.crepe) {
-      console.warn('[CrepeEditorManager] Cannot set markdown: Crepe not initialized')
       return
     }
 
@@ -212,7 +207,6 @@ export class CrepeEditorManager {
           const doc = parser(content)
 
           if (!doc) {
-            console.error('[CrepeEditorManager] Failed to parse markdown')
             return
           }
 
@@ -235,7 +229,6 @@ export class CrepeEditorManager {
           }
           view.dispatch(tr)
         } catch (innerError) {
-          console.error('[CrepeEditorManager] Error updating editor:', innerError)
         }
       })
 
@@ -243,7 +236,6 @@ export class CrepeEditorManager {
         this.contentCache.set(this.currentTabId, content)
       }
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to set markdown:', error)
     } finally {
       this.isUpdatingContent = false
     }
@@ -251,7 +243,6 @@ export class CrepeEditorManager {
 
   getHTML(): string {
     if (!this.crepe || !this.isInitialized) {
-      console.warn('[CrepeEditorManager] Cannot get HTML: Crepe not initialized')
       return ''
     }
 
@@ -267,12 +258,10 @@ export class CrepeEditorManager {
             }
           }
         } catch (innerError) {
-          console.error('[CrepeEditorManager] Failed to get editor view context:', innerError)
         }
       })
       return html
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to get HTML:', error)
       return ''
     }
   }
@@ -292,7 +281,6 @@ export class CrepeEditorManager {
 
   async switchToTab(tabId: string): Promise<void> {
     if (!this.crepe) {
-      console.warn('[CrepeEditorManager] Cannot switch tab: Crepe not initialized')
       return
     }
     
@@ -304,7 +292,6 @@ export class CrepeEditorManager {
     const tab = tabsStore.tabs.get(tabId)
 
     if (!tab) {
-      console.error(`[CrepeEditorManager] Tab not found: ${tabId}`)
       return
     }
 
@@ -351,7 +338,6 @@ export class CrepeEditorManager {
         const view = ctx.get(editorViewCtx)
         view.focus()
       } catch (error) {
-        console.error('[CrepeEditorManager] Failed to focus editor:', error)
       }
     })
   }
@@ -360,7 +346,6 @@ export class CrepeEditorManager {
     if (!this.crepe || !this.isInitialized) return
     
     if (pos === undefined || pos < 0) {
-      console.warn('[CrepeEditorManager] scrollToHeading: pos is required but not provided')
       return
     }
 
@@ -433,14 +418,12 @@ export class CrepeEditorManager {
               behavior: 'smooth'
             })
           } catch (scrollError) {
-            console.error('[CrepeEditorManager] Smooth scroll error:', scrollError)
           }
         }, 50)
 
         const { from, to } = view.state.selection
         this.emitCursorChange(from, to)
       } catch (error) {
-        console.error('[CrepeEditorManager] scrollToHeading error:', error)
       }
     })
   }
@@ -493,7 +476,6 @@ export class CrepeEditorManager {
           }
         })
       } catch (error) {
-        console.error('[CrepeEditorManager] Failed to get headings with pos:', error)
       }
     })
     
@@ -567,7 +549,6 @@ export class CrepeEditorManager {
 
   async updateTheme(): Promise<void> {
     if (!this.crepe || !this.isInitialized || !this.container) {
-      console.warn('[CrepeEditorManager] Cannot update theme: Crepe not initialized')
       return
     }
     
@@ -605,7 +586,6 @@ export class CrepeEditorManager {
 
   insertImage(imageUrl: string, altText: string): void {
     if (!this.crepe || !this.isInitialized) {
-      console.warn('[CrepeEditorManager] Cannot insert image: Crepe not initialized')
       return
     }
 
@@ -613,7 +593,6 @@ export class CrepeEditorManager {
       const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
       this.crepe.editor.action(insert(imageMarkdown, true))
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to insert image:', error)
     }
   }
 
@@ -625,7 +604,6 @@ export class CrepeEditorManager {
     try {
       this.crepe.editor.action(callCommand(undoCommand.key))
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to undo:', error)
     }
   }
 
@@ -637,7 +615,6 @@ export class CrepeEditorManager {
     try {
       this.crepe.editor.action(callCommand(redoCommand.key))
     } catch (error) {
-      console.error('[CrepeEditorManager] Failed to redo:', error)
     }
   }
 }

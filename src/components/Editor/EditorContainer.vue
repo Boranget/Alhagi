@@ -306,10 +306,8 @@ onMounted(async () => {
         await editorManager.switchToTab(tabId)
       }
     } catch (error) {
-      console.error('[EditorContainer] Failed to initialize:', error)
     }
   } else {
-    console.error('[EditorContainer] crepeContainer is null!')
   }
   
   window.addEventListener('keydown', handleEditorKeydown)

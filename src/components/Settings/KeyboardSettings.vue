@@ -309,7 +309,6 @@ onMounted(() => {
         keybindings.value = imported
       }
     } catch (e) {
-      console.error('Failed to load keybindings:', e)
     }
   }
 })

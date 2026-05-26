@@ -249,7 +249,6 @@ class ErrorManager {
       try {
         handler(error)
       } catch (e) {
-        console.error('Error in error handler:', e)
       }
     })
   }
@@ -257,10 +256,6 @@ class ErrorManager {
   private reportError(error: AppError) {
     if (error.severity === ErrorSeverity.ERROR || 
         error.severity === ErrorSeverity.CRITICAL) {
-      console.error(
-        `[${error.code}] ${error.message}`,
-        error.context
-      )
     }
   }
   

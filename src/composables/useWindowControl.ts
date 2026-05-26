@@ -15,7 +15,6 @@ export function useWindowControl() {
     if (window.electronAPI) {
       await window.electronAPI.minimize()
     } else {
-      console.warn('Electron API not available')
     }
   }
   

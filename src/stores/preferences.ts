@@ -437,7 +437,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
         savePreferences()
       }
     } catch (error) {
-      console.error('Failed to load custom themes:', error)
     }
   }
 
@@ -531,7 +530,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
         applyTheme()
       }
     } catch (error) {
-      console.error('[PreferencesStore] 加载偏好设置失败:', error)
       applyTheme()
     }
   }
