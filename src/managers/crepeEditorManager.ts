@@ -58,6 +58,7 @@ export class CrepeEditorManager {
   private isInitialized = false
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
+  private editorView: any = null  // 保存 EditorView 引用
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
   private searchManager = useEditorSearchManager()
 
@@ -76,6 +77,21 @@ export class CrepeEditorManager {
 
   onCursorChange(handler: (from: number, to: number) => void): void {
     this.cursorChangeHandler = handler
+  }
+
+  /**
+   * 获取 ProseMirror EditorView 实例
+   * 用于打字机模式等需要访问编辑器 DOM 的场景
+   */
+  getEditorView(): any {
+    return this.editorView
+  }
+
+  /**
+   * 获取编辑器滚动容器
+   */
+  getContainer(): HTMLElement | null {
+    return this.container
   }
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
@@ -123,6 +139,7 @@ export class CrepeEditorManager {
         ctx.get(listenerCtx).updated((ctx) => {
           try {
             const view = ctx.get(editorViewCtx)
+            this.editorView = view  // 保存 EditorView 引用
             const { from, to } = view.state.selection
             this.emitCursorChange(from, to)
           } catch {

@@ -1,5 +1,6 @@
 import { watch } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 // 模块级状态 —— 确保多实例间共享，避免重复注册事件
 let initialized = false
@@ -7,132 +8,141 @@ let typewriterActive = false
 let focusActive = false
 let storeWatchers: (() => void)[] | null = null
 
-// 定时器句柄
-let scrollTimer: ReturnType<typeof setTimeout> | null = null
+// 打字机模式：目标 Y 坐标位置（参考 MarkText 的 STANDAR_Y）
+const TYPEWRITER_TARGET_Y = 320
 
-// ──────────────────────────────────────────
-// 工具函数
-// ──────────────────────────────────────────
+// 防抖的动画滚动函数
+function animatedScrollTo(element: HTMLElement, to: number, duration: number = 100) {
+  const start = element.scrollTop
+  const difference = to - start
+  const startTime = performance.now()
 
-/** 找到当前视口内的编辑器滚动容器 */
-function findScrollContainer(): HTMLElement | null {
-  // 检查光标是否在 CodeMirror 编辑器中（源码模式 或 分屏源码区）
-  const activeEl = document.activeElement
-  if (activeEl) {
-    const cmContainer = activeEl.closest('.codemirror-editor')
-    if (cmContainer instanceof HTMLElement) return cmContainer
-  }
-
-  // 否则返回 WYSIWYG/分屏预览容器
-  return document.querySelector(
-    '.editor-wysiwyg, .editor-split-preview'
-  ) as HTMLElement | null
-}
-
-/** 获取光标在滚动容器内的垂直偏移 */
-function getCursorYInContainer(container: HTMLElement): number | null {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0) return null
-
-  const range = selection.getRangeAt(0)
-  if (!range.collapsed) return null // 仅处理光标，不处理选区
-
-  // 尝试通过 ProseMirror 原生光标元素获取
-  const pmCursor = container.querySelector('.ProseMirror-cursor') as HTMLElement | null
-  if (pmCursor) {
-    const cursorRect = pmCursor.getBoundingClientRect()
-    const containerRect = container.getBoundingClientRect()
-    return cursorRect.top - containerRect.top + cursorRect.height / 2
-  }
-
-  // 回退：通过 Range 的 ClientRect 获取
-  const rects = range.getClientRects()
-  if (rects.length > 0) {
-    const rect = rects[0]
-    const containerRect = container.getBoundingClientRect()
-    return rect.top - containerRect.top + rect.height / 2
-  }
-
-  // 最后回退：通过 startContainer 计算
-  const node = range.startContainer
-  if (node.nodeType === Node.TEXT_NODE) {
-    const range2 = document.createRange()
-    range2.setStart(node, range.startOffset)
-    range2.setEnd(node, range.startOffset + 1 > (node.textContent?.length || 0)
-      ? range.startOffset
-      : range.startOffset + 1)
-    const rects2 = range2.getClientRects()
-    if (rects2.length > 0) {
-      const containerRect = container.getBoundingClientRect()
-      return rects2[0].top - containerRect.top + rects2[0].height / 2
+  const animateScroll = (currentTime: number) => {
+    const timeElapsed = currentTime - startTime
+    const progress = Math.min(timeElapsed / duration, 1)
+    // 使用缓动函数让动画更平滑
+    const easeProgress = 1 - Math.pow(1 - progress, 3)
+    element.scrollTop = start + difference * easeProgress
+    if (progress < 1) {
+      requestAnimationFrame(animateScroll)
     }
   }
-
-  return null
+  requestAnimationFrame(animateScroll)
 }
 
-// ──────────────────────────────────────────
-// 打字机模式
-// ──────────────────────────────────────────
-
+/**
+ * 根据滚动容器类型选择合适的坐标获取方式并滚动
+ */
 function scrollCursorToCenter() {
   if (!typewriterActive) return
 
-  const container = findScrollContainer()
-  if (!container) return
+  const editorManager = useCrepeEditorManager()
+  const activeEditor = editorManager.getActiveEditor()
 
-  const cursorY = getCursorYInContainer(container)
-  if (cursorY === null) return
+  try {
+    // 根据编辑器类型选择正确的滚动容器
+    let scrollContainer: HTMLElement | null = null
+    
+    if (activeEditor === 'codemirror') {
+      // 源码模式：找到当前聚焦的 CodeMirror
+      scrollContainer = document.querySelector('.cm-editor.cm-focused .cm-scroller') ||
+                       document.querySelector('.cm-focused .cm-scroller') ||
+                       document.querySelector('.cm-editor.cm-focused') ||
+                       document.querySelector('.cm-scroller')
+    } else if (activeEditor === 'crepe') {
+      // WYSIWYG 模式：使用 Crepe 的容器
+      scrollContainer = document.querySelector('.editor-wysiwyg') ||
+                       document.querySelector('.editor-split-preview')
+    } else {
+      // activeEditor 为 null，根据当前聚焦元素判断
+      const activeElement = document.activeElement
+      
+      if (activeElement?.closest('.cm-editor')) {
+        const cmScroller = activeElement.closest('.cm-editor')
+        scrollContainer = (cmScroller as HTMLElement)?.querySelector('.cm-scroller') ||
+                        (cmScroller as HTMLElement) ||
+                        document.querySelector('.cm-scroller')
+      } else if (activeElement?.closest('.editor-wysiwyg, .editor-split-preview')) {
+        scrollContainer = document.querySelector('.editor-split-preview') ||
+                        document.querySelector('.editor-wysiwyg')
+      } else if (activeElement?.closest('.editor-split-source, .codemirror-editor')) {
+        const cmEditor = activeElement.closest('.codemirror-editor, .editor-split-source')
+        scrollContainer = (cmEditor as HTMLElement)?.querySelector('.cm-scroller, .cm-editor') ||
+                        document.querySelector('.cm-scroller')
+      } else {
+        // 回退到通用选择器
+        scrollContainer = document.querySelector('.cm-editor.cm-focused .cm-scroller') ||
+                        document.querySelector('.editor-split-preview') ||
+                        document.querySelector('.cm-scroller') ||
+                        document.querySelector('.editor-wysiwyg')
+      }
+    }
+    
+    if (!scrollContainer) return
 
-  const halfHeight = container.clientHeight / 2
-  const targetScrollTop = container.scrollTop + cursorY - halfHeight
+    // 计算光标 Y 坐标
+    let cursorY = 0
+    const isCodeMirror = scrollContainer.closest('.cm-editor, .codemirror-editor, .editor-split-source') !== null
+    const isCrepe = scrollContainer.closest('.editor-wysiwyg, .editor-split-preview, .crepe') !== null
 
-  // 避免无效微调，减少抖动
-  if (Math.abs(container.scrollTop - targetScrollTop) < 5) return
+    if (isCodeMirror) {
+      // CodeMirror 源码模式：使用 Selection API
+      const selection = window.getSelection()
+      if (selection?.rangeCount) {
+        const rects = selection.getRangeAt(0).getClientRects()
+        if (rects.length) {
+          cursorY = rects[0].top - scrollContainer.getBoundingClientRect().top
+        }
+      }
+    } else if (isCrepe) {
+      // Crepe WYSIWYG 模式：使用 EditorView API
+      const view = editorManager.getEditorView()
+      if (view) {
+        const coords = view.coordsAtPos(view.state.selection.from)
+        cursorY = coords.top - scrollContainer.getBoundingClientRect().top
+      }
+    } else {
+      // 未知类型，使用通用方法
+      const selection = window.getSelection()
+      if (selection?.rangeCount) {
+        const rects = selection.getRangeAt(0).getClientRects()
+        if (rects.length) {
+          cursorY = rects[0].top - scrollContainer.getBoundingClientRect().top
+        }
+      }
+    }
 
-  container.scrollTo({
-    top: Math.max(0, targetScrollTop),
-    behavior: 'instant' // 用 instant 避免 smooth 动画累积冲突
-  })
+    if (!cursorY) return
+
+    // 滚动到目标位置（留出 TYPEWRITER_TARGET_Y 的顶部空间）
+    const targetScrollTop = scrollContainer.scrollTop + cursorY - TYPEWRITER_TARGET_Y
+    if (Math.abs(scrollContainer.scrollTop - targetScrollTop) > 2) {
+      animatedScrollTo(scrollContainer, targetScrollTop, 100)
+    }
+  } catch (error) {
+    console.error('[Typewriter] Error:', error)
+  }
 }
 
-// 防抖版 —— 避免连续输入时频繁滚动
-const debouncedScrollCursorToCenter = (() => {
-  let rafId: ReturnType<typeof requestAnimationFrame> | null = null
-  return () => {
-    if (rafId) cancelAnimationFrame(rafId)
-    rafId = requestAnimationFrame(scrollCursorToCenter)
-  }
-})()
+// 防抖的滚动函数
+let scrollAnimationFrameId: number | null = null
+const debouncedScrollCursorToCenter = () => {
+  if (scrollAnimationFrameId) cancelAnimationFrame(scrollAnimationFrameId)
+  scrollAnimationFrameId = requestAnimationFrame(scrollCursorToCenter)
+}
 
-// ──────────────────────────────────────────
-// 事件处理
-// ──────────────────────────────────────────
-
+/**
+ * 选择变化事件处理
+ */
 function handleSelectionChange() {
   if (typewriterActive) {
     debouncedScrollCursorToCenter()
   }
 }
 
-function handleEditorScroll(event: Event) {
-  const target = event.target as HTMLElement
-  // 只处理编辑器容器内的滚动事件
-  if (!target.closest('.editor-wysiwyg, .editor-split-preview, .codemirror-editor, .editor-split-source')) {
-    return
-  }
-
-  // 打字机模式：用户手动滚动时也尝试居中
-  if (typewriterActive) {
-    if (scrollTimer) clearTimeout(scrollTimer)
-    scrollTimer = setTimeout(scrollCursorToCenter, 50)
-  }
-}
-
-// ──────────────────────────────────────────
-// 公共 API
-// ──────────────────────────────────────────
-
+/**
+ * 公共 API - 导出给组件使用
+ */
 export function useWritingEnhancement() {
   const prefsStore = usePreferencesStore()
 
@@ -148,6 +158,7 @@ export function useWritingEnhancement() {
     typewriterActive = prefsStore.typewriterMode
     if (typewriterActive) {
       document.body.classList.add('typewriter-mode')
+      // 立即滚动光标到中心
       requestAnimationFrame(scrollCursorToCenter)
     } else {
       document.body.classList.remove('typewriter-mode')
@@ -181,17 +192,20 @@ export function useWritingEnhancement() {
       })
     ]
 
-    // 监听光标位置变化 —— 用于打字机
+    // 只需要监听全局 selectionchange 事件
+    // 当打字机模式开启时，每次选择变化都会触发滚动
     document.addEventListener('selectionchange', handleSelectionChange)
-
-    // 监听编辑器区域滚动 —— 打字机模式用户手动滚动后回正
-    document.addEventListener('scroll', handleEditorScroll, true)
   }
 
   function cleanup() {
     initialized = false
     typewriterActive = false
     focusActive = false
+
+    if (scrollAnimationFrameId) {
+      cancelAnimationFrame(scrollAnimationFrameId)
+      scrollAnimationFrameId = null
+    }
 
     // 清理 store watchers
     if (storeWatchers) {
@@ -200,11 +214,7 @@ export function useWritingEnhancement() {
     }
 
     document.removeEventListener('selectionchange', handleSelectionChange)
-    document.removeEventListener('scroll', handleEditorScroll, true)
-
     document.body.classList.remove('typewriter-mode', 'focus-mode')
-
-    if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null }
   }
 
   return {
