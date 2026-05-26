@@ -1,10 +1,11 @@
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted, onMounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
 import { useEditorSearch } from '@/managers/crepeEditorManager'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 export type SearchScope = 'file' | 'folder' | 'all'
 export type SearchMode = 'floating' | 'sidebar'
@@ -441,15 +442,24 @@ export function useWorkspaceSearch() {
   }
 
   watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => options.regex], () => {
-    if (searchMode.value === 'sidebar') {
-      performSearch()
-      if (searchScope.value === 'file') {
+    // 统一使用防抖，避免性能问题
+    debouncedSearch()
+  })
+
+  let unsubscribeContentChanged: (() => void) | null = null
+
+  onMounted(() => {
+    // 监听内容变化事件，当文档内容变化时更新搜索高亮
+    unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
+      // 只有在有搜索查询时才重新更新
+      if (searchQuery.value.trim() && searchScope.value === 'file') {
         updateEditorHighlight()
       }
-    }
+    })
   })
 
   onUnmounted(() => {
+    unsubscribeContentChanged?.()
     clearSearchHighlight()
   })
 
