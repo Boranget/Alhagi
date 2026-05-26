@@ -522,21 +522,24 @@ export class EditorSearchManager {
       return { replaced: 0 }
     }
     
-    let state = view.state
+    const initialState = view.state
     const query = pluginState.query
     let replacedCount = 0
+    
+    // 构建单个事务，包含所有替换操作，这样所有替换作为一次撤销单元
+    let tr = initialState.tr
     
     for (let i = matches.length - 1; i >= 0; i--) {
       const match = matches[i]
       
-      if (match.to > state.doc.content.size) {
+      if (match.to > initialState.doc.content.size) {
         continue
       }
       
-      let tr
+      let replacedText: string
       
       if (query.regexp && match.match) {
-        let replacedText = replacement
+        replacedText = replacement
         const regexMatch = match.match
         
         replacedText = replacedText.replace(/\$(\d+|&)/g, (fullMatch, groupId) => {
@@ -546,22 +549,21 @@ export class EditorSearchManager {
           const groupNum = parseInt(groupId, 10)
           return regexMatch[groupNum] || ''
         })
-        
-        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
       } else {
-        tr = state.tr.replaceWith(match.from, match.to, state.schema.text(replacement))
+        replacedText = replacement
       }
       
-      if (tr) {
-        view.dispatch(tr)
-        replacedCount++
-      }
-      
-      state = view.state
+      tr = tr.replaceWith(match.from, match.to, initialState.schema.text(replacedText))
+      replacedCount++
       
       if (replacedCount > 10000) {
         break
       }
+    }
+    
+    // 一次性提交所有替换操作，作为单次撤销单元
+    if (replacedCount > 0) {
+      view.dispatch(tr)
     }
 
     return { replaced: replacedCount }
