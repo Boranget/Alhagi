@@ -292,10 +292,10 @@ defineExpose({
 
 <style scoped lang="scss">
 .search-bar {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 1000;
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  z-index: 100;
   width: 520px;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -526,5 +526,21 @@ defineExpose({
 .slide-down-leave-from {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .search-bar {
+    width: calc(100% - 32px);
+    right: 16px;
+    left: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .search-bar {
+    width: calc(100% - 24px);
+    right: 12px;
+    left: 12px;
+  }
 }
 </style>

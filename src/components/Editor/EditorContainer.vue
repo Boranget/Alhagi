@@ -7,11 +7,11 @@
     }"
     :style="containerStyle"
   >
-    <FloatingSearch ref="floatingSearchRef" />
     <div
       class="editor-content"
       :class="contentClasses"
     >
+      <FloatingSearch ref="floatingSearchRef" />
       <!-- 不支持的文件格式提示 -->
       <div 
         v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
