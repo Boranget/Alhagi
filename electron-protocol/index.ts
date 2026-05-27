@@ -144,7 +144,10 @@ export const IPC_CHANNELS = {
     GET_SCREEN_DISPLAY: 'window:get-screen-display',
     DRAG_START: 'window:drag-start',
     DRAG_END: 'window:drag-end',
-    OPEN_DEV_TOOLS: 'window:open-dev-tools'
+    OPEN_DEV_TOOLS: 'window:open-dev-tools',
+    FOCUS_WINDOW: 'window:focus-window',
+    CHECK_FILE_OPEN: 'window:check-file-open',
+    UPDATE_OPENED_FILES: 'window:update-opened-files'
   }
 } as const;
 
@@ -227,6 +230,9 @@ export interface ElectronAPI {
   mergeTab: (tabData: DetachedTabData, targetWindowId: number) => Promise<IPCResponse<boolean>>
   getWindowId: () => Promise<IPCResponse<number | null>>
   listWindows: () => Promise<IPCResponse<Array<{ id: number; title: string; bounds: { x: number; y: number; width: number; height: number } }>>>
+  focusWindow: (windowId: number, filePath?: string) => Promise<IPCResponse<boolean>>
+  checkFileOpen: (filePath: string) => Promise<IPCResponse<{ windowId: number | null }>>
+  updateOpenedFiles: (filePaths: string[]) => Promise<IPCResponse<boolean>>
   onDragStart: (callback: (tabId: string) => void) => () => void
   onDragEnd: (callback: () => void) => () => void
   onNewFile: (callback: () => void) => () => void
@@ -242,6 +248,7 @@ export interface ElectronAPI {
   onCaptureScreen: (callback: () => void) => () => void
   onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
   onTabDetached: (callback: (tabData: DetachedTabData) => void) => () => void
+  onFocusTabForFile: (callback: (filePath: string) => void) => () => void
   onToggleStickyNoteMode: (callback: () => void) => () => void
   onToggleImmersiveMode: (callback: () => void) => () => void
 onToggleSidebar: (callback: () => void) => () => void

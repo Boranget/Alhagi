@@ -5,7 +5,7 @@ import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { TABS, EDITOR, FILE } from '@/constants'
-import type { LineEnding, IPCResponse } from '../../electron-protocol/index'
+import type { LineEnding } from '../../electron-protocol/index'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
   if (!tabState || typeof tabState !== 'object') {
@@ -113,6 +113,15 @@ export const useTabsStore = defineStore('tabs', () => {
   const activeTabId = ref<string | null>(null)
   const tabOrder = ref<string[]>([])
 
+  // 同步打开的文件列表到主进程
+  async function syncOpenedFiles() {
+    if (!window.electronAPI) return
+    const filePaths = Array.from(tabs.value.values())
+      .map(tab => tab.filePath)
+      .filter((filePath): filePath is string => filePath !== null)
+    await window.electronAPI.updateOpenedFiles(filePaths)
+  }
+
   const activeTab = computed(() => {
     if (!activeTabId.value) return null
     return tabs.value.get(activeTabId.value) || null
@@ -180,6 +189,9 @@ export const useTabsStore = defineStore('tabs', () => {
 
     eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
 
+    // 同步打开的文件列表到主进程
+    syncOpenedFiles()
+
     return tab
   }
 
@@ -198,6 +210,9 @@ export const useTabsStore = defineStore('tabs', () => {
         activeTabId.value = null
       }
     }
+
+    // 同步打开的文件列表到主进程
+    syncOpenedFiles()
 
     return true
   }
@@ -272,6 +287,15 @@ export const useTabsStore = defineStore('tabs', () => {
 
     const { filePath, content } = result.data
 
+    // 首先检查文件是否已在其他窗口打开
+    const checkResult = await window.electronAPI.checkFileOpen(filePath)
+    if (checkResult.success && checkResult.data?.windowId !== null) {
+      // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
+      await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
+      return null
+    }
+
+    // 检查当前窗口是否已打开该文件
     const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
     if (existingTab) {
       switchTab(existingTab.id)
@@ -288,6 +312,17 @@ export const useTabsStore = defineStore('tabs', () => {
   }
 
   async function openRecentFile(filePath: string): Promise<TabState | null> {
+    // 首先检查文件是否已在其他窗口打开
+    if (window.electronAPI) {
+      const checkResult = await window.electronAPI.checkFileOpen(filePath)
+      if (checkResult.success && checkResult.data?.windowId !== null) {
+        // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
+        await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
+        return null
+      }
+    }
+
+    // 检查当前窗口是否已打开该文件
     const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
     if (existingTab) {
       switchTab(existingTab.id)

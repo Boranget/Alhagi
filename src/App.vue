@@ -5,9 +5,9 @@
   >
     <div class="app-content">
       <EnhancedSidebar 
-      v-if="prefsStore.showSidebar" 
-      @open-settings="showSettings = true" 
-    />
+        v-if="prefsStore.showSidebar" 
+        @open-settings="showSettings = true" 
+      />
       <div class="editor-wrapper">
         <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
         <div class="editor-area">
@@ -178,6 +178,17 @@ async function openFolderFromMenu() {
     })
   }
 
+  if (window.electronAPI.onFocusTabForFile) {
+    window.electronAPI.onFocusTabForFile((filePath) => {
+      const existingTab = Array.from(tabsStore.tabs.values()).find(
+        t => t.filePath === filePath
+      )
+      if (existingTab) {
+        tabsStore.switchTab(existingTab.id)
+      }
+    })
+  }
+
   if (window.electronAPI?.onToggleStickyNoteMode) {
     window.electronAPI.onToggleStickyNoteMode(() => {
       prefsStore.toggleStickyNoteMode()
@@ -276,7 +287,7 @@ function setupSystemThemeListener() {
     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener)
   }
   
-  systemThemeListener = async (e: MediaQueryListEvent) => {
+  systemThemeListener = async (_e: MediaQueryListEvent) => {
     if (prefsStore.theme === 'system') {
       prefsStore.applyTheme()
       await editorManager.updateTheme()

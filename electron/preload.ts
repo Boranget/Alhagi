@@ -12,9 +12,9 @@ export type { IPCResponse, DetachedTabData } from '../electron-protocol'
 
 function createIpcHandler<T>(
   channel: string,
-  data?: unknown
+  ...args: unknown[]
 ): Promise<IPCResponse<T>> {
-  return ipcRenderer.invoke(channel, data)
+  return ipcRenderer.invoke(channel, ...args)
 }
 
 function createMenuListener(
@@ -118,6 +118,15 @@ const api: ElectronAPI = {
   listWindows: () => 
     createIpcHandler(IPC_CHANNELS.WINDOW.LIST_WINDOWS),
   
+  focusWindow: (windowId: number, filePath?: string) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.FOCUS_WINDOW, windowId, filePath),
+  
+  checkFileOpen: (filePath: string) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.CHECK_FILE_OPEN, filePath),
+  
+  updateOpenedFiles: (filePaths: string[]) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, filePaths),
+  
   onNewFile: (callback) => 
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
@@ -156,6 +165,8 @@ const api: ElectronAPI = {
   
   onTabDetached: (callback) =>
     createMenuListener('tab:detached', callback),
+  onFocusTabForFile: (callback) =>
+    createMenuListener('focus-tab-for-file', callback),
   
   onToggleStickyNoteMode: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),

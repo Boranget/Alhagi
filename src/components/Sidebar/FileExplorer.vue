@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
@@ -208,6 +208,16 @@ async function openFolder() {
 
 async function handleSelect(node: FileTreeNodeType) {
   if (node.type === 'file') {
+    // 首先检查文件是否已在其他窗口打开
+    if (window.electronAPI) {
+      const checkResult = await window.electronAPI.checkFileOpen(node.path)
+      if (checkResult.success && checkResult.data?.windowId !== null) {
+        // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
+        await window.electronAPI.focusWindow(checkResult.data.windowId, node.path)
+        return
+      }
+    }
+    
     let content: string | null = null
     
     if (window.electronAPI) {
@@ -216,7 +226,8 @@ async function handleSelect(node: FileTreeNodeType) {
         if (response && response.success && response.data !== undefined) {
           content = response.data
         }
-      } catch (err) {
+      } catch {
+        // 忽略文件读取错误
       }
     }
     
@@ -416,7 +427,8 @@ async function handleOpenInExplorer(node: FileTreeNodeType | null) {
   if (!node || !window.electronAPI) return
   try {
     await window.electronAPI.showInFolder(node.path)
-  } catch (error) {
+  } catch {
+    // 忽略显示错误
   }
 }
 

@@ -493,7 +493,7 @@ export class EditorSearchManager {
     const updateTr = newState.tr.setMeta(searchPluginKey, { type: 'set', query: pluginState.query })
     view.dispatch(updateTr)
     
-    let currentMatchIndex = 0
+    const currentMatchIndex = 0
     if (newMatches.length > 0) {
       const selectTr = newState.tr.setSelection(new TextSelection(newState.doc.resolve(newMatches[0].from), newState.doc.resolve(newMatches[0].to))).scrollIntoView()
       view.dispatch(selectTr)

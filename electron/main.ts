@@ -35,6 +35,7 @@ const store = new Store<{ windowState: WindowState }>({
 
 let mainWindow: BrowserWindow | null = null
 const windows = new Map<number, BrowserWindow>()
+const windowOpenFiles = new Map<number, string[]>() // 跟踪每个窗口打开的文件
 
 function createWindow() {
   const windowState = store.get('windowState')
@@ -50,6 +51,7 @@ function createWindow() {
     backgroundColor: '#ffffff'
   })
   windows.set(mainWindow.id, mainWindow)
+  windowOpenFiles.set(mainWindow.id, []) // 初始化该窗口的打开文件列表
 
   mainWindow.on('ready-to-show', () => {
     if (windowState.isMaximized) mainWindow?.maximize()
@@ -63,7 +65,13 @@ function createWindow() {
     }
   })
 
-  mainWindow.on('closed', () => { if (mainWindow) { windows.delete(mainWindow.id) } mainWindow = null })
+  mainWindow.on('closed', () => { 
+    if (mainWindow) { 
+      windows.delete(mainWindow.id) 
+      windowOpenFiles.delete(mainWindow.id) // 清理该窗口的文件跟踪
+    } 
+    mainWindow = null 
+  })
 
   if (VITE_DEV_SERVER_URL) mainWindow.loadURL(VITE_DEV_SERVER_URL)
   else mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))
@@ -458,8 +466,12 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
       backgroundColor: '#ffffff'
     })
     windows.set(newWindow.id, newWindow)
+    windowOpenFiles.set(newWindow.id, []) // 初始化该窗口的打开文件列表
 
-    newWindow.on('closed', () => { windows.delete(newWindow.id) })
+    newWindow.on('closed', () => { 
+      windows.delete(newWindow.id) 
+      windowOpenFiles.delete(newWindow.id) // 清理该窗口的文件跟踪
+    })
 
     newWindow.on('ready-to-show', () => newWindow.show())
     
@@ -566,6 +578,63 @@ ipcMain.handle(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, async (_, filePath: string) => 
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to show in folder: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.FOCUS_WINDOW, (_, windowId: number, filePath?: string) => {
+  try {
+    const win = windows.get(windowId)
+    if (!win || win.isDestroyed()) {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+    }
+    if (win.isMinimized()) {
+      win.restore()
+    }
+    win.focus()
+    
+    // 如果提供了 filePath，发送消息到该窗口让它切换到对应标签页
+    if (filePath) {
+      win.webContents.send('focus-tab-for-file', filePath)
+    }
+    
+    return createSuccessResponse(true)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to focus window: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.CHECK_FILE_OPEN, (event, filePath: string) => {
+  try {
+    let targetWindowId: number | null = null
+    const currentWindow = BrowserWindow.fromWebContents(event.sender)
+    const currentWindowId = currentWindow?.id
+    
+    // 遍历所有窗口，查找该文件是否已打开（排除当前窗口）
+    for (const [windowId, openFiles] of windowOpenFiles) {
+      if (windowId !== currentWindowId && openFiles.includes(filePath)) {
+        targetWindowId = windowId
+        break
+      }
+    }
+    return createSuccessResponse({ windowId: targetWindowId })
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to check file: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, (event, filePaths: string[]) => {
+  try {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+    }
+    windowOpenFiles.set(window.id, filePaths)
+    return createSuccessResponse(true)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to update opened files: ${error.message}`)
   }
 })
 

@@ -26,7 +26,7 @@
           name="file"
           size="sm"
         />
-        {{ t('common.openFile') }}
+        {{ t('common.file') }}
       </button>
       <button
         class="recent-files-tab"
@@ -37,7 +37,7 @@
           name="folder"
           size="sm"
         />
-        {{ t('common.openFolder') }}
+        {{ t('common.folder') }}
       </button>
     </div>
 
