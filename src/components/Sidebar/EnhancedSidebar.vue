@@ -44,12 +44,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import FileExplorer from './FileExplorer.vue'
 import RecentFiles from './RecentFiles.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import DocumentOutline from './DocumentOutline.vue'
 import { Icon } from '@/components/Icons'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -61,6 +62,8 @@ const SIDEBAR_MAX_WIDTH = 500
 
 const activeSidebarTab = ref<'files' | 'recent' | 'search' | 'outline'>('files')
 const sidebarWidth = ref(SIDEBAR_DEFAULT_WIDTH)
+
+let unsubscribeSidebarView: (() => void) | null = null
 
 const sidebarTabs = [
   { id: 'files' as const, label: '文件资源管理器', icon: 'folder' },
@@ -76,6 +79,19 @@ onMounted(() => {
     if (!isNaN(parsed)) {
       sidebarWidth.value = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, parsed))
     }
+  }
+
+  unsubscribeSidebarView = eventBus.on(AppEvents.SIDEBAR_VIEW_CHANGED, (view) => {
+    if (view === 'files' || view === 'recent' || view === 'search' || view === 'outline') {
+      activeSidebarTab.value = view
+    }
+  })
+})
+
+onUnmounted(() => {
+  if (unsubscribeSidebarView) {
+    unsubscribeSidebarView()
+    unsubscribeSidebarView = null
   }
 })
 

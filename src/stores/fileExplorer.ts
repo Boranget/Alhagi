@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { FileTreeNodeType, DirectoryEntry } from '@/types'
 import { FILE_TYPES } from '../../electron-protocol'
 import { usePreferencesStore } from '@/stores/preferences'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 export const useFileExplorerStore = defineStore('fileExplorer', () => {
   const currentFolder = ref<string | null>(null)
@@ -26,6 +27,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
         const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
         prefs.addRecentFolder(response.data.path, folderName)
         prefs.showSidebar = true
+        eventBus.emit(AppEvents.SIDEBAR_VIEW_CHANGED, 'files')
         
         return response.data
       }
@@ -176,6 +178,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       const folderName = folderPath.split(/[/\\]/).pop() || folderPath
       prefs.addRecentFolder(folderPath, folderName)
       prefs.showSidebar = true
+      eventBus.emit(AppEvents.SIDEBAR_VIEW_CHANGED, 'files')
       
       return { path: folderPath, tree }
     } catch (e) {
