@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TabState, ViewMode, FileType } from '@/types'
-import { generateUUID, extractTitleFromPath } from '@/utils/helpers'
+import { generateUUID, extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { TABS, EDITOR, FILE } from '@/constants'
 import type { LineEnding } from '../../electron-protocol/index'
+import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
   if (!tabState || typeof tabState !== 'object') {
@@ -372,10 +373,14 @@ export const useTabsStore = defineStore('tabs', () => {
     const prefs = usePreferencesStore()
     const lineEnding = prefs.lineEnding as LineEnding
     const defaultPath = (tab.title.endsWith('.md') ? tab.title : tab.title + '.md')
+    
     const filePathResp = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
 
     if (filePathResp.success && filePathResp.data) {
       const filePath = filePathResp.data
+      
+      await handleTempImagesOnSave(tabId, filePath)
+
       tab.filePath = filePath
       tab.title = extractTitleFromPath(filePath)
       markClean(tabId)
@@ -387,6 +392,15 @@ export const useTabsStore = defineStore('tabs', () => {
     }
 
     return false
+  }
+
+  async function handleTempImagesOnSave(tabId: string, newFilePath: string): Promise<void> {
+    const tab = tabs.value.get(tabId)
+    if (!tab) return
+
+    const mdDir = getDirname(newFilePath)
+    await copyTempImagesToTarget(tabId, mdDir)
+    await deleteTempImageDir(tabId)
   }
 
   function getAllTabs(): TabState[] {

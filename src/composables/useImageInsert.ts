@@ -1,9 +1,11 @@
 import { ref } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { FILE } from '@/constants'
 import { getDirname, getRelativePath } from '@/utils/helpers'
+import { saveTempImage, getGlobalImageDefaultDir } from '@/utils/tempImageManager'
 
 export type ImageInsertMode = 'keep-original' | 'copy-absolute' | 'copy-relative'
 
@@ -71,32 +73,54 @@ async function fileToBase64(file: File): Promise<string> {
 export function useImageInsert() {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
+  const fileExplorerStore = useFileExplorerStore()
   const editorManager = useCrepeEditorManager()
   
   const isInserting = ref(false)
   
-  async function insertImage(file: File): Promise<string | null> {
+  async function insertImage(file: File, originalPath?: string): Promise<string | null> {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
+      console.log('[insertImage] 没有活跃的标签页')
       return null
+    }
+    
+    if (originalPath) {
+      const currentContent = editorManager.getMarkdown()
+      if (currentContent.includes(originalPath)) {
+        console.log('[insertImage] 检测到编辑器已包含该图片URL，跳过插入')
+        console.log('[insertImage] 原始路径:', originalPath)
+        return null
+      }
     }
     
     isInserting.value = true
     
     try {
       const mode = prefsStore.imageInsertMode
+      console.log('[insertImage] 当前图片插入模式:', mode)
+      console.log('[insertImage] 原始路径:', originalPath || '(无)')
+      console.log('[insertImage] 文件名:', file.name)
+      console.log('[insertImage] 标签页ID:', activeTab.id)
+      console.log('[insertImage] 文件路径:', activeTab.filePath || '(未保存)')
+      
       let imagePath: string
       
       if (mode === 'keep-original') {
-        // keep-original：只写文件名，不复制文件
-        imagePath = file.name
+        console.log('[insertImage] 使用保留原始路径模式')
+        imagePath = await handleKeepOriginalMode(file, originalPath)
+      } else if (mode === 'copy-absolute') {
+        console.log('[insertImage] 使用复制到全局目录模式')
+        imagePath = await handleCopyAbsoluteMode(file)
       } else {
-        // copy-absolute / copy-relative：复制文件到目标目录，路径格式由 mode 决定
-        imagePath = await copyImageToDirectory(file, mode)
+        console.log('[insertImage] 使用复制到相对目录模式')
+        imagePath = await handleCopyRelativeMode(file, activeTab.id, activeTab.filePath)
       }
       
+      console.log('[insertImage] 生成的图片路径:', imagePath)
+      
       const altText = file.name.replace(/\.[^.]+$/, '')
-      // 原样写入 MD，不做 file:// 转换（渲染时由插件统一处理）
+      console.log('[insertImage] 插入图片到编辑器，alt文本:', altText)
       await editorManager.insertImage(imagePath, altText)
       
       tabsStore.updateTab(activeTab.id, {
@@ -106,74 +130,121 @@ export function useImageInsert() {
       
       return imagePath
     } catch (error) {
+      console.error('[insertImage] 发生错误:', error)
       return null
     } finally {
       isInserting.value = false
     }
   }
   
-  /**
-   * 复制图片到目标目录
-   *
-   * 核心原则：
-   * - 文件总是保存到绝对路径（确保写入成功）
-   * - 返回的路径格式由 mode 决定：
-   *   copy-absolute → 返回绝对路径（如 D:/project/assets/img.png）
-   *   copy-relative → 返回相对于 MD 文件的路径（如 ./assets/img.png）
-   */
-  async function copyImageToDirectory(file: File, mode: ImageInsertMode): Promise<string> {
-    const activeTab = tabsStore.activeTab
-    const mdFilePath = activeTab?.filePath || ''
-    const mdDir = mdFilePath ? getDirname(mdFilePath) : ''
-    
-    // 确定目标目录模板
-    let targetDirTemplate = prefsStore.imageStoragePath
-    if (!targetDirTemplate) {
-      targetDirTemplate = mdDir 
-        ? `${mdDir}/${FILE.DEFAULT_IMAGE_FOLDER}`
-        : `./${FILE.DEFAULT_IMAGE_FOLDER}`
+  async function handleKeepOriginalMode(file: File, originalPath?: string): Promise<string> {
+    if (originalPath) {
+      return originalPath
     }
-    
-    // 解析为绝对路径（用于实际保存文件）
-    let absoluteTargetDir = targetDirTemplate
-    if (!absoluteTargetDir.match(/^[A-Za-z]:[\\/]/) && !absoluteTargetDir.startsWith('/')) {
-      // 相对路径 → 以 MD 文件目录为基准解析
-      absoluteTargetDir = mdDir
-        ? `${mdDir}/${absoluteTargetDir}`.replace(/\/+/g, '/')
-        : absoluteTargetDir
-    }
-    
-    const fileNameWithoutExt = file.name.replace(/\.[^.]+$/, '')
-    const fileExt = file.name.match(/\.[^.]+$/)?.[0] || ''
-    
-    let resolvedPath = resolvePathVariables(absoluteTargetDir, {
-      fileName: fileNameWithoutExt,
-      filePath: mdFilePath
-    })
-    
-    if (!resolvedPath.endsWith('/')) {
-      resolvedPath += '/'
-    }
+    return file.name
+  }
+  
+  async function handleCopyAbsoluteMode(file: File): Promise<string> {
+    console.log('[handleCopyAbsoluteMode] === 开始处理 ===')
+    console.log('[handleCopyAbsoluteMode] 文件名:', file.name)
+    console.log('[handleCopyAbsoluteMode] 文件大小:', file.size, 'bytes')
     
     const fileName = generateImageName(file)
-    const absolutePath = `${resolvedPath}${fileName}`
+    console.log('[handleCopyAbsoluteMode] 生成的文件名:', fileName)
     
-    // 保存文件到磁盘（使用绝对路径）
+    let targetDir: string
+    const userSetting = prefsStore.imageStoragePath
+    console.log('[handleCopyAbsoluteMode] 用户设置:', userSetting || '(空，使用默认值)')
+    
+    const workspaceRoot = fileExplorerStore.currentFolder
+    console.log('[handleCopyAbsoluteMode] 工作区目录:', workspaceRoot || '(空)')
+    
+    if (userSetting) {
+      const baseDir = workspaceRoot || (await getGlobalImageDefaultDir())
+      console.log('[handleCopyAbsoluteMode] 基础目录:', baseDir)
+      
+      if (userSetting.match(/^[A-Za-z]:[\\/]/) || userSetting.startsWith('/')) {
+        targetDir = userSetting
+        console.log('[handleCopyAbsoluteMode] 使用绝对路径作为目标目录')
+      } else {
+        targetDir = `${baseDir}/${userSetting}`
+        console.log('[handleCopyAbsoluteMode] 使用相对路径，组合为:', targetDir)
+      }
+    } else {
+      console.log('[handleCopyAbsoluteMode] 用户未设置，使用默认全局目录')
+      targetDir = await getGlobalImageDefaultDir()
+      console.log('[handleCopyAbsoluteMode] 默认全局目录:', targetDir)
+    }
+    
+    const resolvedDir = resolvePathVariables(targetDir, {
+      fileName: file.name.replace(/\.[^.]+$/, '')
+    })
+    console.log('[handleCopyAbsoluteMode] 解析后的目录:', resolvedDir)
+    
+    const ensureResult = await window.electronAPI.ensureDirectory(resolvedDir)
+    if (!ensureResult.success) {
+      throw new Error(ensureResult.error?.message || 'Failed to create directory')
+    }
+    console.log('[handleCopyAbsoluteMode] 目录已确保存在')
+    
+    const absolutePath = `${resolvedDir}/${fileName}`
+    console.log('[handleCopyAbsoluteMode] 完整路径:', absolutePath)
+    
     const base64Content = await fileToBase64(file)
-    const saveResult = await (window as any).electronAPI.saveBinaryFile(absolutePath, base64Content)
+    console.log('[handleCopyAbsoluteMode] 文件转为 base64，长度:', base64Content.length)
+    
+    const saveResult = await window.electronAPI.saveBinaryFile(absolutePath, base64Content)
+    console.log('[handleCopyAbsoluteMode] 保存结果:', saveResult)
     
     if (!saveResult.success) {
+      console.error('[handleCopyAbsoluteMode] 保存失败:', saveResult.error)
       throw new Error(saveResult.error?.message || 'Failed to save image')
     }
     
-    // 根据模式返回不同格式的路径（写入 MD 的内容）
-    if (mode === 'copy-relative' && mdDir) {
-      // 计算 MD 文件到图片的相对路径
-      return getRelativePath(mdDir, absolutePath)
-    }
-    
-    // copy-absolute：返回绝对路径
+    console.log('[handleCopyAbsoluteMode] === 处理完成 ===')
     return absolutePath
+  }
+  
+  async function handleCopyRelativeMode(file: File, fileId: string, mdFilePath?: string): Promise<string> {
+    const fileName = generateImageName(file)
+    const relativePath = `${FILE.DEFAULT_IMAGE_FOLDER}/${fileName}`
+    
+    if (mdFilePath) {
+      const mdDir = getDirname(mdFilePath)
+      
+      let targetDir: string
+      const userSetting = prefsStore.imageStoragePath
+      
+      if (userSetting) {
+        if (userSetting.match(/^[A-Za-z]:[\\/]/) || userSetting.startsWith('/')) {
+          targetDir = userSetting
+        } else {
+          targetDir = `${mdDir}/${userSetting}`
+        }
+      } else {
+        targetDir = `${mdDir}/${FILE.DEFAULT_IMAGE_FOLDER}`
+      }
+      
+      const resolvedDir = resolvePathVariables(targetDir, {
+        fileName: file.name.replace(/\.[^.]+$/, ''),
+        filePath: mdFilePath
+      })
+      
+      await window.electronAPI.ensureDirectory(resolvedDir)
+      const absolutePath = `${resolvedDir}/${fileName}`
+      const base64Content = await fileToBase64(file)
+      const saveResult = await window.electronAPI.saveBinaryFile(absolutePath, base64Content)
+      
+      if (!saveResult.success) {
+        throw new Error(saveResult.error?.message || 'Failed to save image')
+      }
+      
+      return getRelativePath(mdDir, absolutePath)
+    } else {
+      const base64Content = await fileToBase64(file)
+      await saveTempImage(fileId, relativePath, base64Content)
+      return relativePath
+    }
   }
   
   async function insertImageByPath(imagePath: string, altText?: string): Promise<void> {
@@ -181,7 +252,6 @@ export function useImageInsert() {
     if (!activeTab) return
     
     const alt = altText || imagePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'image'
-    // 原样写入，不做路径转换
     await editorManager.insertImage(imagePath, alt)
     
     tabsStore.updateTab(activeTab.id, {

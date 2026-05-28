@@ -581,6 +581,28 @@ ipcMain.handle(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, async (_, filePath: string) => 
   }
 })
 
+ipcMain.handle(IPC_CHANNELS.FILE.GET_DOCUMENTS_DIRECTORY, async () => {
+  try {
+    const documentsPath = app.getPath('documents')
+    return createSuccessResponse(documentsPath)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to get documents directory: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.FILE.ENSURE_DIRECTORY, async (_, dirPath: string) => {
+  try {
+    if (!dirPath || typeof dirPath !== 'string') return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid directory path')
+    await fs.mkdir(dirPath, { recursive: true })
+    return createSuccessResponse(true)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    if (isPermissionError(error)) return createErrorResponse(IPCErrorCode.PERMISSION_DENIED, `Permission denied: ${error.message}`)
+    return createErrorResponse(IPCErrorCode.DIRECTORY_CREATE_ERROR, `Failed to create directory: ${error.message}`)
+  }
+})
+
 ipcMain.handle(IPC_CHANNELS.WINDOW.FOCUS_WINDOW, (_, windowId: number, filePath?: string) => {
   try {
     const win = windows.get(windowId)

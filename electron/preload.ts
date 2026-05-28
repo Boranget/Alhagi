@@ -70,6 +70,12 @@ const api: ElectronAPI = {
   copyFile: (sourcePath, targetDir) => 
     createIpcHandler(IPC_CHANNELS.FILE.COPY, { sourcePath, targetDir }),
   
+  getDocumentsDirectory: () =>
+    createIpcHandler(IPC_CHANNELS.FILE.GET_DOCUMENTS_DIRECTORY),
+  
+  ensureDirectory: (dirPath) =>
+    createIpcHandler(IPC_CHANNELS.FILE.ENSURE_DIRECTORY, dirPath),
+  
   selectDirectory: () => 
     createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
   

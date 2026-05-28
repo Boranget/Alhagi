@@ -194,21 +194,44 @@
                 <label>默认插入模式</label>
                 <select v-model="prefsStore.imageInsertMode">
                   <option value="keep-original">
-                    保留原始路径
+                    {{ t('settings.keepOriginal') }}
                   </option>
                   <option value="copy-absolute">
-                    复制并使用绝对路径
+                    {{ t('settings.copyAbsolute') }}
                   </option>
                   <option value="copy-relative">
-                    复制并使用相对路径
+                    {{ t('settings.copyRelative') }}
                   </option>
                 </select>
               </div>
-              <div class="setting-item vertical">
-                <label>图片保存目录</label>
+              
+              <!-- 复制到全局目录设置 -->
+              <div
+                v-show="prefsStore.imageInsertMode === 'copy-absolute'"
+                class="setting-item vertical"
+              >
+                <label>全局图片目录</label>
                 <div class="path-help">
                   <p class="help-text">
-                    设置插入图片时的保存位置。留空则使用默认路径（相对于当前文档目录的 assets/images 文件夹）。
+                    设置全局图片保存位置，所有文档粘贴的图片都将保存到此目录。留空则使用默认路径（文档目录/alhagi/cache/image/default）。
+                  </p>
+                  <input
+                    v-model="prefsStore.imageStoragePath"
+                    type="text"
+                    placeholder="留空使用默认路径"
+                  >
+                </div>
+              </div>
+              
+              <!-- 复制到相对目录设置 -->
+              <div
+                v-show="prefsStore.imageInsertMode === 'copy-relative'"
+                class="setting-item vertical"
+              >
+                <label>相对图片目录</label>
+                <div class="path-help">
+                  <p class="help-text">
+                    设置相对于当前文档的图片保存位置。留空则使用默认路径（assets/images）。
                   </p>
                   <p class="help-label">
                     可用变量：
@@ -303,6 +326,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
+import { t } from '@/services/i18n'
 import KeyboardSettings from './KeyboardSettings.vue'
 
 interface SettingsSection {

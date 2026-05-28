@@ -126,7 +126,9 @@ export const IPC_CHANNELS = {
     MOVE: 'file:move',
     COPY: 'file:copy',
     SEARCH_IN_DIRECTORY: 'file:search-in-directory',
-    SHOW_IN_FOLDER: 'file:show-in-folder'
+    SHOW_IN_FOLDER: 'file:show-in-folder',
+    GET_DOCUMENTS_DIRECTORY: 'file:get-documents-directory',
+    ENSURE_DIRECTORY: 'file:ensure-directory'
   },
   DIALOG: {
     SELECT_DIRECTORY: 'dialog:select-directory'
@@ -219,6 +221,8 @@ export interface ElectronAPI {
   selectDirectory: () => Promise<IPCResponse<string | null>>
   showInFolder: (filePath: string) => Promise<IPCResponse<boolean>>
   searchInDirectory: (dirPath: string, query: string, options?: SearchOptions) => Promise<IPCResponse<SearchResult[]>>
+  getDocumentsDirectory: () => Promise<IPCResponse<string>>
+  ensureDirectory: (dirPath: string) => Promise<IPCResponse<boolean>>
   minimize: () => Promise<IPCResponse<void>>
   maximize: () => Promise<IPCResponse<void>>
   close: () => Promise<IPCResponse<void>>

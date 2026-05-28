@@ -118,6 +118,8 @@ export class CrepeEditorManager {
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.Placeholder]: true,
         [Crepe.Feature.Cursor]: false,
+        [Crepe.Feature.ImageBlock]: false,
+        [Crepe.Feature.ImageInline]: false,
       },
       featureConfigs: {
         [Crepe.Feature.CodeMirror]: {
