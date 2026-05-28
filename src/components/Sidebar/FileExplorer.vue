@@ -126,7 +126,6 @@ import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
@@ -134,7 +133,6 @@ import { Icon } from '@/components/Icons'
 
 const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
 const newItemInput = ref<HTMLInputElement | null>(null)
 
 interface ContextMenu {
@@ -202,7 +200,6 @@ async function openFolder() {
   const result = await fileStore.openFolder()
   if (result) {
     await fileStore.refreshTree()
-    prefsStore.showSidebar = true
   }
 }
 

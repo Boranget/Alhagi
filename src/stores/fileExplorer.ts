@@ -25,6 +25,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
         const prefs = usePreferencesStore()
         const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
         prefs.addRecentFolder(response.data.path, folderName)
+        prefs.showSidebar = true
         
         return response.data
       }
@@ -174,6 +175,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       const prefs = usePreferencesStore()
       const folderName = folderPath.split(/[/\\]/).pop() || folderPath
       prefs.addRecentFolder(folderPath, folderName)
+      prefs.showSidebar = true
       
       return { path: folderPath, tree }
     } catch (e) {

@@ -99,7 +99,6 @@ async function openFolderFromMenu() {
     const result = await window.electronAPI.openFolder()
     if (result.success && result.data) {
       await fileStore.openFolderByPath(result.data.path)
-      prefsStore.showSidebar = true
     }
   }
 
