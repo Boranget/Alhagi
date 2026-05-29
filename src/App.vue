@@ -21,11 +21,19 @@
       :visible="showSettings"
       @close="showSettings = false"
     />
+    <CommandPalette
+      :visible="showCommandPalette"
+      @close="showCommandPalette = false"
+    />
+    <ShortcutsDialog
+      :visible="showShortcuts"
+      @close="showShortcuts = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
@@ -35,22 +43,58 @@ import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import Welcome from '@/components/Welcome/Welcome.vue'
+import CommandPalette from '@/components/CommandPalette/CommandPalette.vue'
+import ShortcutsDialog from '@/components/Shortcuts/ShortcutsDialog.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 const { showSettings, isFullscreen, initializeApp } = useApp()
 
+const showCommandPalette = ref(false)
+const showShortcuts = ref(false)
+
 let cleanup: (() => void) | null = null
 
 onMounted(async () => {
   cleanup = await initializeApp()
+  
+  // 监听命令面板快捷键
+  window.addEventListener('keydown', handleGlobalKeydown)
+  
+  // 监听命令面板事件
+  window.addEventListener('app:quickOpen', () => {
+    showCommandPalette.value = true
+  })
+  
+  window.addEventListener('app:showShortcuts', () => {
+    showShortcuts.value = true
+  })
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  
   if (cleanup) {
     cleanup()
   }
 })
+
+// 全局快捷键处理
+function handleGlobalKeydown(e: KeyboardEvent) {
+  // Ctrl/Cmd + Shift + P: 命令面板
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+    e.preventDefault()
+    showCommandPalette.value = !showCommandPalette.value
+    return
+  }
+  
+  // Ctrl/Cmd + ,: 设置
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault()
+    showSettings.value = true
+    return
+  }
+}
 </script>
 
 <style scoped lang="scss">

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import type { DetachedTabData } from '../../electron-protocol/index'
 import type { 
@@ -83,6 +84,7 @@ export function useTabDragDrop() {
     return closest
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function createNewWindow(tabData: DetachedTabData): Promise<number | null> {
     if (!window.electronAPI) return null
 
@@ -127,6 +129,7 @@ export function useTabDragDrop() {
         }
       }
     } catch (e) {
+      // Silent fail - bounds calculation errors
     }
 
     const result = await window.electronAPI.openNewWindow({
@@ -376,14 +379,15 @@ export function useTabDragDrop() {
       currentDragState,
       currentWindowList,
       currentWindowIdValue
-    ).catch(error => {
+    ).catch(_error => {
+      // Silent fail - IPC error
     })
   }
 
   async function executeDragEndAsync(
     event: DragEvent,
     tab: TabState,
-    currentDragState: any,
+    currentDragState: DragState,
     currentWindowList: WindowInfo[],
     currentWindowIdValue: number | null
   ): Promise<void> {
@@ -464,6 +468,7 @@ export function useTabDragDrop() {
           windowList.value = listResp.data
         }
       } catch (e) {
+        // Silent fail - window listing errors
       }
     }
   }

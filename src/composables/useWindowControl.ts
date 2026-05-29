@@ -15,6 +15,7 @@ export function useWindowControl() {
     if (window.electronAPI) {
       await window.electronAPI.minimize()
     } else {
+      // Silent fail - minimize not available in browser
     }
   }
   

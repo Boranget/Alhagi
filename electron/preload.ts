@@ -213,7 +213,49 @@ onToggleSidebar: (callback) =>
     return () => {
       ipcRenderer.removeListener(MENU_EVENTS.EDIT_REDO, handler)
     }
-  }
+  },
+
+  // 格式菜单事件
+  onFormatBold: (callback) => createMenuListener(MENU_EVENTS.FORMAT_BOLD, callback),
+  onFormatItalic: (callback) => createMenuListener(MENU_EVENTS.FORMAT_ITALIC, callback),
+  onFormatStrikethrough: (callback) => createMenuListener(MENU_EVENTS.FORMAT_STRIKETHROUGH, callback),
+  onFormatCode: (callback) => createMenuListener(MENU_EVENTS.FORMAT_CODE, callback),
+  onFormatLink: (callback) => createMenuListener(MENU_EVENTS.FORMAT_LINK, callback),
+  onFormatImage: (callback) => createMenuListener(MENU_EVENTS.FORMAT_IMAGE, callback),
+  onFormatHighlight: (callback) => createMenuListener(MENU_EVENTS.FORMAT_HIGHLIGHT, callback),
+
+  // 段落菜单事件
+  onParagraphHeading1: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING1, callback),
+  onParagraphHeading2: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING2, callback),
+  onParagraphHeading3: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING3, callback),
+  onParagraphParagraph: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_PARAGRAPH, callback),
+  onParagraphQuote: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_QUOTE, callback),
+  onParagraphBulletList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_BULLET_LIST, callback),
+  onParagraphOrderedList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_ORDERED_LIST, callback),
+  onParagraphTaskList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_TASK_LIST, callback),
+  onParagraphCodeBlock: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_CODE_BLOCK, callback),
+  onParagraphMathBlock: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_MATH_BLOCK, callback),
+  onParagraphHorizontalRule: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HORIZONTAL_RULE, callback),
+
+  // 表格菜单事件
+  onTableInsert: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT, callback),
+  onTableInsertRowAbove: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_ROW_ABOVE, callback),
+  onTableInsertRowBelow: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_ROW_BELOW, callback),
+  onTableInsertColumnLeft: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_COLUMN_LEFT, callback),
+  onTableInsertColumnRight: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_COLUMN_RIGHT, callback),
+  onTableDeleteRow: (callback) => createMenuListener(MENU_EVENTS.TABLE_DELETE_ROW, callback),
+  onTableDeleteColumn: (callback) => createMenuListener(MENU_EVENTS.TABLE_DELETE_COLUMN, callback),
+
+  // 导航菜单事件
+  onNavigationQuickOpen: (callback) => createMenuListener(MENU_EVENTS.NAVIGATION_QUICK_OPEN, callback),
+  onNavigationGotoLine: (callback) => createMenuListener(MENU_EVENTS.NAVIGATION_GOTO_LINE, callback),
+
+  // 工具菜单事件
+  onToolsPreferences: (callback) => createMenuListener(MENU_EVENTS.TOOLS_PREFERENCES, callback),
+  onToolsExport: (callback) => createMenuListener(MENU_EVENTS.TOOLS_EXPORT, callback),
+
+  // 帮助菜单事件
+  onHelpShortcuts: (callback) => createMenuListener(MENU_EVENTS.HELP_SHORTCUTS, callback)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

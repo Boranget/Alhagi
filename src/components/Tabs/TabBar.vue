@@ -363,6 +363,7 @@ async function showInFolder() {
     try {
       await window.electronAPI.showInFolder(tab.filePath)
     } catch (error) {
+      // Silent fail - folder navigation errors
     }
   }
   hideContextMenu()

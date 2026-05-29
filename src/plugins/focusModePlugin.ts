@@ -1,13 +1,14 @@
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
+import type { ResolvedPos } from '@milkdown/kit/prose/model'
 
 const FOCUS_MODE_ACTIVE_CLASS = 'focus-highlight'
 
 /**
  * 找到当前光标所在的顶级块级节点（ProseMirror 的直接子元素）
  */
-function findTopLevelBlock($pos: any) {
+function findTopLevelBlock($pos: ResolvedPos) {
   let depth = $pos.depth
   
   // 找 depth === 1 的块级节点，即 ProseMirror 的直接子元素

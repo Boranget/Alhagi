@@ -78,6 +78,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   showSidebar: true,
   showTabBar: true,
   showStatusBar: true,
+  showMenuBar: true,
   hideScrollBars: false,
   isStickyNoteMode: false,
   isImmersiveMode: false,
@@ -113,6 +114,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const showSidebar = ref<boolean>(DEFAULT_PREFERENCES.showSidebar)
   const showTabBar = ref<boolean>(DEFAULT_PREFERENCES.showTabBar)
   const showStatusBar = ref<boolean>(DEFAULT_PREFERENCES.showStatusBar)
+  const showMenuBar = ref<boolean>(DEFAULT_PREFERENCES.showMenuBar)
   const hideScrollBars = ref<boolean>(DEFAULT_PREFERENCES.hideScrollBars)
   const isStickyNoteMode = ref<boolean>(DEFAULT_PREFERENCES.isStickyNoteMode)
   const isImmersiveMode = ref<boolean>(DEFAULT_PREFERENCES.isImmersiveMode)
@@ -196,6 +198,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       case 'showSidebar': showSidebar.value = value as boolean; break
       case 'showTabBar': showTabBar.value = value as boolean; break
       case 'showStatusBar': showStatusBar.value = value as boolean; break
+      case 'showMenuBar': showMenuBar.value = value as boolean; break
       case 'hideScrollBars': hideScrollBars.value = value as boolean; break
       case 'isStickyNoteMode': isStickyNoteMode.value = value as boolean; break
       case 'isImmersiveMode': isImmersiveMode.value = value as boolean; break
@@ -240,10 +243,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
       showSidebar.value = false
       showTabBar.value = false
       showStatusBar.value = false
+      showMenuBar.value = false
     } else {
       showSidebar.value = DEFAULT_PREFERENCES.showSidebar
       showTabBar.value = DEFAULT_PREFERENCES.showTabBar
       showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+      showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
     }
     savePreferences()
   }
@@ -254,10 +259,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
       showSidebar.value = false
       showTabBar.value = false
       showStatusBar.value = false
+      showMenuBar.value = false
     } else {
       showSidebar.value = DEFAULT_PREFERENCES.showSidebar
       showTabBar.value = DEFAULT_PREFERENCES.showTabBar
       showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+      showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
     }
     savePreferences()
   }

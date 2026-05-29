@@ -268,11 +268,15 @@ unsubscribes.push(unsubscribeViewModeChanged)
 
 const unsubscribeEditUndo = eventBus.on(AppEvents.EDIT_UNDO, () => {
   if (currentMode.value === 'source' || currentMode.value === 'split') {
-    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as any
-    if (codemirrorEditor?._editableView?.view) {
-      codemirrorEditor._editableView.view.dispatch({
-        userEvent: 'undo'
-      })
+    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as HTMLElement
+    if (codemirrorEditor && '_editableView' in codemirrorEditor) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const editableView = (codemirrorEditor as any)._editableView
+      if (editableView?.view) {
+        editableView.view.dispatch({
+          userEvent: 'undo'
+        })
+      }
     }
   }
   if (editorManager.isReady()) {
@@ -283,11 +287,15 @@ unsubscribes.push(unsubscribeEditUndo)
 
 const unsubscribeEditRedo = eventBus.on(AppEvents.EDIT_REDO, () => {
   if (currentMode.value === 'source' || currentMode.value === 'split') {
-    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as any
-    if (codemirrorEditor?._editableView?.view) {
-      codemirrorEditor._editableView.view.dispatch({
-        userEvent: 'redo'
-      })
+    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as HTMLElement
+    if (codemirrorEditor && '_editableView' in codemirrorEditor) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const editableView = (codemirrorEditor as any)._editableView
+      if (editableView?.view) {
+        editableView.view.dispatch({
+          userEvent: 'redo'
+        })
+      }
     }
   }
   if (editorManager.isReady()) {
@@ -300,10 +308,21 @@ onMounted(async () => {
   instanceCount++
   console.log(`[EditorContainer] onMounted called (instance #${instanceCount})`)
   console.log('[EditorContainer] crepeContainer exists:', !!crepeContainer.value)
+  console.log('[EditorContainer] activeTab:', activeTab.value)
+  console.log('[EditorContainer] currentMode:', currentMode.value)
+  
+  // 检查容器的可见性
+  if (crepeContainer.value) {
+    console.log('[EditorContainer] crepeContainer.style.display:', crepeContainer.value.style.display)
+    console.log('[EditorContainer] crepeContainer.offsetWidth:', crepeContainer.value.offsetWidth)
+    console.log('[EditorContainer] crepeContainer.offsetHeight:', crepeContainer.value.offsetHeight)
+  }
   
   if (crepeContainer.value) {
     const initialContent = activeTab.value?.content || ''
     const tabId = activeTab.value?.id
+    
+    console.log('[EditorContainer] 准备初始化编辑器，initialContent 长度:', initialContent?.length, 'tabId:', tabId)
     
     try {
       await editorManager.init(crepeContainer.value, initialContent, tabId)
@@ -311,9 +330,12 @@ onMounted(async () => {
       if (tabId && initialContent) {
         await editorManager.switchToTab(tabId)
       }
+      console.log('[EditorContainer] 编辑器初始化成功完成')
     } catch (error) {
+      console.error('[EditorContainer] 编辑器初始化失败:', error)
     }
   } else {
+    console.error('[EditorContainer] crepeContainer 不存在，跳过初始化')
   }
   
   window.addEventListener('keydown', handleEditorKeydown)
@@ -332,6 +354,7 @@ onUnmounted(async () => {
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
+  window.removeEventListener('editor:insertImage', handleInsertImage)
   
   const container = crepeContainer.value
   if (container && imagePasteHandler.value) {

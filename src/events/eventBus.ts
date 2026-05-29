@@ -42,6 +42,7 @@ class SimpleEventBus implements EventBus {
         try {
           callback(payload)
         } catch (error) {
+          // Silent fail - event callback errors
         }
       })
     }
@@ -122,6 +123,7 @@ export function createEventHook<T = unknown>() {
         try {
           cb(payload)
         } catch (error) {
+          // Silent fail - event callback errors
         }
       })
     },

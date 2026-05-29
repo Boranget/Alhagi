@@ -118,6 +118,7 @@ export function useKeybindings() {
         return true
       }
     } catch {
+      // Silent fail - invalid JSON
     }
     return false
   }

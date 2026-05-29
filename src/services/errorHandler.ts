@@ -249,6 +249,7 @@ class ErrorManager {
       try {
         handler(error)
       } catch (e) {
+        // Silent fail - error handler errors
       }
     })
   }
@@ -256,6 +257,7 @@ class ErrorManager {
   private reportError(error: AppError) {
     if (error.severity === ErrorSeverity.ERROR || 
         error.severity === ErrorSeverity.CRITICAL) {
+      // Report to error tracking service
     }
   }
   

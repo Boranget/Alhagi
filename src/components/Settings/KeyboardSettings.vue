@@ -309,6 +309,7 @@ onMounted(() => {
         keybindings.value = imported
       }
     } catch (e) {
+      // Silent fail - invalid JSON in localStorage
     }
   }
 })

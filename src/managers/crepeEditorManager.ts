@@ -1,11 +1,28 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
-import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
+import { editorStateCtx, editorViewCtx, parserCtx } from '@milkdown/kit/core'
+import { InitReady, remarkPluginsCtx, remarkStringifyOptionsCtx } from '@milkdown/core'
+import type { MilkdownPlugin } from '@milkdown/ctx'
 import { insert, $prose, callCommand } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { Plugin } from '@milkdown/kit/prose/state'
 import { undoCommand, redoCommand } from '@milkdown/plugin-history'
+import {
+  toggleEmphasisCommand,
+  toggleStrongCommand,
+  toggleInlineCodeCommand,
+  toggleLinkCommand,
+  wrapInBulletListCommand,
+  wrapInOrderedListCommand,
+  wrapInBlockquoteCommand,
+  wrapInHeadingCommand,
+  createCodeBlockCommand,
+} from '@milkdown/preset-commonmark'
+import {
+  insertTableCommand,
+  toggleStrikethroughCommand,
+} from '@milkdown/preset-gfm'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
@@ -15,11 +32,23 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { generateSlug } from '@/utils/headings'
-import { getSearchPlugin, useEditorSearchManager } from './EditorSearchManager'
+import {
+  insertTableRowAbove,
+  insertTableRowBelow,
+  deleteTableRow,
+  insertTableColumnLeft,
+  insertTableColumnRight,
+  deleteTableColumn,
+} from '@/commands/tableCommands'
+import { useEditorSearchManager, getSearchPlugin } from '@/managers/EditorSearchManager'
 import { focusModePlugin } from '@/plugins/focusModePlugin'
+import { inlineMarksPlugin, toggleHighlightCommand } from '@/plugins/inlineMarksPlugin'
+import remarkHighlight from '@/plugins/remarkHighlight'
+import remarkSuperSub from '@/plugins/remarkSuperSub'
+import type { EditorView } from '@milkdown/kit/prose/view'
 
 const imagePathPlugin = $prose(() => new Plugin({
-  view(editorView: any) {
+  view(editorView: EditorView) {
     requestAnimationFrame(() => {
       fixImageSources(editorView.dom)
     })
@@ -48,6 +77,18 @@ function fixImageSources(dom: Element): void {
   })
 }
 
+/**
+ * MilkdownPlugin: 注册 remark 解析插件，将 ==text== / ^text^ / ~text~ 解析为 AST 节点
+ */
+const inlineMarksParsersPlugin: MilkdownPlugin = (ctx) => async () => {
+  await ctx.wait(InitReady)
+  ctx.update(remarkPluginsCtx, (rp) => [
+    ...rp,
+    { plugin: remarkHighlight, options: {} },
+    { plugin: remarkSuperSub, options: {} },
+  ])
+}
+
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
   private content: string = ''
@@ -58,7 +99,7 @@ export class CrepeEditorManager {
   private isInitialized = false
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
-  private editorView: any = null  // 保存 EditorView 引用
+  private editorView: EditorView | null = null  // 保存 EditorView 引用
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
   private searchManager = useEditorSearchManager()
 
@@ -83,6 +124,7 @@ export class CrepeEditorManager {
    * 获取 ProseMirror EditorView 实例
    * 用于打字机模式等需要访问编辑器 DOM 的场景
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getEditorView(): any {
     return this.editorView
   }
@@ -95,73 +137,125 @@ export class CrepeEditorManager {
   }
 
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
+    console.log('[CrepeEditorManager] init 开始执行', {
+      container,
+      containerExists: !!container,
+      initialContentLength: initialContent?.length,
+      tabId
+    })
+    
     if (!container) {
+      console.error('[CrepeEditorManager] init 失败：container 为空')
       return
     }
 
     const startTime = performance.now()
+    console.log('[CrepeEditorManager] 开始初始化...')
 
     this.currentTabId = tabId || null
     this.container = container
     this.content = initialContent
 
     const isDark = this.isDarkMode()
+    console.log('[CrepeEditorManager] 暗黑模式：', isDark)
     
-    this.crepe = new Crepe({
-      root: container,
-      defaultValue: initialContent,
-      features: {
-        [Crepe.Feature.BlockEdit]: false,
-        [Crepe.Feature.CodeMirror]: true,
-        [Crepe.Feature.LinkTooltip]: true,
-        [Crepe.Feature.Table]: true,
-        [Crepe.Feature.Toolbar]: false,
-        [Crepe.Feature.Placeholder]: true,
-        [Crepe.Feature.Cursor]: false,
-        [Crepe.Feature.ImageBlock]: false,
-        [Crepe.Feature.ImageInline]: false,
-      },
-      featureConfigs: {
-        [Crepe.Feature.CodeMirror]: {
-          theme: isDark ? undefined : eclipse,
-        },
-      },
-    })
-
-    this.crepe.editor
-      .config((ctx) => {
-        ctx.get(listenerCtx).markdownUpdated(
-          debounce((...args: unknown[]) => {
-            const markdown = args[1] as string
-            this.handleMarkdownUpdate(markdown)
-          }, 200)
-        )
-
-        ctx.get(listenerCtx).updated((ctx) => {
-          try {
-            const view = ctx.get(editorViewCtx)
-            this.editorView = view  // 保存 EditorView 引用
-            const { from, to } = view.state.selection
-            this.emitCursorChange(from, to)
-          } catch {
-            // 初始化时可能还拿不到 view
-          }
-        })
-      })
-      .use(listener)
-      .use(getSearchPlugin())
-      .use(imagePathPlugin)
-      .use(focusModePlugin)
-
+    console.log('[CrepeEditorManager] 正在创建 Crepe 实例...')
     try {
-      await this.crepe.create()
-      this.searchManager.init(this.crepe.editor)
+      this.crepe = new Crepe({
+        root: container,
+        defaultValue: initialContent,
+        features: {
+          [Crepe.Feature.BlockEdit]: false,
+          [Crepe.Feature.CodeMirror]: true,
+          [Crepe.Feature.LinkTooltip]: true,
+          [Crepe.Feature.Table]: true,
+          [Crepe.Feature.Toolbar]: false,
+          [Crepe.Feature.Placeholder]: true,
+          [Crepe.Feature.Cursor]: false,
+          [Crepe.Feature.ImageBlock]: false,
+          [Crepe.Feature.ImageInline]: false,
+        },
+        featureConfigs: {
+          [Crepe.Feature.CodeMirror]: {
+            theme: isDark ? undefined : eclipse,
+          },
+        },
+      })
+      console.log('[CrepeEditorManager] Crepe 实例创建成功')
     } catch (error) {
+      console.error('[CrepeEditorManager] Crepe 实例创建失败:', error)
       throw error
     }
 
+    console.log('[CrepeEditorManager] 正在配置插件...')
+    try {
+      this.crepe.editor
+        .config((ctx) => {
+          console.log('[CrepeEditorManager] config 回调执行中')
+          
+          ctx.get(listenerCtx).markdownUpdated(
+            debounce((...args: unknown[]) => {
+              const markdown = args[1] as string
+              this.handleMarkdownUpdate(markdown)
+            }, 200)
+          )
+
+          ctx.get(listenerCtx).updated((ctx) => {
+            try {
+              const view = ctx.get(editorViewCtx)
+              this.editorView = view  // 保存 EditorView 引用
+              const { from, to } = view.state.selection
+              this.emitCursorChange(from, to)
+            } catch {
+              // 初始化时可能还拿不到 view
+            }
+          })
+
+          // 配置 remark stringify handlers，使 highlight/superscript/subscript 正确序列化为 markdown 语法
+          ctx.update(remarkStringifyOptionsCtx, (options) => ({
+            ...options,
+            handlers: {
+              ...options.handlers,
+              highlight: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
+                const value = state.containerPhrasing(node, { ...info, before: '=', after: '=' })
+                return `==${value}==`
+              },
+              superscript: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
+                const value = state.containerPhrasing(node, { ...info, before: '^', after: '^' })
+                return `^${value}^`
+              },
+              subscript: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
+                const value = state.containerPhrasing(node, { ...info, before: '~', after: '~' })
+                return `~${value}~`
+              },
+            },
+          }))
+        })
+        .use(listener)
+        .use(getSearchPlugin())
+        .use(imagePathPlugin)
+        .use(focusModePlugin)
+        .use(inlineMarksPlugin)
+        .use(inlineMarksParsersPlugin)
+    } catch (error) {
+      console.error('[CrepeEditorManager] 配置插件失败:', error)
+      throw error
+    }
+
+    console.log('[CrepeEditorManager] 正在调用 create()...')
+    try {
+      await this.crepe.create()
+      console.log('[CrepeEditorManager] crepe.create() 执行成功')
+    } catch (error) {
+      console.error('[CrepeEditorManager] crepe.create() 失败:', error)
+      throw error
+    }
+    
+    this.searchManager.init(this.crepe.editor)
     this.isInitialized = true
+
     const initTime = performance.now() - startTime
+    console.log(`[CrepeEditorManager] 初始化完成，耗时 ${initTime.toFixed(2)}ms`)
 
     if (this.currentTabId) {
       eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
@@ -231,6 +325,7 @@ export class CrepeEditorManager {
           }
           view.dispatch(tr)
         } catch (innerError) {
+          // Silent fail - ignore selection reset errors
         }
       })
 
@@ -238,6 +333,7 @@ export class CrepeEditorManager {
         this.contentCache.set(this.currentTabId, content)
       }
     } catch (error) {
+      // Silent fail - content update errors
     } finally {
       this.isUpdatingContent = false
     }
@@ -260,6 +356,7 @@ export class CrepeEditorManager {
             }
           }
         } catch (innerError) {
+          // Silent fail - ignore inner errors
         }
       })
       return html
@@ -340,6 +437,7 @@ export class CrepeEditorManager {
         const view = ctx.get(editorViewCtx)
         view.focus()
       } catch (error) {
+        // Silent fail - ignore focus errors
       }
     })
   }
@@ -420,12 +518,14 @@ export class CrepeEditorManager {
               behavior: 'smooth'
             })
           } catch (scrollError) {
+            // Silent fail - scroll errors
           }
         }, 50)
 
         const { from, to } = view.state.selection
         this.emitCursorChange(from, to)
       } catch (error) {
+        // Silent fail - scroll navigation errors
       }
     })
   }
@@ -478,6 +578,7 @@ export class CrepeEditorManager {
           }
         })
       } catch (error) {
+        // Silent fail - heading extraction errors
       }
     })
     
@@ -595,6 +696,7 @@ export class CrepeEditorManager {
       const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
       this.crepe.editor.action(insert(imageMarkdown, true))
     } catch (error) {
+      // Silent fail - image insertion errors
     }
   }
 
@@ -606,6 +708,7 @@ export class CrepeEditorManager {
     try {
       this.crepe.editor.action(callCommand(undoCommand.key))
     } catch (error) {
+      // Silent fail - undo errors
     }
   }
 
@@ -617,6 +720,248 @@ export class CrepeEditorManager {
     try {
       this.crepe.editor.action(callCommand(redoCommand.key))
     } catch (error) {
+      // Silent fail - redo errors
+    }
+  }
+
+  toggleBold(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleStrongCommand.key))
+    } catch (error) {
+      // Silent fail - bold toggle errors
+    }
+  }
+
+  toggleItalic(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleEmphasisCommand.key))
+    } catch (error) {
+      // Silent fail - italic toggle errors
+    }
+  }
+
+  toggleStrikethrough(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleStrikethroughCommand.key))
+    } catch (error) {
+      // Silent fail - strikethrough toggle errors
+    }
+  }
+
+  toggleInlineCode(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleInlineCodeCommand.key))
+    } catch (error) {
+      // Silent fail - inline code toggle errors
+    }
+  }
+
+  toggleLink(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleLinkCommand.key))
+    } catch (error) {
+      // Silent fail - link toggle errors
+    }
+  }
+
+  toggleHeading(level: number): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(wrapInHeadingCommand.key, level))
+    } catch (error) {
+      // Silent fail - heading toggle errors
+    }
+  }
+
+  toggleParagraph(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      // 使用 wrapInHeadingCommand，level 0 表示切换到普通段落
+      this.crepe.editor.action(callCommand(wrapInHeadingCommand.key, 0))
+    } catch (error) {
+      console.error('[CrepeEditorManager] toggleParagraph failed:', error)
+    }
+  }
+
+  toggleHighlight(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(toggleHighlightCommand.key))
+    } catch (error) {
+      // Silent fail - highlight toggle errors
+    }
+  }
+
+  toggleBulletList(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(wrapInBulletListCommand.key))
+    } catch (error) {
+      // Silent fail - bullet list toggle errors
+    }
+  }
+
+  toggleOrderedList(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(wrapInOrderedListCommand.key))
+    } catch (error) {
+      // Silent fail - ordered list toggle errors
+    }
+  }
+
+  toggleTaskList(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(wrapInBulletListCommand.key))
+    } catch (error) {
+      // Silent fail - task list toggle errors
+    }
+  }
+
+  toggleBlockQuote(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(wrapInBlockquoteCommand.key))
+    } catch (error) {
+      // Silent fail - block quote toggle errors
+    }
+  }
+
+  toggleCodeBlock(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
+    } catch (error) {
+      // Silent fail - code block toggle errors
+    }
+  }
+
+  toggleCodeFence(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
+    } catch (error) {
+      // Silent fail - code fence toggle errors
+    }
+  }
+
+  insertCodeBlock(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
+    } catch (error) {
+      // Silent fail - code block insertion errors
+    }
+  }
+
+  insertMathBlock(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(insert('\n$$\n\n$$\n', true))
+    } catch (error) {
+      // Silent fail - math block insertion errors
+    }
+  }
+
+  insertHorizontalRule(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(insert('\n---\n', true))
+    } catch (error) {
+      // Silent fail - horizontal rule insertion errors
+    }
+  }
+
+  insertTable(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action(callCommand(insertTableCommand.key))
+    } catch (error) {
+      // Silent fail - table insertion errors
+    }
+  }
+
+  insertTableRowAbove(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        insertTableRowAbove(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
+    }
+  }
+
+  insertTableRowBelow(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        insertTableRowBelow(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
+    }
+  }
+
+  deleteTableRow(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        deleteTableRow(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
+    }
+  }
+
+  insertTableColumnLeft(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        insertTableColumnLeft(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
+    }
+  }
+
+  insertTableColumnRight(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        insertTableColumnRight(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
+    }
+  }
+
+  deleteTableColumn(): void {
+    if (!this.crepe || !this.isInitialized) return
+    try {
+      this.crepe.editor.action((ctx) => {
+        const state = ctx.get(editorStateCtx)
+        const view = ctx.get(editorViewCtx)
+        deleteTableColumn(state, view)
+      })
+    } catch (error) {
+      // Silent fail - table operation may not be applicable
     }
   }
 }

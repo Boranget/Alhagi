@@ -102,10 +102,10 @@ function findAllMatches(doc: Node, query: SearchQuery): Array<{ from: number; to
 }
 
 // 根据搜索结果构建装饰
-function buildDecorationsFromMatches(doc: Node, matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>, sel: any): DecorationSet {
+function buildDecorationsFromMatches(doc: Node, matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>, sel: Selection): DecorationSet {
   const decorations: Decoration[] = []
   
-  matches.forEach((match, index) => {
+  matches.forEach((match) => {
     const isActive = match.from === sel.from && match.to === sel.to
     decorations.push(
       Decoration.inline(match.from, match.to, {
@@ -212,9 +212,9 @@ export function getSearchPluginKey() {
 }
 
 export class EditorSearchManager {
-  private editor: any = null
+  private editor: { action: (callback: (ctx: { get: (key: unknown) => EditorView }) => void) => void } | null = null
 
-  init(editor: any) {
+  init(editor: { action: (callback: (ctx: { get: (key: unknown) => EditorView }) => void) => void }) {
     this.editor = editor
   }
 

@@ -120,6 +120,7 @@ function scrollCursorToCenter() {
       animatedScrollTo(scrollContainer, targetScrollTop, 100)
     }
   } catch (error) {
+    // Silent fail - scroll animation errors
   }
 }
 

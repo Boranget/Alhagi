@@ -88,28 +88,69 @@ function createMenu() {
       { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.SAVE) },
       { label: '另存为', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.SAVE_AS) },
       { type: 'separator' },
-      { role: 'quit' }
+      { label: '导出', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOOLS_EXPORT) },
+      { type: 'separator' },
+      { role: 'quit', label: '退出' }
     ]},
     { label: '编辑', submenu: [
       { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_UNDO) },
       { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_REDO) },
       { type: 'separator' },
-      { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' },
+      { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' },
+      { type: 'separator' },
       { label: '复制为 Markdown', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_MARKDOWN) },
       { label: '复制为 HTML', click: () => mainWindow?.webContents.send(MENU_EVENTS.COPY_AS_HTML) },
       { label: '粘贴为纯文本', click: () => mainWindow?.webContents.send(MENU_EVENTS.PASTE_AS_PLAIN) },
-      { type: 'separator' }, { label: '截图', click: () => mainWindow?.webContents.send(MENU_EVENTS.CAPTURE_SCREEN) },
-      { type: 'separator' }, { role: 'selectAll' }
+      { type: 'separator' },
+      { role: 'selectAll', label: '全选' },
+      { type: 'separator' },
+      { label: '查找', accelerator: 'CmdOrCtrl+F', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_UNDO, { action: 'find' }) }
+    ]},
+    { label: '格式', submenu: [
+      { label: '粗体', accelerator: 'CmdOrCtrl+B', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_BOLD) },
+      { label: '斜体', accelerator: 'CmdOrCtrl+I', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_ITALIC) },
+      { label: '删除线', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_STRIKETHROUGH) },
+      { type: 'separator' },
+      { label: '行内代码', accelerator: 'CmdOrCtrl+`', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_CODE) },
+      { label: '链接', accelerator: 'CmdOrCtrl+K', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_LINK) },
+      { label: '图片', accelerator: 'CmdOrCtrl+Shift+I', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_IMAGE) },
+      { type: 'separator' },
+      { label: '高亮', accelerator: 'CmdOrCtrl+Shift+H', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_HIGHLIGHT) }
+    ]},
+    { label: '段落', submenu: [
+      { label: '标题 1', accelerator: 'CmdOrCtrl+1', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HEADING1) },
+      { label: '标题 2', accelerator: 'CmdOrCtrl+2', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HEADING2) },
+      { label: '标题 3', accelerator: 'CmdOrCtrl+3', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HEADING3) },
+      { label: '段落', accelerator: 'CmdOrCtrl+0', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_PARAGRAPH) },
+      { type: 'separator' },
+      { label: '引用', accelerator: 'CmdOrCtrl+Alt+Q', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_QUOTE) },
+      { label: '无序列表', accelerator: 'CmdOrCtrl+Alt+U', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_BULLET_LIST) },
+      { label: '有序列表', accelerator: 'CmdOrCtrl+Alt+O', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_ORDERED_LIST) },
+      { label: '任务列表', accelerator: 'CmdOrCtrl+Alt+X', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_TASK_LIST) },
+      { type: 'separator' },
+      { label: '代码块', accelerator: 'CmdOrCtrl+Alt+C', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_CODE_BLOCK) },
+      { label: '数学公式', accelerator: 'CmdOrCtrl+Alt+M', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_MATH_BLOCK) },
+      { label: '分割线', accelerator: 'CmdOrCtrl+Alt+-', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HORIZONTAL_RULE) }
+    ]},
+    { label: '表格', submenu: [
+      { label: '插入表格', accelerator: 'CmdOrCtrl+Alt+T', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_INSERT) },
+      { type: 'separator' },
+      { label: '上方插入行', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_INSERT_ROW_ABOVE) },
+      { label: '下方插入行', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_INSERT_ROW_BELOW) },
+      { label: '删除行', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_DELETE_ROW) },
+      { type: 'separator' },
+      { label: '左侧插入列', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_INSERT_COLUMN_LEFT) },
+      { label: '右侧插入列', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_INSERT_COLUMN_RIGHT) },
+      { label: '删除列', click: () => mainWindow?.webContents.send(MENU_EVENTS.TABLE_DELETE_COLUMN) }
     ]},
     { label: '视图', submenu: [
       { label: 'WYSIWYG 模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'wysiwyg') },
       { label: '源码模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'source') },
       { label: '分屏模式', click: () => mainWindow?.webContents.send(MENU_EVENTS.VIEW_MODE, 'split') },
-{ type: 'separator' },
+      { type: 'separator' },
       { label: '显示/隐藏侧边栏', accelerator: 'CmdOrCtrl+B', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_SIDEBAR) },
       { label: '显示/隐藏标签栏', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_TAB_BAR) },
       { label: '显示/隐藏状态栏', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_STATUS_BAR) },
-      { label: '设置', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send(MENU_EVENTS.OPEN_SETTINGS) },
       { type: 'separator' },
       { label: '悬浮便签模式', accelerator: 'CmdOrCtrl+Shift+F', click: () => {
         if (mainWindow) {
@@ -129,7 +170,19 @@ function createMenu() {
       { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
       { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
     ]},
+    { label: '导航', submenu: [
+      { label: '快速打开', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.send(MENU_EVENTS.NAVIGATION_QUICK_OPEN) },
+      { label: '跳转到行', accelerator: 'CmdOrCtrl+G', click: () => mainWindow?.webContents.send(MENU_EVENTS.NAVIGATION_GOTO_LINE) }
+    ]},
+    { label: '工具', submenu: [
+      { label: '设置', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOOLS_PREFERENCES) },
+      { label: '快捷键列表', accelerator: 'CmdOrCtrl+Shift+K', click: () => mainWindow?.webContents.send(MENU_EVENTS.HELP_SHORTCUTS) },
+      { type: 'separator' },
+      { label: '截图', click: () => mainWindow?.webContents.send(MENU_EVENTS.CAPTURE_SCREEN) }
+    ]},
     { label: '帮助', submenu: [
+      { label: '快捷键列表', accelerator: 'CmdOrCtrl+Shift+K', click: () => mainWindow?.webContents.send(MENU_EVENTS.HELP_SHORTCUTS) },
+      { type: 'separator' },
       { label: '关于', click: () => dialog.showMessageBox({ type: 'info', title: '关于 顾念笔记', message: '顾念笔记 (Alhagi) v1.0.0', detail: '基于 Milkdown 的现代化 Markdown 编辑器' }) }
     ]}
   ]

@@ -5,6 +5,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useAutoSave } from '@/composables/useAutoSave'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
@@ -76,6 +77,60 @@ export function useApp() {
         }
       })
     )
+
+    // 监听 Electron 菜单事件
+    if (window.electronAPI) {
+      // 文件菜单
+      unsubscribers.push(window.electronAPI.onNewFile(() => tabsStore.createTab({ title: '未命名' })))
+      unsubscribers.push(window.electronAPI.onOpenFile(() => tabsStore.openFile()))
+      unsubscribers.push(window.electronAPI.onOpenFolder(() => window.electronAPI?.openFolder()))
+      unsubscribers.push(window.electronAPI.onSave(() => tabsStore.activeTabId && tabsStore.saveFile(tabsStore.activeTabId)))
+      unsubscribers.push(window.electronAPI.onSaveAs(() => tabsStore.activeTabId && tabsStore.saveFileAs(tabsStore.activeTabId)))
+      
+      // 格式菜单
+      unsubscribers.push(window.electronAPI.onFormatBold(() => editorManager.toggleBold()))
+      unsubscribers.push(window.electronAPI.onFormatItalic(() => editorManager.toggleItalic()))
+      unsubscribers.push(window.electronAPI.onFormatStrikethrough(() => editorManager.toggleStrikethrough()))
+      unsubscribers.push(window.electronAPI.onFormatCode(() => editorManager.toggleInlineCode()))
+      unsubscribers.push(window.electronAPI.onFormatLink(() => editorManager.toggleLink()))
+      unsubscribers.push(window.electronAPI.onFormatHighlight(() => editorManager.toggleHighlight()))
+      
+      // 段落菜单
+      unsubscribers.push(window.electronAPI.onParagraphHeading1(() => editorManager.toggleHeading(1)))
+      unsubscribers.push(window.electronAPI.onParagraphHeading2(() => editorManager.toggleHeading(2)))
+      unsubscribers.push(window.electronAPI.onParagraphHeading3(() => editorManager.toggleHeading(3)))
+      unsubscribers.push(window.electronAPI.onParagraphParagraph(() => editorManager.toggleParagraph()))
+      unsubscribers.push(window.electronAPI.onParagraphQuote(() => editorManager.toggleBlockQuote()))
+      unsubscribers.push(window.electronAPI.onParagraphBulletList(() => editorManager.toggleBulletList()))
+      unsubscribers.push(window.electronAPI.onParagraphOrderedList(() => editorManager.toggleOrderedList()))
+      unsubscribers.push(window.electronAPI.onParagraphTaskList(() => editorManager.toggleTaskList()))
+      unsubscribers.push(window.electronAPI.onParagraphCodeBlock(() => editorManager.toggleCodeFence()))
+      unsubscribers.push(window.electronAPI.onParagraphMathBlock(() => editorManager.insertMathBlock()))
+      unsubscribers.push(window.electronAPI.onParagraphHorizontalRule(() => editorManager.insertHorizontalRule()))
+      
+      // 表格菜单
+      unsubscribers.push(window.electronAPI.onTableInsert(() => editorManager.insertTable()))
+      unsubscribers.push(window.electronAPI.onTableInsertRowAbove(() => editorManager.insertTableRowAbove()))
+      unsubscribers.push(window.electronAPI.onTableInsertRowBelow(() => editorManager.insertTableRowBelow()))
+      unsubscribers.push(window.electronAPI.onTableInsertColumnLeft(() => editorManager.insertTableColumnLeft()))
+      unsubscribers.push(window.electronAPI.onTableInsertColumnRight(() => editorManager.insertTableColumnRight()))
+      unsubscribers.push(window.electronAPI.onTableDeleteRow(() => editorManager.deleteTableRow()))
+      unsubscribers.push(window.electronAPI.onTableDeleteColumn(() => editorManager.deleteTableColumn()))
+      
+      // 导航菜单
+      unsubscribers.push(window.electronAPI.onNavigationQuickOpen(() => window.dispatchEvent(new CustomEvent('app:quickOpen'))))
+      unsubscribers.push(window.electronAPI.onNavigationGotoLine(() => window.dispatchEvent(new CustomEvent('editor:gotoLine'))))
+      
+      // 工具菜单
+      unsubscribers.push(window.electronAPI.onToolsPreferences(() => { showSettings.value = true }))
+      unsubscribers.push(window.electronAPI.onToolsExport(() => window.dispatchEvent(new CustomEvent('app:export'))))
+      unsubscribers.push(window.electronAPI.onHelpShortcuts(() => window.dispatchEvent(new CustomEvent('app:showShortcuts'))))
+      
+      // 视图菜单
+      unsubscribers.push(window.electronAPI.onToggleSidebar(() => { prefsStore.showSidebar = !prefsStore.showSidebar }))
+      unsubscribers.push(window.electronAPI.onToggleTabBar(() => { prefsStore.showTabBar = !prefsStore.showTabBar }))
+      unsubscribers.push(window.electronAPI.onToggleStatusBar(() => { prefsStore.showStatusBar = !prefsStore.showStatusBar }))
+    }
 
     return unsubscribers
   }
@@ -160,6 +215,8 @@ export function useApp() {
 
   const initializeApp = async () => {
     electronService.initialize()
+    
+    initCommandSystem()
     
     const { startListening, stopListening } = setupSystemThemeListener()
     const stopThemeWatch = setupThemeWatchers()

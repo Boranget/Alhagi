@@ -155,26 +155,74 @@ export const IPC_CHANNELS = {
 
 // ========== 菜单事件常量 ==========
 export const MENU_EVENTS = {
+  // 文件
   NEW_FILE: 'menu:new-file',
   NEW_WINDOW: 'menu:new-window',
   OPEN_FILE: 'menu:open-file',
   OPEN_FOLDER: 'menu:open-folder',
   SAVE: 'menu:save',
   SAVE_AS: 'menu:save-as',
-  VIEW_MODE: 'menu:view-mode',
+  
+  // 编辑
+  EDIT_UNDO: 'menu:edit-undo',
+  EDIT_REDO: 'menu:edit-redo',
   COPY_AS_MARKDOWN: 'menu:copy-as-markdown',
   COPY_AS_HTML: 'menu:copy-as-html',
   PASTE_AS_PLAIN: 'menu:paste-as-plain',
   CAPTURE_SCREEN: 'menu:capture-screen',
-  TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
-  TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
-TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
+  
+  // 格式
+  FORMAT_BOLD: 'menu:format-bold',
+  FORMAT_ITALIC: 'menu:format-italic',
+  FORMAT_STRIKETHROUGH: 'menu:format-strikethrough',
+  FORMAT_CODE: 'menu:format-code',
+  FORMAT_LINK: 'menu:format-link',
+  FORMAT_IMAGE: 'menu:format-image',
+  FORMAT_HIGHLIGHT: 'menu:format-highlight',
+  
+  // 段落
+  PARAGRAPH_HEADING1: 'menu:paragraph-heading1',
+  PARAGRAPH_HEADING2: 'menu:paragraph-heading2',
+  PARAGRAPH_HEADING3: 'menu:paragraph-heading3',
+  PARAGRAPH_PARAGRAPH: 'menu:paragraph-paragraph',
+  PARAGRAPH_QUOTE: 'menu:paragraph-quote',
+  PARAGRAPH_BULLET_LIST: 'menu:paragraph-bullet-list',
+  PARAGRAPH_ORDERED_LIST: 'menu:paragraph-ordered-list',
+  PARAGRAPH_TASK_LIST: 'menu:paragraph-task-list',
+  PARAGRAPH_CODE_BLOCK: 'menu:paragraph-code-block',
+  PARAGRAPH_MATH_BLOCK: 'menu:paragraph-math-block',
+  PARAGRAPH_HORIZONTAL_RULE: 'menu:paragraph-horizontal-rule',
+  
+  // 表格
+  TABLE_INSERT: 'menu:table-insert',
+  TABLE_INSERT_ROW_ABOVE: 'menu:table-insert-row-above',
+  TABLE_INSERT_ROW_BELOW: 'menu:table-insert-row-below',
+  TABLE_INSERT_COLUMN_LEFT: 'menu:table-insert-column-left',
+  TABLE_INSERT_COLUMN_RIGHT: 'menu:table-insert-column-right',
+  TABLE_DELETE_ROW: 'menu:table-delete-row',
+  TABLE_DELETE_COLUMN: 'menu:table-delete-column',
+  
+  // 视图
+  VIEW_MODE: 'menu:view-mode',
+  TOGGLE_SIDEBAR: 'menu:toggle-sidebar',
   TOGGLE_TAB_BAR: 'menu:toggle-tab-bar',
   TOGGLE_STATUS_BAR: 'menu:toggle-status-bar',
+  TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
+  TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
   TOGGLE_THEME: 'menu:toggle-theme',
-  OPEN_SETTINGS: 'menu:open-settings',
-  EDIT_UNDO: 'menu:edit-undo',
-  EDIT_REDO: 'menu:edit-redo'
+  
+  // 导航
+  NAVIGATION_QUICK_OPEN: 'menu:navigation-quick-open',
+  NAVIGATION_GOTO_LINE: 'menu:navigation-goto-line',
+  
+  // 工具
+  TOOLS_PREFERENCES: 'menu:tools-preferences',
+  TOOLS_EXPORT: 'menu:tools-export',
+  
+  // 帮助
+  HELP_SHORTCUTS: 'menu:help-shortcuts',
+  HELP_ABOUT: 'menu:help-about',
+  OPEN_SETTINGS: 'menu:open-settings'
 } as const;
 
 // ========== 文件类型常量 ==========
@@ -262,6 +310,42 @@ onToggleSidebar: (callback: () => void) => () => void
   onOpenSettings: (callback: () => void) => () => void
   onEditUndo: (callback: () => void) => () => void
   onEditRedo: (callback: () => void) => () => void
+  // 格式菜单事件
+  onFormatBold: (callback: () => void) => () => void
+  onFormatItalic: (callback: () => void) => () => void
+  onFormatStrikethrough: (callback: () => void) => () => void
+  onFormatCode: (callback: () => void) => () => void
+  onFormatLink: (callback: () => void) => () => void
+  onFormatImage: (callback: () => void) => () => void
+  onFormatHighlight: (callback: () => void) => () => void
+  // 段落菜单事件
+  onParagraphHeading1: (callback: () => void) => () => void
+  onParagraphHeading2: (callback: () => void) => () => void
+  onParagraphHeading3: (callback: () => void) => () => void
+  onParagraphParagraph: (callback: () => void) => () => void
+  onParagraphQuote: (callback: () => void) => () => void
+  onParagraphBulletList: (callback: () => void) => () => void
+  onParagraphOrderedList: (callback: () => void) => () => void
+  onParagraphTaskList: (callback: () => void) => () => void
+  onParagraphCodeBlock: (callback: () => void) => () => void
+  onParagraphMathBlock: (callback: () => void) => () => void
+  onParagraphHorizontalRule: (callback: () => void) => () => void
+  // 表格菜单事件
+  onTableInsert: (callback: () => void) => () => void
+  onTableInsertRowAbove: (callback: () => void) => () => void
+  onTableInsertRowBelow: (callback: () => void) => () => void
+  onTableInsertColumnLeft: (callback: () => void) => () => void
+  onTableInsertColumnRight: (callback: () => void) => () => void
+  onTableDeleteRow: (callback: () => void) => () => void
+  onTableDeleteColumn: (callback: () => void) => () => void
+  // 导航菜单事件
+  onNavigationQuickOpen: (callback: () => void) => () => void
+  onNavigationGotoLine: (callback: () => void) => () => void
+  // 工具菜单事件
+  onToolsPreferences: (callback: () => void) => () => void
+  onToolsExport: (callback: () => void) => () => void
+  // 帮助菜单事件
+  onHelpShortcuts: (callback: () => void) => () => void
 }
 
 export interface DetachedTabData {
