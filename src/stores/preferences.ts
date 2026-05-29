@@ -3,6 +3,8 @@ import { ref, watch } from 'vue'
 import type { RecentFile, RecentFolder } from '@/types'
 import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
+import { useThemeService } from '@/services/theme/ThemeService'
+import { useRecentFilesService } from '@/services/recentFiles/RecentFilesService'
 
 export interface Preferences {
   launchMode: 'last-session' | 'welcome' | 'empty' | 'folder'
@@ -103,7 +105,6 @@ const DEFAULT_PREFERENCES: Preferences = {
 const STORAGE_KEY = 'alhagi-preferences'
 
 export const usePreferencesStore = defineStore('preferences', () => {
-  // Individual refs for each preference
   const launchMode = ref<Preferences['launchMode']>(DEFAULT_PREFERENCES.launchMode)
   const launchFolderPath = ref<string | undefined>(DEFAULT_PREFERENCES.launchFolderPath)
   const autoSave = ref<boolean>(DEFAULT_PREFERENCES.autoSave)
@@ -135,7 +136,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const wordCountDisplayType = ref<Preferences['wordCountDisplayType']>(DEFAULT_PREFERENCES.wordCountDisplayType)
   const lastSession = ref<Preferences['lastSession']>(DEFAULT_PREFERENCES.lastSession)
 
-  // Helper to get all preferences
+  const { applyTheme, toggleLightDark } = useThemeService()
+  const {
+    addRecentFile,
+    removeRecentFile,
+    pinRecentFile,
+    clearRecentFiles,
+    addRecentFolder,
+    removeRecentFolder,
+    pinRecentFolder,
+    clearRecentFolders
+  } = useRecentFilesService()
+
   function getAllPreferences(): Preferences {
     return {
       launchMode: launchMode.value,
@@ -171,7 +183,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
-  // Helper to set a single preference
   function setPreference<K extends keyof Preferences>(
     key: K,
     value: Preferences[K]
@@ -211,7 +222,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
-  // Helper to update multiple preferences
   function updatePreferences(updates: Partial<Preferences>): void {
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
@@ -222,240 +232,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function resetToDefaults(): void {
     updatePreferences(DEFAULT_PREFERENCES)
-  }
-
-  function applyTheme(): void {
-    const effectiveTheme = theme.value === UI.THEMES.SYSTEM
-      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
-          ? UI.THEMES.DARK
-          : UI.THEMES.LIGHT)
-      : theme.value
-
-    document.documentElement.setAttribute('data-theme', effectiveTheme)
-    
-    // 添加 dark 类以支持 Tailwind CSS 和其他基于类的样式
-    document.documentElement.classList.toggle('dark', effectiveTheme === UI.THEMES.DARK)
-    
-    // 订阅系统主题变化（仅当主题设置为 SYSTEM 时）
-    if (theme.value === UI.THEMES.SYSTEM) {
-      subscribeToSystemTheme()
-    } else {
-      unsubscribeFromSystemTheme()
-    }
-  }
-
-  let systemThemeListener: ((event: MediaQueryListEvent) => void) | null = null
-
-  function subscribeToSystemTheme(): void {
-    unsubscribeFromSystemTheme()
-    
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    systemThemeListener = (event: MediaQueryListEvent) => {
-      if (theme.value === UI.THEMES.SYSTEM) {
-        const newTheme = event.matches ? UI.THEMES.DARK : UI.THEMES.LIGHT
-        document.documentElement.setAttribute('data-theme', newTheme)
-        document.documentElement.classList.toggle('dark', newTheme === UI.THEMES.DARK)
-      }
-    }
-    
-    media.addEventListener('change', systemThemeListener)
-  }
-
-  function unsubscribeFromSystemTheme(): void {
-    if (systemThemeListener) {
-      const media = window.matchMedia('(prefers-color-scheme: dark)')
-      media.removeEventListener('change', systemThemeListener)
-      systemThemeListener = null
-    }
-  }
-
-  function toggleTheme(): void {
-    const themes: Array<Preferences['theme']> = [
-      UI.THEMES.LIGHT,
-      UI.THEMES.DARK,
-      UI.THEMES.SYSTEM
-    ]
-    const currentIndex = themes.indexOf(theme.value)
-    const nextIndex = (currentIndex + 1) % themes.length
-    theme.value = themes[nextIndex]
-    applyTheme()
-    savePreferences()
-  }
-
-  function toggleLightDark(): void {
-    const currentTheme = theme.value === UI.THEMES.SYSTEM
-      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
-          ? UI.THEMES.DARK
-          : UI.THEMES.LIGHT)
-      : theme.value
-    
-    theme.value = currentTheme === UI.THEMES.DARK ? UI.THEMES.LIGHT : UI.THEMES.DARK
-    applyTheme()
-    savePreferences()
-  }
-
-  function addRecentFile(filePath: string, title: string): void {
-    const existingIndex = recentFiles.value.findIndex(f => f.filePath === filePath)
-
-    if (existingIndex !== -1) {
-      recentFiles.value[existingIndex].lastOpened = Date.now()
-      const [existing] = recentFiles.value.splice(existingIndex, 1)
-      recentFiles.value.unshift(existing)
-    } else {
-      recentFiles.value.unshift({
-        filePath,
-        title,
-        lastOpened: Date.now(),
-        pinned: false
-      })
-
-      if (recentFiles.value.length > maxRecentFiles.value) {
-        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
-        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
-        while (pinnedFiles.length + unpinnedFiles.length > maxRecentFiles.value && unpinnedFiles.length > 0) {
-          unpinnedFiles.pop()
-        }
-        recentFiles.value = [...pinnedFiles, ...unpinnedFiles]
-      }
-    }
-
-    savePreferences()
-  }
-
-  function removeRecentFile(filePath: string): void {
-    const index = recentFiles.value.findIndex(f => f.filePath === filePath)
-    if (index !== -1) {
-      recentFiles.value.splice(index, 1)
-      savePreferences()
-    }
-  }
-
-  function pinRecentFile(filePath: string, pinned: boolean): void {
-    const file = recentFiles.value.find(f => f.filePath === filePath)
-    if (file) {
-      file.pinned = pinned
-      if (pinned) {
-        const index = recentFiles.value.indexOf(file)
-        recentFiles.value.splice(index, 1)
-        const pinnedFiles = recentFiles.value.filter(f => f.pinned)
-        const unpinnedFiles = recentFiles.value.filter(f => !f.pinned)
-        recentFiles.value = [file, ...pinnedFiles, ...unpinnedFiles]
-      }
-      savePreferences()
-    }
-  }
-
-  function clearRecentFiles(): void {
-    recentFiles.value = recentFiles.value.filter(f => f.pinned)
-    savePreferences()
-  }
-
-  function addRecentFolder(folderPath: string, name: string): void {
-    const existingIndex = recentFolders.value.findIndex(f => f.folderPath === folderPath)
-
-    if (existingIndex !== -1) {
-      recentFolders.value[existingIndex].lastOpened = Date.now()
-      const [existing] = recentFolders.value.splice(existingIndex, 1)
-      recentFolders.value.unshift(existing)
-    } else {
-      recentFolders.value.unshift({
-        folderPath,
-        name,
-        lastOpened: Date.now(),
-        pinned: false
-      })
-
-      if (recentFolders.value.length > maxRecentFolders.value) {
-        const pinnedFolders = recentFolders.value.filter(f => f.pinned)
-        const unpinnedFolders = recentFolders.value.filter(f => !f.pinned)
-        while (pinnedFolders.length + unpinnedFolders.length > maxRecentFolders.value && unpinnedFolders.length > 0) {
-          unpinnedFolders.pop()
-        }
-        recentFolders.value = [...pinnedFolders, ...unpinnedFolders]
-      }
-    }
-
-    savePreferences()
-  }
-
-  function removeRecentFolder(folderPath: string): void {
-    const index = recentFolders.value.findIndex(f => f.folderPath === folderPath)
-    if (index !== -1) {
-      recentFolders.value.splice(index, 1)
-      savePreferences()
-    }
-  }
-
-  function pinRecentFolder(folderPath: string, pinned: boolean): void {
-    const folder = recentFolders.value.find(f => f.folderPath === folderPath)
-    if (folder) {
-      folder.pinned = pinned
-      if (pinned) {
-        const index = recentFolders.value.indexOf(folder)
-        recentFolders.value.splice(index, 1)
-        const pinnedFolders = recentFolders.value.filter(f => f.pinned)
-        const unpinnedFolders = recentFolders.value.filter(f => !f.pinned)
-        recentFolders.value = [folder, ...pinnedFolders, ...unpinnedFolders]
-      }
-      savePreferences()
-    }
-  }
-
-  function clearRecentFolders(): void {
-    recentFolders.value = recentFolders.value.filter(f => f.pinned)
-    savePreferences()
-  }
-
-  async function loadCustomThemes(): Promise<void> {
-    if (!customThemePath.value || !window.electronAPI) return
-
-    try {
-      const response = await window.electronAPI.readDirectory(customThemePath.value)
-      if (response && response.success && response.data) {
-        const themes: CustomTheme[] = []
-        for (const entry of response.data) {
-          if (entry.isFile && entry.name.endsWith('.json')) {
-            const fileResponse = await window.electronAPI.readFile(entry.path)
-            if (fileResponse && fileResponse.success && fileResponse.data) {
-              try {
-                const themeData = JSON.parse(fileResponse.data)
-                if (themeData.name && themeData.colors) {
-                  themes.push({
-                    id: entry.path,
-                    name: themeData.name,
-                    path: entry.path,
-                    colors: themeData.colors
-                  })
-                }
-              } catch {
-                // Skip invalid theme files
-              }
-            }
-          }
-        }
-        customThemes.value = themes
-        savePreferences()
-      }
-    } catch (error) {
-    }
-  }
-
-  function applyCustomTheme(themeId: string): void {
-    const customTheme = customThemes.value.find(t => t.id === themeId)
-    if (!customTheme) return
-
-    Object.entries(customTheme.colors).forEach(([property, value]) => {
-      document.documentElement.style.setProperty(property, value as string)
-    })
-
-    theme.value = `custom-${themeId}` as 'light' | 'dark' | 'system'
-    savePreferences()
-  }
-
-  function resetToBuiltInTheme(): void {
-    applyTheme()
-    theme.value = DEFAULT_PREFERENCES.theme
-    savePreferences()
   }
 
   function toggleStickyNoteMode(): void {
@@ -534,6 +310,59 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
+  async function loadCustomThemes(): Promise<void> {
+    if (!customThemePath.value || !window.electronAPI) return
+
+    try {
+      const response = await window.electronAPI.readDirectory(customThemePath.value)
+      if (response && response.success && response.data) {
+        const themes: CustomTheme[] = []
+        for (const entry of response.data) {
+          if (entry.isFile && entry.name.endsWith('.json')) {
+            const fileResponse = await window.electronAPI.readFile(entry.path)
+            if (fileResponse && fileResponse.success && fileResponse.data) {
+              try {
+                const themeData = JSON.parse(fileResponse.data)
+                if (themeData.name && themeData.colors) {
+                  themes.push({
+                    id: entry.path,
+                    name: themeData.name,
+                    path: entry.path,
+                    colors: themeData.colors
+                  })
+                }
+              } catch {
+                // Skip invalid theme files
+              }
+            }
+          }
+        }
+        customThemes.value = themes
+        savePreferences()
+      }
+    } catch (error) {
+      // Handle error silently
+    }
+  }
+
+  function applyCustomTheme(themeId: string): void {
+    const customTheme = customThemes.value.find(t => t.id === themeId)
+    if (!customTheme) return
+
+    Object.entries(customTheme.colors).forEach(([property, value]) => {
+      document.documentElement.style.setProperty(property, value as string)
+    })
+
+    theme.value = `custom-${themeId}` as 'light' | 'dark' | 'system'
+    savePreferences()
+  }
+
+  function resetToBuiltInTheme(): void {
+    applyTheme()
+    theme.value = DEFAULT_PREFERENCES.theme
+    savePreferences()
+  }
+
   watch(
     () => ({
       launchMode: launchMode.value,
@@ -605,7 +434,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     updatePreferences,
     resetToDefaults,
     applyTheme,
-    toggleTheme,
     toggleLightDark,
     addRecentFile,
     removeRecentFile,

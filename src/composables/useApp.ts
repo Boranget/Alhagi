@@ -1,0 +1,229 @@
+import { onMounted, onUnmounted, ref, watch, provide, computed } from 'vue'
+import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { useAutoSave } from '@/composables/useAutoSave'
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import { electronService } from '@/services/electron/ElectronService'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { eventBus, AppEvents } from '@/events/eventBus'
+import { useClipboard } from '@/services/clipboard'
+import { useCapture } from '@/services/capture'
+import TabBar from '@/components/Tabs/TabBar.vue'
+import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
+import EditorContainer from '@/components/Editor/EditorContainer.vue'
+import StatusBar from '@/components/StatusBar/StatusBar.vue'
+import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
+import Welcome from '@/components/Welcome/Welcome.vue'
+
+const showSettings = ref(false)
+const isFullscreen = ref(false)
+const autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+export function useApp() {
+  const tabsStore = useTabsStore()
+  const prefsStore = usePreferencesStore()
+  const fileStore = useFileExplorerStore()
+  const editorManager = useCrepeEditorManager()
+  
+  const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
+  const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
+  const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
+  
+  useKeyboardShortcuts()
+  useAutoSave()
+
+  const setupEventListeners = () => {
+    const unsubscribers: (() => void)[] = []
+
+    unsubscribers.push(
+      eventBus.on(AppEvents.OPEN_SETTINGS, () => {
+        showSettings.value = true
+      })
+    )
+
+    unsubscribers.push(
+      eventBus.on(AppEvents.COPY_AS_MARKDOWN, () => {
+        copyAsMarkdown()
+      })
+    )
+
+    unsubscribers.push(
+      eventBus.on(AppEvents.COPY_AS_HTML, () => {
+        copyAsHtml()
+      })
+    )
+
+    unsubscribers.push(
+      eventBus.on(AppEvents.PASTE_AS_PLAIN, () => {
+        pasteAsPlainText()
+      })
+    )
+
+    unsubscribers.push(
+      eventBus.on(AppEvents.CAPTURE_SCREEN, async () => {
+        const result = await captureEditor()
+        if (result) {
+          const action = prompt('截图完成！选择操作：\n1. 复制到剪贴板\n2. 下载到本地\n3. 取消', '1')
+          if (action === '1') {
+            await copyCaptureToClipboard(result)
+            alert('已复制到剪贴板')
+          } else if (action === '2') {
+            const filename = `screenshot-${Date.now()}.png`
+            downloadCapture(result, filename)
+          }
+        }
+      })
+    )
+
+    return unsubscribers
+  }
+
+  const setupThemeWatchers = () => {
+    const stopThemeWatch = watch(
+      () => prefsStore.theme,
+      async (theme) => {
+        document.documentElement.setAttribute('data-theme', theme)
+        prefsStore.applyTheme()
+        await editorManager.updateTheme()
+      }
+    )
+
+    return stopThemeWatch
+  }
+
+  const setupSystemThemeListener = () => {
+    let systemThemeListener: ((e: MediaQueryListEvent) => void) | null = null
+
+    const startListening = () => {
+      if (systemThemeListener) {
+        return
+      }
+
+      systemThemeListener = async (_e: MediaQueryListEvent) => {
+        if (prefsStore.theme === 'system') {
+          prefsStore.applyTheme()
+          await editorManager.updateTheme()
+        }
+      }
+
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeListener)
+    }
+
+    const stopListening = () => {
+      if (systemThemeListener) {
+        window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener)
+        systemThemeListener = null
+      }
+    }
+
+    return { startListening, stopListening }
+  }
+
+  const saveCurrentSession = () => {
+    const sessionTabs = tabsStore.getAllTabs().map(tab => ({
+      title: tab.title,
+      content: tab.content,
+      filePath: tab.filePath,
+      viewMode: tab.viewMode,
+      isDirty: tab.isDirty,
+      cursor: { from: 0, to: 0 }
+    }))
+
+    prefsStore.saveSession({
+      tabs: sessionTabs,
+      activeTabId: tabsStore.activeTabId ?? undefined,
+      currentFolder: fileStore.currentFolder ?? undefined
+    })
+  }
+
+  const restoreLastSession = (lastSession: NonNullable<ReturnType<typeof prefsStore.getLastSession>>) => {
+    lastSession.tabs.forEach((tabData) => {
+      const tab = tabsStore.createTab({
+        title: tabData.title,
+        content: tabData.content,
+        filePath: tabData.filePath ?? undefined,
+        viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
+      })
+      if (tabData.isDirty) {
+        tabsStore.updateTab(tab.id, { isDirty: true })
+      }
+    })
+    if (lastSession.activeTabId) {
+      tabsStore.switchTab(lastSession.activeTabId)
+    }
+    if (lastSession.currentFolder) {
+      fileStore.openFolderByPath(lastSession.currentFolder)
+    }
+  }
+
+  const initializeApp = async () => {
+    electronService.initialize()
+    
+    const { startListening, stopListening } = setupSystemThemeListener()
+    const stopThemeWatch = setupThemeWatchers()
+    const eventUnsubscribers = setupEventListeners()
+
+    window.addEventListener('beforeunload', saveCurrentSession)
+
+    prefsStore.loadPreferences()
+    initWritingEnhancement()
+    startListening()
+
+    if (prefsStore.devToolsOnStartup && window.electronAPI) {
+      electronService.openDevTools()
+    }
+
+    const launchMode = prefsStore.launchMode
+
+    switch (launchMode) {
+      case 'last-session': {
+        const lastSession = prefsStore.getLastSession()
+        if (lastSession) {
+          restoreLastSession(lastSession)
+        }
+        break
+      }
+
+      case 'folder': {
+        if (prefsStore.launchFolderPath && window.electronAPI) {
+          const result = await window.electronAPI.openFolder()
+          if (result.success && result.data) {
+            fileStore.openFolderByPath(result.data.path)
+          }
+        }
+        tabsStore.createTab({ title: '未命名' })
+        break
+      }
+
+      case 'empty':
+      case 'welcome':
+      default:
+        break
+    }
+
+    return () => {
+      stopListening()
+      stopThemeWatch()
+      eventUnsubscribers.forEach(unsub => unsub())
+      window.removeEventListener('beforeunload', saveCurrentSession)
+      cleanupWritingEnhancement()
+      
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer)
+      }
+      
+      saveCurrentSession()
+    }
+  }
+
+  provide('showSettings', showSettings)
+  provide('editorManager', editorManager)
+
+  return {
+    showSettings,
+    isFullscreen,
+    initializeApp
+  }
+}

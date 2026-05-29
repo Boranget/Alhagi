@@ -63,30 +63,46 @@ export type FileTreeNodeType = FileTreeNode
 export type { DirectoryEntry, RecentFile, RecentFolder }
 
 export interface AppEventPayloads {
+  // Tab相关事件
   'app:tab:created': { tabId: string; tab: TabState }
   'app:tab:closed': { tabId: string; tab?: TabState }
   'app:tab:switched': { tabId: string; previousTabId?: string }
   'app:tab:updated': { tabId: string; updates: Partial<TabState> }
+  
+  // 文件相关事件
   'app:file:opened': { filePath: string; tabId: string }
   'app:file:saved': { filePath: string; tabId: string }
   'app:folder:opened': { folderPath: string }
+  
+  // 编辑器相关事件
   'app:editor:ready': { tabId?: string | null }
   'app:editor:destroyed': { tabId?: string | null }
   'app:view-mode-changed': ViewMode
-  'app:sidebar:view-changed': SidebarView
   'app:theme:changed': Theme
-  'app:window:resized': { width: number; height: number }
-  'app:window:maximized': undefined
-  'app:window:minimized': undefined
-  'app:preferences:updated': undefined
+  
+  // 编辑器核心事件
   'editor:active-editor-changed': { editor: 'crepe' | 'codemirror' | null }
-'editor:content:changed': { content: string; tabId: string }
+  'editor:content:changed': { content: string; tabId: string }
   'editor:cursor:changed': { from: number; to: number; tabId: string }
   'editor:selection:changed': { from: number; to: number; tabId: string }
   'editor:scroll:changed': { scrollTop: number; tabId: string }
   'editor:scroll-to-heading': { slug: string; text: string; line: number }
   'editor:undo': undefined
   'editor:redo': undefined
+  
+  // 编辑操作事件
+  'app:copy-as-markdown': undefined
+  'app:copy-as-html': undefined
+  'app:paste-as-plain': undefined
+  'app:capture-screen': undefined
+  
+  // UI事件
+  'app:window:resized': { width: number; height: number }
+  'app:window:maximized': undefined
+  'app:window:minimized': undefined
+  'app:preferences:updated': undefined
+  'app:open-settings': undefined
+  'app:sidebar:view-changed': SidebarView
 }
 
 export type AppEventName = keyof AppEventPayloads
