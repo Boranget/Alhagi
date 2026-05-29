@@ -5,6 +5,10 @@ import { FILE_TYPES } from '../../electron-protocol'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
+function emitFolderOpened(folderPath: string): void {
+  eventBus.emit(AppEvents.FOLDER_OPENED, { folderPath })
+}
+
 export const useFileExplorerStore = defineStore('fileExplorer', () => {
   const currentFolder = ref<string | null>(null)
   const fileTree = ref<FileTreeNodeType[]>([])
@@ -26,8 +30,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
         const prefs = usePreferencesStore()
         const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
         prefs.addRecentFolder(response.data.path, folderName)
-        prefs.showSidebar = true
-        eventBus.emit(AppEvents.SIDEBAR_VIEW_CHANGED, 'files')
+        emitFolderOpened(response.data.path)
         
         return response.data
       }
@@ -177,8 +180,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       const prefs = usePreferencesStore()
       const folderName = folderPath.split(/[/\\]/).pop() || folderPath
       prefs.addRecentFolder(folderPath, folderName)
-      prefs.showSidebar = true
-      eventBus.emit(AppEvents.SIDEBAR_VIEW_CHANGED, 'files')
+      emitFolderOpened(folderPath)
       
       return { path: folderPath, tree }
     } catch (e) {

@@ -31,6 +31,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import { useFolderOpenHandler } from '@/composables/useFolderOpenHandler'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
@@ -59,6 +60,7 @@ const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
 const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
 
 useKeyboardShortcuts()
+useFolderOpenHandler()
 
 function createTabFromDetachedData(tabData: { id: string; title: string; content: string; filePath: string | null; isDirty: boolean; viewMode: string; cursor: { from: number; to: number }; scrollTop?: number }) {
   const tab = tabsStore.createTab({
@@ -332,7 +334,6 @@ onMounted(() => {
         }
         if (lastSession.currentFolder) {
           fileStore.openFolderByPath(lastSession.currentFolder)
-          prefsStore.showSidebar = true
         }
       }
       break
@@ -344,7 +345,6 @@ onMounted(() => {
           const folderResult = result as { success: boolean; data?: { path: string } }
           if (folderResult.success && folderResult.data) {
             fileStore.openFolderByPath(folderResult.data!.path)
-            prefsStore.showSidebar = true
           }
         })
       }
