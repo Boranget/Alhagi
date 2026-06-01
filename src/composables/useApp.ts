@@ -130,6 +130,11 @@ export function useApp() {
       unsubscribers.push(window.electronAPI.onToggleSidebar(() => { prefsStore.showSidebar = !prefsStore.showSidebar }))
       unsubscribers.push(window.electronAPI.onToggleTabBar(() => { prefsStore.showTabBar = !prefsStore.showTabBar }))
       unsubscribers.push(window.electronAPI.onToggleStatusBar(() => { prefsStore.showStatusBar = !prefsStore.showStatusBar }))
+      
+      // 缩放菜单
+      unsubscribers.push(window.electronAPI.onZoomIn(() => prefsStore.zoomIn()))
+      unsubscribers.push(window.electronAPI.onZoomOut(() => prefsStore.zoomOut()))
+      unsubscribers.push(window.electronAPI.onZoomReset(() => prefsStore.resetZoom()))
     }
 
     return unsubscribers

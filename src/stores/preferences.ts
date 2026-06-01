@@ -15,12 +15,14 @@ export interface Preferences {
   showSidebar: boolean
   showTabBar: boolean
   showStatusBar: boolean
+  showMenuBar: boolean
   hideScrollBars: boolean
   isStickyNoteMode: boolean
   isImmersiveMode: boolean
   typewriterMode: boolean
   focusMode: boolean
   fontSize: number
+  zoom: number
   wordWrap: boolean
   imageInsertMode: 'keep-original' | 'copy-absolute' | 'copy-relative'
   imageStoragePath: string
@@ -85,6 +87,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   typewriterMode: false,
   focusMode: false,
   fontSize: EDITOR.DEFAULT_FONT_SIZE,
+  zoom: 100,
   wordWrap: true,
   imageInsertMode: IMAGE.INSERT_MODES.KEEP_ORIGINAL,
   imageStoragePath: '',
@@ -121,6 +124,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const typewriterMode = ref<boolean>(DEFAULT_PREFERENCES.typewriterMode)
   const focusMode = ref<boolean>(DEFAULT_PREFERENCES.focusMode)
   const fontSize = ref<number>(DEFAULT_PREFERENCES.fontSize)
+  const zoom = ref<number>(DEFAULT_PREFERENCES.zoom)
   const wordWrap = ref<boolean>(DEFAULT_PREFERENCES.wordWrap)
   const imageInsertMode = ref<Preferences['imageInsertMode']>(DEFAULT_PREFERENCES.imageInsertMode)
   const imageStoragePath = ref<string>(DEFAULT_PREFERENCES.imageStoragePath)
@@ -160,12 +164,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
       showSidebar: showSidebar.value,
       showTabBar: showTabBar.value,
       showStatusBar: showStatusBar.value,
+      showMenuBar: showMenuBar.value,
       hideScrollBars: hideScrollBars.value,
       isStickyNoteMode: isStickyNoteMode.value,
       isImmersiveMode: isImmersiveMode.value,
       typewriterMode: typewriterMode.value,
       focusMode: focusMode.value,
       fontSize: fontSize.value,
+      zoom: zoom.value,
       wordWrap: wordWrap.value,
       imageInsertMode: imageInsertMode.value,
       imageStoragePath: imageStoragePath.value,
@@ -205,6 +211,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       case 'typewriterMode': typewriterMode.value = value as boolean; break
       case 'focusMode': focusMode.value = value as boolean; break
       case 'fontSize': fontSize.value = value as number; break
+      case 'zoom': zoom.value = value as number; break
       case 'wordWrap': wordWrap.value = value as boolean; break
       case 'imageInsertMode': imageInsertMode.value = value as Preferences['imageInsertMode']; break
       case 'imageStoragePath': imageStoragePath.value = value as string; break
@@ -285,6 +292,26 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function toggleWordCountDisplayType(): void {
     wordCountDisplayType.value = wordCountDisplayType.value === 'raw' ? 'rendered' : 'raw'
+    savePreferences()
+  }
+
+  function zoomIn(): void {
+    const newZoom = Math.min(200, zoom.value + 10)
+    console.log(`[PreferencesStore] zoomIn: ${zoom.value} -> ${newZoom}`)
+    zoom.value = newZoom
+    savePreferences()
+  }
+
+  function zoomOut(): void {
+    const newZoom = Math.max(50, zoom.value - 10)
+    console.log(`[PreferencesStore] zoomOut: ${zoom.value} -> ${newZoom}`)
+    zoom.value = newZoom
+    savePreferences()
+  }
+
+  function resetZoom(): void {
+    console.log(`[PreferencesStore] resetZoom: ${zoom.value} -> ${DEFAULT_PREFERENCES.zoom}`)
+    zoom.value = DEFAULT_PREFERENCES.zoom
     savePreferences()
   }
 
@@ -386,6 +413,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       typewriterMode: typewriterMode.value,
       focusMode: focusMode.value,
       fontSize: fontSize.value,
+      zoom: zoom.value,
       wordWrap: wordWrap.value,
       imageInsertMode: imageInsertMode.value,
       imageStoragePath: imageStoragePath.value,
@@ -402,6 +430,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
     { deep: true }
   )
 
+  watch(zoom, async (newZoom, oldZoom) => {
+    console.log(`[PreferencesStore] zoom changed: ${oldZoom} -> ${newZoom}`)
+    if (window.electronAPI) {
+      console.log(`[PreferencesStore] Calling electronAPI.setZoom(${newZoom})`)
+      const result = await window.electronAPI.setZoom(newZoom)
+      console.log(`[PreferencesStore] setZoom result:`, result)
+    } else {
+      console.log('[PreferencesStore] electronAPI not available')
+    }
+  })
+
   return {
     // Getters
     launchMode,
@@ -412,12 +451,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     showSidebar,
     showTabBar,
     showStatusBar,
+    showMenuBar,
     hideScrollBars,
     isStickyNoteMode,
     isImmersiveMode,
     typewriterMode,
     focusMode,
     fontSize,
+    zoom,
     wordWrap,
     imageInsertMode,
     imageStoragePath,
@@ -456,6 +497,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     toggleStickyNoteMode,
     toggleImmersiveMode,
     toggleWordCountDisplayType,
+    zoomIn,
+    zoomOut,
+    resetZoom,
     savePreferences,
     loadPreferences,
     saveSession,

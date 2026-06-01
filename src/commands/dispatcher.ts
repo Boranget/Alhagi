@@ -6,93 +6,86 @@ import type { CommandHandler, CommandResult } from './types'
 import { getCommand } from './registry'
 import { getCommandContext } from './context'
 
-// 命令处理器映射
-const handlers = new Map<string, CommandHandler>()
-
-// 命令执行事件
-type CommandEventHandler = (commandId: string, result: CommandResult) => void
+// 命令执行事件监听器
+type CommandEventHandler = (action: string, result: CommandResult) => void
 const beforeExecuteListeners: CommandEventHandler[] = []
 const afterExecuteListeners: CommandEventHandler[] = []
 
-// 单例调度器
-let dispatcherInstance: CommandDispatcher | null = null
-
 class CommandDispatcher {
+  private handlers = new Map<string, CommandHandler>()
   private executionDepth = 0
 
   // 注册命令处理器
-  register(id: string, handler: CommandHandler): void {
-    if (handlers.has(id)) {
-      console.warn(`[CommandDispatcher] Handler already registered for "${id}", overwriting`)
+  register(action: string, handler: CommandHandler): void {
+    if (this.handlers.has(action)) {
+      console.warn(`[CommandDispatcher] Handler already registered for "${action}", overwriting`)
     }
-    handlers.set(id, handler)
+    this.handlers.set(action, handler)
   }
 
   // 批量注册处理器
   registerBatch(entries: Record<string, CommandHandler>): void {
-    for (const [id, handler] of Object.entries(entries)) {
-      this.register(id, handler)
+    for (const [action, handler] of Object.entries(entries)) {
+      this.register(action, handler)
     }
   }
 
   // 取消注册处理器
-  unregister(id: string): boolean {
-    return handlers.delete(id)
+  unregister(action: string): boolean {
+    return this.handlers.delete(action)
   }
 
   // 检查命令是否已注册处理器
-  hasHandler(id: string): boolean {
-    return handlers.has(id)
+  hasHandler(action: string): boolean {
+    return this.handlers.has(action)
   }
 
   // 获取命令是否可以执行（根据上下文条件）
-  canExecute(id: string): boolean {
-    const command = getCommand(id)
+  canExecute(action: string): boolean {
+    const command = getCommand(action)
     if (!command) {
-      console.warn(`[CommandDispatcher] Command not found: "${id}"`)
+      console.warn(`[CommandDispatcher] Command not found: "${action}"`)
       return false
     }
 
     const ctx = getCommandContext()
-    return ctx.check(command.when, command.whenNot)
+    return ctx.check(command.when)
   }
 
   // 执行命令
-  async execute(id: string): Promise<CommandResult> {
+  async execute(action: string): Promise<CommandResult> {
     const startTime = performance.now()
 
-    // 防止递归执行
     if (this.executionDepth > 10) {
-      console.error(`[CommandDispatcher] Max execution depth exceeded for "${id}"`)
+      console.error(`[CommandDispatcher] Max execution depth exceeded for "${action}"`)
       return { success: false, error: 'Max execution depth exceeded' }
     }
 
-    const command = getCommand(id)
+    const command = getCommand(action)
     if (!command) {
-      console.warn(`[CommandDispatcher] Command not found: "${id}"`)
-      return { success: false, error: `Command not found: ${id}` }
+      console.warn(`[CommandDispatcher] Command not found: "${action}"`)
+      return { success: false, error: `Command not found: ${action}` }
     }
 
-    const handler = handlers.get(id)
+    const handler = this.handlers.get(action)
     if (!handler) {
-      console.warn(`[CommandDispatcher] No handler registered for: "${id}"`)
-      return { success: false, error: `No handler for: ${id}` }
+      console.warn(`[CommandDispatcher] No handler registered for: "${action}"`)
+      return { success: false, error: `No handler for: ${action}` }
     }
 
-    // 检查执行条件
     const ctx = getCommandContext()
-    if (!ctx.check(command.when, command.whenNot)) {
-      const whenStr = command.when?.join(', ') ?? ''
-      const whenNotStr = command.whenNot?.map(k => `!${k}`).join(', ') ?? ''
-      console.debug(`[CommandDispatcher] Command "${id}" skipped: when=${whenStr}, whenNot=${whenNotStr}`)
+    if (!ctx.check(command.when)) {
+      const whenStr = Array.isArray(command.when)
+        ? command.when.join(', ')
+        : command.when || ''
+      console.debug(`[CommandDispatcher] Command "${action}" skipped: when=${whenStr}`)
       return { success: false, error: 'Conditions not met' }
     }
 
-    // 触发 beforeExecute 事件
     const beforeResult: CommandResult = { success: true }
     for (const listener of beforeExecuteListeners) {
       try {
-        listener(id, beforeResult)
+        listener(action, beforeResult)
       } catch (error) {
         console.error(`[CommandDispatcher] beforeExecute listener error:`, error)
       }
@@ -102,18 +95,15 @@ class CommandDispatcher {
       return beforeResult
     }
 
-    // 增加执行深度
     this.executionDepth++
 
     try {
-      // 执行处理器
       const result = await handler()
 
-      // 触发 afterExecute 事件
       const afterResult: CommandResult = { success: true, data: result }
       for (const listener of afterExecuteListeners) {
         try {
-          listener(id, afterResult)
+          listener(action, afterResult)
         } catch (error) {
           console.error(`[CommandDispatcher] afterExecute listener error:`, error)
         }
@@ -121,13 +111,13 @@ class CommandDispatcher {
 
       const duration = performance.now() - startTime
       if (duration > 100) {
-        console.debug(`[CommandDispatcher] Command "${id}" executed in ${duration.toFixed(2)}ms`)
+        console.debug(`[CommandDispatcher] Command "${action}" executed in ${duration.toFixed(2)}ms`)
       }
 
       return { success: true, data: result }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error(`[CommandDispatcher] Command "${id}" failed:`, error)
+      console.error(`[CommandDispatcher] Command "${action}" failed:`, error)
       return { success: false, error: errorMessage }
     } finally {
       this.executionDepth--
@@ -135,26 +125,26 @@ class CommandDispatcher {
   }
 
   // 同步执行命令（用于不需要异步的场景）
-  executeSync(id: string): CommandResult {
-    const handler = handlers.get(id)
+  executeSync(action: string): CommandResult {
+    const handler = this.handlers.get(action)
     if (!handler) {
-      return { success: false, error: `No handler for: ${id}` }
+      return { success: false, error: `No handler for: ${action}` }
     }
 
-    const command = getCommand(id)
+    const command = getCommand(action)
     if (!command) {
-      return { success: false, error: `Command not found: ${id}` }
+      return { success: false, error: `Command not found: ${action}` }
     }
 
     const ctx = getCommandContext()
-    if (!ctx.check(command.when, command.whenNot)) {
+    if (!ctx.check(command.when)) {
       return { success: false, error: 'Conditions not met' }
     }
 
     try {
       const result = handler()
       if (result instanceof Promise) {
-        console.warn(`[CommandDispatcher] executeSync called on async handler "${id}"`)
+        console.warn(`[CommandDispatcher] executeSync called on async handler "${action}"`)
         return { success: false, error: 'Async handler called with executeSync' }
       }
       return { success: true, data: result }
@@ -165,8 +155,8 @@ class CommandDispatcher {
   }
 
   // 尝试执行命令（不抛出错误）
-  tryExecute(id: string): boolean {
-    const result = this.execute(id)
+  tryExecute(action: string): boolean {
+    const result = this.executeSync(action)
     return result.success
   }
 
@@ -192,18 +182,19 @@ class CommandDispatcher {
   }
 
   // 清除所有监听器
-  clearListeners() {
+  clearListeners(): void {
     beforeExecuteListeners.length = 0
     afterExecuteListeners.length = 0
   }
 
   // 清除所有处理器
-  clearHandlers() {
-    handlers.clear()
+  clearHandlers(): void {
+    this.handlers.clear()
   }
 }
 
-// 获取或创建全局调度器实例
+let dispatcherInstance: CommandDispatcher | null = null
+
 export function getDispatcher(): CommandDispatcher {
   if (!dispatcherInstance) {
     dispatcherInstance = new CommandDispatcher()
@@ -211,35 +202,32 @@ export function getDispatcher(): CommandDispatcher {
   return dispatcherInstance
 }
 
-// 便捷方法
-export function executeCommand(id: string): Promise<CommandResult> {
-  return getDispatcher().execute(id)
+export function executeCommand(action: string): Promise<CommandResult> {
+  return getDispatcher().execute(action)
 }
 
-export function canExecuteCommand(id: string): boolean {
-  return getDispatcher().canExecute(id)
+export function canExecuteCommand(action: string): boolean {
+  return getDispatcher().canExecute(action)
 }
 
-export function registerCommand(id: string, handler: CommandHandler): void {
-  getDispatcher().register(id, handler)
+export function registerCommand(action: string, handler: CommandHandler): void {
+  getDispatcher().register(action, handler)
 }
 
-export function unregisterCommand(id: string): boolean {
-  return getDispatcher().unregister(id)
+export function unregisterCommand(action: string): boolean {
+  return getDispatcher().unregister(action)
 }
 
-// Vue Composable
 export function useCommandDispatcher() {
   const dispatcher = getDispatcher()
-
   return {
-    execute: (id: string) => dispatcher.execute(id),
-    executeSync: (id: string) => dispatcher.executeSync(id),
-    tryExecute: (id: string) => dispatcher.tryExecute(id),
-    canExecute: (id: string) => dispatcher.canExecute(id),
-    register: (id: string, handler: CommandHandler) => dispatcher.register(id, handler),
-    unregister: (id: string) => dispatcher.unregister(id),
-    hasHandler: (id: string) => dispatcher.hasHandler(id),
+    execute: (action: string) => dispatcher.execute(action),
+    executeSync: (action: string) => dispatcher.executeSync(action),
+    tryExecute: (action: string) => dispatcher.tryExecute(action),
+    canExecute: (action: string) => dispatcher.canExecute(action),
+    register: (action: string, handler: CommandHandler) => dispatcher.register(action, handler),
+    unregister: (action: string) => dispatcher.unregister(action),
+    hasHandler: (action: string) => dispatcher.hasHandler(action),
     onBeforeExecute: (handler: CommandEventHandler) => dispatcher.onBeforeExecute(handler),
     onAfterExecute: (handler: CommandEventHandler) => dispatcher.onAfterExecute(handler),
   }

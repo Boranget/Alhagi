@@ -144,6 +144,18 @@ export class ElectronService {
       prefsStore.toggleLightDark()
     })
 
+    const removeZoomIn = this.api.onZoomIn?.(() => {
+      prefsStore.zoomIn()
+    })
+
+    const removeZoomOut = this.api.onZoomOut?.(() => {
+      prefsStore.zoomOut()
+    })
+
+    const removeZoomReset = this.api.onZoomReset?.(() => {
+      prefsStore.resetZoom()
+    })
+
     const removeSettings = this.api.onOpenSettings?.(() => {
       eventBus.emit(AppEvents.OPEN_SETTINGS)
     })

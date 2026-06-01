@@ -61,6 +61,9 @@ onMounted(async () => {
   // 监听命令面板快捷键
   window.addEventListener('keydown', handleGlobalKeydown)
   
+  // 监听鼠标滚轮缩放
+  window.addEventListener('wheel', handleWheel, { passive: false })
+  
   // 监听命令面板事件
   window.addEventListener('app:quickOpen', () => {
     showCommandPalette.value = true
@@ -73,6 +76,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('wheel', handleWheel)
   
   if (cleanup) {
     cleanup()
@@ -93,6 +97,20 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     e.preventDefault()
     showSettings.value = true
     return
+  }
+}
+
+// Ctrl+滚轮缩放处理
+function handleWheel(e: WheelEvent) {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault()
+    
+    const delta = e.deltaY > 0 ? -1 : 1
+    if (delta > 0) {
+      prefsStore.zoomIn()
+    } else {
+      prefsStore.zoomOut()
+    }
   }
 }
 </script>

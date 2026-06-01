@@ -1,5 +1,5 @@
 import { visit } from 'unist-util-visit'
-import type { Root, Text, Parent } from 'mdast'
+import type { Root, Text, Parent, PhrasingContent } from 'mdast'
 import type { Plugin } from 'unified'
 
 /**
@@ -8,13 +8,12 @@ import type { Plugin } from 'unified'
  */
 const remarkHighlight: Plugin<[], Root> = function () {
   return (tree) => {
-    visit(tree, 'text', (node: Text, index: number | null, parent: Parent | null) => {
-      if (index === null || !parent) return
+    visit(tree, 'text', (node: Text, index: number | undefined, parent: Parent | undefined) => {
+      if (index === undefined || !parent) return
 
       const value = node.value
       const re = /==([^=\n]+)==/g
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parts: any[] = []
+      const parts: (Text | Parent)[] = []
       let lastIndex = 0
       let match: RegExpExecArray | null
 
@@ -25,7 +24,7 @@ const remarkHighlight: Plugin<[], Root> = function () {
         parts.push({
           type: 'highlight',
           children: [{ type: 'text', value: match[1] }],
-        })
+        } as Parent)
         lastIndex = match.index + match[0].length
       }
 
@@ -35,7 +34,7 @@ const remarkHighlight: Plugin<[], Root> = function () {
         parts.push({ type: 'text', value: value.slice(lastIndex) })
       }
 
-      parent.children.splice(index, 1, ...(parts as Parameters<typeof parent.children.splice> extends [number, number, ...infer R] ? R : never))
+      parent.children.splice(index, 1, ...(parts as unknown as PhrasingContent[]))
       return index + parts.length
     })
   }

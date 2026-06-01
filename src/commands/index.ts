@@ -20,29 +20,25 @@ export * from './keybinding'
 // 导出处理器
 export { initCommandHandlers } from './handlers'
 
-import { updateCommandContext } from './handlers'
 import { initCommandHandlers } from './handlers'
 import { getKeybindingManager } from './keybinding'
 
 // 初始化命令系统
-export function initCommandSystem() {
+export function initCommandSystem(): void {
   console.log('[CommandSystem] Initializing...')
-  
+
   // 1. 初始化所有命令处理器
   initCommandHandlers()
-  
-  // 2. 设置上下文条件
-  updateCommandContext()
-  
-  // 3. 启用快捷键管理
+
+  // 2. 启用快捷键管理
   const keybindingManager = getKeybindingManager()
   keybindingManager.attachGlobalListener()
-  
+
   console.log('[CommandSystem] Initialized successfully')
 }
 
 // 销毁命令系统
-export function destroyCommandSystem() {
+export function destroyCommandSystem(): void {
   const keybindingManager = getKeybindingManager()
   keybindingManager.detachGlobalListener()
 }

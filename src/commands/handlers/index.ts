@@ -7,7 +7,6 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
-import { getCommandContext } from '../context'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -31,10 +30,7 @@ export function initCommandHandlers(): void {
   dispatcher.register('file.openFolder', async () => {
     const api = electronService.getAPI()
     if (api) {
-      const result = await api.openFolder()
-      if (result.success && result.data) {
-        // 文件夹打开后，会触发相应的事件
-      }
+      await api.openFolder()
     }
   })
 
@@ -145,6 +141,18 @@ export function initCommandHandlers(): void {
     editorManager.toggleHeading(3)
   })
 
+  dispatcher.register('paragraph.heading4', () => {
+    editorManager.toggleHeading(4)
+  })
+
+  dispatcher.register('paragraph.heading5', () => {
+    editorManager.toggleHeading(5)
+  })
+
+  dispatcher.register('paragraph.heading6', () => {
+    editorManager.toggleHeading(6)
+  })
+
   dispatcher.register('paragraph.paragraph', () => {
     editorManager.toggleParagraph()
   })
@@ -230,12 +238,6 @@ export function initCommandHandlers(): void {
       const currentMode = tabsStore.activeTab?.viewMode
       const newMode = currentMode === 'source' ? 'wysiwyg' : 'source'
       tabsStore.setViewMode(tabsStore.activeTabId, newMode)
-    }
-  })
-
-  dispatcher.register('view.wysiwygMode', () => {
-    if (tabsStore.activeTabId) {
-      tabsStore.setViewMode(tabsStore.activeTabId, 'wysiwyg')
     }
   })
 
@@ -334,82 +336,5 @@ export function initCommandHandlers(): void {
   dispatcher.register('help.about', () => {
     const event = new CustomEvent('app:showAbout')
     window.dispatchEvent(event)
-  })
-}
-
-// ========================================
-// 上下文管理帮助函数
-// ========================================
-
-// 更新命令上下文
-export function updateCommandContext(): void {
-  const ctx = getCommandContext()
-  
-  // 注册上下文获取器
-  ctx.register('hasOpenFile', () => {
-    const tabsStore = useTabsStore()
-    return tabsStore.tabs.size > 0
-  })
-
-  ctx.register('isDirty', () => {
-    const tabsStore = useTabsStore()
-    return tabsStore.activeTab?.isDirty ?? false
-  })
-
-  ctx.register('sourceMode', () => {
-    const tabsStore = useTabsStore()
-    return tabsStore.activeTab?.viewMode === 'source'
-  })
-
-  ctx.register('wysiwygMode', () => {
-    const tabsStore = useTabsStore()
-    const mode = tabsStore.activeTab?.viewMode
-    return mode === 'wysiwyg' || !mode
-  })
-
-  ctx.register('isEditorFocused', () => {
-    // 可以检查编辑器是否获得焦点
-    return true // 暂时默认返回 true
-  })
-
-  ctx.register('canUndo', () => {
-    // 可以检查是否有历史记录可撤销
-    return true // 暂时默认返回 true
-  })
-
-  ctx.register('canRedo', () => {
-    // 可以检查是否有历史记录可重做
-    return true // 暂时默认返回 true
-  })
-
-  // 平台检测
-  ctx.register('isMac', () => {
-    return navigator.platform.toLowerCase().includes('mac')
-  })
-
-  ctx.register('isWindows', () => {
-    return navigator.platform.toLowerCase().includes('win')
-  })
-
-  ctx.register('isLinux', () => {
-    const platform = navigator.platform.toLowerCase()
-    return platform.includes('linux') || platform.includes('x11')
-  })
-
-  // 其他上下文可以后续添加
-  ctx.register('hasSelection', () => {
-    // 检查是否有选中文本
-    const selection = window.getSelection()
-    return selection && selection.toString().length > 0
-  })
-
-  ctx.register('hasClipboard', () => {
-    // 检查剪贴板是否可用
-    return navigator.clipboard !== undefined
-  })
-
-  ctx.register('hasSearchResults', () => {
-    // 检查是否有搜索结果
-    return false // 暂时默认返回 false
   })
 }

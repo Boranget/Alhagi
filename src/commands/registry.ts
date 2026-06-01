@@ -4,13 +4,6 @@
 
 import type { CommandEntry, CommandCategory } from './types'
 
-// 获取当前平台
-function getPlatform(): 'macOS' | 'windows' | 'linux' {
-  if (navigator.platform.toLowerCase().includes('mac')) return 'macOS'
-  if (navigator.platform.toLowerCase().includes('win')) return 'windows'
-  return 'linux'
-}
-
 // 类别到菜单标签的映射
 export const CATEGORY_LABELS: Record<CommandCategory, string> = {
   file: '文件',
@@ -290,7 +283,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: '0', modifiers: { ctrl: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 1,
+    menuGroup: 2,
   },
   {
     id: 'paragraph.quote',
@@ -300,7 +293,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'q', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 2,
+    menuGroup: 3,
   },
   {
     id: 'paragraph.bulletList',
@@ -310,7 +303,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'u', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 2,
+    menuGroup: 3,
   },
   {
     id: 'paragraph.orderedList',
@@ -320,7 +313,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'o', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 2,
+    menuGroup: 3,
   },
   {
     id: 'paragraph.taskList',
@@ -330,7 +323,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'x', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 2,
+    menuGroup: 3,
   },
   {
     id: 'paragraph.codeBlock',
@@ -340,7 +333,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'c', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 3,
+    menuGroup: 4,
   },
   {
     id: 'paragraph.mathBlock',
@@ -350,7 +343,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'm', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 3,
+    menuGroup: 4,
   },
   {
     id: 'paragraph.horizontalRule',
@@ -360,7 +353,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: '-', modifiers: { ctrl: true, alt: true } },
     executionContext: 'editor',
     when: ['hasOpenFile'],
-    menuGroup: 4,
+    menuGroup: 5,
   },
 
   // ==================== 表格 ====================
@@ -627,7 +620,7 @@ export const COMMANDS: CommandEntry[] = [
   },
 ]
 
-// 根据ID查找命令
+// 根据 ID 查找命令
 export function getCommand(id: string): CommandEntry | undefined {
   return COMMANDS.find(cmd => cmd.id === id)
 }
@@ -673,21 +666,6 @@ export function getGroupedMenuCommands(): Map<CommandCategory, CommandEntry[]> {
 }
 
 // 获取平台特定的快捷键
-export function getPlatformKeybinding(command: CommandEntry): CommandEntry['keybinding'] | undefined {
-  const platform = getPlatform()
-  const overrides = command.platformOverrides
-  
-  if (overrides) {
-    if (platform === 'macOS' && overrides.macOS?.keybinding) {
-      return overrides.macOS.keybinding
-    }
-    if (platform === 'windows' && overrides.windows?.keybinding) {
-      return overrides.windows.keybinding
-    }
-    if (platform === 'linux' && overrides.linux?.keybinding) {
-      return overrides.linux.keybinding
-    }
-  }
-  
+export function getPlatformKeybinding(command: CommandEntry) {
   return command.keybinding
 }

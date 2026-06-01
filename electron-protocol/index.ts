@@ -149,7 +149,8 @@ export const IPC_CHANNELS = {
     OPEN_DEV_TOOLS: 'window:open-dev-tools',
     FOCUS_WINDOW: 'window:focus-window',
     CHECK_FILE_OPEN: 'window:check-file-open',
-    UPDATE_OPENED_FILES: 'window:update-opened-files'
+    UPDATE_OPENED_FILES: 'window:update-opened-files',
+    SET_ZOOM: 'window:set-zoom'
   }
 } as const;
 
@@ -210,6 +211,9 @@ export const MENU_EVENTS = {
   TOGGLE_STICKY_NOTE: 'menu:toggle-sticky-note',
   TOGGLE_IMMERSIVE: 'menu:toggle-immersive',
   TOGGLE_THEME: 'menu:toggle-theme',
+  ZOOM_IN: 'menu:zoom-in',
+  ZOOM_OUT: 'menu:zoom-out',
+  ZOOM_RESET: 'menu:zoom-reset',
   
   // 导航
   NAVIGATION_QUICK_OPEN: 'menu:navigation-quick-open',
@@ -285,6 +289,7 @@ export interface ElectronAPI {
   focusWindow: (windowId: number, filePath?: string) => Promise<IPCResponse<boolean>>
   checkFileOpen: (filePath: string) => Promise<IPCResponse<{ windowId: number | null }>>
   updateOpenedFiles: (filePaths: string[]) => Promise<IPCResponse<boolean>>
+  setZoom: (zoomLevel: number) => Promise<IPCResponse<void>>
   onDragStart: (callback: (tabId: string) => void) => () => void
   onDragEnd: (callback: () => void) => () => void
   onNewFile: (callback: () => void) => () => void
@@ -308,6 +313,9 @@ onToggleSidebar: (callback: () => void) => () => void
   onToggleStatusBar: (callback: () => void) => () => void
   onToggleTheme: (callback: () => void) => () => void
   onOpenSettings: (callback: () => void) => () => void
+  onZoomIn: (callback: () => void) => () => void
+  onZoomOut: (callback: () => void) => () => void
+  onZoomReset: (callback: () => void) => () => void
   onEditUndo: (callback: () => void) => () => void
   onEditRedo: (callback: () => void) => () => void
   // 格式菜单事件

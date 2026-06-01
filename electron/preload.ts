@@ -133,6 +133,9 @@ const api: ElectronAPI = {
   updateOpenedFiles: (filePaths: string[]) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, filePaths),
   
+  setZoom: (zoomLevel: number) => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
+  
   onNewFile: (callback) => 
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
@@ -191,6 +194,15 @@ onToggleSidebar: (callback) =>
   
   onToggleTheme: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_THEME, callback),
+  
+  onZoomIn: (callback) => 
+    createMenuListener(MENU_EVENTS.ZOOM_IN, callback),
+  
+  onZoomOut: (callback) => 
+    createMenuListener(MENU_EVENTS.ZOOM_OUT, callback),
+  
+  onZoomReset: (callback) => 
+    createMenuListener(MENU_EVENTS.ZOOM_RESET, callback),
   
   onOpenSettings: (callback) =>
     createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback),

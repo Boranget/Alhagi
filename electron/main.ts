@@ -165,6 +165,10 @@ function createMenu() {
       { type: 'separator' },
       { label: '暗色模式', accelerator: 'CmdOrCtrl+Shift+D', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOGGLE_THEME) },
       { type: 'separator' },
+      { label: '放大', accelerator: 'CmdOrCtrl+Plus', click: () => mainWindow?.webContents.send(MENU_EVENTS.ZOOM_IN) },
+      { label: '缩小', accelerator: 'CmdOrCtrl+-', click: () => mainWindow?.webContents.send(MENU_EVENTS.ZOOM_OUT) },
+      { label: '重置缩放', accelerator: 'CmdOrCtrl+0', click: () => mainWindow?.webContents.send(MENU_EVENTS.ZOOM_RESET) },
+      { type: 'separator' },
       { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => mainWindow?.webContents.isDevToolsOpened() ? mainWindow.webContents.closeDevTools() : mainWindow?.webContents.openDevTools() },
       { type: 'separator' },
       { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
@@ -710,6 +714,21 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, (event, filePaths: strin
   } catch (err) {
     const error = err as NodeJS.ErrnoException
     return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to update opened files: ${error.message}`)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ZOOM, (event, zoomLevel: number) => {
+  try {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) {
+      return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+    }
+    const zoomFactor = zoomLevel / 100
+    window.webContents.setZoomFactor(zoomFactor)
+    return createSuccessResponse(undefined)
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException
+    return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to set zoom: ${error.message}`)
   }
 })
 

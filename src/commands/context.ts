@@ -1,112 +1,83 @@
 // ============================================================
-// Alhagi Command Context - 上下文条件系统
+// Alhagi Command Context - 命令上下文管理
 // ============================================================
 
-import type { CommandContext, ContextKey } from './types'
+import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
 
-// 全局上下文实例
-let contextInstance: CommandContextImpl | null = null
+// 触发菜单重建的上下文键（低频变化的键）
+const REBUILD_TRIGGERS = new Set([
+  'hasOpenFile',
+  'showSidebar',
+  'showTabBar',
+  'showStatusBar',
+  'sourceMode',
+  'isStickyNoteMode',
+  'isImmersiveMode',
+])
 
-class CommandContextImpl {
-  private stateGetters: Map<ContextKey, () => boolean> = new Map()
-  private cachedContext: CommandContext | null = null
-  private cacheValid = false
+type ContextGetter = () => boolean | string | undefined
+type RebuildCallback = () => void
 
-  constructor() {
-    this.registerDefaultGetters()
+class CommandContext {
+  private getters = new Map<string, ContextGetter>()
+  private values = new Map<string, boolean | string>()
+  private rebuildCallback: RebuildCallback | null = null
+
+  // 注册一个上下文值的 getter
+  register(key: string, getter: ContextGetter): void {
+    this.getters.set(key, getter)
   }
 
-  // 注册默认的状态获取器
-  private registerDefaultGetters() {
-    // 平台检测
-    this.register('isMac', () => navigator.platform.toLowerCase().includes('mac'))
-    this.register('isWindows', () => navigator.platform.toLowerCase().includes('win'))
-    this.register('isLinux', () => navigator.platform.toLowerCase().includes('linux'))
-  }
-
-  // 注册状态获取器
-  register(key: ContextKey, getter: () => boolean) {
-    this.stateGetters.set(key, getter)
-    this.cacheValid = false
-  }
-
-  // 批量注册状态获取器
-  registerBatch(getters: Record<ContextKey, () => boolean>) {
-    for (const [key, getter] of Object.entries(getters)) {
-      this.stateGetters.set(key as ContextKey, getter)
+  // 获取上下文值
+  get(key: string): boolean | string | undefined {
+    if (this.values.has(key)) {
+      return this.values.get(key)
     }
-    this.cacheValid = false
-  }
-
-  // 获取当前上下文状态
-  getContext(): CommandContext {
-    // 如果缓存有效，直接返回
-    if (this.cacheValid && this.cachedContext) {
-      return this.cachedContext
-    }
-
-    const context: CommandContext = {
-      hasOpenFile: false,
-      hasSelection: false,
-      isEditorFocused: false,
-      canUndo: false,
-      canRedo: false,
-      isDirty: false,
-      hasClipboard: false,
-      isMac: false,
-      isWindows: false,
-      isLinux: false,
-      sourceMode: false,
-      wysiwygMode: false,
-      hasSearchResults: false,
-    }
-
-    // 调用所有注册的状态获取器
-    for (const [key, getter] of this.stateGetters) {
-      try {
-        context[key] = getter()
-      } catch (error) {
-        console.warn(`[CommandContext] Failed to get context key "${key}":`, error)
-        context[key] = false
+    const getter = this.getters.get(key)
+    if (getter) {
+      const value = getter()
+      if (value !== undefined) {
+        this.values.set(key, value)
       }
+      return value
     }
-
-    this.cachedContext = context
-    this.cacheValid = true
-
-    return context
+    return undefined
   }
 
-  // 获取单个上下文值
-  get(key: ContextKey): boolean {
-    const getter = this.stateGetters.get(key)
-    if (!getter) {
-      console.warn(`[CommandContext] Unknown context key: "${key}"`)
-      return false
+  // 直接设置上下文值
+  set(key: string, value: boolean | string | undefined): void {
+    const oldValue = this.values.get(key)
+    if (oldValue === value) return
+
+    if (value !== undefined) {
+      this.values.set(key, value)
+    } else {
+      this.values.delete(key)
     }
 
-    try {
-      return getter()
-    } catch (error) {
-      console.warn(`[CommandContext] Failed to get context key "${key}":`, error)
-      return false
+    // 触发菜单重建
+    if (REBUILD_TRIGGERS.has(key) && this.rebuildCallback) {
+      this.rebuildCallback()
     }
   }
 
   // 检查条件是否满足
-  check(when: ContextKey[] | undefined, whenNot: ContextKey[] | undefined): boolean {
-    // 检查 when 条件（必须全部满足）
-    if (when && when.length > 0) {
-      for (const key of when) {
+  check(when?: string | string[], whenNot?: string | string[]): boolean {
+    // 检查 when 条件
+    if (when) {
+      const keys = Array.isArray(when) ? when : [when]
+      for (const key of keys) {
         if (!this.get(key)) {
           return false
         }
       }
     }
 
-    // 检查 whenNot 条件（必须全部不满足）
-    if (whenNot && whenNot.length > 0) {
-      for (const key of whenNot) {
+    // 检查 whenNot 条件
+    if (whenNot) {
+      const keys = Array.isArray(whenNot) ? whenNot : [whenNot]
+      for (const key of keys) {
         if (this.get(key)) {
           return false
         }
@@ -116,37 +87,123 @@ class CommandContextImpl {
     return true
   }
 
-  // 使缓存失效
-  invalidate() {
-    this.cacheValid = false
+  // 检查是否是切换状态
+  isToggled(key: string): boolean {
+    return !!this.get(key)
   }
 
-  // 清除所有注册的状态获取器
-  clear() {
-    this.stateGetters.clear()
-    this.cacheValid = false
-    this.cachedContext = null
+  // 设置菜单重建回调
+  onRebuildNeeded(callback: RebuildCallback): void {
+    this.rebuildCallback = callback
+  }
+
+  // 清除缓存值，强制重新计算
+  invalidate(): void {
+    this.values.clear()
   }
 }
 
-// 获取或创建全局上下文实例
-export function getCommandContext(): CommandContextImpl {
+// 创建全局单例
+let contextInstance: CommandContext | null = null
+
+export function getCommandContext(): CommandContext {
   if (!contextInstance) {
-    contextInstance = new CommandContextImpl()
+    contextInstance = new CommandContext()
+    initializeContext(contextInstance)
   }
   return contextInstance
 }
 
+// 初始化上下文 getter
+function initializeContext(ctx: CommandContext): void {
+  // 文件相关
+  ctx.register('hasOpenFile', () => {
+    const tabsStore = useTabsStore()
+    return tabsStore.tabs.size > 0
+  })
 
+  ctx.register('isDirty', () => {
+    const tabsStore = useTabsStore()
+    return tabsStore.activeTab?.isDirty ?? false
+  })
 
-// 创建响应式上下文（用于Vue组件）
-export function useCommandContext() {
-  const ctx = getCommandContext()
-  
-  return {
-    getContext: () => ctx.getContext(),
-    get: (key: ContextKey) => ctx.get(key),
-    check: (when?: ContextKey[], whenNot?: ContextKey[]) => ctx.check(when, whenNot),
-    invalidate: () => ctx.invalidate(),
-  }
+  ctx.register('sourceMode', () => {
+    const tabsStore = useTabsStore()
+    return tabsStore.activeTab?.viewMode === 'source'
+  })
+
+  ctx.register('wysiwygMode', () => {
+    const tabsStore = useTabsStore()
+    const mode = tabsStore.activeTab?.viewMode
+    return mode === 'wysiwyg' || !mode
+  })
+
+  // 编辑器状态
+  ctx.register('isEditorFocused', () => {
+    // 暂时默认返回 true，后续可以完善
+    return true
+  })
+
+  ctx.register('hasSelection', () => {
+    const selection = window.getSelection()
+    return !!selection && selection.toString().length > 0
+  })
+
+  ctx.register('canUndo', () => {
+    // 暂时默认返回 true，后续可以根据编辑器历史状态判断
+    return true
+  })
+
+  ctx.register('canRedo', () => {
+    // 暂时默认返回 true，后续可以根据编辑器历史状态判断
+    return true
+  })
+
+  ctx.register('hasClipboard', () => {
+    return navigator.clipboard !== undefined
+  })
+
+  // 平台检测
+  ctx.register('isMac', () => {
+    return navigator.platform.toLowerCase().includes('mac')
+  })
+
+  ctx.register('isWindows', () => {
+    return navigator.platform.toLowerCase().includes('win')
+  })
+
+  ctx.register('isLinux', () => {
+    const platform = navigator.platform.toLowerCase()
+    return platform.includes('linux') || platform.includes('x11')
+  })
+
+  // UI 状态
+  ctx.register('showSidebar', () => {
+    const prefsStore = usePreferencesStore()
+    return prefsStore.showSidebar
+  })
+
+  ctx.register('showTabBar', () => {
+    const prefsStore = usePreferencesStore()
+    return prefsStore.showTabBar
+  })
+
+  ctx.register('showStatusBar', () => {
+    const prefsStore = usePreferencesStore()
+    return prefsStore.showStatusBar
+  })
+
+  ctx.register('isStickyNoteMode', () => {
+    const prefsStore = usePreferencesStore()
+    return prefsStore.isStickyNoteMode
+  })
+
+  ctx.register('isImmersiveMode', () => {
+    const prefsStore = usePreferencesStore()
+    return prefsStore.isImmersiveMode
+  })
+
+  ctx.register('hasSearchResults', () => {
+    return false
+  })
 }

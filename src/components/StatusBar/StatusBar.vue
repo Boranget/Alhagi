@@ -90,6 +90,17 @@
           size="sm"
         />
       </button>
+      
+      <span
+        class="status-item zoom-display"
+        :title="t('statusBar.zoomLevel')"
+      >
+        <Icon
+          name="zoom-in"
+          size="sm"
+        />
+        <span>{{ prefsStore.zoom }}%</span>
+      </span>
     </div>
   </div>
 </template>
@@ -259,6 +270,17 @@ onUnmounted(() => {
       border-radius: 4px;
       padding: 2px 6px;
       margin: -2px -6px;
+    }
+  }
+
+  &.zoom-display {
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+
+    &:hover {
+      background: var(--statusbar-hover-bg);
+      color: var(--text-primary);
     }
   }
 }

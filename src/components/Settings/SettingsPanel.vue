@@ -170,6 +170,18 @@
                 >
               </div>
               
+              <h3>缩放</h3>
+              <div class="setting-item">
+                <label>界面缩放</label>
+                <input
+                  v-model.number="prefsStore.zoom"
+                  type="number"
+                  min="50"
+                  max="200"
+                >
+                <span class="zoom-percent">{{ prefsStore.zoom }}%</span>
+              </div>
+              
               <h3>行尾符</h3>
               <div class="setting-item">
                 <label>默认行尾符</label>
@@ -524,6 +536,12 @@ function openKeyboardSettings() {
         outline: none;
         border-color: var(--primary-color);
       }
+    }
+    
+    .zoom-percent {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-left: 8px;
     }
   }
 }

@@ -1,5 +1,5 @@
 import { visit } from 'unist-util-visit'
-import type { Root, Text, Parent } from 'mdast'
+import type { Root, Text, Parent, PhrasingContent } from 'mdast'
 import type { Plugin } from 'unified'
 
 /**
@@ -8,14 +8,13 @@ import type { Plugin } from 'unified'
  */
 const remarkSuperSub: Plugin<[], Root> = function () {
   return (tree) => {
-    // Process superscript: ^text^
-    visit(tree, 'text', (node: Text, index: number | null, parent: Parent | null) => {
-      if (index === null || !parent) return
+    // Process <[SILENT_never_used_51bce0c785ca2f68081bfa7d91973934]> ^text^
+    visit(tree, 'text', (node: Text, index: number | undefined, parent: Parent | undefined) => {
+      if (index === undefined || !parent) return
 
       const value = node.value
-      const re = /\^([^\^\n]+)\^/g
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parts: any[] = []
+      const re = /\^([^^\n]+)\^/g
+      const parts: (Text | Parent)[] = []
       let lastIndex = 0
       let match: RegExpExecArray | null
 
@@ -26,7 +25,7 @@ const remarkSuperSub: Plugin<[], Root> = function () {
         parts.push({
           type: 'superscript',
           children: [{ type: 'text', value: match[1] }],
-        })
+        } as Parent)
         lastIndex = match.index + match[0].length
       }
 
@@ -36,19 +35,18 @@ const remarkSuperSub: Plugin<[], Root> = function () {
         parts.push({ type: 'text', value: value.slice(lastIndex) })
       }
 
-      parent.children.splice(index, 1, ...parts as any)
+      parent.children.splice(index, 1, ...(parts as unknown as PhrasingContent[]))
       return index + parts.length
     })
 
     // Process subscript: ~text~ (single tilde, not double)
-    visit(tree, 'text', (node: Text, index: number | null, parent: Parent | null) => {
-      if (index === null || !parent) return
+    visit(tree, 'text', (node: Text, index: number | undefined, parent: Parent | undefined) => {
+      if (index === undefined || !parent) return
 
       const value = node.value
       // Match single ~ but not ~~ (negative lookahead/lookbehind)
       const re = /(?<!~)~([^~\n]+)~(?!~)/g
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parts: any[] = []
+      const parts: (Text | Parent)[] = []
       let lastIndex = 0
       let match: RegExpExecArray | null
 
@@ -59,7 +57,7 @@ const remarkSuperSub: Plugin<[], Root> = function () {
         parts.push({
           type: 'subscript',
           children: [{ type: 'text', value: match[1] }],
-        })
+        } as Parent)
         lastIndex = match.index + match[0].length
       }
 
@@ -69,7 +67,7 @@ const remarkSuperSub: Plugin<[], Root> = function () {
         parts.push({ type: 'text', value: value.slice(lastIndex) })
       }
 
-      parent.children.splice(index, 1, ...parts as any)
+      parent.children.splice(index, 1, ...(parts as unknown as PhrasingContent[]))
       return index + parts.length
     })
   }
