@@ -23,7 +23,6 @@ import {
   insertTableCommand,
   toggleStrikethroughCommand,
 } from '@milkdown/preset-gfm'
-import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
@@ -156,9 +155,6 @@ export class CrepeEditorManager {
     this.container = container
     this.content = initialContent
 
-    const isDark = this.isDarkMode()
-    console.log('[CrepeEditorManager] 暗黑模式：', isDark)
-    
     console.log('[CrepeEditorManager] 正在创建 Crepe 实例...')
     try {
       this.crepe = new Crepe({
@@ -176,9 +172,7 @@ export class CrepeEditorManager {
           [Crepe.Feature.ImageInline]: false,
         },
         featureConfigs: {
-          [Crepe.Feature.CodeMirror]: {
-            theme: isDark ? undefined : eclipse,
-          },
+          [Crepe.Feature.CodeMirror]: {},
         },
       })
       console.log('[CrepeEditorManager] Crepe 实例创建成功')
@@ -649,16 +643,22 @@ export class CrepeEditorManager {
   }
 
   async updateTheme(): Promise<void> {
-    if (!this.crepe || !this.isInitialized || !this.container) {
+    if (!this.crepe || !this.isInitialized) {
       return
     }
-    
-    const currentContent = this.getMarkdown()
-    const container = this.container
-    const tabId = this.currentTabId
-    
-    await this.destroy()
-    await this.init(container, currentContent, tabId || undefined)
+
+    const preferences = usePreferencesStore()
+    const effectiveTheme = preferences.theme === 'system'
+      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light')
+      : preferences.theme
+
+    console.log(`[CrepeEditorManager] 切换主题为: ${effectiveTheme}（无需重建编辑器）`)
+
+    // 主题切换仅通过 CSS 实现，无需重建编辑器
+    // crepe 中的 CodeMirror 通过 [data-theme] 选择器自动适配主题
+    eventBus.emit(AppEvents.THEME_CHANGED, effectiveTheme as 'light' | 'dark' | 'system')
   }
 
   search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {

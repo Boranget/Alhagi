@@ -200,7 +200,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
       case 'launchFolderPath': launchFolderPath.value = value as string; break
       case 'autoSave': autoSave.value = value as boolean; break
       case 'autoSaveInterval': autoSaveInterval.value = value as number; break
-      case 'theme': theme.value = value as Preferences['theme']; break
+      case 'theme':
+        theme.value = value as Preferences['theme']
+        applyTheme()
+        break
       case 'showSidebar': showSidebar.value = value as boolean; break
       case 'showTabBar': showTabBar.value = value as boolean; break
       case 'showStatusBar': showStatusBar.value = value as boolean; break

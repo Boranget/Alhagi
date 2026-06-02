@@ -129,9 +129,7 @@ export function useApp() {
   const setupThemeWatchers = () => {
     const stopThemeWatch = watch(
       () => prefsStore.theme,
-      async (theme) => {
-        document.documentElement.setAttribute('data-theme', theme)
-        prefsStore.applyTheme()
+      async () => {
         await editorManager.updateTheme()
       }
     )

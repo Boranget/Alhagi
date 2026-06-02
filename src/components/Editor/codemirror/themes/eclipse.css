@@ -1,0 +1,183 @@
+/*
+ * Name: Eclipse Light Theme (CodeMirror 6)
+ * Source: @uiw/codemirror-theme-eclipse
+ * Original: https://github.com/uiwjs/react-codemirror
+ * Converted from: @uiw/codemirror-themes createTheme
+ *
+ * 使用方式：通过 [data-theme="light"] 自动激活，或给编辑器外层容器添加 class="cm-theme-eclipse"
+ */
+
+/* 原始主题 - 通过类名激活 */
+.cm-theme-eclipse.cm-editor {
+  background-color: #fff;
+  color: #000;
+}
+
+.cm-theme-eclipse.cm-editor .cm-content {
+  caret-color: #000;
+}
+
+.cm-theme-eclipse.cm-editor .cm-cursor,
+.cm-theme-eclipse.cm-editor .cm-dropCursor {
+  border-left-color: #000;
+}
+
+.cm-theme-eclipse.cm-editor .cm-gutters {
+  background-color: #f7f7f7;
+  color: #999;
+  border-right-color: transparent;
+}
+
+.cm-theme-eclipse.cm-editor.cm-focused .cm-selectionBackground,
+.cm-theme-eclipse.cm-editor .cm-line::selection,
+.cm-theme-eclipse.cm-editor .cm-selectionLayer .cm-selectionBackground,
+.cm-theme-eclipse.cm-editor .cm-content ::selection {
+  background: #d7d4f0 !important;
+}
+
+.cm-theme-eclipse.cm-editor .cm-selectionMatch {
+  background-color: #d7d4f0;
+}
+
+.cm-theme-eclipse.cm-editor .cm-activeLine {
+  background-color: #006fff1c;
+}
+
+.cm-theme-eclipse.cm-editor .cm-activeLineGutter {
+  background-color: #006fff1c;
+}
+
+/* ========== 语法高亮（对应 HighlightStyle） ========== */
+.cm-theme-eclipse .tok-comment { color: #3F7F5F; }
+.cm-theme-eclipse .tok-documentMeta { color: #FF1717; }
+.cm-theme-eclipse .tok-keyword {
+  color: #7F0055;
+  font-weight: bold;
+}
+.cm-theme-eclipse .tok-atom { color: #00f; }
+.cm-theme-eclipse .tok-number { color: #164; }
+.cm-theme-eclipse .tok-propertyName { color: #164; }
+.cm-theme-eclipse .tok-variableName { color: #0000C0; }
+.cm-theme-eclipse .tok-variableName.tok-definition { color: #0000C0; }
+.cm-theme-eclipse .tok-variableName.tok-function { color: #0000C0; }
+.cm-theme-eclipse .tok-string { color: #2A00FF; }
+.cm-theme-eclipse .tok-operator { color: black; }
+.cm-theme-eclipse .tok-tagName { color: #170; }
+.cm-theme-eclipse .tok-attributeName { color: #00c; }
+.cm-theme-eclipse .tok-link { color: #219; }
+
+/* 新增：通过 data-theme="light" 自动激活主题 - Crepe 内部编辑器 */
+[data-theme="light"] .crepe .cm-editor {
+  background-color: #fff;
+  color: #000;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-content {
+  caret-color: #000;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-cursor,
+[data-theme="light"] .crepe .cm-editor .cm-dropCursor {
+  border-left-color: #000;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-gutters {
+  background-color: #f7f7f7;
+  color: #999;
+  border-right-color: transparent;
+}
+
+[data-theme="light"] .crepe .cm-editor.cm-focused .cm-selectionBackground,
+[data-theme="light"] .crepe .cm-editor .cm-line::selection,
+[data-theme="light"] .crepe .cm-editor .cm-selectionLayer .cm-selectionBackground,
+[data-theme="light"] .crepe .cm-editor .cm-content ::selection {
+  background: #d7d4f0 !important;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-selectionMatch {
+  background-color: #d7d4f0;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-activeLine {
+  background-color: #006fff1c;
+}
+
+[data-theme="light"] .crepe .cm-editor .cm-activeLineGutter {
+  background-color: #006fff1c;
+}
+
+[data-theme="light"] .crepe .tok-comment { color: #3F7F5F; }
+[data-theme="light"] .crepe .tok-documentMeta { color: #FF1717; }
+[data-theme="light"] .crepe .tok-keyword {
+  color: #7F0055;
+  font-weight: bold;
+}
+[data-theme="light"] .crepe .tok-atom { color: #00f; }
+[data-theme="light"] .crepe .tok-number { color: #164; }
+[data-theme="light"] .crepe .tok-propertyName { color: #164; }
+[data-theme="light"] .crepe .tok-variableName { color: #0000C0; }
+[data-theme="light"] .crepe .tok-variableName.tok-definition { color: #0000C0; }
+[data-theme="light"] .crepe .tok-variableName.tok-function { color: #0000C0; }
+[data-theme="light"] .crepe .tok-string { color: #2A00FF; }
+[data-theme="light"] .crepe .tok-operator { color: black; }
+[data-theme="light"] .crepe .tok-tagName { color: #170; }
+[data-theme="light"] .crepe .tok-attributeName { color: #00c; }
+[data-theme="light"] .crepe .tok-link { color: #219; }
+
+/* 新增：通过 data-theme="light" 自动激活主题 - 独立 CodeMirrorEditor 组件 */
+[data-theme="light"] .codemirror-editor .cm-editor {
+  background-color: #fff;
+  color: #000;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-content {
+  caret-color: #000;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-cursor,
+[data-theme="light"] .codemirror-editor .cm-editor .cm-dropCursor {
+  border-left-color: #000;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-gutters {
+  background-color: #f7f7f7;
+  color: #999;
+  border-right-color: transparent;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor.cm-focused .cm-selectionBackground,
+[data-theme="light"] .codemirror-editor .cm-editor .cm-line::selection,
+[data-theme="light"] .codemirror-editor .cm-editor .cm-selectionLayer .cm-selectionBackground,
+[data-theme="light"] .codemirror-editor .cm-editor .cm-content ::selection {
+  background: #d7d4f0 !important;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-selectionMatch {
+  background-color: #d7d4f0;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-activeLine {
+  background-color: #006fff1c;
+}
+
+[data-theme="light"] .codemirror-editor .cm-editor .cm-activeLineGutter {
+  background-color: #006fff1c;
+}
+
+[data-theme="light"] .codemirror-editor .tok-comment { color: #3F7F5F; }
+[data-theme="light"] .codemirror-editor .tok-documentMeta { color: #FF1717; }
+[data-theme="light"] .codemirror-editor .tok-keyword {
+  color: #7F0055;
+  font-weight: bold;
+}
+[data-theme="light"] .codemirror-editor .tok-atom { color: #00f; }
+[data-theme="light"] .codemirror-editor .tok-number { color: #164; }
+[data-theme="light"] .codemirror-editor .tok-propertyName { color: #164; }
+[data-theme="light"] .codemirror-editor .tok-variableName { color: #0000C0; }
+[data-theme="light"] .codemirror-editor .tok-variableName.tok-definition { color: #0000C0; }
+[data-theme="light"] .codemirror-editor .tok-variableName.tok-function { color: #0000C0; }
+[data-theme="light"] .codemirror-editor .tok-string { color: #2A00FF; }
+[data-theme="light"] .codemirror-editor .tok-operator { color: black; }
+[data-theme="light"] .codemirror-editor .tok-tagName { color: #170; }
+[data-theme="light"] .codemirror-editor .tok-attributeName { color: #00c; }
+[data-theme="light"] .codemirror-editor .tok-link { color: #219; }

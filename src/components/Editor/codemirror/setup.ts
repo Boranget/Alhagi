@@ -26,8 +26,6 @@ import {
   keymap,
   rectangularSelection,
 } from '@codemirror/view'
-import { eclipse } from '@uiw/codemirror-theme-eclipse'
-import { nord } from '@uiw/codemirror-theme-nord'
 import { debounce } from '@/utils/helpers'
 
 const basicSetup: Extension = [
@@ -55,7 +53,6 @@ const basicSetup: Extension = [
 ]
 
 interface StateOptions {
-  dark: boolean
   onChange: (getString: () => string) => void
   onFocus?: () => void
   onBlur?: () => void
@@ -66,7 +63,6 @@ interface StateOptions {
 export const createCodeMirrorState = ({
   onChange,
   content,
-  dark,
   onFocus,
   onBlur,
   onSelectionChange,
@@ -74,7 +70,6 @@ export const createCodeMirrorState = ({
   return EditorState.create({
     doc: content,
     extensions: [
-      dark ? nord : eclipse,
       basicSetup,
       markdown(),
       EditorView.updateListener.of((viewUpdate) => {

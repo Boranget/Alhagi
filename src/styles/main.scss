@@ -146,15 +146,16 @@ textarea {
 .crepe .cm-editor {
   height: 100%;
   font-family: 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .crepe .cm-scroller {
   overscroll-behavior: auto;
 }
 
-.crepe .playground-cm .ͼo .cm-content {
-  caret-color: #000 !important;
-}
+/* 导入自定义 CodeMirror 主题 */
+@import '../components/Editor/codemirror/themes/eclipse.css';
+@import '../components/Editor/codemirror/themes/nord.css';
 
 /* 搜索高亮样式 - 使用自定义搜索插件的高亮类名 */
 .ProseMirror-search-match {
