@@ -26,7 +26,7 @@ function findTopLevelBlock($pos: ResolvedPos) {
 export const focusModePlugin = $prose(() => {
   return new Plugin({
     state: {
-      init(_, state) {
+      init(_, _state) {
         return DecorationSet.empty
       },
       apply(tr, oldState) {

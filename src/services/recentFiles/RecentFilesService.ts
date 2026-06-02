@@ -1,5 +1,3 @@
-import { ref } from 'vue'
-import type { RecentFile, RecentFolder } from '@/types'
 import { usePreferencesStore } from '@/stores/preferences'
 
 export function useRecentFilesService() {

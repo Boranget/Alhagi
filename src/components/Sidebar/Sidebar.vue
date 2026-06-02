@@ -184,7 +184,7 @@ function toggleFolder() {
   isFolderExpanded.value = !isFolderExpanded.value
 }
 
-async function openFile(filePath: string) {
+async function openFile(_filePath: string) {
   // Open file handler
 }
 

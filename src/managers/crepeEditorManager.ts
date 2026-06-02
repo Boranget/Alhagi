@@ -1,4 +1,4 @@
-import { Crepe, CrepeFeature } from '@milkdown/crepe'
+import { Crepe } from '@milkdown/crepe'
 import { editorStateCtx, editorViewCtx, parserCtx } from '@milkdown/kit/core'
 import { InitReady, remarkPluginsCtx, remarkStringifyOptionsCtx } from '@milkdown/core'
 import type { MilkdownPlugin } from '@milkdown/ctx'
@@ -292,8 +292,6 @@ export class CrepeEditorManager {
 
     this.isUpdatingContent = true
     this.content = content
-
-    const startTime = performance.now()
 
     try {
       this.crepe.editor.action((ctx) => {

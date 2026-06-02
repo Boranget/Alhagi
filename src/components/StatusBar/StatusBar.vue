@@ -192,7 +192,7 @@ let unsubscribeTabUpdated: (() => void) | null = null
 let unsubscribeContentChanged: (() => void) | null = null
 
 onMounted(() => {
-  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, (payload) => {
+  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
     // Tab switched handler
   })
 
@@ -203,7 +203,7 @@ onMounted(() => {
     }
   })
 
-  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
+  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
     // Content changed handler
   })
 })

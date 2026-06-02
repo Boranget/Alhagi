@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { UI } from '@/constants'
 

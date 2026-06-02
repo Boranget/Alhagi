@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { createCodeMirrorView, createCodeMirrorState } from './codemirror/setup'
+import { createCodeMirrorView } from './codemirror/setup'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabsStore } from '@/stores/tabs'

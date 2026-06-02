@@ -80,7 +80,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useImageInsert } from '@/composables/useImageInsert'
 import { useEditorView } from '@/composables/useEditorView'
 import { eventBus, AppEvents } from '@/events/eventBus'
@@ -201,7 +200,7 @@ const handleViewModeChange = async (mode: ViewMode) => {
   await nextTick()
 }
 
-const handleResizerMouseDown = (e: MouseEvent) => {
+const handleResizerMouseDown = (_e: MouseEvent) => {
   isResizing.value = true
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
@@ -252,9 +251,7 @@ const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payloa
 })
 unsubscribes.push(unsubscribeContentChanged)
 
-const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
-  const data = payload as { tabId: string | null }
-  
+const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async () => {
   if (activeTab.value && editorManager.isReady()) {
     await editorManager.switchToTab(activeTab.value.id)
   }

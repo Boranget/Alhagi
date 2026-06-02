@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onUnmounted } from 'vue'
+import { watch } from 'vue'
 import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 import { t } from '@/services/i18n'
 

@@ -248,7 +248,7 @@ export function useTabDragDrop() {
     direction: 'left' | 'right' | null 
   } {
     const EDGE_THRESHOLD = 50
-    const direction: 'left' | 'right' | null =
+    const _direction: 'left' | 'right' | null =
       event.clientX < EDGE_THRESHOLD ? 'left' :
       event.clientX > window.innerWidth - EDGE_THRESHOLD ? 'right' : null
 

@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref, watch, provide, computed } from 'vue'
+import { ref, watch, provide } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
@@ -11,12 +11,6 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
-import TabBar from '@/components/Tabs/TabBar.vue'
-import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
-import EditorContainer from '@/components/Editor/EditorContainer.vue'
-import StatusBar from '@/components/StatusBar/StatusBar.vue'
-import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
-import Welcome from '@/components/Welcome/Welcome.vue'
 
 const showSettings = ref(false)
 const isFullscreen = ref(false)

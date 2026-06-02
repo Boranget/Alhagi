@@ -51,7 +51,6 @@ export class ElectronService {
 
     const tabsStore = useTabsStore()
     const prefsStore = usePreferencesStore()
-    const fileStore = useFileExplorerStore()
 
     this.api.onNewFile(() => {
       tabsStore.createTab({ title: '未命名' })
@@ -103,15 +102,15 @@ export class ElectronService {
       eventBus.emit(AppEvents.CAPTURE_SCREEN)
     })
 
-    const removeTabMerge = this.api.onTabMerge?.((tabData) => {
+    this.api.onTabMerge?.((tabData) => {
       this.createTabFromDetachedData(tabData)
     })
 
-    const removeTabDetached = this.api.onTabDetached?.((tabData) => {
+    this.api.onTabDetached?.((tabData) => {
       this.createTabFromDetachedData(tabData)
     })
 
-    const removeFocusTab = this.api.onFocusTabForFile?.((filePath) => {
+    this.api.onFocusTabForFile?.((filePath) => {
       const existingTab = Array.from(tabsStore.tabs.values()).find(
         t => t.filePath === filePath
       )
@@ -120,51 +119,51 @@ export class ElectronService {
       }
     })
 
-    const removeStickyNoteMode = this.api.onToggleStickyNoteMode?.(() => {
+    this.api.onToggleStickyNoteMode?.(() => {
       prefsStore.toggleStickyNoteMode()
     })
 
-    const removeImmersiveMode = this.api.onToggleImmersiveMode?.(() => {
+    this.api.onToggleImmersiveMode?.(() => {
       prefsStore.toggleImmersiveMode()
     })
 
-    const removeSidebar = this.api.onToggleSidebar?.(() => {
+    this.api.onToggleSidebar?.(() => {
       prefsStore.showSidebar = !prefsStore.showSidebar
     })
 
-    const removeTabBar = this.api.onToggleTabBar?.(() => {
+    this.api.onToggleTabBar?.(() => {
       prefsStore.showTabBar = !prefsStore.showTabBar
     })
 
-    const removeStatusBar = this.api.onToggleStatusBar?.(() => {
+    this.api.onToggleStatusBar?.(() => {
       prefsStore.showStatusBar = !prefsStore.showStatusBar
     })
 
-    const removeTheme = this.api.onToggleTheme?.(() => {
+    this.api.onToggleTheme?.(() => {
       prefsStore.toggleLightDark()
     })
 
-    const removeZoomIn = this.api.onZoomIn?.(() => {
+    this.api.onZoomIn?.(() => {
       prefsStore.zoomIn()
     })
 
-    const removeZoomOut = this.api.onZoomOut?.(() => {
+    this.api.onZoomOut?.(() => {
       prefsStore.zoomOut()
     })
 
-    const removeZoomReset = this.api.onZoomReset?.(() => {
+    this.api.onZoomReset?.(() => {
       prefsStore.resetZoom()
     })
 
-    const removeSettings = this.api.onOpenSettings?.(() => {
+    this.api.onOpenSettings?.(() => {
       eventBus.emit(AppEvents.OPEN_SETTINGS)
     })
 
-    const removeUndo = this.api.onEditUndo?.(() => {
+    this.api.onEditUndo?.(() => {
       eventBus.emit(AppEvents.EDIT_UNDO)
     })
 
-    const removeRedo = this.api.onEditRedo?.(() => {
+    this.api.onEditRedo?.(() => {
       eventBus.emit(AppEvents.EDIT_REDO)
     })
   }

@@ -5,11 +5,9 @@ import {
   matchKeyEvent 
 } from '@/services/keybindingService'
 import { useTabsStore } from '@/stores/tabs'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 export function useKeybindings() {
   const tabsStore = useTabsStore()
-  const editorManager = useCrepeEditorManager()
   const keybindings = ref<Keybinding[]>([...DEFAULT_KEYBINDINGS])
   
   const actionHandlers: Record<string, () => void> = {

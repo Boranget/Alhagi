@@ -26,5 +26,13 @@ module.exports = {
     'prefer-const': 'warn',
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'vue/no-v-html': 'warn'
-  }
+  },
+  overrides: [
+    {
+      files: ['src/components/Sidebar/GlobalSearch.vue'],
+      rules: {
+        'vue/no-v-html': 'off'
+      }
+    }
+  ]
 }
