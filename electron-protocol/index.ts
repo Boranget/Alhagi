@@ -172,15 +172,6 @@ export const MENU_EVENTS = {
   PASTE_AS_PLAIN: 'menu:paste-as-plain',
   CAPTURE_SCREEN: 'menu:capture-screen',
   
-  // 格式
-  FORMAT_BOLD: 'menu:format-bold',
-  FORMAT_ITALIC: 'menu:format-italic',
-  FORMAT_STRIKETHROUGH: 'menu:format-strikethrough',
-  FORMAT_CODE: 'menu:format-code',
-  FORMAT_LINK: 'menu:format-link',
-  FORMAT_IMAGE: 'menu:format-image',
-  FORMAT_HIGHLIGHT: 'menu:format-highlight',
-  
   // 段落
   PARAGRAPH_HEADING1: 'menu:paragraph-heading1',
   PARAGRAPH_HEADING2: 'menu:paragraph-heading2',

@@ -227,15 +227,6 @@ onToggleSidebar: (callback) =>
     }
   },
 
-  // 格式菜单事件
-  onFormatBold: (callback) => createMenuListener(MENU_EVENTS.FORMAT_BOLD, callback),
-  onFormatItalic: (callback) => createMenuListener(MENU_EVENTS.FORMAT_ITALIC, callback),
-  onFormatStrikethrough: (callback) => createMenuListener(MENU_EVENTS.FORMAT_STRIKETHROUGH, callback),
-  onFormatCode: (callback) => createMenuListener(MENU_EVENTS.FORMAT_CODE, callback),
-  onFormatLink: (callback) => createMenuListener(MENU_EVENTS.FORMAT_LINK, callback),
-  onFormatImage: (callback) => createMenuListener(MENU_EVENTS.FORMAT_IMAGE, callback),
-  onFormatHighlight: (callback) => createMenuListener(MENU_EVENTS.FORMAT_HIGHLIGHT, callback),
-
   // 段落菜单事件
   onParagraphHeading1: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING1, callback),
   onParagraphHeading2: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING2, callback),

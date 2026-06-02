@@ -106,17 +106,6 @@ function createMenu() {
       { type: 'separator' },
       { label: '查找', accelerator: 'CmdOrCtrl+F', click: () => mainWindow?.webContents.send(MENU_EVENTS.EDIT_UNDO, { action: 'find' }) }
     ]},
-    { label: '格式', submenu: [
-      { label: '粗体', accelerator: 'CmdOrCtrl+B', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_BOLD) },
-      { label: '斜体', accelerator: 'CmdOrCtrl+I', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_ITALIC) },
-      { label: '删除线', accelerator: 'CmdOrCtrl+Shift+S', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_STRIKETHROUGH) },
-      { type: 'separator' },
-      { label: '行内代码', accelerator: 'CmdOrCtrl+`', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_CODE) },
-      { label: '链接', accelerator: 'CmdOrCtrl+K', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_LINK) },
-      { label: '图片', accelerator: 'CmdOrCtrl+Shift+I', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_IMAGE) },
-      { type: 'separator' },
-      { label: '高亮', accelerator: 'CmdOrCtrl+Shift+H', click: () => mainWindow?.webContents.send(MENU_EVENTS.FORMAT_HIGHLIGHT) }
-    ]},
     { label: '段落', submenu: [
       { label: '标题 1', accelerator: 'CmdOrCtrl+1', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HEADING1) },
       { label: '标题 2', accelerator: 'CmdOrCtrl+2', click: () => mainWindow?.webContents.send(MENU_EVENTS.PARAGRAPH_HEADING2) },

@@ -87,14 +87,6 @@ export function useApp() {
       unsubscribers.push(window.electronAPI.onSave(() => tabsStore.activeTabId && tabsStore.saveFile(tabsStore.activeTabId)))
       unsubscribers.push(window.electronAPI.onSaveAs(() => tabsStore.activeTabId && tabsStore.saveFileAs(tabsStore.activeTabId)))
       
-      // 格式菜单
-      unsubscribers.push(window.electronAPI.onFormatBold(() => editorManager.toggleBold()))
-      unsubscribers.push(window.electronAPI.onFormatItalic(() => editorManager.toggleItalic()))
-      unsubscribers.push(window.electronAPI.onFormatStrikethrough(() => editorManager.toggleStrikethrough()))
-      unsubscribers.push(window.electronAPI.onFormatCode(() => editorManager.toggleInlineCode()))
-      unsubscribers.push(window.electronAPI.onFormatLink(() => editorManager.toggleLink()))
-      unsubscribers.push(window.electronAPI.onFormatHighlight(() => editorManager.toggleHighlight()))
-      
       // 段落菜单
       unsubscribers.push(window.electronAPI.onParagraphHeading1(() => editorManager.toggleHeading(1)))
       unsubscribers.push(window.electronAPI.onParagraphHeading2(() => editorManager.toggleHeading(2)))
