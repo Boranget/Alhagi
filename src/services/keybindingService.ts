@@ -9,7 +9,7 @@ export interface Keybinding {
   }
   action: string
   description: string
-  category: 'file' | 'edit' | 'view' | 'navigation' | 'tools' | 'help'
+  category: 'file' | 'edit' | 'view' | 'tools' | 'help'
 }
 
 export interface KeybindingConfig {
@@ -41,11 +41,6 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'view.zoomIn', key: '=', modifiers: { ctrl: true }, action: 'view.zoomIn', description: '放大', category: 'view' },
   { id: 'view.zoomOut', key: '-', modifiers: { ctrl: true }, action: 'view.zoomOut', description: '缩小', category: 'view' },
   { id: 'view.resetZoom', key: '0', modifiers: { ctrl: true }, action: 'view.resetZoom', description: '重置缩放', category: 'view' },
-  
-  // 导航操作
-  { id: 'navigation.quickOpen', key: 'p', modifiers: { ctrl: true }, action: 'navigation.quickOpen', description: '快速打开', category: 'navigation' },
-  { id: 'navigation.search', key: 'f', modifiers: { ctrl: true, shift: true }, action: 'navigation.search', description: '全局搜索', category: 'navigation' },
-  { id: 'navigation.gotoLine', key: 'g', modifiers: { ctrl: true }, action: 'navigation.gotoLine', description: '跳转到行', category: 'navigation' },
   
   // 工具操作
   { id: 'tools.preferences', key: ',', modifiers: { ctrl: true }, action: 'tools.preferences', description: '设置', category: 'tools' },

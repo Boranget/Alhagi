@@ -163,10 +163,6 @@ function createMenu() {
       { label: '全屏', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
       { label: '打印', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.print() }
     ]},
-    { label: '导航', submenu: [
-      { label: '快速打开', accelerator: 'CmdOrCtrl+P', click: () => mainWindow?.webContents.send(MENU_EVENTS.NAVIGATION_QUICK_OPEN) },
-      { label: '跳转到行', accelerator: 'CmdOrCtrl+G', click: () => mainWindow?.webContents.send(MENU_EVENTS.NAVIGATION_GOTO_LINE) }
-    ]},
     { label: '工具', submenu: [
       { label: '设置', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send(MENU_EVENTS.TOOLS_PREFERENCES) },
       { label: '快捷键列表', accelerator: 'CmdOrCtrl+Shift+K', click: () => mainWindow?.webContents.send(MENU_EVENTS.HELP_SHORTCUTS) },

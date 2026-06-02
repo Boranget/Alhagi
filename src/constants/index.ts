@@ -151,7 +151,6 @@ export const KEYBINDING = {
     FILE: 'file',
     EDIT: 'edit',
     VIEW: 'view',
-    NAVIGATION: 'navigation',
     TOOLS: 'tools',
     HELP: 'help'
   } as const

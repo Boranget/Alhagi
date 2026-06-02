@@ -27,7 +27,11 @@ export const iconNames = [
   'code',
   'split',
   'maximize',
-  'minimize'
+  'minimize',
+  'zoom-in',
+  'zoom-out',
+  'rotate-ccw',
+  'alert-circle'
 ] as const
 
 export type IconName = typeof iconNames[number]

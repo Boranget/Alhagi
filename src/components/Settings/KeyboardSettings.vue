@@ -176,7 +176,6 @@ function getCategoryName(category: string): string {
     file: '文件操作',
     edit: '编辑操作',
     view: '视图操作',
-    navigation: '导航操作',
     tools: '工具',
     help: '帮助'
   }

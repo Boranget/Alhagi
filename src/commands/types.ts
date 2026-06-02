@@ -10,7 +10,6 @@ export type CommandCategory =
   | 'paragraph' 
   | 'table' 
   | 'view' 
-  | 'navigation' 
   | 'tools' 
   | 'help'
 

@@ -278,20 +278,6 @@ export function initCommandHandlers(): void {
   })
 
   // ========================================
-  // 导航命令
-  // ========================================
-
-  dispatcher.register('navigation.quickOpen', () => {
-    const event = new CustomEvent('app:quickOpen')
-    window.dispatchEvent(event)
-  })
-
-  dispatcher.register('navigation.gotoLine', () => {
-    const event = new CustomEvent('editor:gotoLine')
-    window.dispatchEvent(event)
-  })
-
-  // ========================================
   // 工具命令
   // ========================================
 

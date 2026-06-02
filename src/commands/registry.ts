@@ -12,7 +12,6 @@ export const CATEGORY_LABELS: Record<CommandCategory, string> = {
   paragraph: '段落',
   table: '表格',
   view: '视图',
-  navigation: '导航',
   tools: '工具',
   help: '帮助',
 }
@@ -25,9 +24,8 @@ export const CATEGORY_ORDER: Record<CommandCategory, number> = {
   paragraph: 4,
   table: 5,
   view: 6,
-  navigation: 7,
-  tools: 8,
-  help: 9,
+  tools: 7,
+  help: 8,
 }
 
 // 命令注册表 - 单一数据源
@@ -529,27 +527,6 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'enter', modifiers: { ctrl: true, shift: true } },
     executionContext: 'global',
     menuGroup: 6,
-  },
-
-  // ==================== 导航 ====================
-  {
-    id: 'navigation.quickOpen',
-    category: 'navigation',
-    label: '快速打开',
-    description: '快速打开文件',
-    keybinding: { key: 'p', modifiers: { ctrl: true } },
-    executionContext: 'global',
-    menuGroup: 1,
-  },
-  {
-    id: 'navigation.gotoLine',
-    category: 'navigation',
-    label: '跳转到行',
-    description: '跳转到指定行',
-    keybinding: { key: 'g', modifiers: { ctrl: true } },
-    executionContext: 'editor',
-    when: ['hasOpenFile'],
-    menuGroup: 2,
   },
 
   // ==================== 工具 ====================
