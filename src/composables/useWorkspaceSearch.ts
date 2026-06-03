@@ -1,4 +1,4 @@
-import { ref, reactive, computed, onUnmounted, onMounted } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
@@ -165,6 +165,7 @@ export function useWorkspaceSearch() {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
       results.value = []
+      totalMatches.value = 0
       isSearching.value = false
       return
     }
@@ -173,7 +174,11 @@ export function useWorkspaceSearch() {
       results.value = [{ file: activeTab.id, fileName: activeTab.title, filePath: activeTab.filePath || undefined, matches }]
       totalMatches.value = matches.length
       expandedFiles.value.add(activeTab.id)
+    } else {
+      results.value = []
+      totalMatches.value = 0
     }
+    isSearching.value = false
   }
 
   function searchInAllTabs(pattern: RegExp) {
@@ -226,6 +231,9 @@ export function useWorkspaceSearch() {
           totalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
           if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
         }
+      }).catch(error => {
+        console.error('Search in directory failed:', error)
+      }).finally(() => {
         isSearching.value = false
       })
     } else {
@@ -447,7 +455,18 @@ export function useWorkspaceSearch() {
     debouncedSearch()
   }
 
-  
+  // 监听搜索选项变化，自动触发重新搜索
+  watch(
+    () => [options.caseSensitive, options.wholeWord, options.regex],
+    () => {
+      if (searchQuery.value.trim()) {
+        performSearch()
+        if (searchScope.value === 'file') {
+          updateEditorHighlight()
+        }
+      }
+    }
+  )
 
   let unsubscribeContentChanged: (() => void) | null = null
 
