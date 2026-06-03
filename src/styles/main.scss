@@ -215,3 +215,74 @@ body.focus-mode {
     background-color: color-mix(in srgb, var(--primary-color) 12%, transparent) !important;
   }
 }
+
+// ──────────────────────────────────────────
+// Frontmatter 显示样式 —— Typora 风格灰色背景
+// ──────────────────────────────────────────
+
+// WYSIWYG 模式下，第一个 yaml 代码块（即 frontmatter）使用特殊样式
+.editor-wysiwyg,
+.editor-split-preview {
+  .ProseMirror {
+    // 匹配第一个 pre[data-language="yaml"]
+    > pre[data-language="yaml"]:first-child,
+    > div:first-child > pre[data-language="yaml"],
+    > .milkdown-code-block:first-child pre[data-language="yaml"] {
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin: 0 0 16px 0;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+
+      .cm-editor {
+        background: transparent !important;
+
+        .cm-content {
+          font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+          font-size: 0.85em;
+          line-height: 1.5;
+          color: rgba(0, 0, 0, 0.55);
+        }
+
+        .cm-gutters {
+          display: none;
+        }
+      }
+    }
+  }
+}
+
+// 暗色主题下 frontmatter 样式
+.dark .editor-wysiwyg,
+.dark .editor-split-preview,
+[data-theme="dark"] .editor-wysiwyg,
+  [data-theme="dark"] .editor-split-preview {
+  .ProseMirror {
+    > pre[data-language="yaml"]:first-child,
+    > div:first-child > pre[data-language="yaml"],
+    > .milkdown-code-block:first-child pre[data-language="yaml"] {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+
+      .cm-editor {
+        .cm-content {
+          color: rgba(255, 255, 255, 0.5);
+        }
+      }
+    }
+  }
+}
+
+// ──────────────────────────────────────────
+// CodeMirror 源码模式 Frontmatter 行样式
+// ──────────────────────────────────────────
+
+.cm-frontmatter-line {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+// 暗色主题
+.dark .cm-frontmatter-line,
+[data-theme="dark"] .cm-frontmatter-line {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}

@@ -44,6 +44,8 @@ import { focusModePlugin } from '@/plugins/focusModePlugin'
 import { inlineMarksPlugin, toggleHighlightCommand } from '@/plugins/inlineMarksPlugin'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
+import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
+import remarkFrontmatter from 'remark-frontmatter'
 import type { EditorView } from '@milkdown/kit/prose/view'
 
 const imagePathPlugin = $prose(() => new Plugin({
@@ -85,6 +87,20 @@ const inlineMarksParsersPlugin: MilkdownPlugin = (ctx) => async () => {
     ...rp,
     { plugin: remarkHighlight, options: {} },
     { plugin: remarkSuperSub, options: {} },
+  ])
+}
+
+/**
+ * MilkdownPlugin: 注册 remark-frontmatter 和转换插件，
+ * 将文档开头的 YAML frontmatter 解析为 yaml 代码块显示。
+ * 注意：remark-frontmatter 必须在 remarkFrontmatterToCode 之前执行。
+ */
+const frontmatterPlugin: MilkdownPlugin = (ctx) => async () => {
+  await ctx.wait(InitReady)
+  ctx.update(remarkPluginsCtx, (rp) => [
+    ...rp,
+    { plugin: remarkFrontmatter, options: { type: 'yaml', marker: '-' } },
+    { plugin: remarkFrontmatterToCode, options: {} },
   ])
 }
 
@@ -231,6 +247,7 @@ export class CrepeEditorManager {
         .use(focusModePlugin)
         .use(inlineMarksPlugin)
         .use(inlineMarksParsersPlugin)
+        .use(frontmatterPlugin)
     } catch (error) {
       console.error('[CrepeEditorManager] 配置插件失败:', error)
       throw error
@@ -265,7 +282,9 @@ export class CrepeEditorManager {
 
     try {
       const markdown = this.crepe.getMarkdown()
-      return markdown || this.content
+      // 将 yaml 代码块转回 frontmatter 格式（用于保存到文件）
+      const result = convertCodeBlockToFrontmatter(markdown || this.content)
+      return result
     } catch (error) {
       return this.content
     }
@@ -287,12 +306,15 @@ export class CrepeEditorManager {
     this.isUpdatingContent = true
     this.content = content
 
+    // 将 frontmatter 转换为 yaml 代码块后再解析
+    const convertedContent = convertFrontmatterToCodeBlock(content)
+
     try {
       this.crepe.editor.action((ctx) => {
         try {
           const view = ctx.get(editorViewCtx)
           const parser = ctx.get(parserCtx)
-          const doc = parser(content)
+          const doc = parser(convertedContent)
 
           if (!doc) {
             return
@@ -593,7 +615,10 @@ export class CrepeEditorManager {
       return
     }
 
-    if (this.content === markdown) {
+    // 将 yaml 代码块转回 frontmatter 格式
+    const frontmatterContent = convertCodeBlockToFrontmatter(markdown)
+
+    if (this.content === frontmatterContent) {
       return
     }
 
@@ -601,21 +626,21 @@ export class CrepeEditorManager {
       return
     }
 
-    this.content = markdown
+    this.content = frontmatterContent
 
     if (this.currentTabId) {
       const tabsStore = useTabsStore()
       tabsStore.updateTab(this.currentTabId, {
-        content: markdown,
+        content: frontmatterContent,
         isDirty: true,
         lastModified: Date.now(),
       })
 
-      this.contentCache.set(this.currentTabId, markdown)
+      this.contentCache.set(this.currentTabId, frontmatterContent)
     }
 
     eventBus.emit(AppEvents.CONTENT_CHANGED, {
-      content: markdown,
+      content: frontmatterContent,
       tabId: this.currentTabId || '',
     })
   }
