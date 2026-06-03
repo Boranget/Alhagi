@@ -142,7 +142,7 @@ export class CrepeEditorManager {
       initialContentLength: initialContent?.length,
       tabId
     })
-    
+
     if (!container) {
       console.error('[CrepeEditorManager] init 失败：container 为空')
       return
@@ -169,7 +169,7 @@ export class CrepeEditorManager {
           [Crepe.Feature.Placeholder]: true,
           [Crepe.Feature.Cursor]: false,
           [Crepe.Feature.ImageBlock]: false,
-          [Crepe.Feature.ImageInline]: false,
+          [Crepe.Feature.Latex]: false,
         },
         featureConfigs: {
           [Crepe.Feature.CodeMirror]: {},
