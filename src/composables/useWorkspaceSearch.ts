@@ -1,4 +1,4 @@
-import { ref, reactive, computed, watch, onUnmounted, onMounted } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
@@ -143,25 +143,29 @@ export function useWorkspaceSearch() {
       currentMatchIndex.value = 0
       return
     }
+    
     isSearching.value = true
     results.value = []
     totalMatches.value = 0
     currentMatchIndex.value = 0
-    setTimeout(() => {
-      if (searchScope.value === 'file') {
-        searchInActiveFile(pattern)
-        updateEditorHighlight()
-      }
-      else if (searchScope.value === 'all') searchInAllTabs(pattern)
-      else searchInFolder(pattern)
+    
+    if (searchScope.value === 'file') {
+      searchInActiveFile(pattern)
+      updateEditorHighlight()
       isSearching.value = false
-    }, 50)
+    } else if (searchScope.value === 'all') {
+      searchInAllTabs(pattern)
+      isSearching.value = false
+    } else {
+      searchInFolder(pattern)
+    }
   }
 
   function searchInActiveFile(pattern: RegExp) {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
       results.value = []
+      isSearching.value = false
       return
     }
     const matches = searchInContent(activeTab.content, pattern)
@@ -192,6 +196,7 @@ export function useWorkspaceSearch() {
     const folderPath = fileStore.currentFolder
     if (!folderPath) {
       results.value = []
+      isSearching.value = false
       return
     }
     if (window.electronAPI) {
@@ -237,6 +242,7 @@ export function useWorkspaceSearch() {
       results.value = searchResults
       totalMatches.value = total
       if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
+      isSearching.value = false
     }
   }
 
@@ -441,10 +447,7 @@ export function useWorkspaceSearch() {
     debouncedSearch()
   }
 
-  watch([searchQuery, () => options.caseSensitive, () => options.wholeWord, () => options.regex], () => {
-    // 统一使用防抖，避免性能问题
-    debouncedSearch()
-  })
+  
 
   let unsubscribeContentChanged: (() => void) | null = null
 

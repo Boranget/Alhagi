@@ -340,6 +340,9 @@ onMounted(async () => {
   document.addEventListener('mousemove', handleResizerMouseMove)
   document.addEventListener('mouseup', handleResizerMouseUp)
   
+  // 监听搜索事件（来自菜单或命令系统）
+  window.addEventListener('editor:showSearch', handleShowSearch)
+  
   setupImageDrop()
   setupImagePaste()
 })
@@ -351,6 +354,7 @@ onUnmounted(async () => {
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
+  window.removeEventListener('editor:showSearch', handleShowSearch)
   window.removeEventListener('editor:insertImage', handleInsertImage)
   
   const container = crepeContainer.value
@@ -363,11 +367,21 @@ function handleEditorKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault()
     floatingSearchRef.value?.show()
+    return
   }
   
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
     e.preventDefault()
     handleInsertImage()
+  }
+}
+
+function handleShowSearch(e: Event) {
+  const customEvent = e as CustomEvent<{ showReplace?: boolean }>
+  floatingSearchRef.value?.show()
+  // 如果需要显示替换框，可以在这里处理
+  if (customEvent.detail?.showReplace) {
+    // TODO: 显示替换框
   }
 }
 
