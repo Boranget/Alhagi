@@ -1,4 +1,5 @@
 import type { Extension } from '@codemirror/state'
+import { StateEffect, StateField } from '@codemirror/state'
 import {
   autocompletion,
   closeBrackets,
@@ -11,6 +12,7 @@ import { yaml } from '@codemirror/lang-yaml'
 import {
   bracketMatching,
   defaultHighlightStyle,
+  HighlightStyle,
   indentOnInput,
   syntaxHighlighting,
   LanguageDescription,
@@ -31,7 +33,159 @@ import {
   keymap,
   rectangularSelection,
 } from '@codemirror/view'
+import { tags } from '@lezer/highlight'
 import { debounce } from '@/utils/helpers'
+
+export type ThemeType = 'dark' | 'light'
+
+const darkBaseTheme = EditorView.theme({
+  '&': {
+    backgroundColor: '#2e3440',
+    color: '#d8dee9',
+  },
+  '.cm-content': {
+    caretColor: '#d8dee9',
+  },
+  '.cm-cursor': {
+    borderLeftColor: '#d8dee9',
+  },
+  '.cm-dropCursor': {
+    borderLeftColor: '#d8dee9',
+  },
+  '.cm-gutters': {
+    backgroundColor: '#2e3440',
+    color: '#4c566a',
+    borderRightColor: '#2e3440',
+  },
+  '.cm-activeLineGutter': {
+    color: '#d8dee9',
+    backgroundColor: '#4c566a29',
+  },
+  '.cm-selectionBackground': {
+    backgroundColor: '#00000073',
+  },
+  '.cm-selectionMatch': {
+    backgroundColor: '#00000073',
+  },
+  '.cm-activeLine': {
+    backgroundColor: '#4c566a29',
+  },
+})
+
+const lightBaseTheme = EditorView.theme({
+  '&': {
+    backgroundColor: '#ffffff',
+    color: '#000000',
+  },
+  '.cm-content': {
+    caretColor: '#000000',
+  },
+  '.cm-cursor': {
+    borderLeftColor: '#000000',
+  },
+  '.cm-dropCursor': {
+    borderLeftColor: '#000000',
+  },
+  '.cm-gutters': {
+    backgroundColor: '#f7f7f7',
+    color: '#999999',
+    borderRightColor: 'transparent',
+  },
+  '.cm-activeLineGutter': {
+    backgroundColor: '#006fff1c',
+  },
+  '.cm-selectionBackground': {
+    backgroundColor: '#d7d4f0',
+  },
+  '.cm-selectionMatch': {
+    backgroundColor: '#d7d4f0',
+  },
+  '.cm-activeLine': {
+    backgroundColor: '#006fff1c',
+  },
+})
+
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#5e81ac' },
+  { tag: tags.name, color: '#88c0d0' },
+  { tag: tags.deleted, color: '#88c0d0' },
+  { tag: tags.character, color: '#88c0d0' },
+  { tag: tags.propertyName, color: '#88c0d0' },
+  { tag: tags.macroName, color: '#88c0d0' },
+  { tag: tags.variableName, color: '#8fbcbb' },
+  { tag: tags.labelName, color: '#81a1c1' },
+  { tag: tags.color, color: '#5e81ac' },
+  { tag: tags.separator, color: '#a3be8c' },
+  { tag: tags.brace, color: '#8fbcbb' },
+  { tag: tags.annotation, color: '#d30102' },
+  { tag: tags.number, color: '#b48ead' },
+  { tag: tags.changed, color: '#b48ead' },
+  { tag: tags.modifier, color: '#b48ead' },
+  { tag: tags.self, color: '#b48ead' },
+  { tag: tags.namespace, color: '#b48ead' },
+  { tag: tags.typeName, color: '#ebcb8b' },
+  { tag: tags.className, color: '#ebcb8b' },
+  { tag: tags.operator, color: '#a3be8c' },
+  { tag: tags.operatorKeyword, color: '#a3be8c' },
+  { tag: tags.tagName, color: '#b48ead' },
+  { tag: tags.squareBracket, color: '#bf616a' },
+  { tag: tags.angleBracket, color: '#d08770' },
+  { tag: tags.attributeName, color: '#ebcb8b' },
+  { tag: tags.regexp, color: '#5e81ac' },
+  { tag: tags.quote, color: '#b48ead' },
+  { tag: tags.string, color: '#a3be8c' },
+  { tag: tags.url, color: '#8fbcbb' },
+  { tag: tags.escape, color: '#8fbcbb' },
+  { tag: tags.meta, color: '#88c0d0' },
+  { tag: tags.monospace, color: '#d8dee9', fontStyle: 'italic' },
+  { tag: tags.comment, color: '#4c566a', fontStyle: 'italic' },
+  { tag: tags.strong, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.emphasis, color: '#5e81ac', fontStyle: 'italic' },
+  { tag: tags.strikethrough, textDecoration: 'line-through' },
+  { tag: tags.heading, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.heading1, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.heading2, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.heading3, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.heading4, color: '#5e81ac', fontWeight: 'bold' },
+  { tag: tags.heading5, color: '#5e81ac' },
+  { tag: tags.heading6, color: '#5e81ac' },
+  { tag: tags.atom, color: '#d08770' },
+  { tag: tags.bool, color: '#d08770' },
+  { tag: tags.processingInstruction, color: '#8fbcbb' },
+  { tag: tags.inserted, color: '#8fbcbb' },
+  { tag: tags.contentSeparator, color: '#ebcb8b' },
+  { tag: tags.invalid, color: '#434c5e', borderBottom: '1px dotted #d30102' },
+])
+
+const lightHighlightStyle = HighlightStyle.define([
+  { tag: tags.comment, color: '#3F7F5F' },
+  { tag: tags.keyword, color: '#7F0055', fontWeight: 'bold' },
+  { tag: tags.atom, color: '#0000ff' },
+  { tag: tags.number, color: '#016401' },
+  { tag: tags.propertyName, color: '#016401' },
+  { tag: tags.variableName, color: '#0000C0' },
+  { tag: tags.string, color: '#2A00FF' },
+  { tag: tags.operator, color: '#000000' },
+  { tag: tags.tagName, color: '#016401' },
+  { tag: tags.attributeName, color: '#0000cc' },
+  { tag: tags.link, color: '#02199' },
+])
+
+export function createThemeExtension(theme: ThemeType): Extension[] {
+  const baseTheme = theme === 'dark' ? darkBaseTheme : lightBaseTheme
+  const highlightStyle = theme === 'dark' ? darkHighlightStyle : lightHighlightStyle
+  
+  return [
+    baseTheme,
+    syntaxHighlighting(highlightStyle, { fallback: true }),
+  ]
+}
+
+export function updateEditorTheme(view: EditorView, theme: ThemeType): void {
+  const dom = view.dom
+  dom.classList.remove('cm-theme-dark', 'cm-theme-light')
+  dom.classList.add(`cm-theme-${theme}`)
+}
 
 const basicSetup: Extension = [
   highlightActiveLineGutter(),
@@ -40,7 +194,6 @@ const basicSetup: Extension = [
   dropCursor(),
   EditorState.allowMultipleSelections.of(true),
   indentOnInput(),
-  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
   bracketMatching(),
   closeBrackets(),
   autocompletion(),
@@ -114,6 +267,7 @@ interface StateOptions {
   onBlur?: () => void
   onSelectionChange?: () => void
   content: string
+  theme?: ThemeType
 }
 
 export const createCodeMirrorState = ({
@@ -122,13 +276,14 @@ export const createCodeMirrorState = ({
   onFocus,
   onBlur,
   onSelectionChange,
+  theme = 'dark',
 }: StateOptions) => {
   return EditorState.create({
     doc: content,
     extensions: [
       basicSetup,
+      ...createThemeExtension(theme),
       markdown({
-        // 注册 YAML 语言支持，使 ```yaml 代码块有语法高亮
         codeLanguages: [
           LanguageDescription.of({
             name: 'yaml',
@@ -136,7 +291,6 @@ export const createCodeMirrorState = ({
           }),
         ],
       }),
-      // Frontmatter 高亮插件
       frontmatterHighlighter,
       EditorView.updateListener.of((viewUpdate) => {
         if (viewUpdate.focusChanged) {
@@ -180,3 +334,5 @@ export const createCodeMirrorView = ({ root, ...options }: ViewOptions) => {
     parent: root,
   })
 }
+
+export { EditorView }

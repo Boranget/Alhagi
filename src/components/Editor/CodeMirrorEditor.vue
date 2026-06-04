@@ -6,11 +6,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { EditorView } from '@codemirror/view'
-import { createCodeMirrorView } from './codemirror/setup'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { createCodeMirrorView, updateEditorTheme, EditorView, type ThemeType } from './codemirror/setup'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
 
 interface Props {
   modelValue: string
@@ -21,9 +21,18 @@ const props = defineProps<Props>()
 const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
 
 const tabsStore = useTabsStore()
+const prefsStore = usePreferencesStore()
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
+
+const isDarkMode = computed<ThemeType>(() => {
+  if (prefsStore.theme === 'dark') return 'dark'
+  if (prefsStore.theme === 'system') {
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return 'light'
+})
 
 const handleChange = (getString: () => string) => {
   const newValue = getString()
@@ -55,6 +64,7 @@ function initEditor() {
       onFocus: handleFocus,
       onBlur: handleBlur,
       onSelectionChange: emitCursorChange,
+      theme: isDarkMode.value,
     })
   }
 }
@@ -66,12 +76,22 @@ function destroyEditor() {
   }
 }
 
+function handleThemeChange(newTheme: ThemeType) {
+  if (editorView) {
+    updateEditorTheme(editorView, newTheme)
+  }
+}
+
 onMounted(() => {
   initEditor()
 })
 
 onUnmounted(() => {
   destroyEditor()
+})
+
+watch(isDarkMode, (newTheme) => {
+  handleThemeChange(newTheme)
 })
 
 watch(() => props.modelValue, (newValue) => {

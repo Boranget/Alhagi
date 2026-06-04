@@ -4,8 +4,99 @@
  * Original: https://www.nordtheme.com/docs/colors-and-palettes
  * Converted from: @uiw/codemirror-themes createTheme
  *
- * 使用方式：通过 [data-theme="dark"] 自动激活，或给编辑器外层容器添加 class="cm-theme-nord"
+ * 使用方式：通过 [data-theme="dark"] 自动激活，或给编辑器添加 class="cm-theme-nord" 或 "cm-theme-dark"
  */
+
+/* 新的深色主题类名 - 通过官方 API 切换 */
+.cm-theme-dark.cm-editor {
+  background-color: #2e3440;
+  color: #d8dee9;
+}
+
+.cm-theme-dark.cm-editor .cm-content {
+  caret-color: #d8dee9;
+}
+
+.cm-theme-dark.cm-editor .cm-cursor,
+.cm-theme-dark.cm-editor .cm-dropCursor {
+  border-left-color: #d8dee9;
+}
+
+.cm-theme-dark.cm-editor .cm-gutters {
+  background-color: #2e3440;
+  color: #4c566a;
+  border-right-color: #2e3440;
+}
+
+.cm-theme-dark.cm-editor .cm-activeLineGutter {
+  color: #d8dee9;
+  background-color: #4c566a29;
+}
+
+.cm-theme-dark.cm-editor.cm-focused .cm-selectionBackground,
+.cm-theme-dark.cm-editor .cm-line::selection,
+.cm-theme-dark.cm-editor .cm-selectionLayer .cm-selectionBackground,
+.cm-theme-dark.cm-editor .cm-content ::selection {
+  background: #00000073 !important;
+}
+
+.cm-theme-dark.cm-editor .cm-selectionMatch {
+  background-color: #00000073;
+}
+
+.cm-theme-dark.cm-editor .cm-activeLine {
+  background-color: #4c566a29;
+}
+
+.cm-theme-dark .tok-keyword { color: #5e81ac; }
+.cm-theme-dark .tok-name { color: #88c0d0; }
+.cm-theme-dark .tok-deleted { color: #88c0d0; }
+.cm-theme-dark .tok-character { color: #88c0d0; }
+.cm-theme-dark .tok-propertyName { color: #88c0d0; }
+.cm-theme-dark .tok-macroName { color: #88c0d0; }
+.cm-theme-dark .tok-variableName { color: #8fbcbb; }
+.cm-theme-dark .tok-labelName { color: #81a1c1; }
+.cm-theme-dark .tok-color { color: #5e81ac; }
+.cm-theme-dark .tok-separator { color: #a3be8c; }
+.cm-theme-dark .tok-brace { color: #8fbcbb; }
+.cm-theme-dark .tok-annotation { color: #d30102; }
+.cm-theme-dark .tok-number { color: #b48ead; }
+.cm-theme-dark .tok-changed { color: #b48ead; }
+.cm-theme-dark .tok-modifier { color: #b48ead; }
+.cm-theme-dark .tok-self { color: #b48ead; }
+.cm-theme-dark .tok-namespace { color: #b48ead; }
+.cm-theme-dark .tok-typeName { color: #ebcb8b; }
+.cm-theme-dark .tok-className { color: #ebcb8b; }
+.cm-theme-dark .tok-operator { color: #a3be8c; }
+.cm-theme-dark .tok-operatorKeyword { color: #a3be8c; }
+.cm-theme-dark .tok-tagName { color: #b48ead; }
+.cm-theme-dark .tok-squareBracket { color: #bf616a; }
+.cm-theme-dark .tok-angleBracket { color: #d08770; }
+.cm-theme-dark .tok-attributeName { color: #ebcb8b; }
+.cm-theme-dark .tok-regexp { color: #5e81ac; }
+.cm-theme-dark .tok-quote { color: #b48ead; }
+.cm-theme-dark .tok-string { color: #a3be8c; }
+.cm-theme-dark .tok-url { color: #8fbcbb; }
+.cm-theme-dark .tok-escape { color: #8fbcbb; }
+.cm-theme-dark .tok-meta { color: #88c0d0; }
+.cm-theme-dark .tok-monospace { color: #d8dee9; font-style: italic; }
+.cm-theme-dark .tok-comment { color: #4c566a; font-style: italic; }
+.cm-theme-dark .tok-strong { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-emphasis { color: #5e81ac; font-style: italic; }
+.cm-theme-dark .tok-strikethrough { text-decoration: line-through; }
+.cm-theme-dark .tok-heading { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-heading1 { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-heading2 { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-heading3 { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-heading4 { color: #5e81ac; font-weight: bold; }
+.cm-theme-dark .tok-heading5 { color: #5e81ac; }
+.cm-theme-dark .tok-heading6 { color: #5e81ac; }
+.cm-theme-dark .tok-atom { color: #d08770; }
+.cm-theme-dark .tok-bool { color: #d08770; }
+.cm-theme-dark .tok-processingInstruction { color: #8fbcbb; }
+.cm-theme-dark .tok-inserted { color: #8fbcbb; }
+.cm-theme-dark .tok-contentSeparator { color: #ebcb8b; }
+.cm-theme-dark .tok-invalid { color: #434c5e; border-bottom: 1px dotted #d30102; }
 
 /* 原始主题 - 通过类名激活 */
 .cm-theme-nord.cm-editor {
