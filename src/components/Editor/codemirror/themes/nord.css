@@ -4,10 +4,12 @@
  * Original: https://www.nordtheme.com/docs/colors-and-palettes
  * Converted from: @uiw/codemirror-themes createTheme
  *
- * 使用方式：通过 [data-theme="dark"] 自动激活，或给编辑器添加 class="cm-theme-nord" 或 "cm-theme-dark"
+ * 使用方式：
+ * 1. 通过 class="cm-theme-dark" 激活（独立 CodeMirrorEditor 组件）
+ * 2. 通过 [data-theme="dark"] 自动激活（Crepe 内部编辑器）
  */
 
-/* 新的深色主题类名 - 通过官方 API 切换 */
+/* 深色主题类名 - 通过官方 API 切换 */
 .cm-theme-dark.cm-editor {
   background-color: #2e3440;
   color: #d8dee9;
@@ -108,142 +110,7 @@
 .cm-theme-dark .tok-contentSeparator { color: #ebcb8b; }
 .cm-theme-dark .tok-invalid { color: #434c5e; border-bottom: 1px dotted #d30102; }
 
-/* 原始主题 - 通过类名激活 */
-.cm-theme-nord.cm-editor {
-  background-color: #2e3440;
-  color: #FFFFFF;
-}
-
-.cm-theme-nord.cm-editor .cm-content {
-  caret-color: #FFFFFF;
-}
-
-.cm-theme-nord.cm-editor .cm-cursor,
-.cm-theme-nord.cm-editor .cm-dropCursor {
-  border-left-color: #FFFFFF;
-}
-
-.cm-theme-nord.cm-editor .cm-gutters {
-  background-color: #2e3440;
-  color: #4c566a;
-  border-right-color: #2e3440;
-}
-
-.cm-theme-nord.cm-editor .cm-activeLineGutter {
-  color: #d8dee9;
-}
-
-.cm-theme-nord.cm-editor.cm-focused .cm-selectionBackground,
-.cm-theme-nord.cm-editor .cm-line::selection,
-.cm-theme-nord.cm-editor .cm-selectionLayer .cm-selectionBackground,
-.cm-theme-nord.cm-editor .cm-content ::selection {
-  background: #00000073 !important;
-}
-
-.cm-theme-nord.cm-editor .cm-selectionMatch {
-  background-color: #00000073;
-}
-
-.cm-theme-nord.cm-editor .cm-activeLine {
-  background-color: #4c566a29;
-}
-
-.cm-theme-nord.cm-editor .cm-activeLineGutter {
-  background-color: #4c566a29;
-}
-
-/* ========== 语法高亮（对应 HighlightStyle） ========== */
-.cm-theme-nord .tok-keyword { color: #5e81ac; }
-.cm-theme-nord .tok-name { color: #88c0d0; }
-.cm-theme-nord .tok-deleted { color: #88c0d0; }
-.cm-theme-nord .tok-character { color: #88c0d0; }
-.cm-theme-nord .tok-propertyName { color: #88c0d0; }
-.cm-theme-nord .tok-macroName { color: #88c0d0; }
-.cm-theme-nord .tok-variableName { color: #8fbcbb; }
-.cm-theme-nord .tok-variableName.tok-function { color: #8fbcbb; }
-.cm-theme-nord .tok-labelName { color: #81a1c1; }
-.cm-theme-nord .tok-color { color: #5e81ac; }
-.cm-theme-nord .tok-constant { color: #5e81ac; }
-.cm-theme-nord .tok-standard { color: #5e81ac; }
-.cm-theme-nord .tok-definition { color: #a3be8c; }
-.cm-theme-nord .tok-separator { color: #a3be8c; }
-.cm-theme-nord .tok-brace { color: #8fbcbb; }
-.cm-theme-nord .tok-annotation { color: #d30102; }
-.cm-theme-nord .tok-number { color: #b48ead; }
-.cm-theme-nord .tok-changed { color: #b48ead; }
-.cm-theme-nord .tok-modifier { color: #b48ead; }
-.cm-theme-nord .tok-self { color: #b48ead; }
-.cm-theme-nord .tok-namespace { color: #b48ead; }
-.cm-theme-nord .tok-typeName { color: #ebcb8b; }
-.cm-theme-nord .tok-className { color: #ebcb8b; }
-.cm-theme-nord .tok-operator { color: #a3be8c; }
-.cm-theme-nord .tok-operatorKeyword { color: #a3be8c; }
-.cm-theme-nord .tok-tagName { color: #b48ead; }
-.cm-theme-nord .tok-squareBracket { color: #bf616a; }
-.cm-theme-nord .tok-angleBracket { color: #d08770; }
-.cm-theme-nord .tok-attributeName { color: #ebcb8b; }
-.cm-theme-nord .tok-regexp { color: #5e81ac; }
-.cm-theme-nord .tok-quote { color: #b48ead; }
-.cm-theme-nord .tok-string { color: #a3be8c; }
-.cm-theme-nord .tok-link {
-  color: #a3be8c;
-  text-decoration: underline;
-  text-underline-position: under;
-}
-.cm-theme-nord .tok-url { color: #8fbcbb; }
-.cm-theme-nord .tok-escape { color: #8fbcbb; }
-.cm-theme-nord .tok-string2 { color: #8fbcbb; }
-.cm-theme-nord .tok-meta { color: #88c0d0; }
-.cm-theme-nord .tok-monospace {
-  color: #d8dee9;
-  font-style: italic;
-}
-.cm-theme-nord .tok-comment {
-  color: #4c566a;
-  font-style: italic;
-}
-.cm-theme-nord .tok-strong {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-emphasis {
-  color: #5e81ac;
-  font-style: italic;
-}
-.cm-theme-nord .tok-strikethrough { text-decoration: line-through; }
-.cm-theme-nord .tok-heading {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-heading1 {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-heading2 {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-heading3 {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-heading4 {
-  color: #5e81ac;
-  font-weight: bold;
-}
-.cm-theme-nord .tok-heading5 { color: #5e81ac; }
-.cm-theme-nord .tok-heading6 { color: #5e81ac; }
-.cm-theme-nord .tok-atom { color: #d08770; }
-.cm-theme-nord .tok-bool { color: #d08770; }
-.cm-theme-nord .tok-processingInstruction { color: #8fbcbb; }
-.cm-theme-nord .tok-inserted { color: #8fbcbb; }
-.cm-theme-nord .tok-contentSeparator { color: #ebcb8b; }
-.cm-theme-nord .tok-invalid {
-  color: #434c5e;
-  border-bottom: 1px dotted #d30102;
-}
-
-/* 新增：通过 data-theme="dark" 自动激活主题 - Crepe 内部编辑器 */
+/* 通过 data-theme="dark" 自动激活主题 - Crepe 内部编辑器 */
 [data-theme="dark"] .crepe .cm-editor {
   background-color: #2e3440;
   color: #FFFFFF;
