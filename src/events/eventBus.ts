@@ -98,13 +98,24 @@ export const AppEvents = {
   PASTE_AS_PLAIN: 'app:paste-as-plain' as const,
   CAPTURE_SCREEN: 'app:capture-screen' as const,
   
-  // UI事件
+  // UI 事件
   WINDOW_RESIZED: 'app:window:resized' as const,
   WINDOW_MAXIMIZED: 'app:window:maximized' as const,
   WINDOW_MINIMIZED: 'app:window:minimized' as const,
   PREFERENCES_UPDATED: 'app:preferences:updated' as const,
   OPEN_SETTINGS: 'app:open-settings' as const,
-  SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const
+  SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const,
+  
+  // 视图模式事件
+  VIEW_MODE_CHANGE: 'app:view-mode-change' as const,
+  TOGGLE_STICKY_NOTE_MODE: 'app:toggle-sticky-note-mode' as const,
+  TOGGLE_IMMERSIVE_MODE: 'app:toggle-immersive-mode' as const,
+  
+  // 窗口和标签页事件
+  NEW_WINDOW_REQUESTED: 'app:new-window-requested' as const,
+  TAB_MERGE_REQUESTED: 'app:tab-merge-requested' as const,
+  TAB_DETACHED: 'app:tab-detached' as const,
+  FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const
 } as const
 
 export function createEventHook<T = unknown>() {

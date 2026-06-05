@@ -54,6 +54,7 @@ export class ElectronEventHandler {
     this.registerNavigationHandlers()
     this.registerToolsHandlers()
     this.registerHelpHandlers()
+    this.registerWindowAndTabHandlers()
 
     console.log('[ElectronEventHandler] Event handlers initialized successfully')
   }
@@ -363,6 +364,30 @@ export class ElectronEventHandler {
     )
 
     this.disposables.push(
+      this.api!.onToggleStickyNoteMode(() => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.TOGGLE_STICKY_NOTE_MODE)
+        }, 'onToggleStickyNoteMode')
+      })
+    )
+
+    this.disposables.push(
+      this.api!.onToggleImmersiveMode(() => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.TOGGLE_IMMERSIVE_MODE)
+        }, 'onToggleImmersiveMode')
+      })
+    )
+
+    this.disposables.push(
+      this.api!.onViewMode((mode) => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.VIEW_MODE_CHANGE, mode)
+        }, 'onViewMode')
+      })
+    )
+
+    this.disposables.push(
       this.api!.onZoomIn(() => {
         this.safeExecute(() => {
           this.prefsStore.zoomIn()
@@ -421,6 +446,14 @@ export class ElectronEventHandler {
     )
 
     this.disposables.push(
+      this.api!.onOpenSettings(() => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.OPEN_SETTINGS)
+        }, 'onOpenSettings')
+      })
+    )
+
+    this.disposables.push(
       this.api!.onToolsExport(() => {
         this.safeExecute(() => {
           window.dispatchEvent(new CustomEvent('app:export'))
@@ -456,6 +489,43 @@ export class ElectronEventHandler {
         this.safeExecute(() => {
           window.dispatchEvent(new CustomEvent('app:showShortcuts'))
         }, 'onHelpShortcuts')
+      })
+    )
+  }
+
+  /**
+   * 注册窗口和标签页相关的事件处理器
+   */
+  private registerWindowAndTabHandlers(): void {
+    this.disposables.push(
+      this.api!.onNewWindow(() => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.NEW_WINDOW_REQUESTED)
+        }, 'onNewWindow')
+      })
+    )
+
+    this.disposables.push(
+      this.api!.onTabMerge((tabData) => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.TAB_MERGE_REQUESTED, tabData)
+        }, 'onTabMerge')
+      })
+    )
+
+    this.disposables.push(
+      this.api!.onTabDetached((tabData) => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.TAB_DETACHED, tabData)
+        }, 'onTabDetached')
+      })
+    )
+
+    this.disposables.push(
+      this.api!.onFocusTabForFile((filePath) => {
+        this.safeExecute(() => {
+          eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, filePath)
+        }, 'onFocusTabForFile')
       })
     )
   }

@@ -54,6 +54,37 @@ export function useApp() {
       })
     )
 
+    // 新窗口请求
+    unsubscribers.push(
+      eventBus.on(AppEvents.NEW_WINDOW_REQUESTED, () => {
+        electronService.openNewWindow()
+      })
+    )
+
+    // 视图模式切换
+    unsubscribers.push(
+      eventBus.on(AppEvents.VIEW_MODE_CHANGE, async (mode) => {
+        const activeTab = tabsStore.activeTabId ? tabsStore.getTab(tabsStore.activeTabId) : null
+        if (activeTab) {
+          await tabsStore.updateTab(activeTab.id, { viewMode: mode as 'wysiwyg' | 'source' | 'split' })
+        }
+      })
+    )
+
+    // 悬浮便签模式切换
+    unsubscribers.push(
+      eventBus.on(AppEvents.TOGGLE_STICKY_NOTE_MODE, () => {
+        prefsStore.toggleStickyNoteMode()
+      })
+    )
+
+    // 沉浸式模式切换
+    unsubscribers.push(
+      eventBus.on(AppEvents.TOGGLE_IMMERSIVE_MODE, () => {
+        prefsStore.toggleImmersiveMode()
+      })
+    )
+
     // 注意：所有 Electron 菜单事件现在由 ElectronEventHandler 统一管理
     // 不再在这里重复注册，避免重复监听
 
