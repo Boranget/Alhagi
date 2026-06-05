@@ -55,8 +55,12 @@
 .cm-theme-dark .tok-propertyName { color: #88c0d0; }
 .cm-theme-dark .tok-macroName { color: #88c0d0; }
 .cm-theme-dark .tok-variableName { color: #8fbcbb; }
+.cm-theme-dark .tok-variableName.tok-function { color: #8fbcbb; }
 .cm-theme-dark .tok-labelName { color: #81a1c1; }
 .cm-theme-dark .tok-color { color: #5e81ac; }
+.cm-theme-dark .tok-constant { color: #5e81ac; }
+.cm-theme-dark .tok-standard { color: #5e81ac; }
+.cm-theme-dark .tok-definition { color: #a3be8c; }
 .cm-theme-dark .tok-separator { color: #a3be8c; }
 .cm-theme-dark .tok-brace { color: #8fbcbb; }
 .cm-theme-dark .tok-annotation { color: #d30102; }
@@ -76,8 +80,14 @@
 .cm-theme-dark .tok-regexp { color: #5e81ac; }
 .cm-theme-dark .tok-quote { color: #b48ead; }
 .cm-theme-dark .tok-string { color: #a3be8c; }
+.cm-theme-dark .tok-link {
+  color: #a3be8c;
+  text-decoration: underline;
+  text-underline-position: under;
+}
 .cm-theme-dark .tok-url { color: #8fbcbb; }
 .cm-theme-dark .tok-escape { color: #8fbcbb; }
+.cm-theme-dark .tok-string2 { color: #8fbcbb; }
 .cm-theme-dark .tok-meta { color: #88c0d0; }
 .cm-theme-dark .tok-monospace { color: #d8dee9; font-style: italic; }
 .cm-theme-dark .tok-comment { color: #4c566a; font-style: italic; }
