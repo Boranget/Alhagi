@@ -170,7 +170,7 @@ const lightHighlightStyle = HighlightStyle.define([
   { tag: tags.operator, color: '#000000' },
   { tag: tags.tagName, color: '#016401' },
   { tag: tags.attributeName, color: '#0000cc' },
-  { tag: tags.link, color: '#02199' },
+  { tag: tags.link, color: '#021996' },
 ])
 
 function getThemeExtension(theme: ThemeType): Extension {
