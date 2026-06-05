@@ -1,5 +1,5 @@
 import type { Extension } from '@codemirror/state'
-import { StateEffect, StateField } from '@codemirror/state'
+import { Compartment } from '@codemirror/state'
 import {
   autocompletion,
   closeBrackets,
@@ -11,7 +11,6 @@ import { markdown } from '@codemirror/lang-markdown'
 import { yaml } from '@codemirror/lang-yaml'
 import {
   bracketMatching,
-  defaultHighlightStyle,
   HighlightStyle,
   indentOnInput,
   syntaxHighlighting,
@@ -37,6 +36,9 @@ import { tags } from '@lezer/highlight'
 import { debounce } from '@/utils/helpers'
 
 export type ThemeType = 'dark' | 'light'
+
+const themeCompartment = new Compartment()
+const highlightCompartment = new Compartment()
 
 const darkBaseTheme = EditorView.theme({
   '&': {
@@ -171,20 +173,29 @@ const lightHighlightStyle = HighlightStyle.define([
   { tag: tags.link, color: '#02199' },
 ])
 
-export function createThemeExtension(theme: ThemeType): Extension[] {
-  const baseTheme = theme === 'dark' ? darkBaseTheme : lightBaseTheme
+function getThemeExtension(theme: ThemeType): Extension {
+  return theme === 'dark' ? darkBaseTheme : lightBaseTheme
+}
+
+function getHighlightExtension(theme: ThemeType): Extension {
   const highlightStyle = theme === 'dark' ? darkHighlightStyle : lightHighlightStyle
-  
+  return syntaxHighlighting(highlightStyle, { fallback: true })
+}
+
+export function getThemeExtensions(theme: ThemeType): Extension[] {
   return [
-    baseTheme,
-    syntaxHighlighting(highlightStyle, { fallback: true }),
+    themeCompartment.of(getThemeExtension(theme)),
+    highlightCompartment.of(getHighlightExtension(theme)),
   ]
 }
 
 export function updateEditorTheme(view: EditorView, theme: ThemeType): void {
-  const dom = view.dom
-  dom.classList.remove('cm-theme-dark', 'cm-theme-light')
-  dom.classList.add(`cm-theme-${theme}`)
+  view.dispatch({
+    effects: [
+      themeCompartment.reconfigure(getThemeExtension(theme)),
+      highlightCompartment.reconfigure(getHighlightExtension(theme)),
+    ],
+  })
 }
 
 const basicSetup: Extension = [
@@ -210,12 +221,6 @@ const basicSetup: Extension = [
   ]),
 ]
 
-/**
- * CodeMirror ViewPlugin: 检测文档开头的 YAML frontmatter 并添加装饰样式。
- *
- * 在源码编辑模式下，frontmatter 以原始 `---\n...\n---` 格式显示。
- * 本插件检测该区域并应用灰色半透明样式，使其在视觉上与正文区分。
- */
 const frontmatterHighlighter = ViewPlugin.fromClass(class {
   decorations: DecorationSet
 
@@ -233,14 +238,12 @@ const frontmatterHighlighter = ViewPlugin.fromClass(class {
     const decorations: { from: number; to: number }[] = []
     const doc = view.state.doc
 
-    // 检查文档是否以 frontmatter 开头
     const text = doc.sliceString(0, Math.min(doc.length, 500))
     const fmMatch = text.match(/^---\s*\n([\s\S]*?)\n---/)
 
     if (fmMatch) {
       const fmEnd = fmMatch[0].length
 
-      // 为整个 frontmatter 区域添加 line decoration（灰色背景样式）
       for (let i = 1; i <= doc.lineAt(fmEnd - 1).number; i++) {
         const line = doc.line(i)
         decorations.push({ from: line.from, to: line.from })
@@ -282,7 +285,7 @@ export const createCodeMirrorState = ({
     doc: content,
     extensions: [
       basicSetup,
-      ...createThemeExtension(theme),
+      ...getThemeExtensions(theme),
       markdown({
         codeLanguages: [
           LanguageDescription.of({
