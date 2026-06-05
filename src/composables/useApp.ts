@@ -9,7 +9,6 @@ import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
 
 const showSettings = ref(false)
@@ -23,7 +22,6 @@ export function useApp() {
   const editorManager = useCrepeEditorManager()
   
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
-  const { copyAsMarkdown, copyAsHtml, pasteAsPlainText } = useClipboard()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
   
   useKeyboardShortcuts()
@@ -32,30 +30,14 @@ export function useApp() {
   const setupEventListeners = () => {
     const unsubscribers: (() => void)[] = []
 
+    // 应用内部事件监听
     unsubscribers.push(
       eventBus.on(AppEvents.OPEN_SETTINGS, () => {
         showSettings.value = true
       })
     )
 
-    unsubscribers.push(
-      eventBus.on(AppEvents.COPY_AS_MARKDOWN, () => {
-        copyAsMarkdown()
-      })
-    )
-
-    unsubscribers.push(
-      eventBus.on(AppEvents.COPY_AS_HTML, () => {
-        copyAsHtml()
-      })
-    )
-
-    unsubscribers.push(
-      eventBus.on(AppEvents.PASTE_AS_PLAIN, () => {
-        pasteAsPlainText()
-      })
-    )
-
+    // 截图功能（使用应用内部事件总线，由 ElectronEventHandler 转发）
     unsubscribers.push(
       eventBus.on(AppEvents.CAPTURE_SCREEN, async () => {
         const result = await captureEditor()
@@ -72,56 +54,8 @@ export function useApp() {
       })
     )
 
-    // 监听 Electron 菜单事件
-    if (window.electronAPI) {
-      // 文件菜单
-      unsubscribers.push(window.electronAPI.onNewFile(() => tabsStore.createTab({ title: '未命名' })))
-      unsubscribers.push(window.electronAPI.onOpenFile(() => tabsStore.openFile()))
-      unsubscribers.push(window.electronAPI.onOpenFolder(() => window.electronAPI?.openFolder()))
-      unsubscribers.push(window.electronAPI.onSave(() => tabsStore.activeTabId && tabsStore.saveFile(tabsStore.activeTabId)))
-      unsubscribers.push(window.electronAPI.onSaveAs(() => tabsStore.activeTabId && tabsStore.saveFileAs(tabsStore.activeTabId)))
-      
-      // 段落菜单
-      unsubscribers.push(window.electronAPI.onParagraphHeading1(() => editorManager.toggleHeading(1)))
-      unsubscribers.push(window.electronAPI.onParagraphHeading2(() => editorManager.toggleHeading(2)))
-      unsubscribers.push(window.electronAPI.onParagraphHeading3(() => editorManager.toggleHeading(3)))
-      unsubscribers.push(window.electronAPI.onParagraphParagraph(() => editorManager.toggleParagraph()))
-      unsubscribers.push(window.electronAPI.onParagraphQuote(() => editorManager.toggleBlockQuote()))
-      unsubscribers.push(window.electronAPI.onParagraphBulletList(() => editorManager.toggleBulletList()))
-      unsubscribers.push(window.electronAPI.onParagraphOrderedList(() => editorManager.toggleOrderedList()))
-      unsubscribers.push(window.electronAPI.onParagraphTaskList(() => editorManager.toggleTaskList()))
-      unsubscribers.push(window.electronAPI.onParagraphCodeBlock(() => editorManager.toggleCodeFence()))
-      unsubscribers.push(window.electronAPI.onParagraphMathBlock(() => editorManager.insertMathBlock()))
-      unsubscribers.push(window.electronAPI.onParagraphHorizontalRule(() => editorManager.insertHorizontalRule()))
-      
-      // 表格菜单
-      unsubscribers.push(window.electronAPI.onTableInsert(() => editorManager.insertTable()))
-      unsubscribers.push(window.electronAPI.onTableInsertRowAbove(() => editorManager.insertTableRowAbove()))
-      unsubscribers.push(window.electronAPI.onTableInsertRowBelow(() => editorManager.insertTableRowBelow()))
-      unsubscribers.push(window.electronAPI.onTableInsertColumnLeft(() => editorManager.insertTableColumnLeft()))
-      unsubscribers.push(window.electronAPI.onTableInsertColumnRight(() => editorManager.insertTableColumnRight()))
-      unsubscribers.push(window.electronAPI.onTableDeleteRow(() => editorManager.deleteTableRow()))
-      unsubscribers.push(window.electronAPI.onTableDeleteColumn(() => editorManager.deleteTableColumn()))
-      
-      // 导航菜单
-      unsubscribers.push(window.electronAPI.onNavigationQuickOpen(() => window.dispatchEvent(new CustomEvent('app:quickOpen'))))
-      unsubscribers.push(window.electronAPI.onNavigationGotoLine(() => window.dispatchEvent(new CustomEvent('editor:gotoLine'))))
-      
-      // 工具菜单
-      unsubscribers.push(window.electronAPI.onToolsPreferences(() => { showSettings.value = true }))
-      unsubscribers.push(window.electronAPI.onToolsExport(() => window.dispatchEvent(new CustomEvent('app:export'))))
-      unsubscribers.push(window.electronAPI.onHelpShortcuts(() => window.dispatchEvent(new CustomEvent('app:showShortcuts'))))
-      
-      // 视图菜单
-      unsubscribers.push(window.electronAPI.onToggleSidebar(() => { prefsStore.showSidebar = !prefsStore.showSidebar }))
-      unsubscribers.push(window.electronAPI.onToggleTabBar(() => { prefsStore.showTabBar = !prefsStore.showTabBar }))
-      unsubscribers.push(window.electronAPI.onToggleStatusBar(() => { prefsStore.showStatusBar = !prefsStore.showStatusBar }))
-      
-      // 缩放菜单
-      unsubscribers.push(window.electronAPI.onZoomIn(() => prefsStore.zoomIn()))
-      unsubscribers.push(window.electronAPI.onZoomOut(() => prefsStore.zoomOut()))
-      unsubscribers.push(window.electronAPI.onZoomReset(() => prefsStore.resetZoom()))
-    }
+    // 注意：所有 Electron 菜单事件现在由 ElectronEventHandler 统一管理
+    // 不再在这里重复注册，避免重复监听
 
     return unsubscribers
   }
