@@ -15,6 +15,11 @@ export function useThemeService() {
 
     document.documentElement.setAttribute('data-theme', effectiveTheme)
     document.documentElement.classList.toggle('dark', effectiveTheme === UI.THEMES.DARK)
+    
+    // 通知 Electron 主进程更新窗口背景色
+    if (window.electronAPI) {
+      window.electronAPI.setTheme(preferences.theme as 'light' | 'dark' | 'system')
+    }
   }
 
   function subscribeToSystemTheme(): void {
@@ -26,6 +31,10 @@ export function useThemeService() {
         const newTheme = event.matches ? UI.THEMES.DARK : UI.THEMES.LIGHT
         document.documentElement.setAttribute('data-theme', newTheme)
         document.documentElement.classList.toggle('dark', newTheme === UI.THEMES.DARK)
+        // 通知 Electron 主进程更新窗口背景色
+        if (window.electronAPI) {
+          window.electronAPI.setTheme(preferences.theme as 'light' | 'dark' | 'system')
+        }
       }
     }
     

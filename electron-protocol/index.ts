@@ -150,7 +150,8 @@ export const IPC_CHANNELS = {
     FOCUS_WINDOW: 'window:focus-window',
     CHECK_FILE_OPEN: 'window:check-file-open',
     UPDATE_OPENED_FILES: 'window:update-opened-files',
-    SET_ZOOM: 'window:set-zoom'
+    SET_ZOOM: 'window:set-zoom',
+    SET_THEME: 'window:set-theme'
   }
 } as const;
 
@@ -281,6 +282,7 @@ export interface ElectronAPI {
   checkFileOpen: (filePath: string) => Promise<IPCResponse<{ windowId: number | null }>>
   updateOpenedFiles: (filePaths: string[]) => Promise<IPCResponse<boolean>>
   setZoom: (zoomLevel: number) => Promise<IPCResponse<void>>
+  setTheme: (theme: 'light' | 'dark' | 'system') => Promise<IPCResponse<void>>
   onDragStart: (callback: (tabId: string) => void) => () => void
   onDragEnd: (callback: () => void) => () => void
   onNewFile: (callback: () => void) => () => void

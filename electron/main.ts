@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, screen, nativeTheme } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
@@ -29,16 +29,35 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 function isFileNotFoundError(error: NodeJS.ErrnoException): boolean { return error.code === 'ENOENT' }
 function isPermissionError(error: NodeJS.ErrnoException): boolean { return error.code === 'EACCES' || error.code === 'EPERM' }
 
-const store = new Store<{ windowState: WindowState }>({
-  defaults: { windowState: { width: 1200, height: 800, isMaximized: false } }
+const store = new Store<{ windowState: WindowState, theme?: 'light' | 'dark' | 'system' }>({
+  defaults: { windowState: { width: 1200, height: 800, isMaximized: false }, theme: 'light' }
 })
 
 let mainWindow: BrowserWindow | null = null
 const windows = new Map<number, BrowserWindow>()
 const windowOpenFiles = new Map<number, string[]>() // 跟踪每个窗口打开的文件
 
+function getBackgroundColor(theme: 'light' | 'dark' | 'system'): string {
+  const effectiveTheme = theme === 'system'
+    ? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+    : theme
+  return effectiveTheme === 'dark' ? '#2e3440' : '#ffffff'
+}
+
+function updateAllWindowsTheme(theme: 'light' | 'dark' | 'system') {
+  const backgroundColor = getBackgroundColor(theme)
+  nativeTheme.themeSource = theme === 'system' ? 'system' : theme
+  
+  windows.forEach((win) => {
+    win.setBackgroundColor(backgroundColor)
+  })
+}
+
 function createWindow() {
   const windowState = store.get('windowState')
+  const theme = store.get('theme') || 'light'
+  const backgroundColor = getBackgroundColor(theme)
+  
   mainWindow = new BrowserWindow({
     width: windowState.width,
     height: windowState.height,
@@ -48,7 +67,7 @@ function createWindow() {
     minHeight: 300,
     webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false, webSecurity: false },
     show: false,
-    backgroundColor: '#ffffff'
+    backgroundColor
   })
   windows.set(mainWindow.id, mainWindow)
   windowOpenFiles.set(mainWindow.id, []) // 初始化该窗口的打开文件列表
@@ -495,6 +514,8 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, (_, flag: boolean) => { ma
 ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
   try {
     const bounds = options?.bounds || { width: 1200, height: 800 }
+    const theme = store.get('theme') || 'light'
+    const backgroundColor = getBackgroundColor(theme)
     
     const newWindow = new BrowserWindow({
       width: bounds.width || 1200,
@@ -505,7 +526,7 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, async (_, options?) => {
       minHeight: 300,
       webPreferences: { preload: path.join(__dirname, 'preload.mjs'), contextIsolation: true, nodeIntegration: false },
       show: false,
-      backgroundColor: '#ffffff'
+      backgroundColor
     })
     windows.set(newWindow.id, newWindow)
     windowOpenFiles.set(newWindow.id, []) // 初始化该窗口的打开文件列表
@@ -715,6 +736,12 @@ ipcMain.handle(IPC_CHANNELS.WINDOW.SET_ZOOM, (event, zoomLevel: number) => {
     const error = err as NodeJS.ErrnoException
     return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, `Failed to set zoom: ${error.message}`)
   }
+})
+
+ipcMain.handle(IPC_CHANNELS.WINDOW.SET_THEME, (_, theme: 'light' | 'dark' | 'system') => {
+  store.set('theme', theme)
+  updateAllWindowsTheme(theme)
+  return createSuccessResponse(undefined)
 })
 
 app.whenReady().then(() => { createMenu(); createWindow() })

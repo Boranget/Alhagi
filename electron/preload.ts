@@ -136,6 +136,9 @@ const api: ElectronAPI = {
   setZoom: (zoomLevel: number) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
   
+  setTheme: (theme: 'light' | 'dark' | 'system') => 
+    createIpcHandler(IPC_CHANNELS.WINDOW.SET_THEME, theme),
+  
   onNewFile: (callback) => 
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
