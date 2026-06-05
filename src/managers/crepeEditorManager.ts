@@ -47,6 +47,8 @@ import remarkSuperSub from '@/plugins/remarkSuperSub'
 import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
 import remarkFrontmatter from 'remark-frontmatter'
 import type { EditorView } from '@milkdown/kit/prose/view'
+import { createCustomCodeMirrorPlugin } from '@/components/Editor/codemirror/customCodeMirrorPlugin'
+import { codeBlockConfig } from '@milkdown/kit/component/code-block'
 
 const imagePathPlugin = $prose(() => new Plugin({
   view(editorView: EditorView) {
@@ -178,7 +180,7 @@ export class CrepeEditorManager {
         defaultValue: initialContent,
         features: {
           [Crepe.Feature.BlockEdit]: false,
-          [Crepe.Feature.CodeMirror]: true,
+          [Crepe.Feature.CodeMirror]: false, // 禁用默认的 CodeMirror 功能
           [Crepe.Feature.LinkTooltip]: true,
           [Crepe.Feature.Table]: true,
           [Crepe.Feature.Toolbar]: false,
@@ -186,9 +188,6 @@ export class CrepeEditorManager {
           [Crepe.Feature.Cursor]: false,
           [Crepe.Feature.ImageBlock]: false,
           [Crepe.Feature.Latex]: false,
-        },
-        featureConfigs: {
-          [Crepe.Feature.CodeMirror]: {},
         },
       })
       console.log('[CrepeEditorManager] Crepe 实例创建成功')
@@ -248,6 +247,8 @@ export class CrepeEditorManager {
         .use(inlineMarksPlugin)
         .use(inlineMarksParsersPlugin)
         .use(frontmatterPlugin)
+        .use(codeBlockConfig) // 注册 codeBlockConfig ctx（CodeMirror view 由自定义插件提供）
+        .use(createCustomCodeMirrorPlugin()) // 使用自定义 CodeMirror 插件
     } catch (error) {
       console.error('[CrepeEditorManager] 配置插件失败:', error)
       throw error
@@ -679,11 +680,12 @@ export class CrepeEditorManager {
           : 'light')
       : preferences.theme
 
-    console.log(`[CrepeEditorManager] 切换主题为: ${effectiveTheme}（无需重建编辑器）`)
+    console.log(`[CrepeEditorManager] 切换主题为：${effectiveTheme}`)
 
-    // 主题切换仅通过 CSS 实现，无需重建编辑器
-    // crepe 中的 CodeMirror 通过 [data-theme] 选择器自动适配主题
+    // 发送主题变化事件，自定义 CodeMirror 插件会监听此事件并更新主题
     eventBus.emit(AppEvents.THEME_CHANGED, effectiveTheme as 'light' | 'dark' | 'system')
+    
+    console.log('[CrepeEditorManager] 主题切换事件已发送，CodeMirror 代码块将自动更新主题')
   }
 
   search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
