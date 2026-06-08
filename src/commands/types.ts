@@ -13,11 +13,8 @@ export type CommandCategory =
   | 'tools' 
   | 'help'
 
-// 旧的命令执行上下文（保持兼容性）
+// 命令执行上下文
 export type ExecutionContext = 'editor' | 'global' | 'both'
-
-// 新的 Markbun 风格执行上下文
-export type MarkbunExecutionContext = 'main' | 'renderer' | 'cross-process'
 
 // 命令条件上下文键
 export type ContextKey = 
@@ -49,7 +46,7 @@ export interface Keybinding {
   modifiers: KeyModifiers
 }
 
-// 旧的命令入口定义（保持兼容性）
+// 命令入口定义
 export interface CommandEntry {
   id: string                    // 唯一标识符
   category: CommandCategory     // 类别
@@ -76,26 +73,6 @@ export interface CommandEntry {
     macOS?: Partial<Pick<CommandEntry, 'keybinding' | 'hidden'>>
     windows?: Partial<Pick<CommandEntry, 'keybinding' | 'hidden'>>
     linux?: Partial<Pick<CommandEntry, 'keybinding' | 'hidden'>>
-  }
-}
-
-// 新的 Markbun 风格命令入口定义
-export interface MarkbunCommandEntry {
-  action: string
-  i18nKey: string
-  accelerator?: string
-  category: CommandCategory
-  executionContext: MarkbunExecutionContext
-  menuParent?: string
-  menuSubmenu?: string
-  menuGroup?: number
-  hidden?: boolean
-  when?: string | string[]
-  toggled?: string
-  platformOverrides?: {
-    macOS?: Partial<Pick<MarkbunCommandEntry, 'accelerator' | 'hidden'>>
-    windows?: Partial<Pick<MarkbunCommandEntry, 'accelerator' | 'hidden'>>
-    linux?: Partial<Pick<MarkbunCommandEntry, 'accelerator' | 'hidden'>>
   }
 }
 
