@@ -426,7 +426,7 @@ export class CustomCodeMirrorBlock implements NodeView {
       }
 
       if (previouslyFocusedElement) {
-        ;(previouslyFocusedElement as HTMLElement).focus()
+        (previouslyFocusedElement as HTMLElement).focus()
       }
     }
   }
