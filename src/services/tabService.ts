@@ -6,9 +6,20 @@ import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '../../electron-protocol/index'
 
+let instance: TabService | null = null
+
 export class TabService {
   private tabsStore = useTabsStore()
   private preferencesStore = usePreferencesStore()
+
+  private constructor() {}
+
+  static getInstance(): TabService {
+    if (!instance) {
+      instance = new TabService()
+    }
+    return instance
+  }
 
   async openFile(): Promise<TabState | null> {
     if (!window.electronAPI) return null
@@ -138,5 +149,5 @@ export class TabService {
 }
 
 export function useTabService() {
-  return new TabService()
+  return TabService.getInstance()
 }

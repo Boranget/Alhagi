@@ -313,3 +313,11 @@ export function t(key: string): string {
   
   return typeof value === 'string' ? value : key
 }
+
+export function useI18n() {
+  return {
+    t,
+    setLanguage,
+    getLanguage: () => currentLanguage
+  }
+}
