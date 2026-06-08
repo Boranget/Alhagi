@@ -1,12 +1,13 @@
 import { $command } from '@milkdown/utils'
 import { wrapIn } from '@milkdown/prose/commands'
-import { bulletListSchema } from '@milkdown/preset-commonmark'
+import { bulletListSchema, listItemSchema } from '@milkdown/preset-commonmark'
 import type { EditorState, Transaction } from '@milkdown/prose/state'
 
 export const toggleTaskListCommand = $command(
   'ToggleTaskList',
   (ctx) => () => {
     const bulletListType = bulletListSchema.type(ctx)
+    const listItemType = listItemSchema.type(ctx)
 
     const toggleTaskList = (state: EditorState, dispatch?: (tr: Transaction) => void): boolean => {
       const { tr, selection, doc } = state
@@ -24,11 +25,13 @@ export const toggleTaskListCommand = $command(
       }
 
       if (depth < 0 || listItemNode.type.name !== 'list_item') {
-        const result = wrapIn(bulletListType)(state, dispatch)
-        if (!result) return false
+        const bulletListResult = wrapIn(bulletListType)(state)
+        if (!bulletListResult) return false
 
         if (dispatch) {
           const newTr = state.tr
+          bulletListResult.apply()
+
           const newDoc = newTr.doc || doc
           const newStartPos = newDoc.resolve(from)
 
@@ -42,8 +45,8 @@ export const toggleTaskListCommand = $command(
           }
 
           if (newDepth >= 0) {
-            const finPos = newStartPos.before(newDepth)
-            newTr.setNodeMarkup(finPos, undefined, {
+            const listItemStart = newStartPos.before(newDepth + 1)
+            newTr.setNodeMarkup(listItemStart, listItemType, {
               ...newListItem.attrs,
               checked: false,
             })
@@ -57,8 +60,8 @@ export const toggleTaskListCommand = $command(
       const newChecked = currentChecked === null ? false : currentChecked === false ? true : null
 
       if (dispatch) {
-        const finPos = startPos.before(depth)
-        tr.setNodeMarkup(finPos, undefined, {
+        const listItemStart = startPos.before(depth + 1)
+        tr.setNodeMarkup(listItemStart, listItemType, {
           ...listItemNode.attrs,
           checked: newChecked,
         })
