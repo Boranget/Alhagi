@@ -196,8 +196,10 @@ import { useTabDragDrop } from '@/composables/useTabDragDrop'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
 import { Icon } from '@/components/Icons'
+import { useTabService } from '@/services/tabService'
 
 const tabsStore = useTabsStore()
+const tabService = useTabService()
 
 const {
   dragState,
@@ -274,14 +276,14 @@ function handleNewTab() {
 
 function saveCurrentTab() {
   if (contextMenu.value.tabId) {
-    tabsStore.saveFile(contextMenu.value.tabId)
+    tabService.saveFile(contextMenu.value.tabId)
   }
   hideContextMenu()
 }
 
 function saveAsCurrentTab() {
   if (contextMenu.value.tabId) {
-    tabsStore.saveFileAs(contextMenu.value.tabId)
+    tabService.saveFileAs(contextMenu.value.tabId)
   }
   hideContextMenu()
 }

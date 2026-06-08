@@ -5,9 +5,11 @@ import {
   matchKeyEvent 
 } from '@/services/keybindingService'
 import { useTabsStore } from '@/stores/tabs'
+import { useTabService } from '@/services/tabService'
 
 export function useKeybindings() {
   const tabsStore = useTabsStore()
+  const tabService = useTabService()
   const keybindings = ref<Keybinding[]>([...DEFAULT_KEYBINDINGS])
   
   const actionHandlers: Record<string, () => void> = {
@@ -17,13 +19,13 @@ export function useKeybindings() {
     'file.save': () => {
       const activeTab = tabsStore.activeTab
       if (activeTab) {
-        tabsStore.saveFile(activeTab.id)
+        tabService.saveFile(activeTab.id)
       }
     },
     'file.saveAs': () => {
       const activeTab = tabsStore.activeTab
       if (activeTab) {
-        tabsStore.saveFileAs(activeTab.id)
+        tabService.saveFileAs(activeTab.id)
       }
     },
     'file.close': () => {

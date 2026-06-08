@@ -13,7 +13,7 @@ import { imagePathResolver } from './imagePathResolver'
 import { xssSanitizer } from './xssSanitizer'
 
 export function registerAllServices(): void {
-  serviceContainer.register(SERVICE_IDENTIFIERS.TAB_SERVICE, () => new TabService())
+  serviceContainer.register(SERVICE_IDENTIFIERS.TAB_SERVICE, () => TabService.getInstance())
   serviceContainer.register(SERVICE_IDENTIFIERS.ELECTRON_SERVICE, () => electronService)
   
   serviceContainer.register(SERVICE_IDENTIFIERS.EVENT_HANDLER, () => {

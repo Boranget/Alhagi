@@ -301,6 +301,60 @@ const unsubscribeEditRedo = eventBus.on(AppEvents.EDIT_REDO, () => {
 })
 unsubscribes.push(unsubscribeEditRedo)
 
+const scrollListener = ref<(...args: unknown[]) => unknown>()
+
+const handleScroll = debounce((event: unknown) => {
+  if (editorManager.getRestoring() || !activeTab.value) {
+    return
+  }
+  const e = event as Event
+  const target = e.target as HTMLElement
+  console.log(`[Editor] 滚动事件触发: target=${target.className || target.tagName}, scrollTop=${target.scrollTop}, scrollHeight=${target.scrollHeight}, clientHeight=${target.clientHeight}, tabId=${activeTab.value.id}`)
+  eventBus.emit(AppEvents.SCROLL_CHANGED, {
+    scrollTop: target.scrollTop,
+    tabId: activeTab.value.id
+  })
+}, 100)
+
+const updateScrollListener = () => {
+  console.log(`[EditorContainer] 更新滚动监听器，当前模式: ${currentMode.value}`)
+  
+  // 先移除旧的监听器
+  if (scrollListener.value) {
+    const containers = document.querySelectorAll('.crepe, .cm-scroller')
+    containers.forEach(container => {
+      container.removeEventListener('scroll', scrollListener.value!, true)
+    })
+  }
+
+  scrollListener.value = handleScroll as (event: Event) => void
+
+  // 找到当前可见的滚动容器
+  if (currentMode.value === EDITOR.VIEW_MODES.WYSIWYG) {
+    const crepeScrollContainer = crepeContainer.value?.querySelector('.crepe') || crepeContainer.value
+    console.log('[EditorContainer] WYSIWYG模式，查找滚动容器:', crepeScrollContainer)
+    if (crepeScrollContainer) {
+      crepeScrollContainer.addEventListener('scroll', scrollListener.value!, true)
+      console.log('[EditorContainer] 滚动监听器已添加到:', crepeScrollContainer.className || crepeScrollContainer.tagName)
+    }
+  } else if (currentMode.value === EDITOR.VIEW_MODES.SOURCE) {
+    const codeMirrorScrollers = document.querySelectorAll('.cm-scroller')
+    codeMirrorScrollers.forEach(scroller => {
+      scroller.addEventListener('scroll', scrollListener.value!, true)
+    })
+    console.log('[EditorContainer] Source模式，滚动监听器数量:', codeMirrorScrollers.length)
+  } else if (currentMode.value === EDITOR.VIEW_MODES.SPLIT) {
+    const crepeScrollContainer = crepeContainer.value?.querySelector('.crepe') || crepeContainer.value
+    if (crepeScrollContainer) {
+      crepeScrollContainer.addEventListener('scroll', scrollListener.value!, true)
+    }
+    const codeMirrorScrollers = document.querySelectorAll('.cm-scroller')
+    codeMirrorScrollers.forEach(scroller => {
+      scroller.addEventListener('scroll', scrollListener.value!, true)
+    })
+  }
+}
+
 onMounted(async () => {
   instanceCount++
   console.log(`[EditorContainer] onMounted called (instance #${instanceCount})`)
@@ -328,6 +382,11 @@ onMounted(async () => {
         await editorManager.switchToTab(tabId)
       }
       console.log('[EditorContainer] 编辑器初始化成功完成')
+      
+      // 编辑器初始化完成后，再次更新滚动监听器
+      nextTick(() => {
+        updateScrollListener()
+      })
     } catch (error) {
       console.error('[EditorContainer] 编辑器初始化失败:', error)
     }
@@ -343,6 +402,11 @@ onMounted(async () => {
   // 监听搜索事件（来自菜单或命令系统）
   window.addEventListener('editor:showSearch', handleShowSearch)
   
+  // 初始化滚动监听
+  nextTick(() => {
+    updateScrollListener()
+  })
+  
   setupImageDrop()
   setupImagePaste()
 })
@@ -357,10 +421,25 @@ onUnmounted(async () => {
   window.removeEventListener('editor:showSearch', handleShowSearch)
   window.removeEventListener('editor:insertImage', handleInsertImage)
   
+  // 清理滚动监听器
+  if (scrollListener.value) {
+    const containers = document.querySelectorAll('.crepe, .cm-scroller')
+    containers.forEach(container => {
+      container.removeEventListener('scroll', scrollListener.value!, true)
+    })
+  }
+  
   const container = crepeContainer.value
   if (container && imagePasteHandler.value) {
     container.removeEventListener('paste', imagePasteHandler.value, true)
   }
+})
+
+// 监听模式变化，更新滚动监听
+watch(currentMode, () => {
+  nextTick(() => {
+    updateScrollListener()
+  })
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {

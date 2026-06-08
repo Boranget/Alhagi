@@ -5,7 +5,7 @@ import type { MilkdownPlugin } from '@milkdown/ctx'
 import { insert, $prose, callCommand } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
-import { Selection } from '@milkdown/kit/prose/state'
+import { Selection, TextSelection } from '@milkdown/kit/prose/state'
 import { Plugin } from '@milkdown/kit/prose/state'
 import { undoCommand, redoCommand } from '@milkdown/plugin-history'
 import {
@@ -119,9 +119,18 @@ export class CrepeEditorManager {
   private editorView: EditorView | null = null  // 保存 EditorView 引用
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
   private searchManager = useEditorSearchManager()
+  private isRestoring = false  // 恢复状态标记
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
+  }
+
+  setRestoring(restoring: boolean): void {
+    this.isRestoring = restoring
+  }
+
+  getRestoring(): boolean {
+    return this.isRestoring
   }
 
   setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
@@ -410,6 +419,20 @@ export class CrepeEditorManager {
     }
 
     const previousTabId = this.currentTabId
+    
+    // 在切换前保存当前状态
+    if (previousTabId && this.isInitialized) {
+      const currentState = this.getCurrentEditorState()
+      const prevTab = tabsStore.getTab(previousTabId)
+      if (prevTab) {
+        tabsStore.updateTab(previousTabId, {
+          cursor: currentState.cursor || prevTab.cursor,
+          scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.scrollTop
+        })
+        console.log(`[Editor] 切换前已保存标签 ${previousTabId} 的状态: scrollTop=${currentState.scrollTop}`)
+      }
+    }
+
     this.currentTabId = tabId
     this.currentMode = tab.viewMode
 
@@ -418,6 +441,10 @@ export class CrepeEditorManager {
     } else {
       this.content = tab.content
     }
+
+    // 切换后立即恢复新标签的状态
+    console.log(`[Editor] 切换后准备恢复标签 ${tabId} 的状态: scrollTop=${tab.scrollTop}`)
+    await this.restoreEditorState(tab.cursor, tab.scrollTop)
 
     eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })
   }
@@ -453,6 +480,67 @@ export class CrepeEditorManager {
         view.focus()
       } catch (error) {
         // Silent fail - ignore focus errors
+      }
+    })
+  }
+
+  async restoreEditorState(cursor: { from: number; to: number }, scrollTop: number): Promise<void> {
+    if (!this.crepe || !this.isInitialized) return
+
+    console.log(`[Editor] 开始恢复状态: cursor={from: ${cursor.from}, to: ${cursor.to}}, scrollTop=${scrollTop}`)
+    this.isRestoring = true
+
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        if (!view || !view.state) {
+          this.isRestoring = false
+          console.log('[Editor] 恢复状态失败: 视图未就绪')
+          return
+        }
+
+        // 先恢复滚动位置
+        if (scrollTop >= 0) {
+          // 使用与 getCurrentEditorState 相同的滚动容器查找逻辑
+          let scrollContainer = view.dom.closest('.crepe') as HTMLElement
+          
+          if (!scrollContainer) {
+            scrollContainer = view.dom.parentElement?.parentElement as HTMLElement
+          }
+          
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollTop
+            console.log('[Editor] 已设置滚动位置:', scrollTop, '容器:', scrollContainer.className)
+          }
+        }
+
+        // 恢复光标位置 - 先检查位置有效性
+        if (cursor.from >= 0 && cursor.to >= 0 && cursor.from <= view.state.doc.content.size) {
+          try {
+            const tr = view.state.tr
+              .setSelection(TextSelection.create(view.state.doc, cursor.from, cursor.to))
+            view.dispatch(tr)
+          } catch (selectError) {
+            console.warn('[Editor] 设置选择区域失败，尝试使用单个位置:', selectError)
+            // 如果失败，尝试使用单个位置
+            if (cursor.from <= view.state.doc.content.size) {
+              try {
+                const tr = view.state.tr
+                  .setSelection(TextSelection.create(view.state.doc, cursor.from))
+                view.dispatch(tr)
+              } catch {
+                // 忽略错误
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[Editor] 恢复状态出错:', error)
+      } finally {
+        this.isRestoring = false
+        console.log('[Editor] 状态恢复完成')
       }
     })
   }
@@ -560,6 +648,55 @@ export class CrepeEditorManager {
       }
     })
     return line
+  }
+
+  getCurrentEditorState(): { cursor?: { from: number; to: number }, scrollTop?: number } {
+    if (!this.crepe || !this.isInitialized) {
+      console.log('[Editor] 获取当前状态失败: 编辑器未初始化')
+      return {}
+    }
+    
+    let cursor: { from: number; to: number } | undefined
+    let scrollTop: number | undefined
+    
+    this.crepe.editor.action((ctx) => {
+      try {
+        const view = ctx.get(editorViewCtx)
+        if (!view || !view.state) {
+          return
+        }
+        
+        cursor = {
+          from: view.state.selection.from,
+          to: view.state.selection.to
+        }
+        
+        // 使用统一的滚动容器查找逻辑
+        // 优先查找 .crepe 容器，因为它是实际的滚动容器
+        let scrollContainer = view.dom.closest('.crepe') as HTMLElement
+        
+        if (!scrollContainer) {
+          scrollContainer = view.dom.parentElement?.parentElement as HTMLElement
+        }
+        
+        if (scrollContainer) {
+          scrollTop = scrollContainer.scrollTop
+        }
+        
+        console.log('[Editor] getCurrentEditorState 最终结果:', { 
+          viewDomParent: view.dom.parentElement?.className,
+          scrollContainer: scrollContainer?.className,
+          scrollTop,
+          scrollHeight: scrollContainer?.scrollHeight,
+          clientHeight: scrollContainer?.clientHeight
+        })
+      } catch (error) {
+        console.error('[Editor] 获取当前状态出错:', error)
+      }
+    })
+    
+    console.log(`[Editor] 获取当前状态: cursor=${cursor ? `{from: ${cursor.from}, to: ${cursor.to}}` : 'undefined'}, scrollTop=${scrollTop}`)
+    return { cursor, scrollTop }
   }
 
   getHeadingsWithPos(): HeadingItem[] {

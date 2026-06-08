@@ -71,6 +71,36 @@ export function useApp() {
       })
     )
 
+    // 光标变化事件 - 保存光标位置到 tab state
+    unsubscribers.push(
+      eventBus.on(AppEvents.CURSOR_CHANGED, ({ from, to, tabId }) => {
+        if (tabId) {
+          tabsStore.updateTab(tabId, {
+            cursor: { from, to }
+          })
+        }
+      })
+    )
+
+    // 滚动事件 - 保存滚动位置到 tab state
+    unsubscribers.push(
+      eventBus.on(AppEvents.SCROLL_CHANGED, ({ scrollTop, tabId }) => {
+        if (tabId) {
+          tabsStore.updateTab(tabId, { scrollTop })
+        }
+      })
+    )
+
+    // 标签页切换事件 - 先保存当前状态，再恢复新标签的状态
+    unsubscribers.push(
+      eventBus.on(AppEvents.TAB_SWITCHED, async ({ tabId }) => {
+        if (!tabId) return
+
+        console.log(`[App] TAB_SWITCHED 事件: ${tabId}`)
+        // 状态保存和恢复已经在 switchToTab 中处理，这里只做其他需要响应切换的逻辑
+      })
+    )
+
     // 悬浮便签模式切换
     unsubscribers.push(
       eventBus.on(AppEvents.TOGGLE_STICKY_NOTE_MODE, () => {
