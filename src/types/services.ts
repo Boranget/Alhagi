@@ -17,6 +17,7 @@ export interface ServiceContainer {
 export const SERVICE_IDENTIFIERS = {
   TAB_SERVICE: Symbol('TabService'),
   ELECTRON_SERVICE: Symbol('ElectronService'),
+  ELECTRON_API_SERVICE: Symbol('ElectronApiService'),
   EVENT_HANDLER: Symbol('ElectronEventHandler'),
   I18N_SERVICE: Symbol('I18nService'),
   CLIPBOARD_SERVICE: Symbol('ClipboardService'),

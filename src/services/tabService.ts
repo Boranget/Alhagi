@@ -4,34 +4,26 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
-import type { LineEnding } from '../../electron-protocol/index'
+import type { LineEnding } from '@electron-protocol/index'
+import { useElectronApi } from './electron/ElectronApiService'
 
-let instance: TabService | null = null
+const electronApi = useElectronApi()
 
 export class TabService {
   private tabsStore = useTabsStore()
   private preferencesStore = usePreferencesStore()
 
-  private constructor() {}
-
-  static getInstance(): TabService {
-    if (!instance) {
-      instance = new TabService()
-    }
-    return instance
-  }
-
   async openFile(): Promise<TabState | null> {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
-    const result = await window.electronAPI.openFile()
+    const result = await electronApi.openFile()
     if (!result.success || !result.data) return null
 
     const { filePath, content } = result.data
 
-    const checkResult = await window.electronAPI.checkFileOpen(filePath)
+    const checkResult = await electronApi.checkFileOpen(filePath)
     if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
-      await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
+      await electronApi.focusWindow(checkResult.data.windowId, filePath)
       return null
     }
 
@@ -51,10 +43,10 @@ export class TabService {
   }
 
   async openRecentFile(filePath: string): Promise<TabState | null> {
-    if (window.electronAPI) {
-      const checkResult = await window.electronAPI.checkFileOpen(filePath)
+    if (electronApi.isAvailable()) {
+      const checkResult = await electronApi.checkFileOpen(filePath)
       if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
-        await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
+        await electronApi.focusWindow(checkResult.data.windowId, filePath)
         return null
       }
     }
@@ -65,10 +57,10 @@ export class TabService {
       return existingTab
     }
 
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     try {
-      const contentResp = await window.electronAPI.readFile(filePath)
+      const contentResp = await electronApi.readFile(filePath)
       if (!contentResp.success) return null
       const content = contentResp.data
       const title = extractTitleFromPath(filePath)
@@ -86,11 +78,11 @@ export class TabService {
     const tab = this.tabsStore.getTab(tabId)
     if (!tab) return false
 
-    if (!window.electronAPI) return false
+    if (!electronApi.isAvailable()) return false
 
     if (tab.filePath) {
       const lineEnding = this.preferencesStore.lineEnding as LineEnding
-      await window.electronAPI.saveFile(tab.filePath, tab.content, lineEnding)
+      await electronApi.saveFile(tab.filePath, tab.content, lineEnding)
       this.tabsStore.markClean(tabId)
 
       eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
@@ -102,12 +94,12 @@ export class TabService {
 
   async saveFileAs(tabId: string): Promise<boolean> {
     const tab = this.tabsStore.getTab(tabId)
-    if (!tab || !window.electronAPI) return false
+    if (!tab || !electronApi.isAvailable()) return false
 
     const lineEnding = this.preferencesStore.lineEnding as LineEnding
     const defaultPath = tab.title.endsWith('.md') ? tab.title : tab.title + '.md'
 
-    const filePathResp = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
+    const filePathResp = await electronApi.saveAsFile(tab.content, defaultPath, lineEnding)
 
     if (filePathResp.success && filePathResp.data) {
       const filePath = filePathResp.data
@@ -149,5 +141,5 @@ export class TabService {
 }
 
 export function useTabService() {
-  return TabService.getInstance()
+  return new TabService()
 }

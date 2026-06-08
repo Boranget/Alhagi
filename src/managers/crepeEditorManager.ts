@@ -20,6 +20,7 @@ import { generateSlug } from '@/utils/headings'
 import { useEditorSearchManager, getSearchPlugin } from '@/managers/EditorSearchManager'
 import { focusModePlugin } from '@/plugins/focusModePlugin'
 import { inlineMarksPlugin } from '@/plugins/inlineMarksPlugin'
+import { taskListPlugin } from '@/plugins/taskListPlugin'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
 import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
@@ -226,6 +227,7 @@ export class CrepeEditorManager {
         .use(imagePathPlugin)
         .use(focusModePlugin)
         .use(inlineMarksPlugin)
+        .use(taskListPlugin)
         .use(inlineMarksParsersPlugin)
         .use(frontmatterPlugin)
         .use(codeBlockConfig) // 注册 codeBlockConfig ctx（CodeMirror view 由自定义插件提供）

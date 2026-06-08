@@ -16,6 +16,7 @@ import {
   insertTableCommand,
   toggleStrikethroughCommand,
 } from '@milkdown/preset-gfm'
+import { toggleTaskListCommand } from '@/commands/taskListCommands'
 import { toggleHighlightCommand } from '@/plugins/inlineMarksPlugin'
 import {
   insertTableRowAbove,
@@ -147,7 +148,7 @@ export class EditorCommands {
   toggleTaskList(): void {
     if (!this.crepe || !this.isInitialized) return
     try {
-      this.crepe.editor.action(callCommand(wrapInBulletListCommand.key))
+      this.crepe.editor.action(callCommand(toggleTaskListCommand.key))
     } catch {
       // Silent fail
     }

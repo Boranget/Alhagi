@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import type { DetachedTabData } from '../../electron-protocol/index'
+import type { DetachedTabData } from '@electron-protocol/index'
 import type { 
   TabState, 
   DragDropState, 
@@ -9,6 +9,9 @@ import type {
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
+import { useElectronApi } from '@/services/electron/ElectronApiService'
+
+const electronApi = useElectronApi()
 
 export type { DropTargetType }
 export type { DragDropState }
@@ -65,13 +68,11 @@ export function useTabDragDrop() {
     for (const w of winList) {
       const { x, y, width, height } = w.bounds
       
-      // 先检查是否精确命中
       if (screenX >= x && screenX <= x + width &&
           screenY >= y && screenY <= y + height) {
         return w
       }
 
-      // 同时计算距离，找到最近的窗口
       const cx = x + width / 2
       const cy = y + height / 2
       const dist = Math.sqrt((screenX - cx) ** 2 + (screenY - cy) ** 2)
@@ -84,9 +85,8 @@ export function useTabDragDrop() {
     return closest
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function createNewWindow(tabData: DetachedTabData): Promise<number | null> {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     const DEFAULT_WIDTH = 1200
     const DEFAULT_HEIGHT = 800
@@ -100,21 +100,14 @@ export function useTabDragDrop() {
       height: DEFAULT_HEIGHT
     }
 
-    // 使用 Promise.all 并行获取位置信息
     try {
       const promises = []
       
-      if (window.electronAPI.getCursorScreenPoint) {
-        promises.push(window.electronAPI.getCursorScreenPoint())
-      }
-      
-      if (window.electronAPI.getScreenDisplay) {
-        promises.push(window.electronAPI.getScreenDisplay())
-      }
+      promises.push(electronApi.getCursorScreenPoint())
+      promises.push(electronApi.getScreenDisplay())
 
       const results = await Promise.all(promises)
       
-      // 第一个结果是 cursorPoint，第二个是 display（如果请求了）
       if (results[0]?.success && results[0]?.data) {
         bounds.x = Math.max(0, results[0].data.x - OFFSET_X)
         bounds.y = Math.max(0, results[0].data.y - OFFSET_Y)
@@ -132,7 +125,7 @@ export function useTabDragDrop() {
       // Silent fail - bounds calculation errors
     }
 
-    const result = await window.electronAPI.openNewWindow({
+    const result = await electronApi.openNewWindow({
       bounds,
       tabData
     })
@@ -147,9 +140,9 @@ export function useTabDragDrop() {
     tabData: DetachedTabData,
     targetWindowId: number
   ): Promise<boolean> {
-    if (!window.electronAPI) return false
+    if (!electronApi.isAvailable()) return false
 
-    const result = await window.electronAPI.mergeTab(tabData, targetWindowId)
+    const result = await electronApi.mergeTab(tabData, targetWindowId)
     return result.success
   }
 
@@ -176,11 +169,9 @@ export function useTabDragDrop() {
 
     await refreshWindowList()
 
-    if (window.electronAPI) {
-      const idResp = await window.electronAPI.getWindowId()
-      if (idResp.success && idResp.data) {
-        currentWindowId = idResp.data
-      }
+    const idResp = await electronApi.getWindowId()
+    if (idResp.success && idResp.data) {
+      currentWindowId = idResp.data
     }
 
     const tab = tabsStore.tabs.get(tabId)
@@ -204,13 +195,11 @@ export function useTabDragDrop() {
     if (!dragState.sourceTabId) return
     if (dragState.sourceTabId === tabId) return
 
-    // 先获取可能的目标状态（不直接更新响应式对象）
     let newTargetType: DropTargetType = 'none'
     let newTargetTabId: string | null = null
     let newTargetWindowId: number | null = null
     let newWindowEdgeDirection: 'left' | 'right' | null = null
 
-    // 先尝试更新窗口边缘状态（支持合并到其他窗口）
     const edgeResult = checkWindowEdge(event)
     if (edgeResult.targetWindowId) {
       newTargetType = 'windowEdge'
@@ -223,7 +212,6 @@ export function useTabDragDrop() {
       newTargetTabId = tabId
     }
 
-    // 只有在状态真正改变时才更新响应式对象
     const shouldUpdate = 
       newTargetType !== lastTargetType ||
       newTargetTabId !== lastTargetTabId ||
@@ -328,28 +316,23 @@ export function useTabDragDrop() {
   }
 
   function handleDragEnd(event: DragEvent): void {
-    // 1. 首先清理定时器
     if (dragLeaveTimer) {
       clearTimeout(dragLeaveTimer)
       dragLeaveTimer = null
     }
 
-    // 2. 获取源标签信息
     const sourceTabId = dragState.sourceTabId
     
-    // 3. 如果没有源标签，立即重置状态并返回
     if (!sourceTabId) {
       resetDragState()
       return
     }
 
-    // 4. 如果已经在标签上放下，不需要处理
     if (hasDroppedOnTab) {
       resetDragState()
       return
     }
 
-    // 5. 复制状态后立即重置（避免阻塞 UI）
     const currentDragState = {
       sourceTabId: dragState.sourceTabId,
       targetType: dragState.targetType,
@@ -363,16 +346,13 @@ export function useTabDragDrop() {
     const currentWindowList = [...windowList.value]
     const currentWindowIdValue = currentWindowId
 
-    // 6. 立即重置响应式状态，让 UI 先恢复
     resetDragState()
 
-    // 7. 获取标签数据（在状态重置前获取）
     const tab = tabsStore.tabs.get(sourceTabId)
     if (!tab) {
       return
     }
 
-    // 8. 异步执行实际操作，不阻塞用户界面
     executeDragEndAsync(
       event,
       tab,
@@ -461,15 +441,13 @@ export function useTabDragDrop() {
   }
 
   async function refreshWindowList(): Promise<void> {
-    if (window.electronAPI) {
-      try {
-        const listResp = await window.electronAPI.listWindows()
-        if (listResp.success && listResp.data) {
-          windowList.value = listResp.data
-        }
-      } catch (e) {
-        // Silent fail - window listing errors
+    try {
+      const listResp = await electronApi.listWindows()
+      if (listResp.success && listResp.data) {
+        windowList.value = listResp.data
       }
+    } catch (e) {
+      // Silent fail - window listing errors
     }
   }
 

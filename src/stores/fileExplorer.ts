@@ -1,13 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { FileTreeNodeType, DirectoryEntry } from '@/types'
-import { FILE_TYPES } from '../../electron-protocol'
+import { FILE_TYPES } from '@electron-protocol/index'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { useElectronApi } from '@/services/electron/ElectronApiService'
 
 function emitFolderOpened(folderPath: string): void {
   eventBus.emit(AppEvents.FOLDER_OPENED, { folderPath })
 }
+
+const electronApi = useElectronApi()
 
 export const useFileExplorerStore = defineStore('fileExplorer', () => {
   const currentFolder = ref<string | null>(null)
@@ -16,16 +19,16 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   const error = ref<string | null>(null)
 
   async function openFolder() {
-    if (!window.electronAPI) {
+    if (!electronApi.isAvailable()) {
       error.value = 'Electron API not available'
       return null
     }
 
     try {
-      const response = await window.electronAPI.openFolder()
+      const response = await electronApi.openFolder()
       if (response && response.success && response.data) {
         currentFolder.value = response.data.path
-        fileTree.value = response.data.tree
+        fileTree.value = response.data.tree as FileTreeNodeType[]
         
         const prefs = usePreferencesStore()
         const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
@@ -42,10 +45,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function readDirectory(dirPath: string): Promise<FileTreeNodeType[]> {
-    if (!window.electronAPI) return []
+    if (!electronApi.isAvailable()) return []
 
     try {
-      const response = await window.electronAPI.readDirectory(dirPath)
+      const response = await electronApi.readDirectory(dirPath)
       if (!response || !response.success || !response.data) {
         return []
       }
@@ -62,10 +65,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function openFile(filePath: string) {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     try {
-      const response = await window.electronAPI.readFile(filePath)
+      const response = await electronApi.readFile(filePath)
       if (response && response.success && response.data !== undefined) {
         return response.data
       }
@@ -77,10 +80,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function saveFile(filePath: string, content: string) {
-    if (!window.electronAPI) return false
+    if (!electronApi.isAvailable()) return false
 
     try {
-      const response = await window.electronAPI.saveFile(filePath, content)
+      const response = await electronApi.writeFile(filePath, content)
       return response && response.success
     } catch (e) {
       error.value = `Failed to save file: ${e}`
@@ -89,13 +92,14 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function createFile(dirPath: string, fileName: string) {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     try {
-      const response = await window.electronAPI.createFile(dirPath, fileName)
-      if (response && response.success && response.data) {
+      const filePath = `${dirPath}/${fileName}`
+      const response = await electronApi.writeFile(filePath, '')
+      if (response && response.success) {
         await refreshTree()
-        return response.data
+        return filePath
       }
       return null
     } catch (e) {
@@ -105,13 +109,14 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function createDirectory(dirPath: string, dirName: string) {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     try {
-      const response = await window.electronAPI.createDirectory(dirPath, dirName)
-      if (response && response.success && response.data) {
+      const newDirPath = `${dirPath}/${dirName}`
+      const response = await electronApi.writeFile(`${newDirPath}/.placeholder`, '')
+      if (response && response.success) {
         await refreshTree()
-        return response.data
+        return newDirPath
       }
       return null
     } catch (e) {
@@ -121,10 +126,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function deleteFile(filePath: string) {
-    if (!window.electronAPI) return false
+    if (!electronApi.isAvailable()) return false
 
     try {
-      const response = await window.electronAPI.deleteFile(filePath)
+      const response = await electronApi.deleteFile(filePath)
       if (response && response.success) {
         await refreshTree()
         return true
@@ -137,15 +142,21 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function renameFile(oldPath: string, newName: string) {
-    if (!window.electronAPI) return null
+    if (!electronApi.isAvailable()) return null
 
     try {
-      const response = await window.electronAPI.renameFile(oldPath, newName)
-      if (response && response.success && response.data) {
-        await refreshTree()
-        return response.data
+      const dirPath = oldPath.substring(0, oldPath.lastIndexOf('/')) || oldPath.substring(0, oldPath.lastIndexOf('\\'))
+      const newPath = `${dirPath}/${newName}`
+      const copyResponse = await electronApi.copyFile(oldPath, newPath)
+      if (!copyResponse || !copyResponse.success) {
+        return null
       }
-      return null
+      const deleteResponse = await electronApi.deleteFile(oldPath)
+      if (!deleteResponse || !deleteResponse.success) {
+        return null
+      }
+      await refreshTree()
+      return newPath
     } catch (e) {
       error.value = `Failed to rename file: ${e}`
       return null
@@ -167,7 +178,7 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
   }
 
   async function openFolderByPath(folderPath: string) {
-    if (!window.electronAPI) {
+    if (!electronApi.isAvailable()) {
       error.value = 'Electron API not available'
       return null
     }

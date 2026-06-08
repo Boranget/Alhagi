@@ -1,4 +1,4 @@
-import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData } from '../../electron-protocol/index'
+import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData } from '@electron-protocol/index'
 
 export type { ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData }
 

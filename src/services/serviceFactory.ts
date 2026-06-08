@@ -2,6 +2,7 @@ import { serviceContainer } from './serviceContainer'
 import { SERVICE_IDENTIFIERS } from '@/types/services'
 import { TabService } from './tabService'
 import { electronService } from './electron/ElectronService'
+import { ElectronApiService } from './electron/ElectronApiService'
 import { ElectronEventHandler } from './electron/ElectronEventHandler'
 import { useI18n } from './i18n'
 import { useClipboard } from './clipboard'
@@ -13,12 +14,13 @@ import { imagePathResolver } from './imagePathResolver'
 import { xssSanitizer } from './xssSanitizer'
 
 export function registerAllServices(): void {
-  serviceContainer.register(SERVICE_IDENTIFIERS.TAB_SERVICE, () => TabService.getInstance())
+  serviceContainer.register(SERVICE_IDENTIFIERS.TAB_SERVICE, () => new TabService())
   serviceContainer.register(SERVICE_IDENTIFIERS.ELECTRON_SERVICE, () => electronService)
+  serviceContainer.register(SERVICE_IDENTIFIERS.ELECTRON_API_SERVICE, () => new ElectronApiService())
   
   serviceContainer.register(SERVICE_IDENTIFIERS.EVENT_HANDLER, () => {
-    const api = window.electronAPI
-    const handler = new ElectronEventHandler(api)
+    const apiService = serviceContainer.resolve<ElectronApiService>(SERVICE_IDENTIFIERS.ELECTRON_API_SERVICE)
+    const handler = new ElectronEventHandler(apiService?.getAPI())
     handler.initialize()
     return handler
   })
