@@ -1,29 +1,14 @@
 import { Crepe } from '@milkdown/crepe'
-import { editorStateCtx, editorViewCtx, parserCtx } from '@milkdown/kit/core'
+import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
 import { InitReady, remarkPluginsCtx, remarkStringifyOptionsCtx } from '@milkdown/core'
 import type { MilkdownPlugin } from '@milkdown/ctx'
-import { insert, $prose, callCommand } from '@milkdown/kit/utils'
+import { $prose } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { Plugin } from '@milkdown/kit/prose/state'
-import { undoCommand, redoCommand } from '@milkdown/plugin-history'
 import { EditorStateManager } from './EditorStateManager'
-import {
-  toggleEmphasisCommand,
-  toggleStrongCommand,
-  toggleInlineCodeCommand,
-  toggleLinkCommand,
-  wrapInBulletListCommand,
-  wrapInOrderedListCommand,
-  wrapInBlockquoteCommand,
-  wrapInHeadingCommand,
-  createCodeBlockCommand,
-} from '@milkdown/preset-commonmark'
-import {
-  insertTableCommand,
-  toggleStrikethroughCommand,
-} from '@milkdown/preset-gfm'
+import { EditorCommands } from './EditorCommands'
 import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
@@ -32,17 +17,9 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { generateSlug } from '@/utils/headings'
-import {
-  insertTableRowAbove,
-  insertTableRowBelow,
-  deleteTableRow,
-  insertTableColumnLeft,
-  insertTableColumnRight,
-  deleteTableColumn,
-} from '@/commands/tableCommands'
 import { useEditorSearchManager, getSearchPlugin } from '@/managers/EditorSearchManager'
 import { focusModePlugin } from '@/plugins/focusModePlugin'
-import { inlineMarksPlugin, toggleHighlightCommand } from '@/plugins/inlineMarksPlugin'
+import { inlineMarksPlugin } from '@/plugins/inlineMarksPlugin'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
 import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
@@ -121,6 +98,7 @@ export class CrepeEditorManager {
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
   private searchManager = useEditorSearchManager()
   private stateManager = new EditorStateManager()
+  private commands = new EditorCommands()
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
@@ -266,6 +244,7 @@ export class CrepeEditorManager {
       throw error
     }
     
+    this.commands.setCrepe(this.crepe)
     this.searchManager.init(this.crepe.editor)
     this.isInitialized = true
 
@@ -739,281 +718,111 @@ export class CrepeEditorManager {
   }
 
   insertImage(imageUrl: string, altText: string): void {
-    if (!this.crepe || !this.isInitialized) {
-      return
-    }
-
-    try {
-      const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
-      this.crepe.editor.action(insert(imageMarkdown, true))
-    } catch (error) {
-      // Silent fail - image insertion errors
-    }
+    this.commands.insertImage(imageUrl, altText)
   }
 
   undo(): void {
-    if (!this.crepe || !this.isInitialized) {
-      return
-    }
-
-    try {
-      this.crepe.editor.action(callCommand(undoCommand.key))
-    } catch (error) {
-      // Silent fail - undo errors
-    }
+    this.commands.undo()
   }
 
   redo(): void {
-    if (!this.crepe || !this.isInitialized) {
-      return
-    }
-
-    try {
-      this.crepe.editor.action(callCommand(redoCommand.key))
-    } catch (error) {
-      // Silent fail - redo errors
-    }
+    this.commands.redo()
   }
 
   toggleBold(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleStrongCommand.key))
-    } catch (error) {
-      // Silent fail - bold toggle errors
-    }
+    this.commands.toggleBold()
   }
 
   toggleItalic(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleEmphasisCommand.key))
-    } catch (error) {
-      // Silent fail - italic toggle errors
-    }
+    this.commands.toggleItalic()
   }
 
   toggleStrikethrough(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleStrikethroughCommand.key))
-    } catch (error) {
-      // Silent fail - strikethrough toggle errors
-    }
+    this.commands.toggleStrikethrough()
   }
 
   toggleInlineCode(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleInlineCodeCommand.key))
-    } catch (error) {
-      // Silent fail - inline code toggle errors
-    }
+    this.commands.toggleInlineCode()
   }
 
   toggleLink(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleLinkCommand.key))
-    } catch (error) {
-      // Silent fail - link toggle errors
-    }
+    this.commands.toggleLink()
   }
 
   toggleHeading(level: number): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(wrapInHeadingCommand.key, level))
-    } catch (error) {
-      // Silent fail - heading toggle errors
-    }
+    this.commands.toggleHeading(level)
   }
 
   toggleParagraph(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      // 使用 wrapInHeadingCommand，level 0 表示切换到普通段落
-      this.crepe.editor.action(callCommand(wrapInHeadingCommand.key, 0))
-    } catch (error) {
-      console.error('[CrepeEditorManager] toggleParagraph failed:', error)
-    }
+    this.commands.toggleParagraph()
   }
 
   toggleHighlight(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(toggleHighlightCommand.key))
-    } catch (error) {
-      // Silent fail - highlight toggle errors
-    }
+    this.commands.toggleHighlight()
   }
 
   toggleBulletList(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(wrapInBulletListCommand.key))
-    } catch (error) {
-      // Silent fail - bullet list toggle errors
-    }
+    this.commands.toggleBulletList()
   }
 
   toggleOrderedList(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(wrapInOrderedListCommand.key))
-    } catch (error) {
-      // Silent fail - ordered list toggle errors
-    }
+    this.commands.toggleOrderedList()
   }
 
   toggleTaskList(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(wrapInBulletListCommand.key))
-    } catch (error) {
-      // Silent fail - task list toggle errors
-    }
+    this.commands.toggleTaskList()
   }
 
   toggleBlockQuote(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(wrapInBlockquoteCommand.key))
-    } catch (error) {
-      // Silent fail - block quote toggle errors
-    }
+    this.commands.toggleBlockQuote()
   }
 
   toggleCodeBlock(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
-    } catch (error) {
-      // Silent fail - code block toggle errors
-    }
+    this.commands.toggleCodeBlock()
   }
 
   toggleCodeFence(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
-    } catch (error) {
-      // Silent fail - code fence toggle errors
-    }
+    this.commands.toggleCodeFence()
   }
 
   insertCodeBlock(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(createCodeBlockCommand.key))
-    } catch (error) {
-      // Silent fail - code block insertion errors
-    }
+    this.commands.insertCodeBlock()
   }
 
   insertMathBlock(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(insert('\n$$\n\n$$\n', true))
-    } catch (error) {
-      // Silent fail - math block insertion errors
-    }
+    this.commands.insertMathBlock()
   }
 
   insertHorizontalRule(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(insert('\n---\n', true))
-    } catch (error) {
-      // Silent fail - horizontal rule insertion errors
-    }
+    this.commands.insertHorizontalRule()
   }
 
   insertTable(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action(callCommand(insertTableCommand.key))
-    } catch (error) {
-      // Silent fail - table insertion errors
-    }
+    this.commands.insertTable()
   }
 
   insertTableRowAbove(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        insertTableRowAbove(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.insertTableRowAbove()
   }
 
   insertTableRowBelow(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        insertTableRowBelow(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.insertTableRowBelow()
   }
 
   deleteTableRow(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        deleteTableRow(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.deleteTableRow()
   }
 
   insertTableColumnLeft(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        insertTableColumnLeft(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.insertTableColumnLeft()
   }
 
   insertTableColumnRight(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        insertTableColumnRight(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.insertTableColumnRight()
   }
 
   deleteTableColumn(): void {
-    if (!this.crepe || !this.isInitialized) return
-    try {
-      this.crepe.editor.action((ctx) => {
-        const state = ctx.get(editorStateCtx)
-        const view = ctx.get(editorViewCtx)
-        deleteTableColumn(state, view)
-      })
-    } catch (error) {
-      // Silent fail - table operation may not be applicable
-    }
+    this.commands.deleteTableColumn()
   }
 }
 
