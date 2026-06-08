@@ -91,15 +91,7 @@ export function useApp() {
       })
     )
 
-    // 标签页切换事件 - 先保存当前状态，再恢复新标签的状态
-    unsubscribers.push(
-      eventBus.on(AppEvents.TAB_SWITCHED, async ({ tabId }) => {
-        if (!tabId) return
-
-        console.log(`[App] TAB_SWITCHED 事件: ${tabId}`)
-        // 状态保存和恢复已经在 switchToTab 中处理，这里只做其他需要响应切换的逻辑
-      })
-    )
+    // 标签页切换事件 - 状态保存和恢复已经在 switchToTab 中处理
 
     // 悬浮便签模式切换
     unsubscribers.push(

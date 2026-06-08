@@ -462,14 +462,22 @@ export class CustomCodeMirrorBlock implements NodeView {
   // Vue 应用创建（完全覆盖原生 CodeBlock 的所有功能）
   // ---------------------------------------------------------------------------
   private createApp = () => {
-    const self = this
-    const config = self.config
+    const config = this.config
+    const view = this.view
+    const cm = this.cm
+    const text = this.text
+    const language = this.language
+    const getAllLanguages = this.getAllLanguages.bind(this)
+    const sanitizeSvg = this.sanitizeSvg.bind(this)
+    const IconComponent = this.IconComponent
+    const setLanguage = this.setLanguage.bind(this)
+    const copyToClipboard = this.copyToClipboard.bind(this)
 
     const CodeBlockFull = {
       setup() {
         // -- 预览模式 --
         const previewOnlyByDefault =
-          config.previewOnlyByDefault ?? !self.view.editable
+          config.previewOnlyByDefault ?? !view.editable
         const previewOnlyMode = ref(previewOnlyByDefault)
         const preview = ref<null | string | HTMLElement>(null)
 
@@ -480,17 +488,17 @@ export class CustomCodeMirrorBlock implements NodeView {
           const host = codemirrorHostRef.value
           if (host) {
             while (host.firstChild) host.removeChild(host.firstChild)
-            host.appendChild(self.cm.dom)
+            host.appendChild(cm.dom)
           }
         })
 
         // -- renderPreview 监听 --
         watch(
-          () => [self.text.value, self.language.value] as const,
+          () => [text.value, language.value] as const,
           () => {
             const result = config.renderPreview(
-              self.language.value,
-              self.text.value,
+              language.value,
+              text.value,
               (value) => (preview.value = value)
             )
             if (result) {
@@ -538,7 +546,7 @@ export class CustomCodeMirrorBlock implements NodeView {
         const onTogglePicker = (e: Event) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!self.view.editable) return
+          if (!view.editable) return
           const next = !showPicker.value
           showPicker.value = next
           if (next) {
@@ -569,10 +577,10 @@ export class CustomCodeMirrorBlock implements NodeView {
 
         const languages = computed(() => {
           if (!showPicker.value) return []
-          const all = self.getAllLanguages() ?? []
+          const all = getAllLanguages() ?? []
           const selected = all.find(
             (info) =>
-              info.name.toLowerCase() === self.language.value.toLowerCase()
+              info.name.toLowerCase() === language.value.toLowerCase()
           )
           const filtered = all.filter((info) => {
             const cur = filter.value.toLowerCase()
@@ -598,7 +606,7 @@ export class CustomCodeMirrorBlock implements NodeView {
           }
           const content = preview.value
           if (content instanceof globalThis.Node || typeof content === 'string') {
-            container.innerHTML = self.sanitizeSvg(content) as string
+            container.innerHTML = sanitizeSvg(content) as string
           }
         })
 
@@ -626,9 +634,9 @@ export class CustomCodeMirrorBlock implements NodeView {
                     onClick: onTogglePicker,
                   },
                   [
-                    self.language.value || 'Text',
+                    language.value || 'Text',
                     h('div', { class: 'expand-icon' }, [
-                      self.IconComponent({ icon: config.expandIcon }),
+                      IconComponent({ icon: config.expandIcon }),
                     ]),
                   ]
                 ),
@@ -641,7 +649,7 @@ export class CustomCodeMirrorBlock implements NodeView {
                           // 搜索框
                           h('div', { class: 'search-box' }, [
                             h('div', { class: 'search-icon' }, [
-                              self.IconComponent({ icon: config.searchIcon }),
+                              IconComponent({ icon: config.searchIcon }),
                             ]),
                             h('input', {
                               ref: searchRef,
@@ -668,7 +676,7 @@ export class CustomCodeMirrorBlock implements NodeView {
                                 },
                               },
                               [
-                                self.IconComponent({
+                                IconComponent({
                                   icon: config.clearSearchIcon,
                                 }),
                               ]
@@ -688,7 +696,7 @@ export class CustomCodeMirrorBlock implements NodeView {
                                     active instanceof HTMLElement &&
                                     active.dataset.language
                                   ) {
-                                    self.setLanguage(
+                                    setLanguage(
                                       active.dataset.language
                                     )
                                   }
@@ -716,18 +724,18 @@ export class CustomCodeMirrorBlock implements NodeView {
                                       class: 'language-list-item',
                                       'aria-selected': String(
                                         info.name.toLowerCase() ===
-                                          self.language.value.toLowerCase()
+                                          language.value.toLowerCase()
                                       ),
                                       'data-language': info.name,
                                       onClick: () => {
-                                        self.setLanguage(info.name)
+                                        setLanguage(info.name)
                                         showPicker.value = false
                                       },
                                     },
                                     config.renderLanguage(
                                       info.name,
                                       info.name.toLowerCase() ===
-                                        self.language.value.toLowerCase()
+                                        language.value.toLowerCase()
                                     )
                                   )
                                 )
@@ -747,16 +755,15 @@ export class CustomCodeMirrorBlock implements NodeView {
                     type: 'button',
                     class: 'copy-button',
                     onClick: () => {
-                      self
-                        .copyToClipboard(self.text.value)
+                      copyToClipboard(text.value)
                         .then(() =>
-                          (config.onCopy ?? emptyFn)(self.text.value)
+                          (config.onCopy ?? emptyFn)(text.value)
                         )
                         .catch(console.error)
                     },
                   },
                   [
-                    self.IconComponent({ icon: copyIcon }),
+                    IconComponent({ icon: copyIcon }),
                     copyText,
                   ]
                 ),
@@ -773,7 +780,7 @@ export class CustomCodeMirrorBlock implements NodeView {
                               !previewOnlyMode.value),
                         },
                         [
-                          self.IconComponent({
+                          IconComponent({
                             icon: config.previewToggleButton(
                               previewOnlyMode.value
                             ),
