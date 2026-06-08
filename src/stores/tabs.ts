@@ -1,12 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TabState, ViewMode, FileType } from '@/types'
-import { generateUUID, extractTitleFromPath, getDirname } from '@/utils/helpers'
+import { generateUUID } from '@/utils/helpers'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { TABS, EDITOR, FILE } from '@/constants'
-import type { LineEnding } from '../../electron-protocol/index'
-import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 
 export function validateTabState(tabState: unknown): tabState is TabState {
   if (!tabState || typeof tabState !== 'object') {
@@ -114,7 +112,6 @@ export const useTabsStore = defineStore('tabs', () => {
   const activeTabId = ref<string | null>(null)
   const tabOrder = ref<string[]>([])
 
-  // 同步打开的文件列表到主进程
   async function syncOpenedFiles() {
     if (!window.electronAPI) return
     const filePaths = Array.from(tabs.value.values())
@@ -142,6 +139,14 @@ export const useTabsStore = defineStore('tabs', () => {
       return TABS.NEW_TAB_TITLE
     }
     return `${TABS.NEW_TAB_TITLE}-${untitledCount}`
+  }
+
+  function getTab(tabId: string): TabState | undefined {
+    return tabs.value.get(tabId)
+  }
+
+  function findTabByFilePath(filePath: string): TabState | undefined {
+    return Array.from(tabs.value.values()).find(t => t.filePath === filePath)
   }
 
   function createTab(options: {
@@ -190,7 +195,6 @@ export const useTabsStore = defineStore('tabs', () => {
 
     eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
 
-    // 同步打开的文件列表到主进程
     syncOpenedFiles()
 
     return tab
@@ -212,7 +216,6 @@ export const useTabsStore = defineStore('tabs', () => {
       }
     }
 
-    // 同步打开的文件列表到主进程
     syncOpenedFiles()
 
     return true
@@ -252,8 +255,6 @@ export const useTabsStore = defineStore('tabs', () => {
       }
 
       eventBus.emit(AppEvents.TAB_UPDATED, { tabId, updates })
-      
-      // 只有从非编辑器来源更新内容时才发这个事件（编辑器自己会发）
     }
   }
 
@@ -280,129 +281,6 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
-  async function openFile(): Promise<TabState | null> {
-    if (!window.electronAPI) return null
-
-    const result = await window.electronAPI.openFile()
-    if (!result.success || !result.data) return null
-
-    const { filePath, content } = result.data
-
-    // 首先检查文件是否已在其他窗口打开
-    const checkResult = await window.electronAPI.checkFileOpen(filePath)
-    if (checkResult.success && checkResult.data?.windowId !== null) {
-      // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
-      await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
-      return null
-    }
-
-    // 检查当前窗口是否已打开该文件
-    const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
-    if (existingTab) {
-      switchTab(existingTab.id)
-      return existingTab
-    }
-
-    const title = extractTitleFromPath(filePath)
-    const tab = createTab({ filePath, content, title })
-    switchTab(tab.id)
-
-    eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
-
-    return tab
-  }
-
-  async function openRecentFile(filePath: string): Promise<TabState | null> {
-    // 首先检查文件是否已在其他窗口打开
-    if (window.electronAPI) {
-      const checkResult = await window.electronAPI.checkFileOpen(filePath)
-      if (checkResult.success && checkResult.data?.windowId !== null) {
-        // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
-        await window.electronAPI.focusWindow(checkResult.data.windowId, filePath)
-        return null
-      }
-    }
-
-    // 检查当前窗口是否已打开该文件
-    const existingTab = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
-    if (existingTab) {
-      switchTab(existingTab.id)
-      return existingTab
-    }
-
-    if (!window.electronAPI) return null
-
-    try {
-      const contentResp = await window.electronAPI.readFile(filePath)
-      if (!contentResp.success) return null
-      const content = contentResp.data
-      const title = extractTitleFromPath(filePath)
-      const tab = createTab({ filePath, content, title })
-      switchTab(tab.id)
-
-      eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
-      return tab
-    } catch (e) {
-      return null
-    }
-  }
-
-  async function saveFile(tabId: string): Promise<boolean> {
-    const tab = tabs.value.get(tabId)
-    if (!tab) return false
-
-    if (!window.electronAPI) return false
-
-    if (tab.filePath) {
-      const prefs = usePreferencesStore()
-      const lineEnding = prefs.lineEnding as LineEnding
-      await window.electronAPI.saveFile(tab.filePath, tab.content, lineEnding)
-      markClean(tabId)
-
-      eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
-      return true
-    } else {
-      return await saveFileAs(tabId)
-    }
-  }
-
-  async function saveFileAs(tabId: string): Promise<boolean> {
-    const tab = tabs.value.get(tabId)
-    if (!tab || !window.electronAPI) return false
-
-    const prefs = usePreferencesStore()
-    const lineEnding = prefs.lineEnding as LineEnding
-    const defaultPath = (tab.title.endsWith('.md') ? tab.title : tab.title + '.md')
-    
-    const filePathResp = await window.electronAPI.saveAsFile(tab.content, defaultPath, lineEnding)
-
-    if (filePathResp.success && filePathResp.data) {
-      const filePath = filePathResp.data
-      
-      await handleTempImagesOnSave(tabId, filePath)
-
-      tab.filePath = filePath
-      tab.title = extractTitleFromPath(filePath)
-      markClean(tabId)
-
-      prefs.addRecentFile(filePath, tab.title)
-
-      eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })
-      return true
-    }
-
-    return false
-  }
-
-  async function handleTempImagesOnSave(tabId: string, newFilePath: string): Promise<void> {
-    const tab = tabs.value.get(tabId)
-    if (!tab) return
-
-    const mdDir = getDirname(newFilePath)
-    await copyTempImagesToTarget(tabId, mdDir)
-    await deleteTempImageDir(tabId)
-  }
-
   function getAllTabs(): TabState[] {
     return tabOrder.value.map(id => tabs.value.get(id)!).filter(Boolean)
   }
@@ -414,6 +292,8 @@ export const useTabsStore = defineStore('tabs', () => {
     activeTab,
     dirtyTabs,
     tabCount,
+    getTab,
+    findTabByFilePath,
     createTab,
     removeTab,
     switchTab,
@@ -421,10 +301,6 @@ export const useTabsStore = defineStore('tabs', () => {
     markDirty,
     markClean,
     setViewMode,
-    openFile,
-    openRecentFile,
-    saveFile,
-    saveFileAs,
     getAllTabs
   }
 })

@@ -4,11 +4,13 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useExport } from '@/composables/useExport'
+import { useTabService } from '@/services/tabService'
 
 export function useKeyboardShortcuts() {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const fileStore = useFileExplorerStore()
+  const tabService = useTabService()
   const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
   const { showExportDialog } = useExport()
 
@@ -24,9 +26,13 @@ export function useKeyboardShortcuts() {
         case 's':
           event.preventDefault()
           if (event.shiftKey) {
-            tabsStore.saveFileAs(tabsStore.activeTabId!)
+            if (tabsStore.activeTabId) {
+              tabService.saveFileAs(tabsStore.activeTabId)
+            }
           } else {
-            tabsStore.saveFile(tabsStore.activeTabId!)
+            if (tabsStore.activeTabId) {
+              tabService.saveFile(tabsStore.activeTabId)
+            }
           }
           break
         case 'n':
@@ -46,25 +52,7 @@ export function useKeyboardShortcuts() {
           break
         case 'o':
           event.preventDefault()
-          if (event.shiftKey) {
-            tabsStore.openFile()
-          } else {
-            if (window.electronAPI) {
-              window.electronAPI.openFile().then((result: unknown) => {
-                const fileResult = result as { success: boolean; data?: { filePath: string; content: string } }
-                if (fileResult.success && fileResult.data) {
-                  const { filePath, content } = fileResult.data
-                  const title = filePath.split(/[/\\]/).pop()?.split(/[/\\]/).pop() || '未命名'
-                  tabsStore.createTab({
-                    title,
-                    content,
-                    filePath
-                  })
-                  prefsStore.addRecentFile(filePath, title)
-                }
-              })
-            }
-          }
+          tabService.openFile()
           break
         case 'b':
           event.preventDefault()

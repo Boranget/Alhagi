@@ -29,7 +29,7 @@ class EnhancedEventBus implements EventBus {
 
     callbacks.forEach(callback => {
       try {
-        callback(payload as unknown)
+        callback(payload)
       } catch (error) {
         console.error(`[EventBus] Error emitting event "${event}":`, error)
       }

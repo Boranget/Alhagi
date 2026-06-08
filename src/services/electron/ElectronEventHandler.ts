@@ -9,6 +9,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
+import { useTabService } from '@/services/tabService'
 import type { ElectronAPI } from 'electron-protocol'
 
 /**
@@ -24,6 +25,7 @@ export class ElectronEventHandler {
   private editorManager: ReturnType<typeof useCrepeEditorManager>
   private clipboard: ReturnType<typeof useClipboard>
   private capture: ReturnType<typeof useCapture>
+  private tabService: ReturnType<typeof useTabService>
 
   constructor(api: ElectronAPI | undefined) {
     this.api = api
@@ -33,6 +35,7 @@ export class ElectronEventHandler {
     this.editorManager = useCrepeEditorManager()
     this.clipboard = useClipboard()
     this.capture = useCapture()
+    this.tabService = useTabService()
   }
 
   /**
@@ -90,7 +93,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onOpenFile(() => {
         this.safeExecute(() => {
-          this.tabsStore.openFile()
+          this.tabService.openFile()
         }, 'onOpenFile')
       })
     )
@@ -111,7 +114,7 @@ export class ElectronEventHandler {
       this.api!.onSave(() => {
         this.safeExecute(() => {
           if (this.tabsStore.activeTabId) {
-            this.tabsStore.saveFile(this.tabsStore.activeTabId)
+            this.tabService.saveFile(this.tabsStore.activeTabId)
           }
         }, 'onSave')
       })
@@ -121,7 +124,7 @@ export class ElectronEventHandler {
       this.api!.onSaveAs(() => {
         this.safeExecute(() => {
           if (this.tabsStore.activeTabId) {
-            this.tabsStore.saveFileAs(this.tabsStore.activeTabId)
+            this.tabService.saveFileAs(this.tabsStore.activeTabId)
           }
         }, 'onSaveAs')
       })

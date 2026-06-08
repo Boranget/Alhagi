@@ -7,6 +7,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
+import { useTabService } from '@/services/tabService'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -14,6 +15,7 @@ export function initCommandHandlers(): void {
   const editorManager = useCrepeEditorManager()
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
+  const tabService = useTabService()
 
   // ========================================
   // 文件操作命令
@@ -24,7 +26,7 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('file.open', () => {
-    tabsStore.openFile()
+    tabService.openFile()
   })
 
   dispatcher.register('file.openFolder', async () => {
@@ -36,13 +38,13 @@ export function initCommandHandlers(): void {
 
   dispatcher.register('file.save', () => {
     if (tabsStore.activeTabId) {
-      tabsStore.saveFile(tabsStore.activeTabId)
+      tabService.saveFile(tabsStore.activeTabId)
     }
   })
 
   dispatcher.register('file.saveAs', () => {
     if (tabsStore.activeTabId) {
-      tabsStore.saveFileAs(tabsStore.activeTabId)
+      tabService.saveFileAs(tabsStore.activeTabId)
     }
   })
 

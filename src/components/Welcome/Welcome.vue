@@ -79,12 +79,14 @@
 import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { useTabService } from '@/services/tabService'
 import { computed } from 'vue'
 import { Icon } from '@/components/Icons'
 
 const prefsStore = usePreferencesStore()
 const tabsStore = useTabsStore()
 const fileStore = useFileExplorerStore()
+const tabService = useTabService()
 
 const recentFiles = computed(() => prefsStore.recentFiles)
 
@@ -93,21 +95,7 @@ function createNewFile() {
 }
 
 async function openExistingFile() {
-  if (window.electronAPI) {
-    const result = await window.electronAPI.openFile()
-    if (result.success && result.data) {
-      const { filePath, content } = result.data
-      const title = filePath.split('/').pop()?.split('\\').pop() || '未命名'
-      tabsStore.createTab({
-        title,
-        content,
-        filePath
-      })
-      prefsStore.addRecentFile(filePath, title)
-    }
-  } else {
-    await tabsStore.openFile()
-  }
+  await tabService.openFile()
 }
 
 async function openFolder() {
@@ -121,7 +109,7 @@ async function openFolder() {
 
 function openRecentFile(file: { filePath: string; title: string }) {
   if (file.filePath) {
-    tabsStore.openRecentFile(file.filePath)
+    tabService.openRecentFile(file.filePath)
   }
 }
 </script>

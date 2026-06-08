@@ -3,10 +3,12 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
+import { useTabService } from '@/services/tabService'
 
 export function useAutoSave() {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
+  const tabService = useTabService()
   const isAutoSaving = ref(false)
   const lastAutoSaveTime = ref<number | null>(null)
   const autoSaveError = ref<string | null>(null)
@@ -33,7 +35,7 @@ export function useAutoSave() {
     autoSaveError.value = null
 
     try {
-      const success = await tabsStore.saveFile(activeTab.id)
+      const success = await tabService.saveFile(activeTab.id)
       if (success) {
         lastAutoSaveTime.value = Date.now()
       } else {

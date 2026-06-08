@@ -170,9 +170,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { useTabService } from '@/services/tabService'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
@@ -180,8 +180,8 @@ import { Icon } from '@/components/Icons'
 const activeTab = ref<'files' | 'folders'>('files')
 
 const prefs = usePreferencesStore()
-const tabs = useTabsStore()
 const fileStore = useFileExplorerStore()
+const tabService = useTabService()
 
 const recentFiles = computed(() => prefs.recentFiles)
 const recentFolders = computed(() => prefs.recentFolders)
@@ -192,7 +192,7 @@ const pinnedFolders = computed(() => recentFolders.value.filter(f => f.pinned))
 const unpinnedFolders = computed(() => recentFolders.value.filter(f => !f.pinned))
 
 function openFile(file: RecentFile) {
-  tabs.openRecentFile(file.filePath)
+  tabService.openRecentFile(file.filePath)
 }
 
 async function openFolder(folder: RecentFolder) {
