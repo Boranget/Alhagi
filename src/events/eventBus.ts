@@ -1,20 +1,7 @@
-import { ref } from 'vue'
-import type { AppEventName, AppEventPayloads } from '@/types'
+import type { AppEventName, AppEventPayloads, EventCallback, EventBus } from '@/types'
 
-export type EventCallback<T = unknown> = (payload: T) => void
-
-export interface EventBus {
-  on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void
-  off<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
-  emit<E extends AppEventName>(event: E, payload?: AppEventPayloads[E]): void
-  once<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
-  clear(): void
-}
-
-type EventMap = Map<string, Set<EventCallback>>
-
-class SimpleEventBus implements EventBus {
-  private events: EventMap = new Map()
+class EnhancedEventBus implements EventBus {
+  private events = new Map<AppEventName, Set<EventCallback>>()
 
   on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void {
     if (!this.events.has(event)) {
@@ -29,6 +16,7 @@ class SimpleEventBus implements EventBus {
     const callbacks = this.events.get(event)
     if (callbacks) {
       callbacks.delete(callback as EventCallback)
+      
       if (callbacks.size === 0) {
         this.events.delete(event)
       }
@@ -37,68 +25,82 @@ class SimpleEventBus implements EventBus {
 
   emit<E extends AppEventName>(event: E, payload?: AppEventPayloads[E]): void {
     const callbacks = this.events.get(event)
-    if (callbacks) {
-      callbacks.forEach(callback => {
-        try {
-          callback(payload)
-        } catch (error) {
-          // Silent fail - event callback errors
-        }
-      })
-    }
+    if (!callbacks) return
+
+    callbacks.forEach(callback => {
+      try {
+        callback(payload as unknown)
+      } catch (error) {
+        console.error(`[EventBus] Error emitting event "${event}":`, error)
+      }
+    })
   }
 
   once<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void {
-    const wrappedCallback: EventCallback<AppEventPayloads[E]> = (payload) => {
+    const wrapper = ((payload: AppEventPayloads[E]) => {
+      this.off(event, wrapper)
       callback(payload)
-      this.off(event, wrappedCallback)
-    }
-    this.on(event, wrappedCallback)
+    }) as EventCallback
+
+    this.on(event, wrapper)
+  }
+
+  subscribe<E extends AppEventName>(subscriptions: Record<E, EventCallback<AppEventPayloads[E]>>): () => void {
+    const unsubscribers: (() => void)[] = []
+
+    Object.entries(subscriptions).forEach(([event, callback]) => {
+      unsubscribers.push(this.on(event as E, callback as EventCallback<AppEventPayloads[E]>))
+    })
+
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe())
   }
 
   clear(): void {
     this.events.clear()
   }
+
+  hasListeners(event: AppEventName): boolean {
+    return this.events.has(event) && this.events.get(event)!.size > 0
+  }
+
+  getListenerCount(event: AppEventName): number {
+    return this.events.get(event)?.size ?? 0
+  }
 }
 
-export const eventBus = new SimpleEventBus()
+export const eventBus = new EnhancedEventBus()
 
-// 使用类型安全的事件常量
 export const AppEvents = {
-  // Tab相关事件
   TAB_CREATED: 'app:tab:created' as const,
   TAB_CLOSED: 'app:tab:closed' as const,
   TAB_SWITCHED: 'app:tab:switched' as const,
   TAB_UPDATED: 'app:tab:updated' as const,
   
-  // 文件相关事件
   FILE_OPENED: 'app:file:opened' as const,
   FILE_SAVED: 'app:file:saved' as const,
   FOLDER_OPENED: 'app:folder:opened' as const,
   
-  // 编辑器相关事件
   EDITOR_READY: 'app:editor:ready' as const,
   EDITOR_DESTROYED: 'app:editor:destroyed' as const,
   VIEW_MODE_CHANGED: 'app:view-mode-changed' as const,
   THEME_CHANGED: 'app:theme:changed' as const,
   
-  // 编辑器核心事件
   ACTIVE_EDITOR_CHANGED: 'editor:active-editor-changed' as const,
   CONTENT_CHANGED: 'editor:content:changed' as const,
   CURSOR_CHANGED: 'editor:cursor:changed' as const,
   SELECTION_CHANGED: 'editor:selection:changed' as const,
   SCROLL_CHANGED: 'editor:scroll:changed' as const,
   SCROLL_TO_HEADING: 'editor:scroll-to-heading' as const,
+  UNDO: 'editor:undo' as const,
+  REDO: 'editor:redo' as const,
   EDIT_UNDO: 'editor:undo' as const,
   EDIT_REDO: 'editor:redo' as const,
   
-  // 编辑操作事件
   COPY_AS_MARKDOWN: 'app:copy-as-markdown' as const,
   COPY_AS_HTML: 'app:copy-as-html' as const,
   PASTE_AS_PLAIN: 'app:paste-as-plain' as const,
   CAPTURE_SCREEN: 'app:capture-screen' as const,
   
-  // UI 事件
   WINDOW_RESIZED: 'app:window:resized' as const,
   WINDOW_MAXIMIZED: 'app:window:maximized' as const,
   WINDOW_MINIMIZED: 'app:window:minimized' as const,
@@ -106,44 +108,26 @@ export const AppEvents = {
   OPEN_SETTINGS: 'app:open-settings' as const,
   SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const,
   
-  // 视图模式事件
   VIEW_MODE_CHANGE: 'app:view-mode-change' as const,
   TOGGLE_STICKY_NOTE_MODE: 'app:toggle-sticky-note-mode' as const,
   TOGGLE_IMMERSIVE_MODE: 'app:toggle-immersive-mode' as const,
   
-  // 窗口和标签页事件
   NEW_WINDOW_REQUESTED: 'app:new-window-requested' as const,
   TAB_MERGE_REQUESTED: 'app:tab-merge-requested' as const,
   TAB_DETACHED: 'app:tab-detached' as const,
-  FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const
-} as const
+  FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const,
+}
 
-export function createEventHook<T = unknown>() {
-  const callbacks = ref<Set<EventCallback<T>>>(new Set())
+export type { AppEventName, AppEventPayloads, EventCallback }
 
+export function useEventBus() {
   return {
-    on(callback: EventCallback<T>): () => void {
-      callbacks.value.add(callback)
-      return () => callbacks.value.delete(callback)
-    },
-    off(callback: EventCallback<T>): void {
-      callbacks.value.delete(callback)
-    },
-    emit(payload: T): void {
-      callbacks.value.forEach(cb => {
-        try {
-          cb(payload)
-        } catch (error) {
-          // Silent fail - event callback errors
-        }
-      })
-    },
-    once(callback: EventCallback<T>): void {
-      const wrapped: EventCallback<T> = (p) => {
-        callback(p)
-        callbacks.value.delete(wrapped)
-      }
-      callbacks.value.add(wrapped)
-    }
+    on: eventBus.on.bind(eventBus),
+    off: eventBus.off.bind(eventBus),
+    emit: eventBus.emit.bind(eventBus),
+    once: eventBus.once.bind(eventBus),
+    subscribe: eventBus.subscribe.bind(eventBus),
+    hasListeners: eventBus.hasListeners.bind(eventBus),
+    getListenerCount: eventBus.getListenerCount.bind(eventBus),
   }
 }

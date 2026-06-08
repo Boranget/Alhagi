@@ -103,9 +103,38 @@ export interface AppEventPayloads {
   'app:preferences:updated': undefined
   'app:open-settings': undefined
   'app:sidebar:view-changed': SidebarView
+  
+  // 视图模式事件
+  'app:view-mode-change': { mode: ViewMode }
+  'app:toggle-sticky-note-mode': undefined
+  'app:toggle-immersive-mode': undefined
+  
+  // 窗口和标签页事件
+  'app:new-window-requested': { options?: OpenWindowOptions }
+  'app:tab-merge-requested': { options: MergeTabOptions }
+  'app:tab-detached': { tabData: DetachedTabData }
+  'app:focus-tab-for-file': { filePath: string }
 }
 
 export type AppEventName = keyof AppEventPayloads
+
+export type EventCallback<T = unknown> = (payload: T) => void
+
+export interface Subscription<E extends AppEventName = AppEventName> {
+  event: E
+  callback: EventCallback<AppEventPayloads[E]>
+}
+
+export interface EventBus {
+  on<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): () => void
+  off<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
+  emit<E extends AppEventName>(event: E, payload?: AppEventPayloads[E]): void
+  once<E extends AppEventName>(event: E, callback: EventCallback<AppEventPayloads[E]>): void
+  subscribe<E extends AppEventName>(subscriptions: Record<E, EventCallback<AppEventPayloads[E]>>): () => void
+  clear(): void
+  hasListeners(event: AppEventName): boolean
+  getListenerCount(event: AppEventName): number
+}
 
 declare global {
   interface Window {
