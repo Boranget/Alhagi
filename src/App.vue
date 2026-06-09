@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
@@ -41,10 +41,12 @@ import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
-import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import Welcome from '@/components/Welcome/Welcome.vue'
-import CommandPalette from '@/components/CommandPalette/CommandPalette.vue'
-import ShortcutsDialog from '@/components/Shortcuts/ShortcutsDialog.vue'
+
+// 按需对话框：仅在用户触发时才加载，减小首屏 bundle 体积
+const SettingsPanel = defineAsyncComponent(() => import('@/components/Settings/SettingsPanel.vue'))
+const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
+const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()

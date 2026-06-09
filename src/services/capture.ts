@@ -1,5 +1,3 @@
-import html2canvas from 'html2canvas'
-
 export interface CaptureResult {
   dataUrl: string
   width: number
@@ -10,10 +8,13 @@ export function useCapture() {
   async function captureEditor(targetElement?: HTMLElement): Promise<CaptureResult | null> {
     try {
       const element = targetElement || document.querySelector('.editor-content') as HTMLElement
-      
+
       if (!element) {
         return null
       }
+
+      // 按需加载 html2canvas（~200KB），避免在首屏 bundle 中包含
+      const { default: html2canvas } = await import('html2canvas')
 
       const canvas = await html2canvas(element, {
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim() || '#ffffff',
