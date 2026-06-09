@@ -25,33 +25,34 @@ export const toggleTaskListCommand = $command(
       }
 
       if (depth < 0 || listItemNode.type.name !== 'list_item') {
-        const bulletListResult = wrapIn(bulletListType)(state)
-        if (!bulletListResult) return false
+        if (!wrapIn(bulletListType)(state)) return false
 
         if (dispatch) {
-          const newTr = state.tr
-          bulletListResult.apply()
+          let wrappedTr: Transaction | null = null
+          wrapIn(bulletListType)(state, (tr) => { wrappedTr = tr })
 
-          const newDoc = newTr.doc || doc
-          const newStartPos = newDoc.resolve(from)
+          if (wrappedTr) {
+            const newDoc = wrappedTr.doc || doc
+            const newStartPos = newDoc.resolve(from)
 
-          let newDepth = newStartPos.depth
-          let newListItem = newStartPos.node(newDepth)
-          while (newDepth >= 0 && newListItem.type.name !== 'list_item') {
-            newDepth--
-            if (newDepth >= 0) {
-              newListItem = newStartPos.node(newDepth)
+            let newDepth = newStartPos.depth
+            let newListItem = newStartPos.node(newDepth)
+            while (newDepth >= 0 && newListItem.type.name !== 'list_item') {
+              newDepth--
+              if (newDepth >= 0) {
+                newListItem = newStartPos.node(newDepth)
+              }
             }
-          }
 
-          if (newDepth >= 0) {
-            const listItemStart = newStartPos.before(newDepth + 1)
-            newTr.setNodeMarkup(listItemStart, listItemType, {
-              ...newListItem.attrs,
-              checked: false,
-            })
+            if (newDepth >= 0) {
+              const listItemStart = newStartPos.before(newDepth + 1)
+              wrappedTr.setNodeMarkup(listItemStart, listItemType, {
+                ...newListItem.attrs,
+                checked: false,
+              })
+            }
+            dispatch(wrappedTr)
           }
-          dispatch(newTr)
         }
         return true
       }
