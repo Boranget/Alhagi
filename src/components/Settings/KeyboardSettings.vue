@@ -205,6 +205,12 @@ function handleKeydown(e: KeyboardEvent) {
       return
     }
 
+    // 忽略纯修饰键，等待真正的按键
+    const modifierKeys = ['Control', 'Shift', 'Alt', 'Meta', 'OS', 'CapsLock']
+    if (modifierKeys.includes(e.key)) {
+      return
+    }
+
     const newBinding: Keybinding = {
       key: e.key.toLowerCase(),
       modifiers: {

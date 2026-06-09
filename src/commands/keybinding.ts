@@ -16,11 +16,15 @@ class KeybindingManager {
   // 用户自定义快捷键覆盖（commandId → Keybinding）
   private customKeybindings = new Map<string, Keybinding>()
 
+  // 在属性初始化时绑定 this 并保存引用，确保 addEventListener/removeEventListener
+  // 使用同一个函数引用
+  private handleKeyDown = this.handleKeyDownImpl.bind(this)
+
   // 绑定全局键盘事件监听
   attachGlobalListener(): void {
     if (this.isAttached) return
 
-    document.addEventListener('keydown', this.handleKeyDown.bind(this))
+    document.addEventListener('keydown', this.handleKeyDown)
     this.isAttached = true
   }
 
@@ -28,18 +32,27 @@ class KeybindingManager {
   detachGlobalListener(): void {
     if (!this.isAttached) return
 
-    document.removeEventListener('keydown', this.handleKeyDown.bind(this))
+    document.removeEventListener('keydown', this.handleKeyDown)
     this.isAttached = false
   }
 
   // 处理键盘事件
-  private handleKeyDown(event: KeyboardEvent): void {
+  private handleKeyDownImpl(event: KeyboardEvent): void {
     // 跳过在输入框、文本域等可编辑元素中的事件
     if (this.shouldIgnoreEvent(event)) {
       return
     }
 
-    // Ctrl+1~9: 快速切换到第 N 个标签页
+    // 先查找匹配的命令（优先使用用户自定义快捷键）
+    const matchedCommand = this.findMatchingCommand(event)
+    if (matchedCommand) {
+      event.preventDefault()
+      event.stopPropagation()
+      executeCommand(matchedCommand.id)
+      return
+    }
+
+    // 未匹配自定义快捷键时，回退到 Ctrl+1~9 快速切换标签页
     if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
       const num = parseInt(event.key)
       if (num >= 1 && num <= 9) {
@@ -52,14 +65,6 @@ class KeybindingManager {
         }
         return
       }
-    }
-
-    // 查找匹配的命令
-    const matchedCommand = this.findMatchingCommand(event)
-    if (matchedCommand) {
-      event.preventDefault()
-      event.stopPropagation()
-      executeCommand(matchedCommand.id)
     }
 
     // 调用自定义监听器
