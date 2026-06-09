@@ -2,25 +2,29 @@ import { FileTreeNode, DirectoryEntry, RecentFile, RecentFolder, ElectronAPI, Li
 
 export type { ElectronAPI, LineEnding, SearchResult, SearchOptions, DetachedTabData }
 
+export interface EditorSpecificState {
+  cursor: {
+    from: number
+    to: number
+  }
+  scrollTop: number
+  undoStack: HistoryItem[]
+  redoStack: HistoryItem[]
+}
+
 export interface TabState {
   id: string
   filePath: string | null
   content: string
   isDirty: boolean
   title: string
-  active: boolean
-  cursor: {
-    from: number
-    to: number
-  }
-  scrollTop: number
   viewMode: ViewMode
   fileType: FileType
-  undoStack: HistoryItem[]
-  redoStack: HistoryItem[]
   createdAt: number
   lastModified: number
   lastSaved: number | null
+  crepe: EditorSpecificState
+  codeMirror: EditorSpecificState
 }
 
 export interface HistoryItem {

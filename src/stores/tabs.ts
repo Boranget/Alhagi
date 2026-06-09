@@ -7,6 +7,7 @@ import {
   detectFileType, 
   createDefaultTabState, 
   trimHistoryStacks,
+  createDefaultEditorState,
   MAX_UNDO_STACK_SIZE,
   MAX_REDO_STACK_SIZE 
 } from '@/utils/tabHelpers'
@@ -73,16 +74,13 @@ export const useTabsStore = defineStore('tabs', () => {
       content: options.content || '',
       isDirty: false,
       title: options.title || generateUntitledTitle(),
-      active: false,
-      cursor: { from: 0, to: 0 },
-      scrollTop: 0,
       viewMode: options.viewMode || EDITOR.VIEW_MODES.WYSIWYG,
       fileType,
-      undoStack: [],
-      redoStack: [],
       createdAt: Date.now(),
       lastModified: Date.now(),
-      lastSaved: null
+      lastSaved: null,
+      crepe: createDefaultEditorState(),
+      codeMirror: createDefaultEditorState()
     }
 
     if (!validateTabState(tab)) {
@@ -98,7 +96,6 @@ export const useTabsStore = defineStore('tabs', () => {
     }
 
     activeTabId.value = id
-    tab.active = true
 
     eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
 
@@ -133,10 +130,6 @@ export const useTabsStore = defineStore('tabs', () => {
       return
     }
 
-    tabs.value.forEach((tab) => {
-      tab.active = tab.id === tabId
-    })
-
     const previousTabId = activeTabId.value
     activeTabId.value = tabId
 
@@ -157,8 +150,12 @@ export const useTabsStore = defineStore('tabs', () => {
         tab.isDirty = updates.isDirty
       }
 
-      if (tab.undoStack.length > MAX_UNDO_STACK_SIZE || tab.redoStack.length > MAX_REDO_STACK_SIZE) {
-        trimHistoryStacks(tab)
+      // 检查并裁剪每个编辑器的历史栈
+      if (tab.crepe.undoStack.length > MAX_UNDO_STACK_SIZE || tab.crepe.redoStack.length > MAX_REDO_STACK_SIZE) {
+        trimHistoryStacks(tab.crepe)
+      }
+      if (tab.codeMirror.undoStack.length > MAX_UNDO_STACK_SIZE || tab.codeMirror.redoStack.length > MAX_REDO_STACK_SIZE) {
+        trimHistoryStacks(tab.codeMirror)
       }
 
       eventBus.emit(AppEvents.TAB_UPDATED, { tabId, updates })

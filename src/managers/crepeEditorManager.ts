@@ -401,8 +401,11 @@ export class CrepeEditorManager {
       const prevTab = tabsStore.getTab(previousTabId)
       if (prevTab) {
         tabsStore.updateTab(previousTabId, {
-          cursor: currentState.cursor || prevTab.cursor,
-          scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.scrollTop
+          crepe: {
+            ...prevTab.crepe,
+            cursor: currentState.cursor || prevTab.crepe.cursor,
+            scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.crepe.scrollTop
+          }
         })
       }
     }
@@ -417,7 +420,7 @@ export class CrepeEditorManager {
     }
 
     // 切换后立即恢复新标签的状态
-    await this.restoreEditorState(tab.cursor, tab.scrollTop)
+    await this.restoreEditorState(tab.crepe.cursor, tab.crepe.scrollTop)
 
     eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })
   }

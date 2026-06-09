@@ -436,7 +436,7 @@ export function useTabDragDrop() {
       filePath: serializedTab.filePath ?? null,
       isDirty: serializedTab.isDirty,
       viewMode: serializedTab.viewMode,
-      cursor: serializedTab.cursor ?? { from: 0, to: 0 }
+      cursor: serializedTab.crepe?.cursor ?? { from: 0, to: 0 }
     }
   }
 
