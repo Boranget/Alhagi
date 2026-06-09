@@ -4,9 +4,9 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <EnhancedSidebar 
-        v-if="prefsStore.showSidebar" 
-        @open-settings="showSettings = true" 
+      <EnhancedSidebar
+        v-if="prefsStore.showSidebar"
+        @open-settings="showSettings = true"
       />
       <div class="editor-wrapper">
         <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
@@ -57,56 +57,22 @@ const showShortcuts = ref(false)
 
 let cleanup: (() => void) | null = null
 
-onMounted(async () => {
-  cleanup = await initializeApp()
-  
-  // 监听命令面板快捷键
-  window.addEventListener('keydown', handleGlobalKeydown)
-  
-  // 监听鼠标滚轮缩放
-  window.addEventListener('wheel', handleWheel, { passive: false })
-  
-  // 监听命令面板事件
-  window.addEventListener('app:quickOpen', () => {
-    showCommandPalette.value = true
-  })
-  
-  window.addEventListener('app:showShortcuts', () => {
-    showShortcuts.value = true
-  })
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleGlobalKeydown)
-  window.removeEventListener('wheel', handleWheel)
-  
-  if (cleanup) {
-    cleanup()
-  }
-})
-
-// 全局快捷键处理
-function handleGlobalKeydown(e: KeyboardEvent) {
-  // Ctrl/Cmd + Shift + P: 命令面板
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
-    e.preventDefault()
-    showCommandPalette.value = !showCommandPalette.value
-    return
-  }
-  
-  // Ctrl/Cmd + ,: 设置
-  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-    e.preventDefault()
-    showSettings.value = true
-    return
-  }
+// 命名事件处理器（确保可正确移除）
+function onQuickOpen() {
+  showCommandPalette.value = !showCommandPalette.value
 }
 
-// Ctrl+滚轮缩放处理
+function onShowShortcuts() {
+  showShortcuts.value = true
+}
+
+function onOpenSettings() {
+  showSettings.value = true
+}
+
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault()
-    
     const delta = e.deltaY > 0 ? -1 : 1
     if (delta > 0) {
       prefsStore.zoomIn()
@@ -115,6 +81,26 @@ function handleWheel(e: WheelEvent) {
     }
   }
 }
+
+onMounted(async () => {
+  cleanup = await initializeApp()
+
+  window.addEventListener('wheel', handleWheel, { passive: false })
+  window.addEventListener('app:quickOpen', onQuickOpen)
+  window.addEventListener('app:showShortcuts', onShowShortcuts)
+  window.addEventListener('app:openSettings', onOpenSettings)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('wheel', handleWheel)
+  window.removeEventListener('app:quickOpen', onQuickOpen)
+  window.removeEventListener('app:showShortcuts', onShowShortcuts)
+  window.removeEventListener('app:openSettings', onOpenSettings)
+
+  if (cleanup) {
+    cleanup()
+  }
+})
 </script>
 
 <style scoped lang="scss">

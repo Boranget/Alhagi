@@ -25,8 +25,6 @@ import { getKeybindingManager } from './keybinding'
 
 // 初始化命令系统
 export function initCommandSystem(): void {
-  console.log('[CommandSystem] Initializing...')
-
   // 1. 初始化所有命令处理器
   initCommandHandlers()
 
@@ -34,11 +32,29 @@ export function initCommandSystem(): void {
   const keybindingManager = getKeybindingManager()
   keybindingManager.attachGlobalListener()
 
-  console.log('[CommandSystem] Initialized successfully')
+  // 3. 加载用户自定义快捷键
+  loadCustomKeybindings(keybindingManager)
+}
+
+// 从 localStorage 加载自定义快捷键
+function loadCustomKeybindings(manager: ReturnType<typeof getKeybindingManager>): void {
+  const saved = localStorage.getItem('alhagi-custom-keybindings')
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved)
+      if (typeof parsed === 'object') {
+        manager.setCustomKeybindings(parsed)
+      }
+    } catch {
+      // 静默忽略无效 JSON
+    }
+  }
 }
 
 // 销毁命令系统
-export function destroyCommandSystem(): void {
-  const keybindingManager = getKeybindingManager()
-  keybindingManager.detachGlobalListener()
+export function destroyCommandSystem(): () => void {
+  return () => {
+    const keybindingManager = getKeybindingManager()
+    keybindingManager.detachGlobalListener()
+  }
 }

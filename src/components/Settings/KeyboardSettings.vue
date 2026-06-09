@@ -18,7 +18,7 @@
           ✕
         </button>
       </div>
-      
+
       <div class="settings-content">
         <div class="search-box">
           <input
@@ -28,28 +28,28 @@
             class="search-input"
           >
         </div>
-        
+
         <div class="keybindings-list">
           <div
             v-for="category in filteredCategories"
-            :key="category.name"
+            :key="category.id"
             class="category-section"
           >
-            <h3>{{ category.name }}</h3>
+            <h3>{{ category.label }}</h3>
             <div
-              v-for="binding in category.bindings"
-              :key="binding.id"
+              v-for="cmd in category.commands"
+              :key="cmd.id"
               class="keybinding-item"
             >
               <div class="binding-info">
-                <span class="binding-description">{{ binding.description }}</span>
+                <span class="binding-description">{{ cmd.description || cmd.label }}</span>
               </div>
               <div
                 class="binding-key"
-                @click="startRecording(binding)"
+                @click="startRecording(cmd.id)"
               >
                 <span
-                  v-if="recordingFor === binding.id"
+                  v-if="recordingFor === cmd.id"
                   class="recording"
                 >
                   按键中...
@@ -58,13 +58,13 @@
                   v-else
                   class="key-display"
                 >
-                  {{ formatKeybinding(binding) }}
+                  {{ getKeybindingDisplay(cmd.id) || '无' }}
                 </span>
                 <button
-                  v-if="isModified(binding.id)"
+                  v-if="isModified(cmd.id)"
                   class="reset-btn"
                   title="重置为默认"
-                  @click.stop="resetBinding(binding.id)"
+                  @click.stop="resetBinding(cmd.id)"
                 >
                   ↩
                 </button>
@@ -72,7 +72,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="settings-footer">
           <button
             class="btn secondary"
@@ -115,8 +115,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useKeybindings } from '@/composables/useKeybindings'
-import { DEFAULT_KEYBINDINGS, type Keybinding } from '@/services/keybindingService'
+import { COMMANDS, CATEGORY_LABELS } from '@/commands/registry'
+import { formatKeybinding } from '@/commands/types'
+import type { Keybinding, CommandCategory } from '@/commands/types'
+import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
 
 const emit = defineEmits<{
@@ -124,136 +126,118 @@ const emit = defineEmits<{
   (e: 'save'): void
 }>()
 
-const {
-  keybindings,
-  resetToDefaults,
-  exportKeybindings: exportKeybindingsFn,
-  importKeybindings: importKeybindingsFn
-} = useKeybindings()
-
 const prefsStore = usePreferencesStore()
 const searchQuery = ref('')
 const recordingFor = ref<string | null>(null)
-const tempBindings = ref<Record<string, Keybinding>>({})
 const fileInput = ref<HTMLInputElement | null>(null)
 
+// 用户自定义快捷键覆盖（key = commandId, value = Keybinding）
+const customKeybindings = ref<Record<string, Keybinding>>({})
+
+// 所有带快捷键的命令，按类别分组
 const categories = computed(() => {
-  const categoryMap = new Map<string, { name: string; bindings: Keybinding[] }>()
-  
-  keybindings.value.forEach(binding => {
-    if (!categoryMap.has(binding.category)) {
-      categoryMap.set(binding.category, {
-        name: getCategoryName(binding.category),
-        bindings: []
-      })
+  const categoryMap = new Map<CommandCategory, typeof COMMANDS extends Array<infer T> ? T[] : never>()
+
+  for (const cmd of COMMANDS) {
+    if (cmd.hidden) continue
+    if (!cmd.keybinding && !customKeybindings.value[cmd.id]) continue
+
+    if (!categoryMap.has(cmd.category)) {
+      categoryMap.set(cmd.category, [])
     }
-    categoryMap.get(binding.category)!.bindings.push(binding)
-  })
-  
-  return Array.from(categoryMap.values())
+    categoryMap.get(cmd.category)!.push(cmd)
+  }
+
+  return Array.from(categoryMap.entries()).map(([catId, commands]) => ({
+    id: catId,
+    label: CATEGORY_LABELS[catId] || catId,
+    commands,
+  }))
 })
 
 const filteredCategories = computed(() => {
   if (!searchQuery.value) {
     return categories.value
   }
-  
+
   const query = searchQuery.value.toLowerCase()
   return categories.value
     .map(cat => ({
       ...cat,
-      bindings: cat.bindings.filter(b =>
-        b.description.toLowerCase().includes(query) ||
-        b.action.toLowerCase().includes(query) ||
-        b.key.toLowerCase().includes(query)
+      commands: cat.commands.filter(cmd =>
+        (cmd.description || cmd.label).toLowerCase().includes(query) ||
+        cmd.id.toLowerCase().includes(query) ||
+        getKeybindingDisplay(cmd.id)?.toLowerCase().includes(query)
       )
     }))
-    .filter(cat => cat.bindings.length > 0)
+    .filter(cat => cat.commands.length > 0)
 })
 
-function getCategoryName(category: string): string {
-  const names: Record<string, string> = {
-    file: '文件操作',
-    edit: '编辑操作',
-    view: '视图操作',
-    tools: '工具',
-    help: '帮助'
+function getKeybindingDisplay(commandId: string): string | null {
+  // 优先使用自定义快捷键
+  const custom = customKeybindings.value[commandId]
+  if (custom) {
+    return formatKeybinding(custom)
   }
-  return names[category] || category
+  // 回退到注册表默认值
+  const cmd = COMMANDS.find(c => c.id === commandId)
+  if (cmd?.keybinding) {
+    return formatKeybinding(cmd.keybinding)
+  }
+  return null
 }
 
-function formatKeybinding(binding: Keybinding): string {
-  const parts: string[] = []
-  if (binding.modifiers.ctrl) parts.push('Ctrl')
-  if (binding.modifiers.alt) parts.push('Alt')
-  if (binding.modifiers.shift) parts.push('Shift')
-  if (binding.modifiers.meta) parts.push('Cmd')
-  parts.push(binding.key.toUpperCase())
-  return parts.join('+')
+function isModified(commandId: string): boolean {
+  return commandId in customKeybindings.value
 }
 
-function isModified(action: string): boolean {
-  const current = keybindings.value.find(kb => kb.action === action)
-  const temp = tempBindings.value[action]
-  if (!current || !temp) return false
-  return current.key !== temp.key ||
-         JSON.stringify(current.modifiers) !== JSON.stringify(temp.modifiers)
-}
-
-function startRecording(binding: Keybinding) {
-  recordingFor.value = binding.id
+function startRecording(commandId: string) {
+  recordingFor.value = commandId
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (recordingFor.value) {
     e.preventDefault()
     e.stopPropagation()
-    
+
     if (e.key === 'Escape') {
       recordingFor.value = null
       return
     }
-    
-    const newBinding = {
-      key: e.key,
+
+    const newBinding: Keybinding = {
+      key: e.key.toLowerCase(),
       modifiers: {
         ctrl: e.ctrlKey,
         alt: e.altKey,
         shift: e.shiftKey,
-        meta: e.metaKey
+        meta: e.metaKey,
       }
     }
-    
-    const index = keybindings.value.findIndex(kb => kb.id === recordingFor.value)
-    if (index !== -1) {
-      keybindings.value[index] = {
-        ...keybindings.value[index],
-        ...newBinding
-      }
-    }
-    
+
+    customKeybindings.value[recordingFor.value] = newBinding
     recordingFor.value = null
   }
 }
 
-function resetBinding(action: string) {
-  const defaultBinding = DEFAULT_KEYBINDINGS.find(kb => kb.action === action)
-  if (defaultBinding) {
-    const index = keybindings.value.findIndex(kb => kb.action === action)
-    if (index !== -1) {
-      keybindings.value[index] = { ...defaultBinding }
-    }
-  }
+function resetBinding(commandId: string) {
+  delete customKeybindings.value[commandId]
+  // 触发响应式更新
+  customKeybindings.value = { ...customKeybindings.value }
 }
 
 function resetAll() {
   if (confirm('确定要重置所有快捷键为默认值吗？')) {
-    resetToDefaults()
+    customKeybindings.value = {}
   }
 }
 
 function handleExportKeybindings() {
-  const json = exportKeybindingsFn()
+  const data = {
+    version: 1,
+    keybindings: customKeybindings.value,
+  }
+  const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -271,13 +255,31 @@ function handleImportKeybindings(e: Event) {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
-  
+
   const reader = new FileReader()
   reader.onload = (event) => {
-    const json = event.target?.result as string
-    if (importKeybindingsFn(json)) {
+    try {
+      const json = event.target?.result as string
+      const data = JSON.parse(json)
+      // 兼容旧格式和新格式
+      if (data.version === 1 && data.keybindings) {
+        customKeybindings.value = data.keybindings
+      } else if (typeof data === 'object' && !data.version) {
+        // 旧 useKeybindings 格式转换
+        const converted: Record<string, Keybinding> = {}
+        for (const [key, val] of Object.entries(data)) {
+          const entry = val as { action?: string; key?: string; modifiers?: Keybinding['modifiers'] }
+          if (entry.action && entry.key) {
+            converted[entry.action] = {
+              key: entry.key,
+              modifiers: entry.modifiers || {},
+            }
+          }
+        }
+        customKeybindings.value = converted
+      }
       alert('导入成功！')
-    } else {
+    } catch {
       alert('导入失败：文件格式不正确')
     }
   }
@@ -286,8 +288,10 @@ function handleImportKeybindings(e: Event) {
 }
 
 function saveAndClose() {
-  // 保存到 localStorage
-  localStorage.setItem('alhagi-keybindings', JSON.stringify(keybindings.value))
+  // 保存自定义快捷键到 localStorage
+  localStorage.setItem('alhagi-custom-keybindings', JSON.stringify(customKeybindings.value))
+  // 将自定义快捷键应用到 KeybindingManager
+  applyCustomKeybindings()
   prefsStore.savePreferences()
   emit('save')
   close()
@@ -297,20 +301,31 @@ function close() {
   emit('close')
 }
 
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-  // 加载保存的快捷键
-  const saved = localStorage.getItem('alhagi-keybindings')
+// 将自定义快捷键应用到命令系统
+function applyCustomKeybindings() {
+  const manager = getKeybindingManager()
+  manager.setCustomKeybindings(customKeybindings.value)
+}
+
+// 从 localStorage 加载自定义快捷键
+function loadCustomKeybindings() {
+  const saved = localStorage.getItem('alhagi-custom-keybindings')
   if (saved) {
     try {
-      const imported = JSON.parse(saved) as Keybinding[]
-      if (Array.isArray(imported)) {
-        keybindings.value = imported
+      const parsed = JSON.parse(saved)
+      if (typeof parsed === 'object') {
+        customKeybindings.value = parsed
+        applyCustomKeybindings()
       }
-    } catch (e) {
-      // Silent fail - invalid JSON in localStorage
+    } catch {
+      // 静默忽略无效 JSON
     }
   }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+  loadCustomKeybindings()
 })
 
 onUnmounted(() => {
@@ -353,13 +368,13 @@ onUnmounted(() => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
-  
+
   h2 {
     margin: 0;
     font-size: 18px;
     color: var(--text-primary);
   }
-  
+
   .close-btn {
     border: none;
     background: transparent;
@@ -369,7 +384,7 @@ onUnmounted(() => {
     padding: 4px 8px;
     border-radius: 4px;
     transition: all 0.15s;
-    
+
     &:hover {
       background: var(--panel-hover-bg);
     }
@@ -386,7 +401,7 @@ onUnmounted(() => {
 .search-box {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border-color);
-  
+
   .search-input {
     width: 100%;
     padding: 8px 12px;
@@ -395,7 +410,7 @@ onUnmounted(() => {
     background: var(--input-bg);
     color: var(--text-primary);
     font-size: 13px;
-    
+
     &:focus {
       outline: none;
       border-color: var(--primary-color);
@@ -411,7 +426,7 @@ onUnmounted(() => {
 
 .category-section {
   margin-bottom: 20px;
-  
+
   h3 {
     font-size: 13px;
     font-weight: 600;
@@ -430,7 +445,7 @@ onUnmounted(() => {
   background: var(--panel-hover-bg);
   border-radius: 6px;
   transition: all 0.15s;
-  
+
   &:hover {
     background: var(--sidebar-hover-bg);
   }
@@ -438,7 +453,7 @@ onUnmounted(() => {
 
 .binding-info {
   flex: 1;
-  
+
   .binding-description {
     font-size: 13px;
     color: var(--text-primary);
@@ -449,7 +464,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  
+
   .key-display {
     padding: 4px 12px;
     background: var(--code-bg);
@@ -460,13 +475,13 @@ onUnmounted(() => {
     border: 1px solid var(--border-color);
     cursor: pointer;
     transition: all 0.15s;
-    
+
     &:hover {
       border-color: var(--primary-color);
       background: var(--sidebar-hover-bg);
     }
   }
-  
+
   .recording {
     padding: 4px 12px;
     background: var(--primary-color);
@@ -475,7 +490,7 @@ onUnmounted(() => {
     color: white;
     animation: pulse 1s ease infinite;
   }
-  
+
   .reset-btn {
     border: none;
     background: transparent;
@@ -485,7 +500,7 @@ onUnmounted(() => {
     font-size: 14px;
     border-radius: 4px;
     transition: all 0.15s;
-    
+
     &:hover {
       background: var(--panel-hover-bg);
       color: var(--primary-color);
@@ -514,21 +529,21 @@ onUnmounted(() => {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
-  
+
   &.primary {
     background: var(--primary-color);
     color: white;
-    
+
     &:hover {
       opacity: 0.9;
     }
   }
-  
+
   &.secondary {
     background: var(--panel-hover-bg);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    
+
     &:hover {
       background: var(--sidebar-hover-bg);
     }

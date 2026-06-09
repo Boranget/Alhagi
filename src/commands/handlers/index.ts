@@ -8,6 +8,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -50,7 +51,15 @@ export function initCommandHandlers(): void {
 
   dispatcher.register('file.close', () => {
     if (tabsStore.activeTabId) {
-      tabsStore.removeTab(tabsStore.activeTabId)
+      // 脏文件确认关闭
+      const tab = tabsStore.tabs.get(tabsStore.activeTabId)
+      if (tab?.isDirty) {
+        if (confirm('文件有未保存的更改，确定要关闭吗？')) {
+          tabsStore.removeTab(tabsStore.activeTabId)
+        }
+      } else {
+        tabsStore.removeTab(tabsStore.activeTabId)
+      }
     }
   })
 
@@ -279,6 +288,34 @@ export function initCommandHandlers(): void {
     prefsStore.toggleImmersiveMode()
   })
 
+  dispatcher.register('view.focusMode', () => {
+    const { toggleFocusMode } = useWritingEnhancement()
+    toggleFocusMode()
+  })
+
+  dispatcher.register('view.typewriterMode', () => {
+    const { toggleTypewriterMode } = useWritingEnhancement()
+    toggleTypewriterMode()
+  })
+
+  dispatcher.register('view.nextTab', () => {
+    const tabOrder = tabsStore.tabOrder
+    if (tabOrder.length > 0 && tabsStore.activeTabId) {
+      const currentIndex = tabOrder.indexOf(tabsStore.activeTabId)
+      const nextIndex = (currentIndex + 1) % tabOrder.length
+      tabsStore.switchTab(tabOrder[nextIndex])
+    }
+  })
+
+  dispatcher.register('view.prevTab', () => {
+    const tabOrder = tabsStore.tabOrder
+    if (tabOrder.length > 0 && tabsStore.activeTabId) {
+      const currentIndex = tabOrder.indexOf(tabsStore.activeTabId)
+      const prevIndex = (currentIndex - 1 + tabOrder.length) % tabOrder.length
+      tabsStore.switchTab(tabOrder[prevIndex])
+    }
+  })
+
   // ========================================
   // 工具命令
   // ========================================
@@ -318,6 +355,11 @@ export function initCommandHandlers(): void {
 
   dispatcher.register('help.shortcuts', () => {
     const event = new CustomEvent('app:showShortcuts')
+    window.dispatchEvent(event)
+  })
+
+  dispatcher.register('help.commandPalette', () => {
+    const event = new CustomEvent('app:quickOpen')
     window.dispatchEvent(event)
   })
 

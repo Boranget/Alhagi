@@ -4,7 +4,6 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useAutoSave } from '@/composables/useAutoSave'
-import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
@@ -23,8 +22,7 @@ export function useApp() {
   
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
-  
-  useKeyboardShortcuts()
+
   useAutoSave()
 
   const setupEventListeners = () => {

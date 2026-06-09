@@ -5,12 +5,16 @@
 import { COMMANDS, getCommand } from './registry'
 import { executeCommand, canExecuteCommand } from './dispatcher'
 import { matchKeyEvent, formatKeybinding } from './types'
+import type { Keybinding } from './types'
+import { useTabsStore } from '@/stores/tabs'
 
 type KeybindingListener = (event: KeyboardEvent) => void
 
 class KeybindingManager {
   private listeners: KeybindingListener[] = []
   private isAttached = false
+  // 用户自定义快捷键覆盖（commandId → Keybinding）
+  private customKeybindings = new Map<string, Keybinding>()
 
   // 绑定全局键盘事件监听
   attachGlobalListener(): void {
@@ -18,7 +22,6 @@ class KeybindingManager {
 
     document.addEventListener('keydown', this.handleKeyDown.bind(this))
     this.isAttached = true
-    console.log('[KeybindingManager] Global listener attached')
   }
 
   // 移除全局键盘事件监听
@@ -27,7 +30,6 @@ class KeybindingManager {
 
     document.removeEventListener('keydown', this.handleKeyDown.bind(this))
     this.isAttached = false
-    console.log('[KeybindingManager] Global listener detached')
   }
 
   // 处理键盘事件
@@ -35,6 +37,21 @@ class KeybindingManager {
     // 跳过在输入框、文本域等可编辑元素中的事件
     if (this.shouldIgnoreEvent(event)) {
       return
+    }
+
+    // Ctrl+1~9: 快速切换到第 N 个标签页
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+      const num = parseInt(event.key)
+      if (num >= 1 && num <= 9) {
+        event.preventDefault()
+        event.stopPropagation()
+        const tabsStore = useTabsStore()
+        const index = num - 1
+        if (index < tabsStore.tabOrder.length) {
+          tabsStore.switchTab(tabsStore.tabOrder[index])
+        }
+        return
+      }
     }
 
     // 查找匹配的命令
@@ -73,19 +90,39 @@ class KeybindingManager {
     return false
   }
 
-  // 查找匹配的命令
+  // 查找匹配的命令（优先使用自定义快捷键）
   private findMatchingCommand(event: KeyboardEvent) {
     for (const command of COMMANDS) {
       if (command.hidden) continue
-      if (!command.keybinding) continue
 
-      if (matchKeyEvent(event, command.keybinding)) {
+      // 优先使用自定义快捷键
+      const customBinding = this.customKeybindings.get(command.id)
+      const binding = customBinding || command.keybinding
+      if (!binding) continue
+
+      if (matchKeyEvent(event, binding)) {
         if (canExecuteCommand(command.id)) {
           return command
         }
       }
     }
     return null
+  }
+
+  // 设置用户自定义快捷键覆盖
+  setCustomKeybindings(overrides: Record<string, Keybinding>): void {
+    this.customKeybindings.clear()
+    for (const [commandId, binding] of Object.entries(overrides)) {
+      this.customKeybindings.set(commandId, binding)
+    }
+  }
+
+  // 获取命令的有效快捷键（自定义优先，否则注册表默认）
+  getEffectiveKeybinding(commandId: string): Keybinding | undefined {
+    const custom = this.customKeybindings.get(commandId)
+    if (custom) return custom
+    const command = getCommand(commandId)
+    return command?.keybinding
   }
 
   // 添加自定义键盘监听器
@@ -101,16 +138,14 @@ class KeybindingManager {
 
   // 检查命令是否有快捷键
   hasKeybinding(id: string): boolean {
-    const command = getCommand(id)
-    return !!command?.keybinding
+    return !!this.getEffectiveKeybinding(id)
   }
 
   // 获取命令的快捷键显示文本
   getKeybindingDisplay(id: string): string | null {
-    const command = getCommand(id)
-    if (!command?.keybinding) return null
-
-    return formatKeybinding(command.keybinding)
+    const binding = this.getEffectiveKeybinding(id)
+    if (!binding) return null
+    return formatKeybinding(binding)
   }
 
   // 获取所有快捷键映射
@@ -118,8 +153,6 @@ class KeybindingManager {
     const result = new Map<string, string>()
 
     for (const command of COMMANDS) {
-      if (!command.keybinding) continue
-
       const display = this.getKeybindingDisplay(command.id)
       if (display) {
         result.set(command.id, display)

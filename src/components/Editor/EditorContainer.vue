@@ -340,7 +340,6 @@ onMounted(async () => {
     }
   }
   
-  window.addEventListener('keydown', handleEditorKeydown)
   window.addEventListener('resize', handleWindowResize)
   document.addEventListener('mousemove', handleResizerMouseMove)
   document.addEventListener('mouseup', handleResizerMouseUp)
@@ -355,7 +354,6 @@ onMounted(async () => {
 onUnmounted(async () => {
   console.log(`[EditorContainer] onUnmounted called (instance #${instanceCount})`)
   unsubscribes.forEach(unsubscribe => unsubscribe())
-  window.removeEventListener('keydown', handleEditorKeydown)
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
@@ -367,19 +365,6 @@ onUnmounted(async () => {
     container.removeEventListener('paste', imagePasteHandler.value, true)
   }
 })
-
-function handleEditorKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-    e.preventDefault()
-    floatingSearchRef.value?.show()
-    return
-  }
-  
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
-    e.preventDefault()
-    handleInsertImage()
-  }
-}
 
 function handleShowSearch(e: Event) {
   const customEvent = e as CustomEvent<{ showReplace?: boolean }>
