@@ -236,7 +236,7 @@ body.focus-mode {
   .ProseMirror {
     // 精确匹配：ProseMirror 的第一个直接子元素是 milkdown-code-block
     > :first-child:is(.milkdown-code-block) {
-      margin: 0 0 24px 0;
+      margin: 0 0 12px 0;
       border-radius: 6px;
       border: none;
       background: rgba(0, 0, 0, 0.025);
@@ -256,13 +256,13 @@ body.focus-mode {
           display: none !important;
         }
 
-        // 内容区：调淡字体、缩小字号
+        // 内容区：调淡字体、紧凑布局
         .cm-content {
-          padding: 10px 14px !important;
+          padding: 6px 12px !important;
           font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Courier New', monospace;
-          font-size: 0.82em;
-          line-height: 1.55;
-          color: rgba(0, 0, 0, 0.42);
+          font-size: 1em;
+          line-height: 1.5;
+          color: rgba(0, 0, 0, 0.55);
         }
 
         // 隐藏光标行高亮
@@ -293,7 +293,7 @@ body.focus-mode {
 
       .codemirror-host > .cm-editor {
         .cm-content {
-          color: rgba(255, 255, 255, 0.38);
+          color: rgba(255, 255, 255, 0.5);
         }
 
         .cm-activeLine,
