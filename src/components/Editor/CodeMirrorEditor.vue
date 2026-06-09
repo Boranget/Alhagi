@@ -55,6 +55,60 @@ function emitCursorChange() {
   eventBus.emit(AppEvents.CURSOR_CHANGED, { from, to, tabId })
 }
 
+/**
+ * 获取当前编辑器状态（光标位置和滚动位置）
+ * 用于在标签页切换时保存编辑器的当前状态
+ */
+function getCurrentState() {
+  if (!editorView) {
+    return { cursor: { from: 0, to: 0 }, scrollTop: 0 }
+  }
+
+  const { from, to } = editorView.state.selection.main
+  
+  // 获取滚动容器的 scrollTop
+  // editorView.dom 是 .cm-editor，.cm-scroller 是它的子元素
+  let scrollTop = 0
+  const scrollContainer = editorView.dom.querySelector('.cm-scroller') as HTMLElement
+  if (scrollContainer) {
+    scrollTop = scrollContainer.scrollTop
+  }
+
+  return { cursor: { from, to }, scrollTop }
+}
+
+/**
+ * 恢复编辑器状态（光标位置和滚动位置）
+ * 用于在标签页切换后恢复之前保存的编辑器状态
+ * @param cursor - 光标位置 { from, to }
+ * @param scrollTop - 滚动位置
+ */
+function restoreState(cursor: { from: number; to: number }, scrollTop: number) {
+  if (!editorView) return
+
+  // 恢复滚动位置
+  // editorView.dom 是 .cm-editor，.cm-scroller 是它的子元素
+  const scrollContainer = editorView.dom.querySelector('.cm-scroller') as HTMLElement
+  if (scrollContainer && scrollTop >= 0) {
+    scrollContainer.scrollTop = scrollTop
+  }
+
+  // 恢复光标位置
+  if (cursor && cursor.from >= 0 && cursor.to >= 0) {
+    const docLength = editorView.state.doc.length
+    const from = Math.min(cursor.from, docLength)
+    const to = Math.min(cursor.to, docLength)
+    
+    try {
+      editorView.dispatch({
+        selection: { anchor: from, head: to }
+      })
+    } catch {
+      // 忽略光标恢复错误（可能文档长度变化）
+    }
+  }
+}
+
 function initEditor() {
   if (editorRef.value) {
     editorView = createCodeMirrorView({
@@ -116,6 +170,12 @@ watch(() => props.modelValue, (newValue) => {
       }
     })
   }
+})
+
+// 暴露方法供父组件调用
+defineExpose({
+  getCurrentState,
+  restoreState
 })
 </script>
 

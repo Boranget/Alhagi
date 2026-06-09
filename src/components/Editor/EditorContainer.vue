@@ -42,21 +42,17 @@
         @click="handleCrepeClick"
       />
 
-      <!-- CodeMirror 编辑器 - 源码模式 -->
-      <CodeMirrorEditor
-        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-        :model-value="sourceContent"
-        @update:model-value="handleCodeMirrorChange"
-        @focus="handleCodeMirrorFocus"
-        @blur="handleCodeMirrorBlur"
-      />
-
-      <!-- CodeMirror 编辑器 - 分屏源码模式 -->
+      <!-- CodeMirror 编辑器 - 源码模式和分屏模式共用 -->
       <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="editor-split-source"
+        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE || currentMode === EDITOR.VIEW_MODES.SPLIT"
+        class="codemirror-wrapper"
+        :class="{
+          'editor-source': currentMode === EDITOR.VIEW_MODES.SOURCE,
+          'editor-split-source': currentMode === EDITOR.VIEW_MODES.SPLIT
+        }"
       >
         <CodeMirrorEditor
+          ref="codeMirrorEditorRef"
           :model-value="sourceContent"
           @update:model-value="handleCodeMirrorChange"
           @focus="handleCodeMirrorFocus"
@@ -108,6 +104,7 @@ const {
 } = useEditorView()
 
 const crepeContainer = ref<HTMLElement | null>(null)
+const codeMirrorEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 const imagePasteHandler = ref<((e: ClipboardEvent) => void) | null>(null)
 let hasSetupImagePaste = false
@@ -136,9 +133,27 @@ const contentClasses = computed(() => ({
   'small-screen': isSmallScreen.value
 }))
 
+// 监听标签页切换，保存和恢复 CodeMirror 编辑器状态
 watch(activeTab, async (tab, oldTab) => {
   if (tab) {
-    // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
+    const previousTabId = oldTab?.id
+    
+    // 标签页切换时，保存旧标签的 CodeMirror 状态（光标和滚动位置）
+    if (previousTabId && previousTabId !== tab.id && codeMirrorEditorRef.value) {
+      const currentState = codeMirrorEditorRef.value.getCurrentState()
+      const prevTab = tabsStore.getTab(previousTabId)
+      if (prevTab) {
+        tabsStore.updateTab(previousTabId, {
+          codeMirror: {
+            ...prevTab.codeMirror,
+            cursor: currentState.cursor || prevTab.codeMirror.cursor,
+            scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.codeMirror.scrollTop
+          }
+        })
+      }
+    }
+    
+    // 调用 Crepe 编辑器切换标签页
     if (editorManager.isReady()) {
       if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
         await editorManager.switchToTab(tab.id)
@@ -147,6 +162,12 @@ watch(activeTab, async (tab, oldTab) => {
     
     // 更新源码内容
     sourceContent.value = tab.content
+    
+    // 等待 DOM 更新后，恢复新标签的 CodeMirror 状态
+    await nextTick()
+    if (codeMirrorEditorRef.value && tab.codeMirror) {
+      codeMirrorEditorRef.value.restoreState(tab.codeMirror.cursor, tab.codeMirror.scrollTop)
+    }
   }
 }, { immediate: true })
 
@@ -571,10 +592,15 @@ function setupImagePaste() {
 
   // 源码模式样式
   &.mode-source {
-    .codemirror-editor {
+    .codemirror-wrapper.editor-source {
       flex: 1;
       overflow: hidden;
       min-height: 0;
+    }
+
+    .codemirror-editor {
+      height: 100%;
+      overflow: hidden;
 
       :deep(.cm-scroller) {
         &::-webkit-scrollbar {
@@ -647,7 +673,7 @@ function setupImagePaste() {
       }
     }
 
-    .editor-split-source {
+    .codemirror-wrapper.editor-split-source {
       height: 100%;
       flex-shrink: 0;
       overflow: hidden;
