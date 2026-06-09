@@ -9,9 +9,7 @@ import type {
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
-import { useElectronApi } from '@/services/electron/ElectronApiService'
-
-const electronApi = useElectronApi()
+import { electronService } from '@/services/electron/ElectronService'
 
 export type { DropTargetType }
 export type { DragDropState }
@@ -86,7 +84,7 @@ export function useTabDragDrop() {
   }
 
   async function createNewWindow(tabData: DetachedTabData): Promise<number | null> {
-    if (!electronApi.isAvailable()) return null
+    if (!electronService.isAvailable()) return null
 
     const DEFAULT_WIDTH = 1200
     const DEFAULT_HEIGHT = 800
@@ -103,8 +101,8 @@ export function useTabDragDrop() {
     try {
       const promises = []
       
-      promises.push(electronApi.getCursorScreenPoint())
-      promises.push(electronApi.getScreenDisplay())
+      promises.push(electronService.getCursorScreenPoint())
+      promises.push(electronService.getScreenDisplay())
 
       const results = await Promise.all(promises)
       
@@ -125,7 +123,7 @@ export function useTabDragDrop() {
       // Silent fail - bounds calculation errors
     }
 
-    const result = await electronApi.openNewWindow({
+    const result = await electronService.openNewWindow({
       bounds,
       tabData
     })
@@ -140,9 +138,9 @@ export function useTabDragDrop() {
     tabData: DetachedTabData,
     targetWindowId: number
   ): Promise<boolean> {
-    if (!electronApi.isAvailable()) return false
+    if (!electronService.isAvailable()) return false
 
-    const result = await electronApi.mergeTab(tabData, targetWindowId)
+    const result = await electronService.mergeTab(tabData, targetWindowId)
     return result.success
   }
 
@@ -169,7 +167,7 @@ export function useTabDragDrop() {
 
     await refreshWindowList()
 
-    const idResp = await electronApi.getWindowId()
+    const idResp = await electronService.getWindowId()
     if (idResp.success && idResp.data) {
       currentWindowId = idResp.data
     }
@@ -442,7 +440,7 @@ export function useTabDragDrop() {
 
   async function refreshWindowList(): Promise<void> {
     try {
-      const listResp = await electronApi.listWindows()
+      const listResp = await electronService.listWindows()
       if (listResp.success && listResp.data) {
         windowList.value = listResp.data
       }

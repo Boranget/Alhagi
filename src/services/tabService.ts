@@ -5,25 +5,23 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
-import { useElectronApi } from './electron/ElectronApiService'
-
-const electronApi = useElectronApi()
+import { electronService } from './electron/ElectronService'
 
 export class TabService {
   private tabsStore = useTabsStore()
   private preferencesStore = usePreferencesStore()
 
   async openFile(): Promise<TabState | null> {
-    if (!electronApi.isAvailable()) return null
+    if (!electronService.isAvailable()) return null
 
-    const result = await electronApi.openFile()
+    const result = await electronService.openFile()
     if (!result.success || !result.data) return null
 
     const { filePath, content } = result.data
 
-    const checkResult = await electronApi.checkFileOpen(filePath)
+    const checkResult = await electronService.checkFileOpen(filePath)
     if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
-      await electronApi.focusWindow(checkResult.data.windowId, filePath)
+      await electronService.focusWindow(checkResult.data.windowId, filePath)
       return null
     }
 
@@ -43,10 +41,10 @@ export class TabService {
   }
 
   async openRecentFile(filePath: string): Promise<TabState | null> {
-    if (electronApi.isAvailable()) {
-      const checkResult = await electronApi.checkFileOpen(filePath)
+    if (electronService.isAvailable()) {
+      const checkResult = await electronService.checkFileOpen(filePath)
       if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
-        await electronApi.focusWindow(checkResult.data.windowId, filePath)
+        await electronService.focusWindow(checkResult.data.windowId, filePath)
         return null
       }
     }
@@ -57,10 +55,10 @@ export class TabService {
       return existingTab
     }
 
-    if (!electronApi.isAvailable()) return null
+    if (!electronService.isAvailable()) return null
 
     try {
-      const contentResp = await electronApi.readFile(filePath)
+      const contentResp = await electronService.readFile(filePath)
       if (!contentResp.success) return null
       const content = contentResp.data
       const title = extractTitleFromPath(filePath)
@@ -78,11 +76,11 @@ export class TabService {
     const tab = this.tabsStore.getTab(tabId)
     if (!tab) return false
 
-    if (!electronApi.isAvailable()) return false
+    if (!electronService.isAvailable()) return false
 
     if (tab.filePath) {
       const lineEnding = this.preferencesStore.lineEnding as LineEnding
-      await electronApi.saveFile(tab.filePath, tab.content, lineEnding)
+      await electronService.saveFile(tab.filePath, tab.content, lineEnding)
       this.tabsStore.markClean(tabId)
 
       eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
@@ -94,12 +92,12 @@ export class TabService {
 
   async saveFileAs(tabId: string): Promise<boolean> {
     const tab = this.tabsStore.getTab(tabId)
-    if (!tab || !electronApi.isAvailable()) return false
+    if (!tab || !electronService.isAvailable()) return false
 
     const lineEnding = this.preferencesStore.lineEnding as LineEnding
     const defaultPath = tab.title.endsWith('.md') ? tab.title : tab.title + '.md'
 
-    const filePathResp = await electronApi.saveAsFile(tab.content, defaultPath, lineEnding)
+    const filePathResp = await electronService.saveAsFile(tab.content, defaultPath, lineEnding)
 
     if (filePathResp.success && filePathResp.data) {
       const filePath = filePathResp.data

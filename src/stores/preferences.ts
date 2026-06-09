@@ -5,6 +5,7 @@ import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 import { useThemeService } from '@/services/theme/ThemeService'
 import { useRecentFilesService } from '@/services/recentFiles/RecentFilesService'
+import { setLanguage as setI18nLanguage } from '@/services/i18n'
 
 export interface Preferences {
   launchMode: 'last-session' | 'welcome' | 'empty' | 'folder'
@@ -141,6 +142,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const customThemes = ref<CustomTheme[]>(DEFAULT_PREFERENCES.customThemes)
   const wordCountDisplayType = ref<Preferences['wordCountDisplayType']>(DEFAULT_PREFERENCES.wordCountDisplayType)
   const lastSession = ref<Preferences['lastSession']>(DEFAULT_PREFERENCES.lastSession)
+
+  // 语言变更时同步到 i18n 服务，让所有调用 t() 的组件自动重渲染
+  watch(language, (lang) => {
+    setI18nLanguage(lang)
+  }, { immediate: true })
 
   const { applyTheme, toggleLightDark } = useThemeService()
   const {

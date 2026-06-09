@@ -1,10 +1,5 @@
-export { serviceContainer, useService, registerService } from './serviceContainer'
-export { registerAllServices, getTabService } from './serviceFactory'
-export { SERVICE_IDENTIFIERS } from '@/types/services'
-
 export { TabService, useTabService } from './tabService'
-export { electronService } from './electron/ElectronService'
-export { ElectronApiService, useElectronApi } from './electron/ElectronApiService'
+export { electronService, ElectronService, useElectronApi } from './electron/ElectronService'
 export { ElectronEventHandler } from './electron/ElectronEventHandler'
 export { useI18n, t } from './i18n'
 export { useClipboard } from './clipboard'
