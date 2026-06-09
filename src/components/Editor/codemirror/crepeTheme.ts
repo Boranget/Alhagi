@@ -6,8 +6,8 @@
  */
 
 import type { Extension } from '@codemirror/state'
-import { eclipse } from '@uiw/codemirror-theme-eclipse'
-import { nord } from '@uiw/codemirror-theme-nord'
+import { githubLight } from '@uiw/codemirror-theme-github'
+import { githubDark } from '@uiw/codemirror-theme-github'
 
 /**
  * 获取 CodeMirror 主题扩展
@@ -16,5 +16,5 @@ import { nord } from '@uiw/codemirror-theme-nord'
  * @returns CodeMirror 主题扩展
  */
 export function getCrepeCodeMirrorTheme(theme: 'light' | 'dark'): Extension {
-  return theme === 'dark' ? nord : eclipse
+  return theme === 'dark' ? githubDark : githubLight
 }

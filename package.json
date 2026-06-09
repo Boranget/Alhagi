@@ -26,6 +26,7 @@
     "@milkdown/kit": "^7.21.0",
     "@milkdown/plugin-clipboard": "^7.21.1",
     "@uiw/codemirror-theme-eclipse": "^4.25.9",
+    "@uiw/codemirror-theme-github": "^4.25.10",
     "@uiw/codemirror-theme-nord": "^4.25.9",
     "@vscode/ripgrep": "^1.18.0",
     "@vueuse/core": "^10.9.0",

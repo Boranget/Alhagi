@@ -30,8 +30,8 @@ import {
   keymap,
   rectangularSelection,
 } from '@codemirror/view'
-import { eclipse } from '@uiw/codemirror-theme-eclipse'
-import { nord } from '@uiw/codemirror-theme-nord'
+import { githubLight } from '@uiw/codemirror-theme-github'
+import { githubDark } from '@uiw/codemirror-theme-github'
 import { debounce } from '@/utils/helpers'
 
 export type ThemeType = 'dark' | 'light'
@@ -40,10 +40,10 @@ const themeCompartment = new Compartment()
 
 /**
  * 获取主题扩展
- * 使用官方主题包：eclipse（亮色）和 nord（暗色）
+ * 使用官方主题包：githubLight（亮色）和 githubDark（暗色）
  */
 function getThemeExtension(theme: ThemeType): Extension {
-  return theme === 'dark' ? nord : eclipse
+  return theme === 'dark' ? githubDark : githubLight
 }
 
 export function getThemeExtensions(theme: ThemeType): Extension[] {
