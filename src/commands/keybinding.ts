@@ -83,18 +83,29 @@ class KeybindingManager {
   }
 
   // 判断是否应该忽略事件
+  //
+  // 在可编辑元素（INPUT/TEXTAREA/contenteditable，含 ProseMirror 与
+  // 代码块内的 CodeMirror）中放行浏览器/编辑器原生编辑快捷键，
+  // 否则 document 级别的 preventDefault + execCommand 兜底会破坏
+  // contenteditable 原生的 copy/paste 链路，导致 CM 代码块无法复制粘贴。
   private shouldIgnoreEvent(event: KeyboardEvent): boolean {
     const target = event.target as HTMLElement
     if (!target) return false
 
-    // 如果是输入框、文本域等可编辑元素，只允许特定快捷键
-    if (
+    const isEditable =
       target.tagName === 'INPUT' ||
       target.tagName === 'TEXTAREA' ||
       target.isContentEditable
-    ) {
-      // 允许 Ctrl/Cmd+C/V/X/A/Z/Y, Esc 等基本快捷键
-      return false
+
+    if (!isEditable) return false
+
+    // 仅放行原生编辑快捷键：Ctrl/Cmd + C/V/X/A/Z/Y，且不带 Alt
+    const mod = event.ctrlKey || event.metaKey
+    if (mod && !event.altKey) {
+      const k = event.key.toLowerCase()
+      if (k === 'c' || k === 'v' || k === 'x' || k === 'a' || k === 'z' || k === 'y') {
+        return true
+      }
     }
 
     return false
