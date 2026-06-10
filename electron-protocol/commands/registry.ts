@@ -118,6 +118,18 @@ export const COMMANDS: CommandEntry[] = [
     menuGroup: 1,
   },
   {
+    // Windows 用户惯用 Ctrl+Y 作为 redo 别名。隐藏不显示在菜单/命令面板，
+    // 仅注册为 edit.redo 的别名快捷键，避免空触发。
+    id: 'edit.redoAlt',
+    category: 'edit',
+    label: 'commands.edit.redo',
+    description: '重做上次撤销 (alias)',
+    keybinding: { key: 'y', modifiers: { ctrl: true } },
+    executionContext: 'editor',
+    when: ['canRedo'],
+    hidden: true,
+  },
+  {
     id: 'edit.cut',
     category: 'edit',
     label: 'commands.edit.cut',

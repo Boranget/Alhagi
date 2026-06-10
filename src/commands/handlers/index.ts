@@ -78,6 +78,11 @@ export function initCommandHandlers(): void {
     eventBus.emit(AppEvents.EDIT_REDO)
   })
 
+  // Windows 习惯：Ctrl+Y 等同于 redo。同样走 eventBus，让 EditorContainer 按模式分发。
+  dispatcher.register('edit.redoAlt', () => {
+    eventBus.emit(AppEvents.EDIT_REDO)
+  })
+
   dispatcher.register('edit.cut', () => {
     document.execCommand('cut')
   })
@@ -280,7 +285,12 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('view.fullscreen', () => {
-    if (document.fullscreenElement) {
+    // 走主进程统一实现（菜单 click + 命令面板 + 快捷键三入口收敛）；
+    // 非 Electron 环境下退回 DOM API
+    const api = electronService.getAPI()
+    if (api) {
+      api.executeMainCommand('view.fullscreen')
+    } else if (document.fullscreenElement) {
       document.exitFullscreen()
     } else {
       document.documentElement.requestFullscreen()
@@ -288,12 +298,14 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('view.devTools', () => {
-    // 渲染端无法直接调 webContents.openDevTools，通过 IPC 让主进程处理
-    electronService.getAPI()?.openDevTools()
+    electronService.getAPI()?.executeMainCommand('view.devTools')
   })
 
   dispatcher.register('view.stickyNoteMode', () => {
+    // 主进程负责 setSize/setAlwaysOnTop；渲染端 prefsStore 也需要切，
+    // 两条副作用分别由主进程 .window 后缀命令和这里的 store 调用各管一段。
     prefsStore.toggleStickyNoteMode()
+    electronService.getAPI()?.executeMainCommand('view.stickyNoteMode.window')
   })
 
   dispatcher.register('view.immersiveMode', () => {
@@ -333,8 +345,7 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('tools.preferences', () => {
-    const event = new CustomEvent('app:openSettings')
-    window.dispatchEvent(event)
+    eventBus.emit(AppEvents.OPEN_SETTINGS)
   })
 
   dispatcher.register('tools.export', () => {
@@ -366,17 +377,15 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('help.shortcuts', () => {
-    const event = new CustomEvent('app:showShortcuts')
-    window.dispatchEvent(event)
+    eventBus.emit(AppEvents.SHOW_SHORTCUTS)
   })
 
   dispatcher.register('help.commandPalette', () => {
-    const event = new CustomEvent('app:quickOpen')
-    window.dispatchEvent(event)
+    eventBus.emit(AppEvents.SHOW_COMMAND_PALETTE)
   })
 
   dispatcher.register('help.about', () => {
-    const event = new CustomEvent('app:showAbout')
-    window.dispatchEvent(event)
+    // 走主进程显示原生 dialog（mainProcessCommands['help.about']）
+    electronService.getAPI()?.executeMainCommand('help.about')
   })
 }

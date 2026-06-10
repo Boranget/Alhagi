@@ -16,6 +16,7 @@ import { WindowIpcHandlers } from './services/WindowIpcHandlers'
 import { PreferenceIpcHandlers } from './services/PreferenceIpcHandlers'
 import { MenuBuilder } from './services/MenuBuilder'
 import { FileWatcher } from './services/FileWatcher'
+import { MAIN_PROCESS_COMMANDS } from './services/menu/mainProcessCommands'
 import { IPC_CHANNELS } from '../electron-protocol/channels'
 import type { Language } from '../electron-protocol/i18n/dictionaries'
 
@@ -66,6 +67,15 @@ export class AppContext {
   private registerMenuHandlers(): void {
     ipcMain.handle(IPC_CHANNELS.MENU.REBUILD, (_event, language: Language) => {
       this.menu.rebuild(language)
+      return { success: true, data: true }
+    })
+
+    // 渲染端命令面板/快捷键触发 main-only 命令（如 fullscreen/devTools/stickyNote）时，
+    // 通过这一通道让主进程执行，与菜单 click 走同一份实现。
+    ipcMain.handle(IPC_CHANNELS.COMMAND.EXECUTE_MAIN, (_event, commandId: string) => {
+      const handler = MAIN_PROCESS_COMMANDS[commandId]
+      if (!handler) return { success: false, data: false }
+      handler({ windowManager: this.windowManager })
       return { success: true, data: true }
     })
   }

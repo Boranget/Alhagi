@@ -37,6 +37,7 @@ import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
+import { eventBus, AppEvents } from '@/events/eventBus'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
@@ -58,19 +59,7 @@ const showCommandPalette = ref(false)
 const showShortcuts = ref(false)
 
 let cleanup: (() => void) | null = null
-
-// 命名事件处理器（确保可正确移除）
-function onQuickOpen() {
-  showCommandPalette.value = !showCommandPalette.value
-}
-
-function onShowShortcuts() {
-  showShortcuts.value = true
-}
-
-function onOpenSettings() {
-  showSettings.value = true
-}
+const eventUnsubscribers: (() => void)[] = []
 
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey || e.metaKey) {
@@ -88,16 +77,24 @@ onMounted(async () => {
   cleanup = await initializeApp()
 
   window.addEventListener('wheel', handleWheel, { passive: false })
-  window.addEventListener('app:quickOpen', onQuickOpen)
-  window.addEventListener('app:showShortcuts', onShowShortcuts)
-  window.addEventListener('app:openSettings', onOpenSettings)
+
+  // 全局对话框开关订阅 —— dispatcher 通过 eventBus 触发
+  eventUnsubscribers.push(
+    eventBus.on(AppEvents.SHOW_COMMAND_PALETTE, () => {
+      showCommandPalette.value = !showCommandPalette.value
+    }),
+  )
+  eventUnsubscribers.push(
+    eventBus.on(AppEvents.SHOW_SHORTCUTS, () => {
+      showShortcuts.value = true
+    }),
+  )
 })
 
 onUnmounted(() => {
   window.removeEventListener('wheel', handleWheel)
-  window.removeEventListener('app:quickOpen', onQuickOpen)
-  window.removeEventListener('app:showShortcuts', onShowShortcuts)
-  window.removeEventListener('app:openSettings', onOpenSettings)
+  for (const unsubscribe of eventUnsubscribers) unsubscribe()
+  eventUnsubscribers.length = 0
 
   if (cleanup) {
     cleanup()

@@ -238,6 +238,10 @@ export class ElectronService {
   }
 
   // ========== 主进程到渲染端的事件订阅 ==========
+  //
+  // 多数菜单事件（onSave/onViewMode/...）在 P2-12 之后已废弃，
+  // 渲染端只需要这三类跨窗口 tab 通知；订阅由 ElectronEventHandler 集中管理，
+  // 这里保留 helper 仅用于历史调用方就近迁移。
 
   setupTabMergeHandler(handler: (tabData: DetachedTabData) => void): void {
     if (!this.api) return
@@ -252,16 +256,6 @@ export class ElectronService {
   setupFocusTabHandler(handler: (filePath: string) => void): void {
     if (!this.api) return
     this.api.onFocusTabForFile?.(handler)
-  }
-
-  setupViewModeHandler(handler: (mode: string) => void): void {
-    if (!this.api) return
-    this.api.onViewMode(handler)
-  }
-
-  setupNewWindowHandler(handler: () => void): void {
-    if (!this.api) return
-    this.api.onNewWindow(handler)
   }
 }
 

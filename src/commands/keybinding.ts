@@ -85,9 +85,19 @@ class KeybindingManager {
   // 判断是否应该忽略事件
   //
   // 在可编辑元素（INPUT/TEXTAREA/contenteditable，含 ProseMirror 与
-  // 代码块内的 CodeMirror）中放行浏览器/编辑器原生编辑快捷键，
-  // 否则 document 级别的 preventDefault + execCommand 兜底会破坏
-  // contenteditable 原生的 copy/paste 链路，导致 CM 代码块无法复制粘贴。
+  // 代码块内的 CodeMirror）中放行**浏览器/编辑器自己处理更准确**的少数键，
+  // 让 ProseMirror/CodeMirror 的内部 history、选区、剪贴板 serializer 接管：
+  //
+  //   Ctrl+C/V/X/A → 浏览器原生 contenteditable 剪贴板/选区行为
+  //   Ctrl+Z       → ProseMirror/CodeMirror 内部 history undo
+  //   Ctrl+Shift+Z → 同上 redo
+  //
+  // 其他快捷键（Ctrl+S/B/I/1/...）继续走命令系统。
+  //
+  // 注意：Ctrl+Y 不在拦截列表里——Windows 习惯用它做 redo，registry 中
+  // 通过隐藏的 edit.redoAlt 命令绑定到 Ctrl+Y，统一走 eventBus emit EDIT_REDO，
+  // 由 EditorContainer 按当前模式（wysiwyg/source/split）分发到 PM 或 CM。
+  // 之前 Ctrl+Y 被一并拦截但无人接管，Windows 用户按下没反应是个静默 bug。
   private shouldIgnoreEvent(event: KeyboardEvent): boolean {
     const target = event.target as HTMLElement
     if (!target) return false
@@ -99,14 +109,14 @@ class KeybindingManager {
 
     if (!isEditable) return false
 
-    // 仅放行原生编辑快捷键：Ctrl/Cmd + C/V/X/A/Z/Y，且不带 Alt
     const mod = event.ctrlKey || event.metaKey
-    if (mod && !event.altKey) {
-      const k = event.key.toLowerCase()
-      if (k === 'c' || k === 'v' || k === 'x' || k === 'a' || k === 'z' || k === 'y') {
-        return true
-      }
-    }
+    if (!mod || event.altKey) return false
+
+    const k = event.key.toLowerCase()
+    // C/V/X/A：剪贴板与选区，不区分 shift（Ctrl+Shift+A 等没人用作命令）
+    if (k === 'c' || k === 'v' || k === 'x' || k === 'a') return true
+    // Z：undo / redo，shift 与否都让 native 接管（PM/CM 内部 history 最准）
+    if (k === 'z') return true
 
     return false
   }

@@ -3,9 +3,8 @@ import {
   IPCResponse,
   ElectronAPI,
   IPC_CHANNELS,
-  MENU_EVENTS,
   FILE_TYPES,
-  DetachedTabData
+  DetachedTabData,
 } from '../electron-protocol'
 import type { Language } from '../electron-protocol/i18n/dictionaries'
 
@@ -18,7 +17,7 @@ function createIpcHandler<T>(
   return ipcRenderer.invoke(channel, ...args)
 }
 
-function createMenuListener<TArgs extends unknown[]>(
+function createListener<TArgs extends unknown[]>(
   channel: string,
   callback: (...args: TArgs) => void
 ): () => void {
@@ -31,263 +30,145 @@ function createMenuListener<TArgs extends unknown[]>(
 }
 
 const api: ElectronAPI = {
+  // ========== 文件操作 ==========
   openFile: () => createIpcHandler(IPC_CHANNELS.FILE.OPEN),
-  
-  saveFile: (filePath, content, lineEnding) => 
+
+  saveFile: (filePath, content, lineEnding) =>
     createIpcHandler(IPC_CHANNELS.FILE.SAVE, { filePath, content, lineEnding }),
-  
-  saveAsFile: (content, defaultPath, lineEnding) => 
+
+  saveAsFile: (content, defaultPath, lineEnding) =>
     createIpcHandler(IPC_CHANNELS.FILE.SAVE_AS, { content, defaultPath, lineEnding }),
-  
-  saveBinaryFile: (filePath, content) => 
+
+  saveBinaryFile: (filePath, content) =>
     createIpcHandler(IPC_CHANNELS.FILE.SAVE_BINARY, { filePath, content }),
-  
-  readFile: (filePath) => 
+
+  readFile: (filePath) =>
     createIpcHandler(IPC_CHANNELS.FILE.READ, filePath),
-  
-  readBinaryFile: (filePath) => 
+
+  readBinaryFile: (filePath) =>
     createIpcHandler(IPC_CHANNELS.FILE.READ_BINARY, filePath),
-  
-  openFolder: () => 
+
+  openFolder: () =>
     createIpcHandler(IPC_CHANNELS.FILE.OPEN_FOLDER),
-  
-  readDirectory: (dirPath) => 
+
+  readDirectory: (dirPath) =>
     createIpcHandler(IPC_CHANNELS.FILE.READ_DIRECTORY, dirPath),
-  
-  createFile: (dirPath, fileName) => 
+
+  createFile: (dirPath, fileName) =>
     createIpcHandler(IPC_CHANNELS.FILE.CREATE, { dirPath, fileName, type: FILE_TYPES.FILE }),
-  
-  createDirectory: (dirPath, dirName) => 
+
+  createDirectory: (dirPath, dirName) =>
     createIpcHandler(IPC_CHANNELS.FILE.CREATE, { dirPath, fileName: dirName, type: FILE_TYPES.DIRECTORY }),
-  
-  deleteFile: (filePath) => 
+
+  deleteFile: (filePath) =>
     createIpcHandler(IPC_CHANNELS.FILE.DELETE, filePath),
-  
-  renameFile: (oldPath, newName) => 
+
+  renameFile: (oldPath, newName) =>
     createIpcHandler(IPC_CHANNELS.FILE.RENAME, { oldPath, newName }),
-  
-  moveFile: (sourcePath, targetDir) => 
+
+  moveFile: (sourcePath, targetDir) =>
     createIpcHandler(IPC_CHANNELS.FILE.MOVE, { sourcePath, targetDir }),
-  
-  copyFile: (sourcePath, targetDir) => 
+
+  copyFile: (sourcePath, targetDir) =>
     createIpcHandler(IPC_CHANNELS.FILE.COPY, { sourcePath, targetDir }),
-  
+
   getDocumentsDirectory: () =>
     createIpcHandler(IPC_CHANNELS.FILE.GET_DOCUMENTS_DIRECTORY),
-  
+
   ensureDirectory: (dirPath) =>
     createIpcHandler(IPC_CHANNELS.FILE.ENSURE_DIRECTORY, dirPath),
-  
-  selectDirectory: () => 
+
+  selectDirectory: () =>
     createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
-  
-  showInFolder: (filePath) => 
+
+  showInFolder: (filePath) =>
     createIpcHandler(IPC_CHANNELS.FILE.SHOW_IN_FOLDER, filePath),
-  
-  searchInDirectory: (dirPath, query, options) => 
+
+  searchInDirectory: (dirPath, query, options) =>
     createIpcHandler(IPC_CHANNELS.FILE.SEARCH_IN_DIRECTORY, { dirPath, query, options }),
-  
-  minimize: () => 
+
+  // ========== 窗口操作 ==========
+  minimize: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.MINIMIZE),
-  
-  maximize: () => 
+
+  maximize: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.MAXIMIZE),
-  
-  close: () => 
+
+  close: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.CLOSE),
-  
-  setAlwaysOnTop: (flag) => 
+
+  setAlwaysOnTop: (flag) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, flag),
-  
-  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData; bounds?: { x: number; y: number; width?: number; height?: number } }) => 
+
+  openNewWindow: (options?: { filePath?: string; tabData?: DetachedTabData; bounds?: { x: number; y: number; width?: number; height?: number } }) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_NEW_WINDOW, options),
-  
-  getCursorScreenPoint: () => 
+
+  getCursorScreenPoint: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.GET_CURSOR_SCREEN_POINT),
-  
-  getScreenDisplay: () => 
+
+  getScreenDisplay: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.GET_SCREEN_DISPLAY),
-  
-  openDevTools: () => 
+
+  openDevTools: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.OPEN_DEV_TOOLS),
-  
-  onDragStart: (callback: (tabId: string) => void) => 
-    createMenuListener(IPC_CHANNELS.WINDOW.DRAG_START, callback),
-  
-  onDragEnd: (callback: () => void) => 
-    createMenuListener(IPC_CHANNELS.WINDOW.DRAG_END, callback),
-  
-  mergeTab: (tabData: DetachedTabData, targetWindowId: number) => 
+
+  mergeTab: (tabData: DetachedTabData, targetWindowId: number) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.MERGE_TAB, { tabData, targetWindowId }),
-  
-  getWindowId: () => 
+
+  getWindowId: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.GET_WINDOW_ID),
-  
-  listWindows: () => 
+
+  listWindows: () =>
     createIpcHandler(IPC_CHANNELS.WINDOW.LIST_WINDOWS),
-  
-  focusWindow: (windowId: number, filePath?: string) => 
+
+  focusWindow: (windowId: number, filePath?: string) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.FOCUS_WINDOW, windowId, filePath),
-  
-  checkFileOpen: (filePath: string) => 
+
+  checkFileOpen: (filePath: string) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.CHECK_FILE_OPEN, filePath),
-  
-  updateOpenedFiles: (filePaths: string[]) => 
+
+  updateOpenedFiles: (filePaths: string[]) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, filePaths),
-  
-  setZoom: (zoomLevel: number) => 
+
+  setZoom: (zoomLevel: number) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
-  
+
   setTheme: (theme: 'light' | 'dark' | 'system') =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_THEME, theme),
 
-  // 偏好持久化
+  // ========== 偏好持久化 ==========
   preferencesGetAll: () =>
     createIpcHandler(IPC_CHANNELS.PREFERENCES.GET_ALL),
 
   preferencesSetAll: (prefs: Record<string, unknown>) =>
     createIpcHandler(IPC_CHANNELS.PREFERENCES.SET_ALL, prefs),
 
-  onNewFile: (callback) =>
-    createMenuListener(MENU_EVENTS.NEW_FILE, callback),
-  
-  onNewWindow: (callback) => 
-    createMenuListener(MENU_EVENTS.NEW_WINDOW, callback),
-  
-  onOpenFile: (callback) => 
-    createMenuListener(MENU_EVENTS.OPEN_FILE, callback),
-  
-  onOpenFolder: (callback) => 
-    createMenuListener(MENU_EVENTS.OPEN_FOLDER, callback),
-  
-  onSave: (callback) => 
-    createMenuListener(MENU_EVENTS.SAVE, callback),
-  
-  onSaveAs: (callback) => 
-    createMenuListener(MENU_EVENTS.SAVE_AS, callback),
-  
-  onViewMode: (callback) => 
-    createMenuListener(MENU_EVENTS.VIEW_MODE, callback),
-  
-  onCopyAsMarkdown: (callback) => 
-    createMenuListener(MENU_EVENTS.COPY_AS_MARKDOWN, callback),
-  
-  onCopyAsHtml: (callback) => 
-    createMenuListener(MENU_EVENTS.COPY_AS_HTML, callback),
-  
-  onPasteAsPlain: (callback) => 
-    createMenuListener(MENU_EVENTS.PASTE_AS_PLAIN, callback),
-  
-  onCaptureScreen: (callback) => 
-    createMenuListener(MENU_EVENTS.CAPTURE_SCREEN, callback),
-  
-  onTabMerge: (callback) =>
-    createMenuListener(IPC_CHANNELS.TAB.MERGE, callback),
-
-  onTabDetached: (callback) =>
-    createMenuListener(IPC_CHANNELS.TAB.DETACHED, callback),
-  onFocusTabForFile: (callback) =>
-    createMenuListener(IPC_CHANNELS.TAB.FOCUS_FOR_FILE, callback),
-  
-  onToggleStickyNoteMode: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),
-  
-  onToggleImmersiveMode: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_IMMERSIVE, callback),
-  
-onToggleSidebar: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_SIDEBAR, callback),
-  
-  onToggleTabBar: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_TAB_BAR, callback),
-  
-  onToggleStatusBar: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_STATUS_BAR, callback),
-  
-  onToggleTheme: (callback) => 
-    createMenuListener(MENU_EVENTS.TOGGLE_THEME, callback),
-  
-  onZoomIn: (callback) => 
-    createMenuListener(MENU_EVENTS.ZOOM_IN, callback),
-  
-  onZoomOut: (callback) => 
-    createMenuListener(MENU_EVENTS.ZOOM_OUT, callback),
-  
-  onZoomReset: (callback) => 
-    createMenuListener(MENU_EVENTS.ZOOM_RESET, callback),
-  
-  onOpenSettings: (callback) =>
-    createMenuListener(MENU_EVENTS.OPEN_SETTINGS, callback),
-  
-  onEditUndo: (callback) => {
-    const handler = (_event: IpcRendererEvent) => {
-      callback()
-    }
-    ipcRenderer.on(MENU_EVENTS.EDIT_UNDO, handler)
-    return () => {
-      ipcRenderer.removeListener(MENU_EVENTS.EDIT_UNDO, handler)
-    }
-  },
-  
-  onEditRedo: (callback) => {
-    const handler = (_event: IpcRendererEvent) => {
-      callback()
-    }
-    ipcRenderer.on(MENU_EVENTS.EDIT_REDO, handler)
-    return () => {
-      ipcRenderer.removeListener(MENU_EVENTS.EDIT_REDO, handler)
-    }
-  },
-
-  onEditFind: (callback) =>
-    createMenuListener(MENU_EVENTS.EDIT_FIND, callback),
-
-  // 段落菜单事件
-  onParagraphHeading1: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING1, callback),
-  onParagraphHeading2: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING2, callback),
-  onParagraphHeading3: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING3, callback),
-  onParagraphParagraph: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_PARAGRAPH, callback),
-  onParagraphQuote: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_QUOTE, callback),
-  onParagraphBulletList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_BULLET_LIST, callback),
-  onParagraphOrderedList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_ORDERED_LIST, callback),
-  onParagraphTaskList: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_TASK_LIST, callback),
-  onParagraphCodeBlock: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_CODE_BLOCK, callback),
-  onParagraphMathBlock: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_MATH_BLOCK, callback),
-  onParagraphHorizontalRule: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HORIZONTAL_RULE, callback),
-
-  // 表格菜单事件
-  onTableInsert: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT, callback),
-  onTableInsertRowAbove: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_ROW_ABOVE, callback),
-  onTableInsertRowBelow: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_ROW_BELOW, callback),
-  onTableInsertColumnLeft: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_COLUMN_LEFT, callback),
-  onTableInsertColumnRight: (callback) => createMenuListener(MENU_EVENTS.TABLE_INSERT_COLUMN_RIGHT, callback),
-  onTableDeleteRow: (callback) => createMenuListener(MENU_EVENTS.TABLE_DELETE_ROW, callback),
-  onTableDeleteColumn: (callback) => createMenuListener(MENU_EVENTS.TABLE_DELETE_COLUMN, callback),
-
-  // 导航菜单事件
-  onNavigationQuickOpen: (callback) => createMenuListener(MENU_EVENTS.NAVIGATION_QUICK_OPEN, callback),
-  onNavigationGotoLine: (callback) => createMenuListener(MENU_EVENTS.NAVIGATION_GOTO_LINE, callback),
-
-  // 工具菜单事件
-  onToolsPreferences: (callback) => createMenuListener(MENU_EVENTS.TOOLS_PREFERENCES, callback),
-  onToolsExport: (callback) => createMenuListener(MENU_EVENTS.TOOLS_EXPORT, callback),
-
-  // 帮助菜单事件
-  onHelpShortcuts: (callback) => createMenuListener(MENU_EVENTS.HELP_SHORTCUTS, callback),
-
-  // 命令系统统一通道（P2-12 引入）
+  // ========== 命令 & 菜单（P2-12） ==========
   onExecuteCommand: (callback: (commandId: string) => void) =>
-    createMenuListener<[string]>(IPC_CHANNELS.COMMAND.EXECUTE, callback),
+    createListener<[string]>(IPC_CHANNELS.COMMAND.EXECUTE, callback),
 
   rebuildMenu: (language: Language) =>
     createIpcHandler<boolean>(IPC_CHANNELS.MENU.REBUILD, language),
 
-  // 文件外部修改检测（P2-10）
+  executeMainCommand: (commandId: string) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.COMMAND.EXECUTE_MAIN, commandId),
+
+  // ========== 文件外部修改检测（P2-10） ==========
   onExternalFileChanged: (callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void) =>
-    createMenuListener<[{ filePath: string; kind: 'modified' | 'deleted' }]>(
+    createListener<[{ filePath: string; kind: 'modified' | 'deleted' }]>(
       IPC_CHANNELS.FILE.EXTERNAL_CHANGED,
       callback,
     ),
+
+  // ========== 跨窗口标签操作 ==========
+  onTabMerge: (callback) =>
+    createListener<[DetachedTabData]>(IPC_CHANNELS.TAB.MERGE, callback),
+
+  onTabDetached: (callback) =>
+    createListener<[DetachedTabData]>(IPC_CHANNELS.TAB.DETACHED, callback),
+
+  onFocusTabForFile: (callback) =>
+    createListener<[string]>(IPC_CHANNELS.TAB.FOCUS_FOR_FILE, callback),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

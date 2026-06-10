@@ -112,7 +112,10 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
     return { label, accelerator, role: role as MenuItemConstructorOptions['role'] }
   }
 
-  // 主进程本地命令
+  // 主进程本地命令（需要直接操作 BrowserWindow / dialog 的）
+  // 主进程菜单直接调，不经 COMMAND.EXECUTE —— 避免渲染端 dispatcher 同时跑一遍
+  // 引入「双切换」（如 devTools 开了又关）。命令面板/快捷键触发同名命令时，
+  // 渲染端 dispatcher 通过 IPC 调主进程，三条入口收敛到主进程实现一处。
   const mainHandler = MAIN_PROCESS_COMMANDS[cmd.id]
   if (mainHandler) {
     return {
@@ -122,7 +125,7 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
     }
   }
 
-  // 默认：通过 COMMAND.EXECUTE IPC 通道转发到渲染端的 executeCommand(id)
+  // 默认：通过 COMMAND.EXECUTE 通知渲染端 dispatcher 派发
   return {
     label,
     accelerator,

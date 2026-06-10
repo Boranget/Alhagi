@@ -34,6 +34,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getGroupedMenuCommands, CATEGORY_LABELS } from '@/commands/registry'
 import { t } from '@/services/i18n'
+import { eventBus, AppEvents } from '@/events/eventBus'
 import MenuDropdown from './MenuDropdown.vue'
 import type { CommandCategory, CommandEntry } from '@/commands/types'
 
@@ -72,7 +73,7 @@ function closeMenus() {
 }
 
 function openCommandPalette() {
-  window.dispatchEvent(new CustomEvent('app:quickOpen'))
+  eventBus.emit(AppEvents.SHOW_COMMAND_PALETTE)
 }
 
 function handleClickOutside(event: MouseEvent) {

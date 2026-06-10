@@ -9,5 +9,4 @@
 export * from './responses'
 export * from './types'
 export * from './channels'
-export * from './menu-events'
 export * from './electron-api'

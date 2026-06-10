@@ -74,11 +74,15 @@ export const IPC_CHANNELS = {
   },
   /**
    * 命令系统统一执行通道（P2-12 引入）。
-   * EXECUTE：main → renderer 单向通知，让渲染端 executeCommand(commandId) 派发，
-   * 是替代 50+ MENU_EVENTS.* 的方向，但本期与老通道并存以保留回退路径。
+   * EXECUTE：main → renderer 单向通知，让渲染端 executeCommand(commandId) 派发。
+   *   菜单 click、未来的全局快捷键转发、其他主进程触发的命令都走这一条。
+   * EXECUTE_MAIN：renderer → main，让主进程执行 mainProcessCommands 表中的命令
+   *   （如 view.fullscreen / view.devTools / view.stickyNoteMode.window 等只能主进程做的命令），
+   *   命令面板/快捷键触发时与菜单点击走同一份主进程实现。
    */
   COMMAND: {
     EXECUTE: 'command:execute',
+    EXECUTE_MAIN: 'command:execute-main',
   },
   /**
    * 应用菜单管理通道（P2-12 引入）。

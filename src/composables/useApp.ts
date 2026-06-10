@@ -28,14 +28,15 @@ export function useApp() {
   const setupEventListeners = () => {
     const unsubscribers: (() => void)[] = []
 
-    // 应用内部事件监听
+    // 设置面板：dispatcher.tools.preferences 通过 window CustomEvent 触发，
+    // App.vue 接住后 set showSettings = true；这里 eventBus 路径暂留兼容
     unsubscribers.push(
       eventBus.on(AppEvents.OPEN_SETTINGS, () => {
         showSettings.value = true
       })
     )
 
-    // 截图功能（使用应用内部事件总线，由 ElectronEventHandler 转发）
+    // 截图功能（dispatcher.tools.captureScreen 通过 eventBus 触发）
     unsubscribers.push(
       eventBus.on(AppEvents.CAPTURE_SCREEN, async () => {
         const result = await captureEditor()
@@ -52,14 +53,7 @@ export function useApp() {
       })
     )
 
-    // 新窗口请求
-    unsubscribers.push(
-      eventBus.on(AppEvents.NEW_WINDOW_REQUESTED, () => {
-        electronService.openNewWindow()
-      })
-    )
-
-    // 视图模式切换
+    // 视图模式切换：dispatcher.view.toggleSourceMode / view.wysiwygMode 通过 eventBus 触发
     unsubscribers.push(
       eventBus.on(AppEvents.VIEW_MODE_CHANGE, async ({ mode }) => {
         const activeTab = tabsStore.activeTabId ? tabsStore.getTab(tabsStore.activeTabId) : null
@@ -79,34 +73,6 @@ export function useApp() {
         }
       })
     )
-
-    // 滚动事件 - 保存滚动位置到 tab state
-    unsubscribers.push(
-      eventBus.on(AppEvents.SCROLL_CHANGED, ({ scrollTop, tabId }) => {
-        if (tabId) {
-          tabsStore.updateTab(tabId, { scrollTop })
-        }
-      })
-    )
-
-    // 标签页切换事件 - 状态保存和恢复已经在 switchToTab 中处理
-
-    // 悬浮便签模式切换
-    unsubscribers.push(
-      eventBus.on(AppEvents.TOGGLE_STICKY_NOTE_MODE, () => {
-        prefsStore.toggleStickyNoteMode()
-      })
-    )
-
-    // 沉浸式模式切换
-    unsubscribers.push(
-      eventBus.on(AppEvents.TOGGLE_IMMERSIVE_MODE, () => {
-        prefsStore.toggleImmersiveMode()
-      })
-    )
-
-    // 注意：所有 Electron 菜单事件现在由 ElectronEventHandler 统一管理
-    // 不再在这里重复注册，避免重复监听
 
     return unsubscribers
   }

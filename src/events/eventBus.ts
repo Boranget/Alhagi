@@ -71,46 +71,39 @@ class EnhancedEventBus implements EventBus {
 export const eventBus = new EnhancedEventBus()
 
 export const AppEvents = {
+  // Tab 生命周期
   TAB_CREATED: 'app:tab:created' as const,
   TAB_CLOSED: 'app:tab:closed' as const,
   TAB_SWITCHED: 'app:tab:switched' as const,
   TAB_UPDATED: 'app:tab:updated' as const,
-  
+
+  // 文件 IO
   FILE_OPENED: 'app:file:opened' as const,
   FILE_SAVED: 'app:file:saved' as const,
   FOLDER_OPENED: 'app:folder:opened' as const,
-  
+
+  // 编辑器生命周期
   EDITOR_READY: 'app:editor:ready' as const,
   EDITOR_DESTROYED: 'app:editor:destroyed' as const,
   VIEW_MODE_CHANGED: 'app:view-mode-changed' as const,
   THEME_CHANGED: 'app:theme:changed' as const,
-  
+
+  // 编辑器内部
   ACTIVE_EDITOR_CHANGED: 'editor:active-editor-changed' as const,
   CONTENT_CHANGED: 'editor:content:changed' as const,
   CURSOR_CHANGED: 'editor:cursor:changed' as const,
-  SELECTION_CHANGED: 'editor:selection:changed' as const,
-  SCROLL_CHANGED: 'editor:scroll:changed' as const,
-  SCROLL_TO_HEADING: 'editor:scroll-to-heading' as const,
   EDIT_UNDO: 'editor:undo' as const,
   EDIT_REDO: 'editor:redo' as const,
-  
-  COPY_AS_MARKDOWN: 'app:copy-as-markdown' as const,
-  COPY_AS_HTML: 'app:copy-as-html' as const,
-  PASTE_AS_PLAIN: 'app:paste-as-plain' as const,
+
+  // UI 操作
   CAPTURE_SCREEN: 'app:capture-screen' as const,
-  
-  WINDOW_RESIZED: 'app:window:resized' as const,
-  WINDOW_MAXIMIZED: 'app:window:maximized' as const,
-  WINDOW_MINIMIZED: 'app:window:minimized' as const,
-  PREFERENCES_UPDATED: 'app:preferences:updated' as const,
   OPEN_SETTINGS: 'app:open-settings' as const,
+  SHOW_COMMAND_PALETTE: 'app:show-command-palette' as const,
+  SHOW_SHORTCUTS: 'app:show-shortcuts' as const,
   SIDEBAR_VIEW_CHANGED: 'app:sidebar:view-changed' as const,
-  
   VIEW_MODE_CHANGE: 'app:view-mode-change' as const,
-  TOGGLE_STICKY_NOTE_MODE: 'app:toggle-sticky-note-mode' as const,
-  TOGGLE_IMMERSIVE_MODE: 'app:toggle-immersive-mode' as const,
-  
-  NEW_WINDOW_REQUESTED: 'app:new-window-requested' as const,
+
+  // 跨窗口标签操作（由 ElectronEventHandler 转发自主进程 TAB.* 通道）
   TAB_MERGE_REQUESTED: 'app:tab-merge-requested' as const,
   TAB_DETACHED: 'app:tab-detached' as const,
   FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const,

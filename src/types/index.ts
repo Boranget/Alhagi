@@ -80,49 +80,36 @@ export interface AppEventPayloads {
   'app:tab:closed': { tabId: string; tab?: TabState }
   'app:tab:switched': { tabId: string; previousTabId?: string }
   'app:tab:updated': { tabId: string; updates: Partial<TabState> }
-  
+
   // 文件相关事件
   'app:file:opened': { filePath: string; tabId: string }
   'app:file:saved': { filePath: string; tabId: string }
   'app:folder:opened': { folderPath: string }
-  
+
   // 编辑器相关事件
   'app:editor:ready': { tabId?: string | null }
   'app:editor:destroyed': { tabId?: string | null }
   'app:view-mode-changed': ViewMode
   'app:theme:changed': Theme
-  
+
   // 编辑器核心事件
   'editor:active-editor-changed': { editor: 'crepe' | 'codemirror' | null }
   'editor:content:changed': { content: string; tabId: string }
   'editor:cursor:changed': { from: number; to: number; tabId: string }
-  'editor:selection:changed': { from: number; to: number; tabId: string }
-  'editor:scroll:changed': { scrollTop: number; tabId: string }
-  'editor:scroll-to-heading': { slug: string; text: string; line: number }
   'editor:undo': undefined
   'editor:redo': undefined
-  
-  // 编辑操作事件
-  'app:copy-as-markdown': undefined
-  'app:copy-as-html': undefined
-  'app:paste-as-plain': undefined
-  'app:capture-screen': undefined
-  
+
   // UI事件
-  'app:window:resized': { width: number; height: number }
-  'app:window:maximized': undefined
-  'app:window:minimized': undefined
-  'app:preferences:updated': undefined
+  'app:capture-screen': undefined
   'app:open-settings': undefined
+  'app:show-command-palette': undefined
+  'app:show-shortcuts': undefined
   'app:sidebar:view-changed': SidebarView
-  
+
   // 视图模式事件
   'app:view-mode-change': { mode: ViewMode }
-  'app:toggle-sticky-note-mode': undefined
-  'app:toggle-immersive-mode': undefined
-  
-  // 窗口和标签页事件
-  'app:new-window-requested': { options?: OpenWindowOptions }
+
+  // 跨窗口标签操作（由 ElectronEventHandler 从主进程通道转发到这里）
   /**
    * 主进程通知本窗口"有标签从其他窗口分离/合并过来"。
    * 触发场景：用户在另一个窗口把标签拖到本窗口边缘，主进程通过

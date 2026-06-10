@@ -73,72 +73,7 @@ export interface ElectronAPI {
   /** 保存全部用户偏好。整体覆写，调用方负责合并增量。 */
   preferencesSetAll: (prefs: Record<string, unknown>) => Promise<IPCResponse<boolean>>
 
-  // ========== 主进程 → 渲染端事件订阅 ==========
-  // 每个 on* 方法接收一个回调，返回一个取消订阅函数。
-  onDragStart: (callback: (tabId: string) => void) => () => void
-  onDragEnd: (callback: () => void) => () => void
-  onNewFile: (callback: () => void) => () => void
-  onNewWindow: (callback: () => void) => () => void
-  onOpenFile: (callback: () => void) => () => void
-  onOpenFolder: (callback: () => void) => () => void
-  onSave: (callback: () => void) => () => void
-  onSaveAs: (callback: () => void) => () => void
-  onViewMode: (callback: (mode: string) => void) => () => void
-  onCopyAsMarkdown: (callback: () => void) => () => void
-  onCopyAsHtml: (callback: () => void) => () => void
-  onPasteAsPlain: (callback: () => void) => () => void
-  onCaptureScreen: (callback: () => void) => () => void
-  onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
-  onTabDetached: (callback: (tabData: DetachedTabData) => void) => () => void
-  onFocusTabForFile: (callback: (filePath: string) => void) => () => void
-  onToggleStickyNoteMode: (callback: () => void) => () => void
-  onToggleImmersiveMode: (callback: () => void) => () => void
-  onToggleSidebar: (callback: () => void) => () => void
-  onToggleTabBar: (callback: () => void) => () => void
-  onToggleStatusBar: (callback: () => void) => () => void
-  onToggleTheme: (callback: () => void) => () => void
-  onOpenSettings: (callback: () => void) => () => void
-  onZoomIn: (callback: () => void) => () => void
-  onZoomOut: (callback: () => void) => () => void
-  onZoomReset: (callback: () => void) => () => void
-  onEditUndo: (callback: () => void) => () => void
-  onEditRedo: (callback: () => void) => () => void
-  onEditFind: (callback: () => void) => () => void
-
-  // 段落菜单事件
-  onParagraphHeading1: (callback: () => void) => () => void
-  onParagraphHeading2: (callback: () => void) => () => void
-  onParagraphHeading3: (callback: () => void) => () => void
-  onParagraphParagraph: (callback: () => void) => () => void
-  onParagraphQuote: (callback: () => void) => () => void
-  onParagraphBulletList: (callback: () => void) => () => void
-  onParagraphOrderedList: (callback: () => void) => () => void
-  onParagraphTaskList: (callback: () => void) => () => void
-  onParagraphCodeBlock: (callback: () => void) => () => void
-  onParagraphMathBlock: (callback: () => void) => () => void
-  onParagraphHorizontalRule: (callback: () => void) => () => void
-
-  // 表格菜单事件
-  onTableInsert: (callback: () => void) => () => void
-  onTableInsertRowAbove: (callback: () => void) => () => void
-  onTableInsertRowBelow: (callback: () => void) => () => void
-  onTableInsertColumnLeft: (callback: () => void) => () => void
-  onTableInsertColumnRight: (callback: () => void) => () => void
-  onTableDeleteRow: (callback: () => void) => () => void
-  onTableDeleteColumn: (callback: () => void) => () => void
-
-  // 导航菜单事件
-  onNavigationQuickOpen: (callback: () => void) => () => void
-  onNavigationGotoLine: (callback: () => void) => () => void
-
-  // 工具菜单事件
-  onToolsPreferences: (callback: () => void) => () => void
-  onToolsExport: (callback: () => void) => () => void
-
-  // 帮助菜单事件
-  onHelpShortcuts: (callback: () => void) => () => void
-
-  // ========== 命令系统统一通道（P2-12 引入） ==========
+  // ========== 命令 & 菜单（P2-12） ==========
   /**
    * 订阅主进程通过统一通道下发的命令执行通知。
    * 菜单点击会通过此通道传 commandId，渲染端调 executeCommand(id) 派发。
@@ -148,6 +83,12 @@ export interface ElectronAPI {
    * 通知主进程按指定语言重建原生应用菜单（语言切换、命令注册表热更新场景）。
    */
   rebuildMenu: (language: Language) => Promise<IPCResponse<boolean>>
+  /**
+   * 让主进程执行 mainProcessCommands 表中的命令（如 fullscreen/devTools/stickyNote.window），
+   * 命令面板/快捷键触发时与菜单点击共用同一份主进程实现。
+   * 命令 ID 不在表中返回 success=false。
+   */
+  executeMainCommand: (commandId: string) => Promise<IPCResponse<boolean>>
 
   // ========== 文件外部修改检测（P2-10） ==========
   /**
@@ -158,4 +99,12 @@ export interface ElectronAPI {
   onExternalFileChanged: (
     callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void
   ) => () => void
+
+  // ========== 跨窗口标签操作（main → renderer） ==========
+  /** 其他窗口请求把 tab 合并到本窗口 */
+  onTabMerge: (callback: (tabData: DetachedTabData) => void) => () => void
+  /** 本窗口被作为分离 tab 的目标窗口创建时，传入初始 tab 数据 */
+  onTabDetached: (callback: (tabData: DetachedTabData) => void) => () => void
+  /** 通知本窗口聚焦到对应文件的 tab（用户从其他窗口请求打开已打开的文件时）*/
+  onFocusTabForFile: (callback: (filePath: string) => void) => () => void
 }
