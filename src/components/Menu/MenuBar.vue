@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getGroupedMenuCommands, CATEGORY_LABELS } from '@/commands/registry'
+import { t } from '@/services/i18n'
 import MenuDropdown from './MenuDropdown.vue'
 import type { CommandCategory, CommandEntry } from '@/commands/types'
 
@@ -48,7 +49,8 @@ const menuGroups = computed<Array<{ category: CommandCategory; commands: Command
 })
 
 function getCategoryLabel(category: CommandCategory): string {
-  return CATEGORY_LABELS[category] || category
+  // CATEGORY_LABELS 的值已经是 i18n key（'menu.category.<cat>'），统一走 t() 翻译
+  return t(CATEGORY_LABELS[category] || category)
 }
 
 function toggleMenu(category: CommandCategory) {

@@ -9,6 +9,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -68,11 +69,13 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('edit.undo', () => {
-    editorManager.undo()
+    // 通过 eventBus 触发：EditorContainer 会按当前模式分别处理 codemirror / crepe，
+    // 直接调 editorManager.undo() 会丢失源码/分屏模式下的 codemirror undo。
+    eventBus.emit(AppEvents.EDIT_UNDO)
   })
 
   dispatcher.register('edit.redo', () => {
-    editorManager.redo()
+    eventBus.emit(AppEvents.EDIT_REDO)
   })
 
   dispatcher.register('edit.cut', () => {
@@ -248,7 +251,15 @@ export function initCommandHandlers(): void {
     if (tabsStore.activeTabId) {
       const currentMode = tabsStore.activeTab?.viewMode
       const newMode = currentMode === 'source' ? 'wysiwyg' : 'source'
-      tabsStore.setViewMode(tabsStore.activeTabId, newMode)
+      // 通过 eventBus 转发：useApp 监听器调 tabsStore.updateTab（会触发 TAB_UPDATED），
+      // 比直接 setViewMode 更完整地保留下游订阅。
+      eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: newMode })
+    }
+  })
+
+  dispatcher.register('view.wysiwygMode', () => {
+    if (tabsStore.activeTabId) {
+      eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: 'wysiwyg' })
     }
   })
 
@@ -257,19 +268,15 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('view.zoomIn', () => {
-    if (prefsStore.zoom < 200) {
-      prefsStore.zoom += 10
-    }
+    prefsStore.zoomIn()
   })
 
   dispatcher.register('view.zoomOut', () => {
-    if (prefsStore.zoom > 50) {
-      prefsStore.zoom -= 10
-    }
+    prefsStore.zoomOut()
   })
 
   dispatcher.register('view.resetZoom', () => {
-    prefsStore.zoom = 100
+    prefsStore.resetZoom()
   })
 
   dispatcher.register('view.fullscreen', () => {
@@ -278,6 +285,11 @@ export function initCommandHandlers(): void {
     } else {
       document.documentElement.requestFullscreen()
     }
+  })
+
+  dispatcher.register('view.devTools', () => {
+    // 渲染端无法直接调 webContents.openDevTools，通过 IPC 让主进程处理
+    electronService.getAPI()?.openDevTools()
   })
 
   dispatcher.register('view.stickyNoteMode', () => {
@@ -345,8 +357,8 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('tools.captureScreen', () => {
-    const event = new CustomEvent('app:captureScreen')
-    window.dispatchEvent(event)
+    // useApp 中已订阅 AppEvents.CAPTURE_SCREEN，由它弹出截图操作 prompt
+    eventBus.emit(AppEvents.CAPTURE_SCREEN)
   })
 
   // ========================================

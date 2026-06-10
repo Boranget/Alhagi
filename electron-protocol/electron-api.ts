@@ -17,6 +17,7 @@ import type {
   LineEnding,
   DetachedTabData,
 } from './types'
+import type { Language } from './i18n/dictionaries'
 
 export interface ElectronAPI {
   // ========== 文件操作 ==========
@@ -136,4 +137,25 @@ export interface ElectronAPI {
 
   // 帮助菜单事件
   onHelpShortcuts: (callback: () => void) => () => void
+
+  // ========== 命令系统统一通道（P2-12 引入） ==========
+  /**
+   * 订阅主进程通过统一通道下发的命令执行通知。
+   * 菜单点击会通过此通道传 commandId，渲染端调 executeCommand(id) 派发。
+   */
+  onExecuteCommand: (callback: (commandId: string) => void) => () => void
+  /**
+   * 通知主进程按指定语言重建原生应用菜单（语言切换、命令注册表热更新场景）。
+   */
+  rebuildMenu: (language: Language) => Promise<IPCResponse<boolean>>
+
+  // ========== 文件外部修改检测（P2-10） ==========
+  /**
+   * 订阅「已打开文件被外部修改/删除」通知。
+   * kind: 'modified' — 内容变化，建议提示用户重新加载
+   *       'deleted'  — 文件已被删除（或重命名走了），建议标脏或关闭标签
+   */
+  onExternalFileChanged: (
+    callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void
+  ) => () => void
 }

@@ -39,7 +39,6 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
-import EditorContainer from '@/components/Editor/EditorContainer.vue'
 import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import Welcome from '@/components/Welcome/Welcome.vue'
 
@@ -47,6 +46,9 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 const SettingsPanel = defineAsyncComponent(() => import('@/components/Settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
 const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
+// 编辑器异步加载（P2-9）：仅当有打开文件时拉取 milkdown/crepe + codemirror，
+// 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
+const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()

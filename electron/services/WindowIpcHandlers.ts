@@ -142,7 +142,11 @@ export class WindowIpcHandlers {
 
   private registerDevTools(): void {
     registerHandler(IPC_CHANNELS.WINDOW.OPEN_DEV_TOOLS, IPCErrorCode.UNKNOWN_ERROR, () => {
-      this.windowManager.getMainWindow()?.webContents.openDevTools()
+      const wc = this.windowManager.getMainWindow()?.webContents
+      if (!wc) return false
+      // 切换：菜单和命令面板都用这一个 handler
+      if (wc.isDevToolsOpened()) wc.closeDevTools()
+      else wc.openDevTools()
       return true
     })
   }

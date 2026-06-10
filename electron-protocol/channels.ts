@@ -28,6 +28,8 @@ export const IPC_CHANNELS = {
     SHOW_IN_FOLDER: 'file:show-in-folder',
     GET_DOCUMENTS_DIRECTORY: 'file:get-documents-directory',
     ENSURE_DIRECTORY: 'file:ensure-directory',
+    /** main → renderer：打开的文件被外部修改 / 删除（P2-10） */
+    EXTERNAL_CHANGED: 'file:external-changed',
   },
   DIALOG: {
     SELECT_DIRECTORY: 'dialog:select-directory',
@@ -69,5 +71,21 @@ export const IPC_CHANNELS = {
   PREFERENCES: {
     GET_ALL: 'preferences:get-all',
     SET_ALL: 'preferences:set-all',
+  },
+  /**
+   * 命令系统统一执行通道（P2-12 引入）。
+   * EXECUTE：main → renderer 单向通知，让渲染端 executeCommand(commandId) 派发，
+   * 是替代 50+ MENU_EVENTS.* 的方向，但本期与老通道并存以保留回退路径。
+   */
+  COMMAND: {
+    EXECUTE: 'command:execute',
+  },
+  /**
+   * 应用菜单管理通道（P2-12 引入）。
+   * REBUILD：renderer → main 通知主进程按当前语言重建原生菜单，
+   * 由语言切换、命令注册表变更等场景触发。
+   */
+  MENU: {
+    REBUILD: 'menu:rebuild',
   },
 } as const

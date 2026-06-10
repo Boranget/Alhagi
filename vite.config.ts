@@ -43,16 +43,50 @@ export default defineConfig(({ command }) => ({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        // 代码分割：将大型依赖拆分为独立 chunk（Vite 8 rolldown 使用函数签名）
+        // 代码分割：将大型依赖拆分为独立 chunk
+        // 拆分原则：
+        //   - vendor-vue：框架核心，首屏必需
+        //   - vendor-milkdown-core：Crepe + commonmark/gfm preset，首屏必需
+        //   - vendor-milkdown-features：math/prism/table 等独立 plugin，懒加载（被 Crepe 内部 dynamic import 触发）
+        //   - vendor-codemirror-core：editor/view/state/commands，首屏必需（源码模式 + 代码块）
+        //   - vendor-codemirror-langs：lang-* + language-data，按需加载
+        //   - vendor-katex：KaTeX 公式渲染，仅含数学公式的文档需要
+        //   - vendor-prism：Prism 语法高亮，仅源码模式/代码块需要
         manualChunks(id: string) {
           if (id.includes('node_modules/vue') || id.includes('node_modules/pinia') || id.includes('node_modules/@vueuse')) {
             return 'vendor-vue'
           }
+          // KaTeX 独立 chunk（含字体，由 CSS url() 自动处理）
+          if (id.includes('node_modules/katex')) {
+            return 'vendor-katex'
+          }
+          // Prism 独立（用于代码块 token 着色）
+          if (id.includes('node_modules/prismjs') || id.includes('node_modules/refractor')) {
+            return 'vendor-prism'
+          }
           if (id.includes('node_modules/@milkdown')) {
-            return 'vendor-milkdown'
+            // math/prism/table/listener 等独立 plugin → features chunk
+            // 主要由 Crepe 内部 dynamic import，拆出来不影响首屏阻塞
+            if (
+              id.includes('@milkdown/plugin-math') ||
+              id.includes('@milkdown/plugin-prism') ||
+              id.includes('@milkdown/plugin-listener') ||
+              id.includes('@milkdown/plugin-clipboard') ||
+              id.includes('@milkdown/plugin-block') ||
+              id.includes('@milkdown/plugin-tooltip') ||
+              id.includes('@milkdown/plugin-slash') ||
+              id.includes('@milkdown/plugin-cursor')
+            ) {
+              return 'vendor-milkdown-features'
+            }
+            return 'vendor-milkdown-core'
           }
           if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@uiw/codemirror')) {
-            return 'vendor-codemirror'
+            // 语言包独立 chunk：触发它的代码块/源码模式才加载
+            if (id.includes('@codemirror/lang-') || id.includes('@codemirror/language-data')) {
+              return 'vendor-codemirror-langs'
+            }
+            return 'vendor-codemirror-core'
           }
         }
       }

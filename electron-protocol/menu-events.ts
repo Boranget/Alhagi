@@ -1,6 +1,15 @@
 // ============================================================
 // Alhagi Menu Events - 主进程菜单 → 渲染端的事件通道常量
 // ============================================================
+//
+// P2-12 之后，主进程菜单点击统一走 IPC_CHANNELS.COMMAND.EXECUTE 通道，
+// 由渲染端 dispatcher.executeCommand(id) 派发到命令 handler。
+//
+// 本表中大部分常量已无 send 方，仅作为兼容入口保留：
+//   - 仍在用：TOGGLE_STICKY_NOTE（mainProcessCommands 中通知 UI 同步状态）
+//   - 死常量：其余 ~50 个；preload onXxx 仍按它们订阅，但主进程不会发送。
+//
+// @deprecated 整张表计划在 P2-12 后续阶段（issue: cleanup-menu-events）逐步清理。
 
 export const MENU_EVENTS = {
   // 文件

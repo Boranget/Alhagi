@@ -18,9 +18,14 @@ import {
 } from '../../electron-protocol'
 import { registerHandler } from '../ipc-handler'
 import type { WindowManager } from './WindowManager'
+import type { FileWatcher } from './FileWatcher'
 
 export class FileSystemService {
-  constructor(private windowManager: WindowManager) {}
+  constructor(
+    private windowManager: WindowManager,
+    /** P2-10：写文件后调 markSaved 抑制 chokidar 自触发 */
+    private fileWatcher: FileWatcher,
+  ) {}
 
   registerHandlers(): void {
     this.registerOpen()
@@ -97,6 +102,8 @@ export class FileSystemService {
       IPCErrorCode.FILE_SAVE_ERROR,
       async (_, { filePath, content, lineEnding }: { filePath: string; content: string; lineEnding?: LineEnding }) => {
         const finalContent = this.applyLineEnding(content, lineEnding)
+        // markSaved 必须在写之前，否则极小概率 chokidar 先 fire change 再被记录
+        this.fileWatcher.markSaved(filePath)
         await fs.writeFile(filePath, finalContent, 'utf-8')
         return true
       },
@@ -119,6 +126,7 @@ export class FileSystemService {
         })
         if (result.canceled || !result.filePath) return createSuccessResponse(null)
         const finalContent = this.applyLineEnding(content, lineEnding)
+        this.fileWatcher.markSaved(result.filePath)
         await fs.writeFile(result.filePath, finalContent, 'utf-8')
         return createSuccessResponse(result.filePath)
       },
@@ -140,6 +148,7 @@ export class FileSystemService {
           await fs.mkdir(dirPath, { recursive: true })
         }
         const buffer = Buffer.from(content, 'base64')
+        this.fileWatcher.markSaved(filePath)
         await fs.writeFile(filePath, buffer)
         return true
       },

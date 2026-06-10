@@ -60,6 +60,8 @@ export function useCommands() {
   }
 
   // 获取命令详情
+  // 注：label 字段为 i18n key（约定 'commands.<id>'），调用方需通过
+  // src/services/i18n.ts 的 t() 转译再展示。
   const getCommandInfo = (commandId: string) => {
     const command = getCommand(commandId)
     if (!command) return null

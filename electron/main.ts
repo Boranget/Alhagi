@@ -13,6 +13,11 @@ import { app } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AppContext } from './context'
+import { installMainProcessCrashHandlers } from './services/crashHandler'
+
+// 主进程顶层异常 handler 必须在 app.whenReady() 之前安装，
+// 否则启动阶段（context 构造期）的异常无法拦截。
+installMainProcessCrashHandlers()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = path.join(__dirname, '..')

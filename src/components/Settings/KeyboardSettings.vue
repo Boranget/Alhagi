@@ -42,7 +42,7 @@
               class="keybinding-item"
             >
               <div class="binding-info">
-                <span class="binding-description">{{ cmd.description || cmd.label }}</span>
+                <span class="binding-description">{{ cmd.description || t(cmd.label) }}</span>
               </div>
               <div
                 class="binding-key"
@@ -117,6 +117,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { COMMANDS, CATEGORY_LABELS, getPlatformKeybinding } from '@/commands/registry'
 import { formatKeybinding, getPlatform } from '@/commands/types'
+import { t } from '@/services/i18n'
 import type { Keybinding, CommandCategory } from '@/commands/types'
 import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -150,7 +151,7 @@ const categories = computed(() => {
 
   return Array.from(categoryMap.entries()).map(([catId, commands]) => ({
     id: catId,
-    label: CATEGORY_LABELS[catId] || catId,
+    label: t(CATEGORY_LABELS[catId] || catId),
     commands,
   }))
 })
@@ -165,7 +166,9 @@ const filteredCategories = computed(() => {
     .map(cat => ({
       ...cat,
       commands: cat.commands.filter(cmd =>
-        (cmd.description || cmd.label).toLowerCase().includes(query) ||
+        // cmd.label / description 已是 i18n key，搜索按翻译后字符串匹配
+        (cmd.description || t(cmd.label)).toLowerCase().includes(query) ||
+        t(cmd.label).toLowerCase().includes(query) ||
         cmd.id.toLowerCase().includes(query) ||
         getKeybindingDisplay(cmd.id)?.toLowerCase().includes(query)
       )

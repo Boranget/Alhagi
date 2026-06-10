@@ -31,7 +31,7 @@
                   :key="command.id"
                   class="shortcut-item"
                 >
-                  <span class="shortcut-label">{{ command.label }}</span>
+                  <span class="shortcut-label">{{ t(command.label) }}</span>
                   <span
                     v-if="command.shortcut"
                     class="shortcut-keys"
@@ -61,6 +61,7 @@ import { computed } from 'vue'
 import { COMMANDS, CATEGORY_LABELS, CATEGORY_ORDER } from '@/commands/registry'
 import { getPlatformKeybinding } from '@/commands/registry'
 import { formatKeybinding } from '@/commands/types'
+import { t } from '@/services/i18n'
 import type { CommandCategory } from '@/commands/types'
 
 const _props = defineProps<{
@@ -82,7 +83,7 @@ const platform = getPlatform()
 
 // 获取类别标签
 function getCategoryLabel(category: CommandCategory): string {
-  return CATEGORY_LABELS[category] || category
+  return t(CATEGORY_LABELS[category] || category)
 }
 
 // 获取所有带快捷键的命令，按类别分组（返回数组以便模板稳定遍历）

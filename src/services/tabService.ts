@@ -6,6 +6,7 @@ import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
 import { electronService } from './electron/ElectronService'
+import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 export class TabService {
   private tabsStore = useTabsStore()
@@ -135,6 +136,36 @@ export class TabService {
     }
 
     return allSaved
+  }
+
+  /**
+   * P2-10：从磁盘重新读取指定文件，更新对应标签内容。
+   * 调用方负责弹「是否丢弃当前修改」之类的确认对话框。
+   *
+   * 关键：除了刷新 tabsStore.content，还必须显式刷新 Crepe 编辑器内部
+   * 的 ProseMirror 文档；store 字段变了 ≠ 编辑器视图变了。
+   */
+  async reloadFromDisk(filePath: string): Promise<boolean> {
+    if (!electronService.isAvailable()) return false
+    const tab = this.tabsStore.findTabByFilePath(filePath)
+    if (!tab) return false
+    const resp = await electronService.readFile(filePath)
+    if (!resp.success || resp.data === undefined) return false
+    const content = resp.data
+
+    // 1. 更新 store 中的内容快照（让所有 watch(content) 的地方拿到新值）
+    this.tabsStore.updateTab(tab.id, { content })
+    this.tabsStore.markClean(tab.id)
+
+    // 2. 若 reload 的是当前活动 tab，强制 Crepe 重新解析文档；
+    //    其他 tab 内容也已更新，将来切换过去时 switchToTab 会自然 setMarkdown。
+    if (this.tabsStore.activeTabId === tab.id) {
+      const editorManager = useCrepeEditorManager()
+      await editorManager.setMarkdown(content)
+    }
+
+    eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
+    return true
   }
 }
 

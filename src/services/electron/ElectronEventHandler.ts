@@ -10,6 +10,7 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { useClipboard } from '@/services/clipboard'
 import { useCapture } from '@/services/capture'
 import { useTabService } from '@/services/tabService'
+import { executeCommand } from '@/commands'
 import type { ElectronAPI } from 'electron-protocol'
 
 /**
@@ -58,6 +59,8 @@ export class ElectronEventHandler {
     this.registerToolsHandlers()
     this.registerHelpHandlers()
     this.registerWindowAndTabHandlers()
+    this.registerCommandExecuteHandler()
+    this.registerExternalFileChangeHandler()
 
     console.log('[ElectronEventHandler] Event handlers initialized successfully')
   }
@@ -529,6 +532,63 @@ export class ElectronEventHandler {
         this.safeExecute(() => {
           eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, { filePath })
         }, 'onFocusTabForFile')
+      })
+    )
+  }
+
+  /**
+   * 注册命令系统统一通道订阅（P2-12 引入）。
+   * 主进程菜单点击会通过 COMMAND.EXECUTE 通道送来 commandId，
+   * 直接走 dispatcher.executeCommand 派发，省去为每个菜单项手写 onXxx。
+   */
+  private registerCommandExecuteHandler(): void {
+    this.disposables.push(
+      this.api!.onExecuteCommand((commandId) => {
+        this.safeExecute(async () => {
+          await executeCommand(commandId)
+        }, `onExecuteCommand:${commandId}`)
+      })
+    )
+  }
+
+  /**
+   * 注册「打开文件被外部修改」订阅（P2-10）。
+   * 主进程 FileWatcher 检测到 chokidar change 时通知此处。
+   *   - modified：弹 confirm 让用户决定是否重载（脏 tab 额外说明会丢失修改）
+   *   - deleted ：弹 alert + 标脏（不主动关 tab，避免误删）
+   *
+   * 注：之前「干净 tab 自动 reload」被发现没有任何提示，用户体验上像没生效，改为始终提示。
+   */
+  private registerExternalFileChangeHandler(): void {
+    this.disposables.push(
+      this.api!.onExternalFileChanged(({ filePath, kind }) => {
+        this.safeExecute(async () => {
+          const tab = this.tabsStore.findTabByFilePath(filePath)
+          if (!tab) return // 文件已被关闭，无需处理
+
+          if (kind === 'deleted') {
+            this.tabsStore.markDirty(tab.id)
+            // 不阻塞：异步通知用户文件不见了
+            window.setTimeout(() => {
+              alert(`文件「${tab.title}」已被外部删除。\n标签内容仍可保存，会重新创建文件。`)
+            }, 0)
+            return
+          }
+
+          // modified：始终弹提示，区分脏/净给出不同措辞
+          const shouldReload = tab.isDirty
+            ? confirm(
+                `文件「${tab.title}」已被外部修改，但当前标签有未保存的更改。\n\n` +
+                  `点击「确定」从磁盘重新加载（丢弃当前修改）；点击「取消」保留当前修改。`
+              )
+            : confirm(
+                `文件「${tab.title}」已被外部修改。\n\n点击「确定」从磁盘重新加载；点击「取消」保留当前内容。`
+              )
+
+          if (shouldReload) {
+            await this.tabService.reloadFromDisk(filePath)
+          }
+        }, `onExternalFileChanged:${filePath}`)
       })
     )
   }

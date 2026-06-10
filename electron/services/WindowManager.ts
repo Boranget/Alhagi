@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url'
 import { IPC_CHANNELS, type DetachedTabData } from '../../electron-protocol'
 import type { PreferenceStore } from './PreferenceStore'
 import type { ThemeService } from './ThemeService'
+import { attachRendererCrashHandler } from './crashHandler'
+import type { FileWatcher } from './FileWatcher'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -26,6 +28,8 @@ export class WindowManager {
   private windows = new Map<number, BrowserWindow>()
   private windowOpenFiles = new Map<number, string[]>()
   private mainWindow: BrowserWindow | null = null
+  /** P2-10：可选注入；用于在 updateOpenedFiles 时同步监视列表 */
+  private fileWatcher: FileWatcher | null = null
 
   constructor(
     private prefs: PreferenceStore,
@@ -33,6 +37,11 @@ export class WindowManager {
     private viteDevServerUrl: string | undefined,
     private rendererDist: string,
   ) {}
+
+  /** P2-10：AppContext 在构造完 FileWatcher 后回调注入，避免循环依赖 */
+  attachFileWatcher(watcher: FileWatcher): void {
+    this.fileWatcher = watcher
+  }
 
   getMainWindow(): BrowserWindow | null {
     return this.mainWindow
@@ -51,7 +60,9 @@ export class WindowManager {
   }
 
   updateOpenedFiles(windowId: number, filePaths: string[]): void {
+    const prev = this.windowOpenFiles.get(windowId) ?? []
     this.windowOpenFiles.set(windowId, filePaths)
+    this.fileWatcher?.syncForWindow(prev, filePaths)
   }
 
   /**
@@ -136,6 +147,9 @@ export class WindowManager {
     })
 
     win.on('closed', () => {
+      // 释放该窗口持有的文件监视引用计数（P2-10）
+      const prevFiles = this.windowOpenFiles.get(win.id) ?? []
+      this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
       if (this.mainWindow === win) {
@@ -175,6 +189,8 @@ export class WindowManager {
     this.registerWindow(win)
 
     win.on('closed', () => {
+      const prevFiles = this.windowOpenFiles.get(win.id) ?? []
+      this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
     })
@@ -238,5 +254,7 @@ export class WindowManager {
   private registerWindow(win: BrowserWindow): void {
     this.windows.set(win.id, win)
     this.windowOpenFiles.set(win.id, [])
+    // P2-11：渲染进程崩溃时弹 Reload / Close 对话框
+    attachRendererCrashHandler(win)
   }
 }

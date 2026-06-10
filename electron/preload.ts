@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-import { 
+import {
   IPCResponse,
   ElectronAPI,
   IPC_CHANNELS,
@@ -7,6 +7,7 @@ import {
   FILE_TYPES,
   DetachedTabData
 } from '../electron-protocol'
+import type { Language } from '../electron-protocol/i18n/dictionaries'
 
 export type { IPCResponse, DetachedTabData } from '../electron-protocol'
 
@@ -272,7 +273,21 @@ onToggleSidebar: (callback) =>
   onToolsExport: (callback) => createMenuListener(MENU_EVENTS.TOOLS_EXPORT, callback),
 
   // 帮助菜单事件
-  onHelpShortcuts: (callback) => createMenuListener(MENU_EVENTS.HELP_SHORTCUTS, callback)
+  onHelpShortcuts: (callback) => createMenuListener(MENU_EVENTS.HELP_SHORTCUTS, callback),
+
+  // 命令系统统一通道（P2-12 引入）
+  onExecuteCommand: (callback: (commandId: string) => void) =>
+    createMenuListener<[string]>(IPC_CHANNELS.COMMAND.EXECUTE, callback),
+
+  rebuildMenu: (language: Language) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.MENU.REBUILD, language),
+
+  // 文件外部修改检测（P2-10）
+  onExternalFileChanged: (callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void) =>
+    createMenuListener<[{ filePath: string; kind: 'modified' | 'deleted' }]>(
+      IPC_CHANNELS.FILE.EXTERNAL_CHANGED,
+      callback,
+    ),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

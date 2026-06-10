@@ -5,6 +5,7 @@
 // 入口处按固定顺序构造全部服务，相互通过构造函数注入。
 // 任何模块都从 AppContext 取依赖，不再直接 import 单例或读 global。
 
+import { ipcMain } from 'electron'
 import { PreferenceStore } from './services/PreferenceStore'
 import { ThemeService } from './services/ThemeService'
 import { WindowManager } from './services/WindowManager'
@@ -14,6 +15,9 @@ import { SearchService } from './services/SearchService'
 import { WindowIpcHandlers } from './services/WindowIpcHandlers'
 import { PreferenceIpcHandlers } from './services/PreferenceIpcHandlers'
 import { MenuBuilder } from './services/MenuBuilder'
+import { FileWatcher } from './services/FileWatcher'
+import { IPC_CHANNELS } from '../electron-protocol/channels'
+import type { Language } from '../electron-protocol/i18n/dictionaries'
 
 export class AppContext {
   readonly prefs: PreferenceStore
@@ -25,14 +29,17 @@ export class AppContext {
   readonly windowIpc: WindowIpcHandlers
   readonly preferenceIpc: PreferenceIpcHandlers
   readonly menu: MenuBuilder
+  readonly fileWatcher: FileWatcher
 
   constructor(viteDevServerUrl: string | undefined, rendererDist: string) {
     // 构造顺序按依赖关系排列：
-    // PreferenceStore → ThemeService → WindowManager → 其余 IPC 服务 → MenuBuilder
+    // PreferenceStore → ThemeService → WindowManager → FileWatcher → 其余 IPC 服务 → MenuBuilder
     this.prefs = new PreferenceStore()
     this.theme = new ThemeService(this.prefs)
     this.windowManager = new WindowManager(this.prefs, this.theme, viteDevServerUrl, rendererDist)
-    this.fileSystem = new FileSystemService(this.windowManager)
+    this.fileWatcher = new FileWatcher(this.windowManager)
+    this.windowManager.attachFileWatcher(this.fileWatcher)
+    this.fileSystem = new FileSystemService(this.windowManager, this.fileWatcher)
     this.dialog = new DialogService(this.windowManager)
     this.search = new SearchService()
     this.windowIpc = new WindowIpcHandlers(this.windowManager, this.theme)
@@ -49,7 +56,29 @@ export class AppContext {
     this.search.registerHandlers()
     this.windowIpc.registerHandlers()
     this.preferenceIpc.registerHandlers()
-    this.menu.install()
+    this.registerMenuHandlers()
+    // 启动菜单语言：从偏好读取（兼容首次启动 / 旧用户）
+    const initialLang = this.readPreferredLanguage()
+    this.menu.install(initialLang)
     this.windowManager.createMainWindow()
+  }
+
+  private registerMenuHandlers(): void {
+    ipcMain.handle(IPC_CHANNELS.MENU.REBUILD, (_event, language: Language) => {
+      this.menu.rebuild(language)
+      return { success: true, data: true }
+    })
+  }
+
+  private readPreferredLanguage(): Language {
+    // 从用户偏好中读语言（首次启动时为 null，回退 zh-CN）
+    try {
+      const prefs = this.prefs.getUserPreferences()
+      const lang = prefs?.language
+      if (lang === 'en' || lang === 'zh-CN') return lang
+    } catch {
+      // 偏好读取失败时回退默认
+    }
+    return 'zh-CN'
   }
 }

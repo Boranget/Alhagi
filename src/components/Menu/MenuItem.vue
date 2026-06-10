@@ -4,7 +4,7 @@
     :class="{ disabled: !isEnabled }"
     @click="handleClick"
   >
-    <span class="menu-item-label">{{ command.label }}</span>
+    <span class="menu-item-label">{{ t(command.label) }}</span>
     <span
       v-if="shortcut"
       class="menu-item-shortcut"
@@ -17,6 +17,7 @@ import { computed } from 'vue'
 import { canExecuteCommand } from '@/commands/dispatcher'
 import { getPlatformKeybinding } from '@/commands/registry'
 import { formatKeybinding } from '@/commands/types'
+import { t } from '@/services/i18n'
 import type { CommandEntry } from '@/commands/types'
 
 const props = defineProps<{

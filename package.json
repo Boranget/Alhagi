@@ -30,6 +30,7 @@
     "@uiw/codemirror-theme-nord": "^4.25.9",
     "@vscode/ripgrep": "^1.18.0",
     "@vueuse/core": "^10.9.0",
+    "chokidar": "^5.0.0",
     "electron-store": "^11.0.2",
     "html2canvas": "^1.4.1",
     "pinia": "^2.1.7",

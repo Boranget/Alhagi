@@ -42,7 +42,7 @@
             @click="executeCommandHandler(command.id)"
             @mouseenter="selectedId = command.id"
           >
-            <span class="command-label">{{ command.label }}</span>
+            <span class="command-label">{{ t(command.label) }}</span>
             <span
               v-if="getShortcut(command.id)"
               class="command-shortcut"
@@ -72,6 +72,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { executeCommand, getCommand } from '@/commands'
 import { COMMANDS, CATEGORY_LABELS } from '@/commands/registry'
 import { formatKeybinding } from '@/commands/types'
+import { t } from '@/services/i18n'
 import type { CommandCategory } from '@/commands/types'
 
 const props = defineProps<{
@@ -103,12 +104,14 @@ const filteredCommands = computed(() => {
 
   return COMMANDS.filter(cmd => {
     if (cmd.hidden) return false
-    
-    const labelMatch = cmd.label.toLowerCase().includes(query)
+
+    // label 与 description 现已是 i18n key，必须先翻译再搜索，
+    // 否则用户用中文/英文输入框查不到任何命令
+    const labelMatch = t(cmd.label).toLowerCase().includes(query)
     const idMatch = cmd.id.toLowerCase().includes(query)
     const descMatch = cmd.description?.toLowerCase().includes(query)
     const shortcutMatch = getShortcut(cmd.id)?.toLowerCase().includes(query)
-    
+
     return labelMatch || idMatch || descMatch || shortcutMatch
   })
 })
@@ -132,7 +135,7 @@ const filteredGroups = computed(() => {
 
 // 获取类别标签
 function getCategoryLabel(category: CommandCategory): string {
-  return CATEGORY_LABELS[category] || category
+  return t(CATEGORY_LABELS[category] || category)
 }
 
 // 获取快捷键
