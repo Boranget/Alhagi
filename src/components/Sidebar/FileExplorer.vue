@@ -208,7 +208,7 @@ async function handleSelect(node: FileTreeNodeType) {
     // 首先检查文件是否已在其他窗口打开
     if (window.electronAPI) {
       const checkResult = await window.electronAPI.checkFileOpen(node.path)
-      if (checkResult.success && checkResult.data?.windowId !== null) {
+      if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
         // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
         await window.electronAPI.focusWindow(checkResult.data.windowId, node.path)
         return

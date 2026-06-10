@@ -324,10 +324,31 @@ export const usePreferencesStore = defineStore('preferences', () => {
     savePreferences()
   }
 
+  /**
+   * 保存全部偏好。
+   *
+   * 优先写入主进程 electron-store（多窗口数据来源一致、不会被浏览器清缓存清掉）；
+   * 同时保留 localStorage 写入作为：
+   *  1. 浏览器/无 Electron 环境的兜底
+   *  2. 紧急场景下用户可以通过开发者工具检查/手改
+   *
+   * IPC 写入是异步的，不 await 以避免阻塞 UI；失败时不重试（下次保存会覆盖）。
+   */
   function savePreferences(): void {
     try {
       const preferences = getAllPreferences()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+      const serialized = JSON.stringify(preferences)
+
+      // 兜底：localStorage（无 Electron 环境时唯一可用）
+      localStorage.setItem(STORAGE_KEY, serialized)
+
+      // 主路径：主进程 electron-store
+      if (window.electronAPI) {
+        window.electronAPI.preferencesSetAll(preferences as unknown as Record<string, unknown>)
+          .catch(() => {
+            // 静默失败：localStorage 已经写入了，下次启动还能恢复
+          })
+      }
     } catch (error) {
       errorManager.createError(
         ErrorCode.FILE_WRITE_ERROR,
@@ -338,13 +359,52 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
-  function loadPreferences(): void {
+  /**
+   * 加载全部偏好。
+   *
+   * 启动时按以下顺序决定数据源：
+   *  1. 主进程 electron-store（权威源）
+   *  2. localStorage（旧用户的迁移源 / 无 Electron 兜底）
+   *
+   * 若从 localStorage 读到但主进程为空，会自动迁移一次：将本地数据写入主进程，
+   * 之后该用户的偏好就全在主进程了。
+   */
+  async function loadPreferences(): Promise<void> {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const preferences = JSON.parse(saved) as Partial<Preferences>
+      let preferences: Partial<Preferences> | null = null
+      let needMigrate = false
+
+      // 1. 优先从主进程读取
+      if (window.electronAPI) {
+        try {
+          const resp = await window.electronAPI.preferencesGetAll()
+          if (resp.success && resp.data) {
+            preferences = resp.data as Partial<Preferences>
+          }
+        } catch {
+          // IPC 失败，回退到 localStorage
+        }
+      }
+
+      // 2. 主进程没有 → 尝试 localStorage
+      if (!preferences) {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          preferences = JSON.parse(saved) as Partial<Preferences>
+          // 主进程没数据但 localStorage 有 → 一次性迁移
+          if (window.electronAPI) {
+            needMigrate = true
+          }
+        }
+      }
+
+      if (preferences) {
         updatePreferences(preferences)
         applyTheme()
+        if (needMigrate) {
+          // 迁移：把 localStorage 的数据搬到主进程（savePreferences 会同时写两边）
+          savePreferences()
+        }
       } else {
         applyTheme()
       }

@@ -75,6 +75,10 @@ const inlineMarksParsersPlugin: MilkdownPlugin = (ctx) => async () => {
  * MilkdownPlugin: 注册 remark-frontmatter 和转换插件，
  * 将文档开头的 YAML frontmatter 解析为 yaml 代码块显示。
  * 注意：remark-frontmatter 必须在 remarkFrontmatterToCode 之前执行。
+ *
+ * remark-frontmatter 的 options 类型（Matter|Preset[]）与 Milkdown 的
+ * `RemarkPlugin<Record<string, unknown>>` 不严格兼容，这里用 cast 绕过——
+ * 运行时是 remark/unified 统一接受的 plugin 形态。
  */
 const frontmatterPlugin: MilkdownPlugin = (ctx) => async () => {
   await ctx.wait(InitReady)
@@ -82,7 +86,7 @@ const frontmatterPlugin: MilkdownPlugin = (ctx) => async () => {
     ...rp,
     { plugin: remarkFrontmatter, options: { type: 'yaml', marker: '-' } },
     { plugin: remarkFrontmatterToCode, options: {} },
-  ])
+  ] as typeof rp)
 }
 
 export class CrepeEditorManager {

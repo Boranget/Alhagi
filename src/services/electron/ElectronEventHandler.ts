@@ -385,7 +385,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onViewMode((mode) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.VIEW_MODE_CHANGE, mode)
+          eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: mode as 'wysiwyg' | 'source' | 'split' })
         }, 'onViewMode')
       })
     )
@@ -511,7 +511,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onTabMerge((tabData) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.TAB_MERGE_REQUESTED, tabData)
+          eventBus.emit(AppEvents.TAB_MERGE_REQUESTED, { tabData })
         }, 'onTabMerge')
       })
     )
@@ -519,7 +519,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onTabDetached((tabData) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.TAB_DETACHED, tabData)
+          eventBus.emit(AppEvents.TAB_DETACHED, { tabData })
         }, 'onTabDetached')
       })
     )
@@ -527,7 +527,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onFocusTabForFile((filePath) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, filePath)
+          eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, { filePath })
         }, 'onFocusTabForFile')
       })
     )

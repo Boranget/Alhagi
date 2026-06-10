@@ -61,10 +61,10 @@ export function useApp() {
 
     // 视图模式切换
     unsubscribers.push(
-      eventBus.on(AppEvents.VIEW_MODE_CHANGE, async (mode) => {
+      eventBus.on(AppEvents.VIEW_MODE_CHANGE, async ({ mode }) => {
         const activeTab = tabsStore.activeTabId ? tabsStore.getTab(tabsStore.activeTabId) : null
         if (activeTab) {
-          await tabsStore.updateTab(activeTab.id, { viewMode: mode as 'wysiwyg' | 'source' | 'split' })
+          await tabsStore.updateTab(activeTab.id, { viewMode: mode })
         }
       })
     )
@@ -198,7 +198,7 @@ export function useApp() {
 
     window.addEventListener('beforeunload', saveCurrentSession)
 
-    prefsStore.loadPreferences()
+    await prefsStore.loadPreferences()
     initWritingEnhancement()
     startListening()
 

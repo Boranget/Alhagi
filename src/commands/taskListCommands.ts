@@ -32,7 +32,9 @@ export const toggleTaskListCommand = $command(
           wrapIn(bulletListType)(state, (tr) => { wrappedTr = tr })
 
           if (wrappedTr) {
-            const newDoc = wrappedTr.doc || doc
+            // TS 在 closure 中赋值后无法窄化为非 null，所以这里显式断言
+            const trAssigned = wrappedTr as Transaction
+            const newDoc = trAssigned.doc || doc
             const newStartPos = newDoc.resolve(from)
 
             let newDepth = newStartPos.depth
@@ -46,12 +48,12 @@ export const toggleTaskListCommand = $command(
 
             if (newDepth >= 0) {
               const listItemStart = newStartPos.before(newDepth + 1)
-              wrappedTr.setNodeMarkup(listItemStart, listItemType, {
+              trAssigned.setNodeMarkup(listItemStart, listItemType, {
                 ...newListItem.attrs,
                 checked: false,
               })
             }
-            dispatch(wrappedTr)
+            dispatch(trAssigned)
           }
         }
         return true

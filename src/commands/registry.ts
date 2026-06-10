@@ -689,6 +689,35 @@ export function getGroupedMenuCommands(): Map<CommandCategory, CommandEntry[]> {
 }
 
 // 获取平台特定的快捷键
+//
+// 优先级：
+//   1. command.platformOverrides[当前平台].keybinding（若该平台覆写为 undefined 则视为该平台无快捷键）
+//   2. command.keybinding（默认）
+//
+// 注意：当前平台是从 navigator.platform 检测，需在浏览器/Electron 渲染端调用。
 export function getPlatformKeybinding(command: CommandEntry) {
+  const platform: 'macOS' | 'windows' | 'linux' =
+    typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
+      ? 'macOS'
+      : typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win')
+        ? 'windows'
+        : 'linux'
+
+  const override = command.platformOverrides?.[platform]
+  if (override && 'keybinding' in override) {
+    return override.keybinding
+  }
   return command.keybinding
+}
+
+// 获取平台特定的隐藏状态
+export function isHiddenOnPlatform(command: CommandEntry): boolean {
+  if (command.hidden) return true
+  const platform: 'macOS' | 'windows' | 'linux' =
+    typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
+      ? 'macOS'
+      : typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win')
+        ? 'windows'
+        : 'linux'
+  return command.platformOverrides?.[platform]?.hidden === true
 }

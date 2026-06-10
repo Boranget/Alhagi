@@ -2,18 +2,18 @@
   <div class="menu-bar">
     <div class="menu-items">
       <div
-        v-for="(commands, category) in menuGroups"
-        :key="category"
+        v-for="group in menuGroups"
+        :key="group.category"
         class="menu-item"
-        :class="{ active: activeMenu === category }"
-        @click="toggleMenu(category)"
-        @mouseenter="hoverMenu(category)"
+        :class="{ active: activeMenu === group.category }"
+        @click="toggleMenu(group.category)"
+        @mouseenter="hoverMenu(group.category)"
       >
-        <span class="menu-label">{{ getCategoryLabel(category) }}</span>
+        <span class="menu-label">{{ getCategoryLabel(group.category) }}</span>
         <MenuDropdown
-          v-if="activeMenu === category"
-          :category="category"
-          :commands="commands"
+          v-if="activeMenu === group.category"
+          :category="group.category"
+          :commands="group.commands"
           @close="closeMenus"
         />
       </div>
@@ -34,20 +34,24 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getGroupedMenuCommands, CATEGORY_LABELS } from '@/commands/registry'
 import MenuDropdown from './MenuDropdown.vue'
-import type { CommandCategory } from '@/commands/types'
+import type { CommandCategory, CommandEntry } from '@/commands/types'
 
-const activeMenu = ref<string | null>(null)
+const activeMenu = ref<CommandCategory | null>(null)
 
-const menuGroups = computed(() => {
+// 将 Map 转换为数组形式，避免在模板 v-for 中遍历 Map 引发的类型/键序歧义
+const menuGroups = computed<Array<{ category: CommandCategory; commands: CommandEntry[] }>>(() => {
   const grouped = getGroupedMenuCommands()
-  return grouped
+  return Array.from(grouped.entries()).map(([category, commands]) => ({
+    category,
+    commands,
+  }))
 })
 
-function getCategoryLabel(category: string): string {
-  return CATEGORY_LABELS[category as CommandCategory] || category
+function getCategoryLabel(category: CommandCategory): string {
+  return CATEGORY_LABELS[category] || category
 }
 
-function toggleMenu(category: string) {
+function toggleMenu(category: CommandCategory) {
   if (activeMenu.value === category) {
     activeMenu.value = null
   } else {
@@ -55,7 +59,7 @@ function toggleMenu(category: string) {
   }
 }
 
-function hoverMenu(category: string) {
+function hoverMenu(category: CommandCategory) {
   if (activeMenu.value !== null) {
     activeMenu.value = category
   }

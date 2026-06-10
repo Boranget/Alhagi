@@ -1,5 +1,6 @@
 import { FILE } from '@/constants'
 import { getDirname } from '@/utils/helpers'
+import { electronService } from '@/services/electron/ElectronService'
 
 const TEMP_DIR_STRUCTURE = {
   ALHAGI_DIR: 'alhagi',
@@ -21,32 +22,34 @@ function getDirnameFromPath(filePath: string): string {
   return lastSlash > 0 ? normalized.substring(0, lastSlash) : ''
 }
 
-export async function getTempImageRootDir(): Promise<string> {
-  if (!window.electronAPI) {
+/**
+ * 统一守卫：未在 Electron 中运行时所有临时图片功能都不可用。
+ * 直接抛错而不是静默成功，让调用方有机会显示给用户。
+ */
+function requireApi() {
+  const api = electronService.getAPI()
+  if (!api) {
     throw new Error('Electron API not available')
   }
-  
-  const response = await window.electronAPI.getDocumentsDirectory()
+  return api
+}
+
+export async function getTempImageRootDir(): Promise<string> {
+  const api = requireApi()
+  const response = await api.getDocumentsDirectory()
   if (!response.success || !response.data) {
     throw new Error('Cannot get documents directory')
   }
-  const docDir = response.data
-  
-  return joinPaths(docDir, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR)
+  return joinPaths(response.data, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR)
 }
 
 export async function getGlobalImageDefaultDir(): Promise<string> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available')
-  }
-  
-  const response = await window.electronAPI.getDocumentsDirectory()
+  const api = requireApi()
+  const response = await api.getDocumentsDirectory()
   if (!response.success || !response.data) {
     throw new Error('Cannot get documents directory')
   }
-  const docDir = response.data
-  
-  return joinPaths(docDir, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR, 'default')
+  return joinPaths(response.data, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR, 'default')
 }
 
 export async function getTempImageDirForFile(fileId: string): Promise<string> {
@@ -60,15 +63,12 @@ export async function getTempImagePath(fileId: string, relativePath: string): Pr
 }
 
 export async function ensureTempImageDirForPath(fileId: string, relativePath: string): Promise<string> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available')
-  }
-  
+  const api = requireApi()
   const tempDir = await getTempImageDirForFile(fileId)
   const fullPath = joinPaths(tempDir, relativePath)
   const dirPath = getDirnameFromPath(fullPath)
-  
-  const ensureResult = await window.electronAPI.ensureDirectory(dirPath)
+
+  const ensureResult = await api.ensureDirectory(dirPath)
   if (!ensureResult.success) {
     throw new Error(ensureResult.error?.message || 'Failed to create directory')
   }
@@ -76,109 +76,81 @@ export async function ensureTempImageDirForPath(fileId: string, relativePath: st
 }
 
 export async function saveTempImage(fileId: string, relativePath: string, base64Content: string): Promise<string> {
+  const api = requireApi()
   const tempDir = await getTempImageDirForFile(fileId)
   const filePath = joinPaths(tempDir, relativePath)
-  
-  const ensureResult = await window.electronAPI.ensureDirectory(getDirnameFromPath(filePath))
+
+  const ensureResult = await api.ensureDirectory(getDirnameFromPath(filePath))
   if (!ensureResult.success) {
     throw new Error(ensureResult.error?.message || 'Failed to create directory')
   }
-  
-  const result = await window.electronAPI.saveBinaryFile(filePath, base64Content)
+
+  const result = await api.saveBinaryFile(filePath, base64Content)
   if (!result.success) {
     throw new Error(result.error?.message || 'Failed to save temp image')
   }
-  
+
   return filePath
 }
 
 export async function copyTempImagesToTarget(fileId: string, targetDir: string): Promise<{ tempPath: string; targetPath: string }[]> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available')
-  }
-  
+  requireApi() // 守卫；后续函数会再次取 api
   const tempDir = await getTempImageDirForFile(fileId)
-  const result = await window.electronAPI.readDirectory(tempDir)
-  
-  if (!result.success || !result.data) {
-    return []
-  }
-  
   const copiedFiles: { tempPath: string; targetPath: string }[] = []
-  
   await copyDirectoryRecursive(tempDir, targetDir, copiedFiles)
-  
   return copiedFiles
 }
 
 async function copyDirectoryRecursive(srcDir: string, destDir: string, copiedFiles: { tempPath: string; targetPath: string }[]): Promise<void> {
-  const result = await window.electronAPI.readDirectory(srcDir)
-  
-  if (!result.success || !result.data) {
-    return
-  }
-  
-  const ensureResult = await window.electronAPI.ensureDirectory(destDir)
-  if (!ensureResult.success) {
-    return
-  }
-  
+  const api = requireApi()
+  const result = await api.readDirectory(srcDir)
+  if (!result.success || !result.data) return
+
+  const ensureResult = await api.ensureDirectory(destDir)
+  if (!ensureResult.success) return
+
   for (const entry of result.data) {
-      const srcPath = joinPaths(srcDir, entry.name)
-      const destPath = joinPaths(destDir, entry.name)
-    
+    const srcPath = joinPaths(srcDir, entry.name)
+    const destPath = joinPaths(destDir, entry.name)
+
     if (entry.isDirectory) {
       await copyDirectoryRecursive(srcPath, destPath, copiedFiles)
     } else {
-      const copyResult = await window.electronAPI.copyFile(srcPath, destPath)
-      
+      const copyResult = await api.copyFile(srcPath, destPath)
       if (copyResult.success) {
-        copiedFiles.push({
-          tempPath: srcPath,
-          targetPath: destPath
-        })
+        copiedFiles.push({ tempPath: srcPath, targetPath: destPath })
       }
     }
   }
 }
 
+/**
+ * 删除某 tab 的全部临时图片目录。
+ *
+ * 主进程的 FILE.DELETE handler 同时支持文件和目录（递归删除），所以这里复用 deleteFile()。
+ * 不存在 `deleteDirectory` 方法。
+ */
 export async function deleteTempImageDir(fileId: string): Promise<void> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available')
-  }
-  
+  const api = requireApi()
   const tempDir = await getTempImageDirForFile(fileId)
-  await window.electronAPI.deleteDirectory(tempDir)
+  await api.deleteFile(tempDir)
 }
 
 export async function listTempImages(fileId: string): Promise<string[]> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available')
-  }
-  
+  requireApi()
   const tempDir = await getTempImageDirForFile(fileId)
-  const result = await window.electronAPI.readDirectory(tempDir)
-  
-  if (!result.success || !result.data) {
-    return []
-  }
-  
   const images: string[] = []
   await collectImages(tempDir, images)
-  
   return images
 }
 
 async function collectImages(dir: string, images: string[]): Promise<void> {
-  const result = await window.electronAPI.readDirectory(dir)
-  
-  if (!result.success || !result.data) {
-    return
-  }
-  
+  const api = requireApi()
+  const result = await api.readDirectory(dir)
+  if (!result.success || !result.data) return
+
   for (const entry of result.data) {
-      const fullPath = joinPaths(dir, entry.name)
-    
+    const fullPath = joinPaths(dir, entry.name)
     if (entry.isDirectory) {
       await collectImages(fullPath, images)
     } else {
@@ -201,7 +173,7 @@ export async function resolveImagePath(imagePath: string, fileId: string, mdFile
     const resolved = joinPaths(mdDir, imagePath)
     return `file:///${resolved.replace(/\\/g, '/')}`
   }
-  
+
   const tempPath = await getTempImagePath(fileId, imagePath)
   return `file:///${tempPath.replace(/\\/g, '/')}`
 }

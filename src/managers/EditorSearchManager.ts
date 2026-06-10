@@ -1,9 +1,11 @@
 import { editorViewCtx } from '@milkdown/kit/core'
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, EditorState, Transaction, TextSelection } from '@milkdown/kit/prose/state'
+import type { Selection } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import type { Node } from '@milkdown/kit/prose/model'
+import type { Editor } from '@milkdown/kit/core'
 import { useTabsStore } from '@/stores/tabs'
 import { EDITOR } from '@/constants'
 
@@ -212,16 +214,16 @@ export function getSearchPluginKey() {
 }
 
 export class EditorSearchManager {
-  private editor: { action: (callback: (ctx: { get: (key: unknown) => EditorView }) => void) => void } | null = null
+  private editor: Editor | null = null
 
-  init(editor: { action: (callback: (ctx: { get: (key: unknown) => EditorView }) => void) => void }) {
+  init(editor: Editor) {
     this.editor = editor
   }
 
   private getView(): EditorView | null {
     if (!this.editor) return null
     let view: EditorView | null = null
-    this.editor.action((ctx: { get: (key: unknown) => EditorView }) => {
+    this.editor.action((ctx) => {
       view = ctx.get(editorViewCtx)
     })
     return view
@@ -261,12 +263,14 @@ export class EditorSearchManager {
         
         // 找到匹配项的 DOM 元素
         let targetElement: HTMLElement | null = null
-        
+
         const domResult = view.domAtPos(pos)
         if (domResult && domResult.node) {
-          if (domResult.node.nodeType === Node.ELEMENT_NODE) {
+          // 注意：这里的 Node 是浏览器全局 DOM Node，不是上面 import 的 ProseMirror Node。
+          // 用 nodeType 的数字常量避免命名冲突：1 = ELEMENT_NODE，3 = TEXT_NODE
+          if (domResult.node.nodeType === 1 /* ELEMENT_NODE */) {
             targetElement = domResult.node as HTMLElement
-          } else if (domResult.node.nodeType === Node.TEXT_NODE) {
+          } else if (domResult.node.nodeType === 3 /* TEXT_NODE */) {
             targetElement = (domResult.node as Text).parentElement
           }
         }
@@ -347,7 +351,7 @@ export class EditorSearchManager {
     const view = this.getView()
     if (!view) return
 
-    this.editor?.action((ctx: { get: (key: unknown) => EditorView }) => {
+    this.editor?.action((ctx) => {
       const v = ctx.get(editorViewCtx)
       if (!v || !v.state) return
       const tr = v.state.tr.setMeta(searchPluginKey, { type: 'clear' })

@@ -115,8 +115,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { COMMANDS, CATEGORY_LABELS } from '@/commands/registry'
-import { formatKeybinding } from '@/commands/types'
+import { COMMANDS, CATEGORY_LABELS, getPlatformKeybinding } from '@/commands/registry'
+import { formatKeybinding, getPlatform } from '@/commands/types'
 import type { Keybinding, CommandCategory } from '@/commands/types'
 import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -174,15 +174,18 @@ const filteredCategories = computed(() => {
 })
 
 function getKeybindingDisplay(commandId: string): string | null {
+  const platform = getPlatform()
   // 优先使用自定义快捷键
   const custom = customKeybindings.value[commandId]
   if (custom) {
-    return formatKeybinding(custom)
+    return formatKeybinding(custom, platform)
   }
-  // 回退到注册表默认值
+  // 回退到平台特定（或默认）快捷键
   const cmd = COMMANDS.find(c => c.id === commandId)
-  if (cmd?.keybinding) {
-    return formatKeybinding(cmd.keybinding)
+  if (!cmd) return null
+  const binding = getPlatformKeybinding(cmd)
+  if (binding) {
+    return formatKeybinding(binding, platform)
   }
   return null
 }

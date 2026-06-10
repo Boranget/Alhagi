@@ -23,6 +23,14 @@ export interface TabState {
   createdAt: number
   lastModified: number
   lastSaved: number | null
+  /**
+   * 通用光标位置快照（与具体编辑器无关）。
+   * 由编辑器在 CURSOR_CHANGED 事件后写入，会话保存时序列化；
+   * 编辑器自身的精细光标/历史栈存于 crepe/codeMirror 嵌套字段。
+   */
+  cursor?: { from: number; to: number }
+  /** 通用滚动位置快照，语义同 cursor */
+  scrollTop?: number
   crepe: EditorSpecificState
   codeMirror: EditorSpecificState
 }
@@ -39,7 +47,7 @@ export type ViewMode = 'wysiwyg' | 'source' | 'split'
 
 export type FileType = 'editor' | 'image' | 'unsupported'
 
-export type SidebarView = 'files' | 'recent' | 'search' | 'extensions' | 'settings'
+export type SidebarView = 'files' | 'recent' | 'search' | 'outline'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -115,7 +123,12 @@ export interface AppEventPayloads {
   
   // 窗口和标签页事件
   'app:new-window-requested': { options?: OpenWindowOptions }
-  'app:tab-merge-requested': { options: MergeTabOptions }
+  /**
+   * 主进程通知本窗口"有标签从其他窗口分离/合并过来"。
+   * 触发场景：用户在另一个窗口把标签拖到本窗口边缘，主进程通过
+   * IPC TAB.MERGE 转发 tabData 到本窗口。
+   */
+  'app:tab-merge-requested': { tabData: DetachedTabData }
   'app:tab-detached': { tabData: DetachedTabData }
   'app:focus-tab-for-file': { filePath: string }
 }

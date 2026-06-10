@@ -17,11 +17,12 @@ function createIpcHandler<T>(
   return ipcRenderer.invoke(channel, ...args)
 }
 
-function createMenuListener(
+function createMenuListener<TArgs extends unknown[]>(
   channel: string,
-  callback: (...args: unknown[]) => void
+  callback: (...args: TArgs) => void
 ): () => void {
-  const handler = (_event: IpcRendererEvent, ...args: unknown[]) => callback(...args)
+  const handler = (_event: IpcRendererEvent, ...args: unknown[]) =>
+    (callback as (...args: unknown[]) => void)(...args)
   ipcRenderer.on(channel, handler)
   return () => {
     ipcRenderer.removeListener(channel, handler)
@@ -136,10 +137,17 @@ const api: ElectronAPI = {
   setZoom: (zoomLevel: number) => 
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
   
-  setTheme: (theme: 'light' | 'dark' | 'system') => 
+  setTheme: (theme: 'light' | 'dark' | 'system') =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_THEME, theme),
-  
-  onNewFile: (callback) => 
+
+  // 偏好持久化
+  preferencesGetAll: () =>
+    createIpcHandler(IPC_CHANNELS.PREFERENCES.GET_ALL),
+
+  preferencesSetAll: (prefs: Record<string, unknown>) =>
+    createIpcHandler(IPC_CHANNELS.PREFERENCES.SET_ALL, prefs),
+
+  onNewFile: (callback) =>
     createMenuListener(MENU_EVENTS.NEW_FILE, callback),
   
   onNewWindow: (callback) => 
@@ -172,13 +180,13 @@ const api: ElectronAPI = {
   onCaptureScreen: (callback) => 
     createMenuListener(MENU_EVENTS.CAPTURE_SCREEN, callback),
   
-  onTabMerge: (callback) => 
-    createMenuListener('tab:merge', callback),
-  
+  onTabMerge: (callback) =>
+    createMenuListener(IPC_CHANNELS.TAB.MERGE, callback),
+
   onTabDetached: (callback) =>
-    createMenuListener('tab:detached', callback),
+    createMenuListener(IPC_CHANNELS.TAB.DETACHED, callback),
   onFocusTabForFile: (callback) =>
-    createMenuListener('focus-tab-for-file', callback),
+    createMenuListener(IPC_CHANNELS.TAB.FOCUS_FOR_FILE, callback),
   
   onToggleStickyNoteMode: (callback) => 
     createMenuListener(MENU_EVENTS.TOGGLE_STICKY_NOTE, callback),
@@ -229,6 +237,9 @@ onToggleSidebar: (callback) =>
       ipcRenderer.removeListener(MENU_EVENTS.EDIT_REDO, handler)
     }
   },
+
+  onEditFind: (callback) =>
+    createMenuListener(MENU_EVENTS.EDIT_FIND, callback),
 
   // 段落菜单事件
   onParagraphHeading1: (callback) => createMenuListener(MENU_EVENTS.PARAGRAPH_HEADING1, callback),

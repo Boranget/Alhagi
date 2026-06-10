@@ -2,9 +2,9 @@
 // Alhagi Keybinding Manager - 快捷键管理器
 // ============================================================
 
-import { COMMANDS, getCommand } from './registry'
+import { COMMANDS, getCommand, getPlatformKeybinding, isHiddenOnPlatform } from './registry'
 import { executeCommand, canExecuteCommand } from './dispatcher'
-import { matchKeyEvent, formatKeybinding } from './types'
+import { matchKeyEvent, formatKeybinding, getPlatform } from './types'
 import type { Keybinding } from './types'
 import { useTabsStore } from '@/stores/tabs'
 
@@ -26,6 +26,11 @@ class KeybindingManager {
 
     document.addEventListener('keydown', this.handleKeyDown)
     this.isAttached = true
+
+    // 开发模式：检测重复键位，帮助快速定位"按一个键触发多个命令"的 bug
+    if (import.meta.env.DEV) {
+      this.detectConflicts()
+    }
   }
 
   // 移除全局键盘事件监听
@@ -95,14 +100,14 @@ class KeybindingManager {
     return false
   }
 
-  // 查找匹配的命令（优先使用自定义快捷键）
+  // 查找匹配的命令（优先使用自定义快捷键，其次平台特定快捷键，最后默认快捷键）
   private findMatchingCommand(event: KeyboardEvent) {
     for (const command of COMMANDS) {
-      if (command.hidden) continue
+      if (isHiddenOnPlatform(command)) continue
 
-      // 优先使用自定义快捷键
+      // 优先使用自定义快捷键；否则用平台特定/默认快捷键
       const customBinding = this.customKeybindings.get(command.id)
-      const binding = customBinding || command.keybinding
+      const binding = customBinding || getPlatformKeybinding(command)
       if (!binding) continue
 
       if (matchKeyEvent(event, binding)) {
@@ -122,12 +127,12 @@ class KeybindingManager {
     }
   }
 
-  // 获取命令的有效快捷键（自定义优先，否则注册表默认）
+  // 获取命令的有效快捷键（自定义优先，否则平台特定/默认）
   getEffectiveKeybinding(commandId: string): Keybinding | undefined {
     const custom = this.customKeybindings.get(commandId)
     if (custom) return custom
     const command = getCommand(commandId)
-    return command?.keybinding
+    return command ? getPlatformKeybinding(command) : undefined
   }
 
   // 添加自定义键盘监听器
@@ -146,11 +151,11 @@ class KeybindingManager {
     return !!this.getEffectiveKeybinding(id)
   }
 
-  // 获取命令的快捷键显示文本
+  // 获取命令的快捷键显示文本（自动按当前平台格式化：macOS 用符号，其他用 Ctrl/Alt/Shift）
   getKeybindingDisplay(id: string): string | null {
     const binding = this.getEffectiveKeybinding(id)
     if (!binding) return null
-    return formatKeybinding(binding)
+    return formatKeybinding(binding, getPlatform())
   }
 
   // 获取所有快捷键映射
@@ -165,6 +170,52 @@ class KeybindingManager {
     }
 
     return result
+  }
+
+  /**
+   * 扫描命令注册表中的重复键位。
+   *
+   * 同一快捷键绑定到多个命令是 bug——按下时哪个被触发取决于
+   * COMMANDS 数组顺序，行为不可预期。开发模式下 console.warn 提示。
+   * 注意：自定义快捷键覆盖在这里也参与判断，避免用户改键改出冲突。
+   */
+  private detectConflicts(): void {
+    // 用归一化字符串（含修饰键）作为 key，命令 id 数组作为 value
+    const bucket = new Map<string, string[]>()
+
+    for (const command of COMMANDS) {
+      if (isHiddenOnPlatform(command)) continue
+
+      const custom = this.customKeybindings.get(command.id)
+      const binding = custom || getPlatformKeybinding(command)
+      if (!binding) continue
+
+      const key = this.normalizeBindingKey(binding)
+      const existing = bucket.get(key)
+      if (existing) {
+        existing.push(command.id)
+      } else {
+        bucket.set(key, [command.id])
+      }
+    }
+
+    for (const [key, ids] of bucket) {
+      if (ids.length > 1) {
+        console.warn(
+          `[KeybindingManager] Keybinding conflict: "${key}" is bound to multiple commands:`,
+          ids,
+        )
+      }
+    }
+  }
+
+  private normalizeBindingKey(binding: Keybinding): string {
+    const mods: string[] = []
+    if (binding.modifiers.ctrl) mods.push('Ctrl')
+    if (binding.modifiers.alt) mods.push('Alt')
+    if (binding.modifiers.shift) mods.push('Shift')
+    if (binding.modifiers.meta) mods.push('Meta')
+    return `${mods.join('+')}${mods.length ? '+' : ''}${binding.key.toLowerCase()}`
   }
 }
 

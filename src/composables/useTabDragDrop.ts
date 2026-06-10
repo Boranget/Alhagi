@@ -99,23 +99,23 @@ export function useTabDragDrop() {
     }
 
     try {
-      const promises = []
-      
-      promises.push(electronService.getCursorScreenPoint())
-      promises.push(electronService.getScreenDisplay())
+      // 分别 await，避免合并类型让 TS 丢失 width/height 字段信息
+      const [cursorResp, displayResp] = await Promise.all([
+        electronService.getCursorScreenPoint(),
+        electronService.getScreenDisplay(),
+      ])
 
-      const results = await Promise.all(promises)
-      
-      if (results[0]?.success && results[0]?.data) {
-        bounds.x = Math.max(0, results[0].data.x - OFFSET_X)
-        bounds.y = Math.max(0, results[0].data.y - OFFSET_Y)
+      if (cursorResp.success && cursorResp.data) {
+        bounds.x = Math.max(0, cursorResp.data.x - OFFSET_X)
+        bounds.y = Math.max(0, cursorResp.data.y - OFFSET_Y)
 
-        if (results[1]?.success && results[1]?.data) {
-          if (bounds.x + DEFAULT_WIDTH > results[1].data.x + results[1].data.width) {
-            bounds.x = results[1].data.x + results[1].data.width - DEFAULT_WIDTH
+        if (displayResp.success && displayResp.data) {
+          const display = displayResp.data
+          if (bounds.x + DEFAULT_WIDTH > display.x + display.width) {
+            bounds.x = display.x + display.width - DEFAULT_WIDTH
           }
-          if (bounds.y + DEFAULT_HEIGHT > results[1].data.y + results[1].data.height) {
-            bounds.y = results[1].data.y + results[1].data.height - DEFAULT_HEIGHT
+          if (bounds.y + DEFAULT_HEIGHT > display.y + display.height) {
+            bounds.y = display.y + display.height - DEFAULT_HEIGHT
           }
         }
       }
@@ -331,14 +331,15 @@ export function useTabDragDrop() {
       return
     }
 
-    const currentDragState = {
+    const currentDragState: DragDropState = {
       sourceTabId: dragState.sourceTabId,
       targetType: dragState.targetType,
       targetTabId: dragState.targetTabId,
       targetWindowId: dragState.targetWindowId,
       windowEdgeDirection: dragState.windowEdgeDirection,
       insertIndex: dragState.insertIndex,
-      isNewWindowOperation: dragState.isNewWindowOperation
+      mousePosition: dragState.mousePosition,
+      isNewWindowOperation: dragState.isNewWindowOperation,
     }
     
     const currentWindowList = [...windowList.value]
@@ -365,7 +366,7 @@ export function useTabDragDrop() {
   async function executeDragEndAsync(
     event: DragEvent,
     tab: TabState,
-    currentDragState: DragState,
+    currentDragState: DragDropState,
     currentWindowList: WindowInfo[],
     currentWindowIdValue: number | null
   ): Promise<void> {
@@ -397,16 +398,16 @@ export function useTabDragDrop() {
     if (shouldMerge && targetWindow) {
       const merged = await mergeTabToWindow(tabData, targetWindow.id)
       if (merged) {
-        tabsStore.removeTab(currentDragState.sourceTabId)
+        tabsStore.removeTab(tab.id)
       }
-    } 
+    }
     else if (
-      currentDragState.targetType === 'outsideWindow' || 
+      currentDragState.targetType === 'outsideWindow' ||
       (!coordsUnreliable && isMouseOutsideWindow(event))
     ) {
       const newWindowId = await createNewWindow(tabData)
       if (newWindowId) {
-        tabsStore.removeTab(currentDragState.sourceTabId)
+        tabsStore.removeTab(tab.id)
       }
     }
   }

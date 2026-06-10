@@ -52,7 +52,7 @@ export class ElectronService {
     if (this.initialized) {
       return
     }
-    this.api = window.electronAPI
+    // 注：this.api 已在构造函数中赋值；此处直接复用，无需重复读取 window.electronAPI
     if (!this.api) {
       console.warn('[ElectronService] Electron API not available')
       return
@@ -98,6 +98,31 @@ export class ElectronService {
   async readFile(filePath: string): Promise<IPCResponse<string>> {
     if (!this.api) return { success: false }
     return await this.api.readFile(filePath)
+  }
+
+  async readBinaryFile(filePath: string): Promise<IPCResponse<string>> {
+    if (!this.api) return { success: false }
+    return await this.api.readBinaryFile(filePath)
+  }
+
+  async saveBinaryFile(filePath: string, content: string): Promise<IPCResponse<boolean>> {
+    if (!this.api) return { success: false }
+    return await this.api.saveBinaryFile(filePath, content)
+  }
+
+  async ensureDirectory(dirPath: string): Promise<IPCResponse<boolean>> {
+    if (!this.api) return { success: false }
+    return await this.api.ensureDirectory(dirPath)
+  }
+
+  async getDocumentsDirectory(): Promise<IPCResponse<string>> {
+    if (!this.api) return { success: false }
+    return await this.api.getDocumentsDirectory()
+  }
+
+  async showInFolder(filePath: string): Promise<IPCResponse<boolean>> {
+    if (!this.api) return { success: false }
+    return await this.api.showInFolder(filePath)
   }
 
   async openFolder(): Promise<IPCResponse<{ path: string; tree: FileTreeNode[] } | null>> {

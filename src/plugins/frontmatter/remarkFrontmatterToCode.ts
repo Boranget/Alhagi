@@ -1,5 +1,5 @@
 import { visit } from 'unist-util-visit'
-import type { Root, Yaml, Parent } from 'mdast'
+import type { Root, Yaml, Parent, Code, RootContent } from 'mdast'
 import type { Plugin } from 'unified'
 
 /**
@@ -17,14 +17,14 @@ const remarkFrontmatterToCode: Plugin<[], Root> = function () {
       if (index === undefined || !parent) return
 
       // 将 yaml 节点替换为 code block 节点
-      const codeNode = {
+      const codeNode: Code = {
         type: 'code',
         lang: 'yaml',
         meta: null,
         value: node.value,
-      } as unknown as Parent
+      }
 
-      parent.children.splice(index, 1, codeNode)
+      parent.children.splice(index, 1, codeNode as RootContent)
       return index + 1
     })
   }

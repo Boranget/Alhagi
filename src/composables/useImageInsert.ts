@@ -6,6 +6,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { FILE } from '@/constants'
 import { getDirname, getRelativePath } from '@/utils/helpers'
 import { saveTempImage, getGlobalImageDefaultDir } from '@/utils/tempImageManager'
+import { electronService } from '@/services/electron/ElectronService'
 
 export type ImageInsertMode = 'keep-original' | 'copy-absolute' | 'copy-relative'
 
@@ -114,7 +115,7 @@ export function useImageInsert() {
         imagePath = await handleCopyAbsoluteMode(file)
       } else {
         console.log('[insertImage] 使用复制到相对目录模式')
-        imagePath = await handleCopyRelativeMode(file, activeTab.id, activeTab.filePath)
+        imagePath = await handleCopyRelativeMode(file, activeTab.id, activeTab.filePath ?? undefined)
       }
       
       console.log('[insertImage] 生成的图片路径:', imagePath)
@@ -181,19 +182,19 @@ export function useImageInsert() {
     })
     console.log('[handleCopyAbsoluteMode] 解析后的目录:', resolvedDir)
     
-    const ensureResult = await window.electronAPI.ensureDirectory(resolvedDir)
+    const ensureResult = await electronService.ensureDirectory(resolvedDir)
     if (!ensureResult.success) {
       throw new Error(ensureResult.error?.message || 'Failed to create directory')
     }
     console.log('[handleCopyAbsoluteMode] 目录已确保存在')
-    
+
     const absolutePath = `${resolvedDir}/${fileName}`
     console.log('[handleCopyAbsoluteMode] 完整路径:', absolutePath)
-    
+
     const base64Content = await fileToBase64(file)
     console.log('[handleCopyAbsoluteMode] 文件转为 base64，长度:', base64Content.length)
-    
-    const saveResult = await window.electronAPI.saveBinaryFile(absolutePath, base64Content)
+
+    const saveResult = await electronService.saveBinaryFile(absolutePath, base64Content)
     console.log('[handleCopyAbsoluteMode] 保存结果:', saveResult)
     
     if (!saveResult.success) {
@@ -230,11 +231,11 @@ export function useImageInsert() {
         filePath: mdFilePath
       })
       
-      await window.electronAPI.ensureDirectory(resolvedDir)
+      await electronService.ensureDirectory(resolvedDir)
       const absolutePath = `${resolvedDir}/${fileName}`
       const base64Content = await fileToBase64(file)
-      const saveResult = await window.electronAPI.saveBinaryFile(absolutePath, base64Content)
-      
+      const saveResult = await electronService.saveBinaryFile(absolutePath, base64Content)
+
       if (!saveResult.success) {
         throw new Error(saveResult.error?.message || 'Failed to save image')
       }

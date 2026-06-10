@@ -27,15 +27,15 @@
         class="command-palette-results"
       >
         <div
-          v-for="(group, category) in filteredGroups"
-          :key="category"
+          v-for="group in filteredGroups"
+          :key="group.category"
           class="command-group"
         >
           <div class="command-group-header">
-            {{ getCategoryLabel(category) }}
+            {{ getCategoryLabel(group.category) }}
           </div>
           <div
-            v-for="command in group"
+            v-for="command in group.commands"
             :key="command.id"
             class="command-item"
             :class="{ selected: isSelected(command.id) }"
@@ -113,18 +113,21 @@ const filteredCommands = computed(() => {
   })
 })
 
-// 按类别分组
+// 按类别分组（返回数组以便模板稳定遍历，避免 Map 在 v-for 中的歧义）
 const filteredGroups = computed(() => {
   const groups = new Map<CommandCategory, typeof COMMANDS>()
-  
+
   for (const cmd of filteredCommands.value) {
     if (!groups.has(cmd.category)) {
       groups.set(cmd.category, [])
     }
     groups.get(cmd.category)!.push(cmd)
   }
-  
-  return groups
+
+  return Array.from(groups.entries()).map(([category, commands]) => ({
+    category,
+    commands,
+  }))
 })
 
 // 获取类别标签

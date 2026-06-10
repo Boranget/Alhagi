@@ -216,25 +216,29 @@ export function formatAccelerator(accelerator: string, platform: Platform = getP
 }
 
 // 格式化旧的 keybinding
+//
+// 关键转换：因为 matchKeyEvent 中 ctrl 修饰键在所有平台都会兼容地匹配
+// `event.ctrlKey || event.metaKey`，所以在 macOS 上显示时，应当把
+// `ctrl` 渲染为 ⌘（Cmd 键）而非 ⌃（Control 键），与用户实际按键一致。
+// 显式声明 `meta` 的快捷键则总是显示为 ⌘。
 export function formatKeybinding(
-  keybinding: Keybinding, 
+  keybinding: Keybinding,
   platform: Platform = 'windows'
 ): string {
   const parts: string[] = []
-  
-  // macOS 使用符号，其他平台使用文字
+
   if (platform === 'macOS') {
-    if (keybinding.modifiers.ctrl) parts.push('⌃')
+    // ctrl 在 macOS 视为 Cmd（与触发逻辑一致）
+    if (keybinding.modifiers.ctrl || keybinding.modifiers.meta) parts.push('⌘')
     if (keybinding.modifiers.alt) parts.push('⌥')
     if (keybinding.modifiers.shift) parts.push('⇧')
-    if (keybinding.modifiers.meta) parts.push('⌘')
   } else {
     if (keybinding.modifiers.ctrl) parts.push('Ctrl')
     if (keybinding.modifiers.alt) parts.push('Alt')
     if (keybinding.modifiers.shift) parts.push('Shift')
     if (keybinding.modifiers.meta) parts.push('Super')
   }
-  
+
   // 格式化键名
   let key = keybinding.key.toUpperCase()
   const keyMap: Record<string, string> = {
@@ -249,15 +253,15 @@ export function formatKeybinding(
     'ENTER': 'Enter',
     'TAB': 'Tab',
   }
-  
+
   if (keyMap[key]) {
     key = keyMap[key]
   } else if (key.length === 1) {
     key = key.toUpperCase()
   }
-  
+
   parts.push(key)
-  
+
   return parts.join(platform === 'macOS' ? '' : '+')
 }
 

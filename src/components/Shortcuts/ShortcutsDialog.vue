@@ -18,16 +18,16 @@
         <div class="dialog-content">
           <div class="shortcuts-grid">
             <div
-              v-for="(commands, category) in groupedShortcuts"
-              :key="category"
+              v-for="group in groupedShortcuts"
+              :key="group.category"
               class="shortcut-category"
             >
               <h3 class="category-title">
-                {{ getCategoryLabel(category) }}
+                {{ getCategoryLabel(group.category) }}
               </h3>
               <div class="shortcut-list">
                 <div
-                  v-for="command in commands"
+                  v-for="command in group.commands"
                   :key="command.id"
                   class="shortcut-item"
                 >
@@ -85,22 +85,22 @@ function getCategoryLabel(category: CommandCategory): string {
   return CATEGORY_LABELS[category] || category
 }
 
-// 获取所有带快捷键的命令
+// 获取所有带快捷键的命令，按类别分组（返回数组以便模板稳定遍历）
 const groupedShortcuts = computed(() => {
   const groups = new Map<CommandCategory, Array<{ id: string; label: string; shortcut?: string }>>()
-  
+
   // 过滤有快捷键的命令
   const commandsWithShortcuts = COMMANDS.filter(cmd => {
     if (cmd.hidden) return false
     return !!getPlatformKeybinding(cmd)
   })
-  
+
   // 按类别分组
   for (const cmd of commandsWithShortcuts) {
     if (!groups.has(cmd.category)) {
       groups.set(cmd.category, [])
     }
-    
+
     const shortcut = getPlatformKeybinding(cmd)
     groups.get(cmd.category)!.push({
       id: cmd.id,
@@ -108,24 +108,20 @@ const groupedShortcuts = computed(() => {
       shortcut: shortcut ? formatKeybinding(shortcut, platform) : undefined,
     })
   }
-  
-  // 按类别顺序排序
-  const sortedGroups = new Map([...groups.entries()].sort(
-    ([a], [b]) => CATEGORY_ORDER[a] - CATEGORY_ORDER[b]
-  ))
-  
-  // 每个类别内按菜单顺序排序
-  for (const [category, commands] of sortedGroups) {
-    sortedGroups.set(category, commands.sort((a, b) => {
-      const cmdA = COMMANDS.find(c => c.id === a.id)
-      const cmdB = COMMANDS.find(c => c.id === b.id)
-      const groupDiff = (cmdA?.menuGroup ?? 0) - (cmdB?.menuGroup ?? 0)
-      if (groupDiff !== 0) return groupDiff
-      return (cmdA?.menuOrder ?? 0) - (cmdB?.menuOrder ?? 0)
-    }))
-  }
-  
-  return sortedGroups
+
+  // 类别按 CATEGORY_ORDER 排序，类内按 menuGroup/menuOrder 排序
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => CATEGORY_ORDER[a] - CATEGORY_ORDER[b])
+    .map(([category, commands]) => {
+      const sorted = commands.slice().sort((a, b) => {
+        const cmdA = COMMANDS.find(c => c.id === a.id)
+        const cmdB = COMMANDS.find(c => c.id === b.id)
+        const groupDiff = (cmdA?.menuGroup ?? 0) - (cmdB?.menuGroup ?? 0)
+        if (groupDiff !== 0) return groupDiff
+        return (cmdA?.menuOrder ?? 0) - (cmdB?.menuOrder ?? 0)
+      })
+      return { category, commands: sorted }
+    })
 })
 
 // 解析快捷键字符串
