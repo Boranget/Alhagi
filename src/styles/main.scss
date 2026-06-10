@@ -236,8 +236,8 @@ body.focus-mode {
   .ProseMirror {
     // 精确匹配：ProseMirror 的第一个直接子元素是 milkdown-code-block
     > :first-child:is(.milkdown-code-block) {
-      margin: 0 0 12px 0;
-      border-radius: 6px;
+      margin: 0 0 6px 0;
+      border-radius: 4px;
       border: none;
       background: rgba(0, 0, 0, 0.025);
 
@@ -256,13 +256,18 @@ body.focus-mode {
           display: none !important;
         }
 
-        // 内容区：调淡字体、紧凑布局
+        // 内容区：紧凑布局，颜色交给 CodeMirror 主题的 yaml 语法高亮
         .cm-content {
-          padding: 6px 12px !important;
+          padding: 2px 8px !important;
           font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Courier New', monospace;
-          font-size: 1em;
-          line-height: 1.5;
-          color: rgba(0, 0, 0, 0.55);
+          font-size: 0.92em;
+          line-height: 1.35;
+        }
+
+        // 行内左右 padding 收紧（CM 默认 .cm-line 有 0 2px）
+        .cm-line {
+          padding-left: 0 !important;
+          padding-right: 0 !important;
         }
 
         // 隐藏光标行高亮
@@ -292,10 +297,6 @@ body.focus-mode {
       border: none;
 
       .codemirror-host > .cm-editor {
-        .cm-content {
-          color: rgba(255, 255, 255, 0.5);
-        }
-
         .cm-activeLine,
         .cm-activeLineGutter {
           background-color: transparent !important;
