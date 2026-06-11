@@ -10,9 +10,13 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useCapture } from '@/services/capture'
 
+// 模块级响应式状态：useApp() 调用方共享同一份 ref
 const showSettings = ref(false)
 const isFullscreen = ref(false)
-const autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+// 启动期幂等 guard：initializeApp 只跑一次，多次调用返回同一个 cleanup
+// （防止后续有别处 useApp().initializeApp() 重复注册事件总线监听器、命令系统等）
+let bootCleanup: (() => void) | null = null
 
 export function useApp() {
   const tabsStore = useTabsStore()
@@ -154,10 +158,14 @@ export function useApp() {
   }
 
   const initializeApp = async () => {
+    // 幂等保护：多个组件调 useApp().initializeApp() 不会重复注册 eventBus 监听 /
+    // 命令系统 / 主题监听等副作用。返回首次创建的 cleanup 闭包。
+    if (bootCleanup) return bootCleanup
+
     electronService.initialize()
-    
+
     initCommandSystem()
-    
+
     const { startListening, stopListening } = setupSystemThemeListener()
     const stopThemeWatch = setupThemeWatchers()
     const eventUnsubscribers = setupEventListeners()
@@ -200,19 +208,17 @@ export function useApp() {
         break
     }
 
-    return () => {
+    bootCleanup = () => {
       stopListening()
       stopThemeWatch()
       eventUnsubscribers.forEach(unsub => unsub())
       window.removeEventListener('beforeunload', saveCurrentSession)
       cleanupWritingEnhancement()
-      
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer)
-      }
-      
       saveCurrentSession()
+      bootCleanup = null
     }
+
+    return bootCleanup
   }
 
   provide('showSettings', showSettings)
