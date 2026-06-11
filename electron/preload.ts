@@ -153,6 +153,9 @@ const api: ElectronAPI = {
   executeMainCommand: (commandId: string) =>
     createIpcHandler<boolean>(IPC_CHANNELS.COMMAND.EXECUTE_MAIN, commandId),
 
+  readClipboardImage: () =>
+    createIpcHandler<{ base64: string; width: number; height: number } | null>(IPC_CHANNELS.CLIPBOARD.READ_IMAGE),
+
   // ========== 文件外部修改检测（P2-10） ==========
   onExternalFileChanged: (callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void) =>
     createListener<[{ filePath: string; kind: 'modified' | 'deleted' }]>(

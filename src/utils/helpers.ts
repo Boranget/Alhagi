@@ -45,15 +45,31 @@ export function getDirname(filePath: string): string {
   return parts.join('/')
 }
 
+/**
+ * 计算 from 目录到 to 文件的相对路径（POSIX 分隔符返回）。
+ *
+ * 限制：跨 Windows 盘符没有有意义的相对路径，此时返回 to 的归一化绝对路径而不是
+ * 形如 `../../C:/...` 的非法字符串，避免污染 markdown。
+ */
 export function getRelativePath(from: string, to: string): string {
-  const fromParts = from.split(/[/\\]/).filter(Boolean)
-  const toParts = to.split(/[/\\]/).filter(Boolean)
-  
+  const fromNorm = from.replace(/\\/g, '/')
+  const toNorm = to.replace(/\\/g, '/')
+
+  // Windows 盘符不一致时不存在相对路径概念，直接返回归一化绝对路径
+  const fromDrive = fromNorm.match(/^([A-Za-z]):/)
+  const toDrive = toNorm.match(/^([A-Za-z]):/)
+  if (fromDrive && toDrive && fromDrive[1].toLowerCase() !== toDrive[1].toLowerCase()) {
+    return toNorm
+  }
+
+  const fromParts = fromNorm.split('/').filter(Boolean)
+  const toParts = toNorm.split('/').filter(Boolean)
+
   let i = 0
   while (i < fromParts.length && i < toParts.length && fromParts[i].toLowerCase() === toParts[i].toLowerCase()) {
     i++
   }
-  
+
   const relativeParts: string[] = []
   for (let j = i; j < fromParts.length; j++) {
     relativeParts.push('..')
@@ -61,11 +77,11 @@ export function getRelativePath(from: string, to: string): string {
   for (let j = i; j < toParts.length; j++) {
     relativeParts.push(toParts[j])
   }
-  
+
   if (relativeParts.length === 0) {
     return '.'
   }
-  
+
   return relativeParts.join('/')
 }
 

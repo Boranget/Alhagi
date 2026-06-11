@@ -90,6 +90,12 @@ export interface ElectronAPI {
    */
   executeMainCommand: (commandId: string) => Promise<IPCResponse<boolean>>
 
+  /**
+   * 读取系统剪贴板中的图片，返回 PNG base64（无 `data:` 前缀）。
+   * 截图等场景下比渲染端 FileReader 快得多。剪贴板无图片时返回 null。
+   */
+  readClipboardImage: () => Promise<IPCResponse<{ base64: string; width: number; height: number } | null>>
+
   // ========== 文件外部修改检测（P2-10） ==========
   /**
    * 订阅「已打开文件被外部修改/删除」通知。

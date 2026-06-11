@@ -225,16 +225,33 @@
                 <label>全局图片目录</label>
                 <div class="path-help">
                   <p class="help-text">
-                    设置全局图片保存位置，所有文档粘贴的图片都将保存到此目录。留空则使用默认路径（文档目录/alhagi/cache/image/default）。
+                    设置全局图片保存位置，所有文档粘贴的图片都将保存到此目录。留空则使用默认路径（文档目录/alhagi/images）。
                   </p>
                   <input
                     v-model="prefsStore.imageStoragePath"
                     type="text"
                     placeholder="留空使用默认路径"
                   >
+                  <div class="path-actions">
+                    <button
+                      type="button"
+                      class="btn-small"
+                      @click="pickImageStorageDir"
+                    >
+                      选择目录...
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-small"
+                      :disabled="!prefsStore.imageStoragePath"
+                      @click="showImageStorageInFolder"
+                    >
+                      在文件夹中打开
+                    </button>
+                  </div>
                 </div>
               </div>
-              
+
               <!-- 复制到相对目录设置 -->
               <div
                 v-show="prefsStore.imageInsertMode === 'copy-relative'"
@@ -243,7 +260,7 @@
                 <label>相对图片目录</label>
                 <div class="path-help">
                   <p class="help-text">
-                    设置相对于当前文档的图片保存位置。留空则使用默认路径（assets/images）。
+                    设置相对于当前文档的图片保存位置。留空则使用默认路径（assets）。
                   </p>
                   <p class="help-label">
                     可用变量：
@@ -259,14 +276,14 @@
                     示例：
                   </p>
                   <div class="path-examples">
-                    <p><code>./assets/images</code> - 保存到文档同目录的 assets/images 文件夹</p>
-                    <p><code>./images/{date}</code> - 按日期分组的图片文件夹</p>
-                    <p><code>./assets/{filename}_{datetime}</code> - 带时间戳的文件名</p>
+                    <p><code>assets</code> - 保存到文档同目录的 assets 文件夹</p>
+                    <p><code>images/{date}</code> - 按日期分组的图片文件夹</p>
+                    <p><code>assets/{filename}_{datetime}</code> - 带时间戳的文件名</p>
                   </div>
                   <input
                     v-model="prefsStore.imageStoragePath"
                     type="text"
-                    placeholder="./assets/images"
+                    placeholder="assets"
                   >
                 </div>
               </div>
@@ -339,6 +356,7 @@
 import { ref } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { t } from '@/services/i18n'
+import { electronService } from '@/services/electron/ElectronService'
 import KeyboardSettings from './KeyboardSettings.vue'
 
 interface SettingsSection {
@@ -382,6 +400,23 @@ function close() {
 
 function openKeyboardSettings() {
   showKeyboardSettings.value = true
+}
+
+/** 调用主进程 dialog.showOpenDialog 让用户选目录，回写到 imageStoragePath */
+async function pickImageStorageDir() {
+  const api = electronService.getAPI()
+  if (!api) return
+  const resp = await api.selectDirectory()
+  if (resp.success && resp.data) {
+    prefsStore.imageStoragePath = resp.data
+  }
+}
+
+/** shell.openPath 在系统文件管理器打开当前 imageStoragePath（绝对路径才有意义） */
+function showImageStorageInFolder() {
+  const path = prefsStore.imageStoragePath
+  if (!path) return
+  electronService.getAPI()?.showInFolder(path)
 }
 </script>
 
@@ -624,6 +659,32 @@ function openKeyboardSettings() {
   input[type="text"] {
     width: 100%;
     box-sizing: border-box;
+  }
+
+  .path-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+
+    .btn-small {
+      padding: 4px 10px;
+      font-size: 12px;
+      background: var(--input-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+
+      &:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
   }
 }
 </style>

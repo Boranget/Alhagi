@@ -4,6 +4,7 @@ import { InitReady, remarkPluginsCtx, remarkStringifyOptionsCtx } from '@milkdow
 import type { MilkdownPlugin } from '@milkdown/ctx'
 import { $prose } from '@milkdown/kit/utils'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
+import { uploadConfig } from '@milkdown/kit/plugin/upload'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
 import { Plugin } from '@milkdown/kit/prose/state'
@@ -21,6 +22,8 @@ import { useEditorSearchManager, getSearchPlugin } from '@/managers/EditorSearch
 import { focusModePlugin } from '@/plugins/focusModePlugin'
 import { inlineMarksPlugin } from '@/plugins/inlineMarksPlugin'
 import { taskListPlugin } from '@/plugins/taskListPlugin'
+import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
+import { ClipboardImageExtractor } from '@/services/image/ClipboardImageExtractor'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
 import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
@@ -223,6 +226,34 @@ export class CrepeEditorManager {
                 const value = state.containerPhrasing(node, { ...info, before: '~', after: '~' })
                 return `~${value}~`
               },
+            },
+          }))
+
+          // 接管 Crepe upload plugin：Crepe builder 默认的 uploader 用
+          // URL.createObjectURL(file) 生成 blob URL，markdown 会写 `blob:http://...`
+          // 这种临时引用——重启编辑器就失效。
+          // 改为走我们的 ImageInsertOrchestrator.resolveOnly：按用户选择的模式
+          // （keep-original / copy-absolute / copy-relative）真正落盘并返回最终 path。
+          // 大图（>1MB）走主进程 clipboard.readImage() 避免渲染端 FileReader 阻塞。
+          ctx.update(uploadConfig.key, (prev) => ({
+            ...prev,
+            uploader: async (files, schema) => {
+              const imgs: File[] = []
+              for (let i = 0; i < files.length; i++) {
+                const f = files.item(i)
+                if (f && f.type.includes('image')) imgs.push(f)
+              }
+              const nodeType = schema.nodes['image-block'] ?? schema.nodes['image']
+              if (!nodeType) return []
+              const orch = useImageInsertOrchestrator()
+              const nodes = await Promise.all(imgs.map(async (file) => {
+                // 大文件走主进程原生路径加速
+                const upgraded = await ClipboardImageExtractor.maybeUpgradeViaMainProcess(file)
+                const src = await orch.resolveOnly(upgraded)
+                if (!src) return null
+                return nodeType.createAndFill({ src, alt: file.name.replace(/\.[^.]+$/, '') })
+              }))
+              return nodes.filter((n): n is NonNullable<typeof n> => n !== null)
             },
           }))
         })

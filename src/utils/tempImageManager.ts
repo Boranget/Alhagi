@@ -1,4 +1,3 @@
-import { FILE } from '@/constants'
 import { getDirname } from '@/utils/helpers'
 import { electronService } from '@/services/electron/ElectronService'
 
@@ -43,6 +42,11 @@ export async function getTempImageRootDir(): Promise<string> {
   return joinPaths(response.data, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR)
 }
 
+/**
+ * @deprecated 名字含 "cache" 暗示临时；图片插入策略不应再用它。
+ *             用 {@link getGlobalImageStorageDir} 替代（对用户可见、命名清晰）。
+ *             保留以免破坏其他可能的旧引用，新代码不要调。
+ */
 export async function getGlobalImageDefaultDir(): Promise<string> {
   const api = requireApi()
   const response = await api.getDocumentsDirectory()
@@ -50,6 +54,22 @@ export async function getGlobalImageDefaultDir(): Promise<string> {
     throw new Error('Cannot get documents directory')
   }
   return joinPaths(response.data, TEMP_DIR_STRUCTURE.ALHAGI_DIR, TEMP_DIR_STRUCTURE.CACHE_DIR, TEMP_DIR_STRUCTURE.IMAGE_DIR, 'default')
+}
+
+/**
+ * 用户级图片落盘的默认全局目录。
+ * 与 cache（临时拷贝、清理无虞）分开，对用户在文件管理器中可发现：
+ *   `<Documents>/alhagi/images/`
+ *
+ * copy-absolute 模式 / keep-original 兜底 用这个作为缺省 base。
+ */
+export async function getGlobalImageStorageDir(): Promise<string> {
+  const api = requireApi()
+  const response = await api.getDocumentsDirectory()
+  if (!response.success || !response.data) {
+    throw new Error('Cannot get documents directory')
+  }
+  return joinPaths(response.data, TEMP_DIR_STRUCTURE.ALHAGI_DIR, 'images')
 }
 
 export async function getTempImageDirForFile(fileId: string): Promise<string> {
@@ -176,15 +196,4 @@ export async function resolveImagePath(imagePath: string, fileId: string, mdFile
 
   const tempPath = await getTempImagePath(fileId, imagePath)
   return `file:///${tempPath.replace(/\\/g, '/')}`
-}
-
-export async function getDefaultImageRelativePath(): Promise<string> {
-  return `${FILE.DEFAULT_IMAGE_FOLDER}/`
-}
-
-export async function getImageTargetDir(mdFilePath?: string, workspaceRoot?: string): Promise<string> {
-  if (mdFilePath) {
-    return getDirname(mdFilePath)
-  }
-  return workspaceRoot || ''
 }

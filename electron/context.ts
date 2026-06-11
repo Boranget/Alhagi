@@ -16,6 +16,7 @@ import { WindowIpcHandlers } from './services/WindowIpcHandlers'
 import { PreferenceIpcHandlers } from './services/PreferenceIpcHandlers'
 import { MenuBuilder } from './services/MenuBuilder'
 import { FileWatcher } from './services/FileWatcher'
+import { ClipboardService } from './services/ClipboardService'
 import { MAIN_PROCESS_COMMANDS } from './services/menu/mainProcessCommands'
 import { IPC_CHANNELS } from '../electron-protocol/channels'
 import type { Language } from '../electron-protocol/i18n/dictionaries'
@@ -31,6 +32,7 @@ export class AppContext {
   readonly preferenceIpc: PreferenceIpcHandlers
   readonly menu: MenuBuilder
   readonly fileWatcher: FileWatcher
+  readonly clipboard: ClipboardService
 
   constructor(viteDevServerUrl: string | undefined, rendererDist: string) {
     // 构造顺序按依赖关系排列：
@@ -46,6 +48,7 @@ export class AppContext {
     this.windowIpc = new WindowIpcHandlers(this.windowManager, this.theme)
     this.preferenceIpc = new PreferenceIpcHandlers(this.prefs)
     this.menu = new MenuBuilder(this.windowManager)
+    this.clipboard = new ClipboardService()
   }
 
   /**
@@ -57,6 +60,7 @@ export class AppContext {
     this.search.registerHandlers()
     this.windowIpc.registerHandlers()
     this.preferenceIpc.registerHandlers()
+    this.clipboard.registerHandlers()
     this.registerMenuHandlers()
     // 启动菜单语言：从偏好读取（兼容首次启动 / 旧用户）
     const initialLang = this.readPreferredLanguage()

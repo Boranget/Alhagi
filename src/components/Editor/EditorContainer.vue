@@ -76,13 +76,13 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useImageInsert } from '@/composables/useImageInsert'
 import { useEditorView } from '@/composables/useEditorView'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR, FILE } from '@/constants'
 import type { ViewMode } from '@/types'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
@@ -92,7 +92,7 @@ const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 
 const editorManager = useCrepeEditorManager()
-const { insertImage } = useImageInsert()
+const imageOrchestrator = useImageInsertOrchestrator()
 const {
   currentMode,
   splitRatio,
@@ -106,9 +106,6 @@ const {
 const crepeContainer = ref<HTMLElement | null>(null)
 const codeMirrorEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
-const imagePasteHandler = ref<((e: ClipboardEvent) => void) | null>(null)
-let hasSetupImagePaste = false
-const instanceCount = 0
 
 const sourceContent = ref('')
 const unsubscribes: (() => void)[] = []
@@ -346,30 +343,24 @@ onMounted(async () => {
   
   // 监听搜索事件（来自菜单或命令系统）
   window.addEventListener('editor:showSearch', handleShowSearch)
-  
-  setupImageDrop()
-  setupImagePaste()
+
+  // 图片粘贴/拖拽：Crepe upload plugin 内部已注册 handlePaste/handleDrop，
+  // 触发后会调用 uploadConfig.uploader（已在 crepeEditorManager 中覆盖为
+  // ImageInsertOrchestrator.resolveOnly）。本组件不再单独 wire 事件。
 })
 
 onUnmounted(async () => {
-  console.log(`[EditorContainer] onUnmounted called (instance #${instanceCount})`)
   unsubscribes.forEach(unsubscribe => unsubscribe())
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
   window.removeEventListener('editor:showSearch', handleShowSearch)
   window.removeEventListener('editor:insertImage', handleInsertImage)
-  
-  const container = crepeContainer.value
-  if (container && imagePasteHandler.value) {
-    container.removeEventListener('paste', imagePasteHandler.value, true)
-  }
 })
 
 function handleShowSearch(e: Event) {
   const customEvent = e as CustomEvent<{ showReplace?: boolean }>
   floatingSearchRef.value?.show()
-  // 如果需要显示替换框，可以在这里处理
   if (customEvent.detail?.showReplace) {
     // TODO: 显示替换框
   }
@@ -380,133 +371,11 @@ function handleInsertImage() {
   input.type = 'file'
   input.accept = FILE.IMAGE_EXTENSIONS.join(',')
   input.multiple = false
-  
   input.onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0]
-    if (file) {
-      await insertImage(file)
-    }
+    if (file) await imageOrchestrator.insertFromFile(file)
   }
-  
   input.click()
-}
-
-function setupImageDrop() {
-  const container = crepeContainer.value
-  if (!container) return
-  
-  container.addEventListener('dragover', (e) => {
-    e.preventDefault()
-    e.dataTransfer!.dropEffect = 'copy'
-  })
-  
-  container.addEventListener('drop', async (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    const files = e.dataTransfer?.files
-    if (!files || files.length === 0) return
-    
-    for (const file of Array.from(files)) {
-      if (FILE.IMAGE_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))) {
-        await insertImage(file)
-      }
-    }
-  })
-}
-
-function setupImagePaste() {
-  const container = crepeContainer.value
-  if (!container) return
-  
-  if (hasSetupImagePaste) {
-    console.log('[粘贴] 已设置过图片粘贴监听器，跳过')
-    return
-  }
-  hasSetupImagePaste = true
-  console.log('[粘贴] 开始设置图片粘贴监听器')
-  
-  let isProcessingPaste = false
-  
-  imagePasteHandler.value = async (e: ClipboardEvent) => {
-    if (isProcessingPaste) {
-      console.log('[粘贴] 正在处理中，跳过重复触发')
-      return
-    }
-    isProcessingPaste = true
-    
-    try {
-      console.log('\n========== [剪贴板粘贴事件] ==========')
-      console.log('[粘贴] 事件触发')
-      
-      const items = e.clipboardData?.items
-      if (!items) {
-        console.log('[粘贴] 没有剪贴板数据')
-        return
-      }
-      
-      console.log('[粘贴] 剪贴板项目数量:', items.length)
-      
-      let imageFile: File | null = null
-      
-      for (const item of Array.from(items)) {
-        if (item.type.indexOf('image') !== -1) {
-          const file = item.getAsFile()
-          if (file && file.size > 0) {
-            imageFile = file
-            console.log('[粘贴] 找到图片文件:', file.name, file.size, 'bytes')
-            break
-          }
-        }
-        
-        if (!item.type || item.type === '') {
-          const file = item.getAsFile()
-          if (file && file.type && file.type.indexOf('image') !== -1) {
-            imageFile = file
-            console.log('[粘贴] 找到图片文件（从file.type）:', file.name, file.size, 'bytes')
-            break
-          }
-        }
-      }
-      
-      if (!imageFile) {
-        console.log('[粘贴] 没有找到图片文件，退出')
-        return
-      }
-      
-      e.preventDefault()
-      e.stopPropagation()
-      
-      let originalPath: string | undefined = undefined
-      
-      for (const item of Array.from(items)) {
-        if (item.type === 'text/html') {
-          const htmlData = await new Promise<string>((resolve) => {
-            item.getAsString(resolve)
-          })
-          const urlMatch = htmlData.match(/<img[^>]+src=["']([^"']+)["']/i)
-          if (urlMatch && urlMatch[1]) {
-            const src = urlMatch[1]
-            if (/^https?:\/\//.test(src) || /^file:\/\/\//.test(src)) {
-              originalPath = src
-              console.log('[粘贴] 找到原始路径:', originalPath)
-              break
-            }
-          }
-        }
-      }
-      
-      console.log('[粘贴] 开始插入图片')
-      await insertImage(imageFile, originalPath)
-      console.log('[粘贴] 图片插入完成')
-      console.log('========== [剪贴板粘贴事件结束] ==========\n')
-    } finally {
-      isProcessingPaste = false
-    }
-  }
-  
-  container.addEventListener('paste', imagePasteHandler.value, true)
-  console.log('[粘贴] 图片粘贴监听器已添加')
 }
 </script>
 

@@ -92,4 +92,13 @@ export const IPC_CHANNELS = {
   MENU: {
     REBUILD: 'menu:rebuild',
   },
+  /**
+   * 系统剪贴板原生访问（截图粘贴优化）。
+   * READ_IMAGE：renderer → main，让主进程 clipboard.readImage() 读出 NativeImage，
+   * 主进程编码 PNG 返回 base64，避免渲染端 FileReader.readAsDataURL
+   * 对几 MB 截图阻塞主线程并经 IPC 传输巨大 base64 字符串。
+   */
+  CLIPBOARD: {
+    READ_IMAGE: 'clipboard:read-image',
+  },
 } as const

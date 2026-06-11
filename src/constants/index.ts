@@ -60,7 +60,9 @@ export const FILE = {
   
   // 默认路径
   DEFAULT_FOLDER: '',
-  DEFAULT_IMAGE_FOLDER: 'assets/images',
+  // 与主流 markdown 工具（Typora、marktext、VSCode 等）对齐用 'assets' 单层；
+  // 旧版本曾用 'assets/images'，已升级到单层。
+  DEFAULT_IMAGE_FOLDER: 'assets',
   
   // 文件名生成
   IMAGE_PREFIX: 'image-',
