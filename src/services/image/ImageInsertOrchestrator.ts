@@ -2,20 +2,30 @@
 // Alhagi ImageInsertOrchestrator
 // ============================================================
 //
-// 编排「事件源 → 上下文采集 → 策略派发 → 写入编辑器」全流程。
+// 把「字节源 + 当前 tab/工作区/偏好」拼成 ctx，按 imageInsertMode 选策略，
+// 返回 markdown 中的最终 path 字符串。
+//
+// 调用方：
+//   - Crepe upload plugin uploader hook（粘贴/拖拽）→ resolveOnly（自己创建节点）
+//   - 文件选择对话框（format.image 命令）→ insertFromFile（兼带写编辑器 + 标脏）
+//   - 已知路径直插（如外部 API）→ insertByPath
 //
 // 设计要点：
-//   - Crepe 内置的 upload plugin 已经 handle paste/drop 事件；
-//     crepeEditorManager 中 ctx.update(uploadConfig.key, ...) 把它的 uploader
-//     覆盖为 orchestrator.resolveOnly，这是粘贴/拖拽走我们策略的唯一入口
-//   - 文件选择对话框（菜单/命令面板的"插入图片"）直接调 insertFromFile
-//   - inflight guard：兜底防止极少见的同步重入
+//   - 单例（一份策略表 + 一次性 store 注入）
+//   - 不持有任何运行时状态：策略类纯函数式，并发安全。竞争由调用方控制
+//     （upload plugin 自身串行；菜单触发用户单次点击）
 
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
-import type { ImageInsertContext, ImageInsertStrategy, ImageInsertMode } from './types'
+import {
+  sourceFilename,
+  type ImageInsertContext,
+  type ImageInsertStrategy,
+  type ImageInsertMode,
+  type ImageSource,
+} from './types'
 import { KeepOriginalStrategy } from './strategies/KeepOriginalStrategy'
 import { CopyAbsoluteStrategy } from './strategies/CopyAbsoluteStrategy'
 import { CopyRelativeStrategy } from './strategies/CopyRelativeStrategy'
@@ -31,9 +41,6 @@ export class ImageInsertOrchestrator {
   private readonly prefsStore = usePreferencesStore()
   private readonly fileExplorerStore = useFileExplorerStore()
   private readonly editorManager = useCrepeEditorManager()
-
-  // 兜底 guard：极少见的同步重入。
-  private inflight = false
 
   /** 文件选择对话框：插入单个文件（自己创建 PM 节点） */
   async insertFromFile(file: File, originalUrl?: string): Promise<string | null> {
@@ -55,16 +62,17 @@ export class ImageInsertOrchestrator {
    * 仅解析最终 path（写文件 + 应用策略），不写编辑器节点。
    * Crepe upload plugin 的 uploader hook 调用这个：upload plugin 自己负责
    * 创建占位符 → uploader 返回 PM 节点 → 替换占位符。
+   *
+   * 接受 File 或 ImageSource：大文件从主进程原生 clipboard 拿到 base64 时
+   * 直接传 `{base64, filename, mimeType}` 避免渲染端二次编码。
    */
-  async resolveOnly(file: File, originalUrl?: string): Promise<string | null> {
-    if (this.inflight) return null
+  async resolveOnly(source: File | ImageSource, originalUrl?: string): Promise<string | null> {
     const activeTab = this.tabsStore.activeTab
     if (!activeTab) return null
 
-    this.inflight = true
     try {
       const ctx: ImageInsertContext = {
-        file,
+        source,
         originalUrl,
         tabId: activeTab.id,
         tabFilePath: activeTab.filePath ?? undefined,
@@ -74,10 +82,8 @@ export class ImageInsertOrchestrator {
       const strategy = this.strategies[this.prefsStore.imageInsertMode]
       return await strategy.resolveFinalPath(ctx)
     } catch (error) {
-      console.error('[ImageInsert] resolve failed:', error)
+      console.error('[ImageInsert] resolve failed:', error, 'filename:', sourceFilename(source))
       return null
-    } finally {
-      this.inflight = false
     }
   }
 
@@ -91,7 +97,7 @@ export class ImageInsertOrchestrator {
   }
 }
 
-// 单例：所有组件 / 命令共享同一份，inflight guard 才能起作用
+// 单例
 let instance: ImageInsertOrchestrator | null = null
 
 export function useImageInsertOrchestrator(): ImageInsertOrchestrator {

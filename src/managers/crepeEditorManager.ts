@@ -23,7 +23,7 @@ import { focusModePlugin } from '@/plugins/focusModePlugin'
 import { inlineMarksPlugin } from '@/plugins/inlineMarksPlugin'
 import { taskListPlugin } from '@/plugins/taskListPlugin'
 import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
-import { ClipboardImageExtractor } from '@/services/image/ClipboardImageExtractor'
+import { NativeClipboardImage } from '@/services/image/NativeClipboardImage'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
 import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
@@ -234,7 +234,8 @@ export class CrepeEditorManager {
           // 这种临时引用——重启编辑器就失效。
           // 改为走我们的 ImageInsertOrchestrator.resolveOnly：按用户选择的模式
           // （keep-original / copy-absolute / copy-relative）真正落盘并返回最终 path。
-          // 大图（>1MB）走主进程 clipboard.readImage() 避免渲染端 FileReader 阻塞。
+          // 大图（>1MB）走主进程 clipboard.readImage() 拿 base64 直传，避免渲染端
+          // FileReader 同步阻塞 + 双重编码。
           ctx.update(uploadConfig.key, (prev) => ({
             ...prev,
             uploader: async (files, schema) => {
@@ -247,9 +248,10 @@ export class CrepeEditorManager {
               if (!nodeType) return []
               const orch = useImageInsertOrchestrator()
               const nodes = await Promise.all(imgs.map(async (file) => {
-                // 大文件走主进程原生路径加速
-                const upgraded = await ClipboardImageExtractor.maybeUpgradeViaMainProcess(file)
-                const src = await orch.resolveOnly(upgraded)
+                // 大文件走主进程原生路径加速：拿到 ImageSource（File 或 {base64}），
+                // orchestrator.resolveOnly 直接消费，不再 atob 重建 File
+                const source = await NativeClipboardImage.maybeUpgrade(file)
+                const src = await orch.resolveOnly(source)
                 if (!src) return null
                 return nodeType.createAndFill({ src, alt: file.name.replace(/\.[^.]+$/, '') })
               }))

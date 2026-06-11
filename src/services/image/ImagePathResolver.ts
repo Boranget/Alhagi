@@ -41,13 +41,13 @@ export function resolvePathVariables(template: string, ctx: PathContext = {}): s
  *   - `archive.tar.gz` → `<ts>_archive.tar.gz`（取最后一段为扩展名）
  *   - `README`         → `<ts>_README`（无扩展名时不补，避免产生 `.README` 双后缀）
  */
-export function generateImageName(file: File): string {
-  const lastDot = file.name.lastIndexOf('.')
+export function generateImageName(filename: string): string {
+  const lastDot = filename.lastIndexOf('.')
   // lastDot === 0 视为隐藏文件（如 `.gitignore`），不当扩展名
   if (lastDot <= 0) {
-    return `${Date.now()}_${file.name}`
+    return `${Date.now()}_${filename}`
   }
-  const nameWithoutExt = file.name.slice(0, lastDot)
-  const extension = file.name.slice(lastDot + 1)
+  const nameWithoutExt = filename.slice(0, lastDot)
+  const extension = filename.slice(lastDot + 1)
   return `${Date.now()}_${nameWithoutExt}.${extension}`
 }

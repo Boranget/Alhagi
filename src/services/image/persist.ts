@@ -23,10 +23,17 @@ export async function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * 把 file 写入 absolutePath（保证父目录存在）。
- * 抛错时调用方负责报告给用户。
+ * 把字节流写入 absolutePath（保证父目录存在）。
+ *
+ * 接受 File 或已编码的 base64 字符串：
+ *   - File 路径需经 FileReader 同步阻塞编码（小文件可接受）
+ *   - base64 路径直接 IPC saveBinary（截图大文件优化：主进程 NativeImage→PNG
+ *     已经产出 base64，这里直接走，避免渲染端重新 FileReader 编码再去前缀）
  */
-export async function persistImage(file: File, absolutePath: string): Promise<void> {
+export async function persistImage(
+  source: File | { base64: string },
+  absolutePath: string,
+): Promise<void> {
   const api = electronService.getAPI()
   if (!api) throw new Error('Electron API not available')
 
@@ -36,7 +43,7 @@ export async function persistImage(file: File, absolutePath: string): Promise<vo
     throw new Error(ensureResult.error?.message || `ensureDirectory failed: ${dirPath}`)
   }
 
-  const base64 = await fileToBase64(file)
+  const base64 = 'base64' in source ? source.base64 : await fileToBase64(source)
   const saveResult = await api.saveBinaryFile(absolutePath, base64)
   if (!saveResult.success) {
     throw new Error(saveResult.error?.message || `saveBinaryFile failed: ${absolutePath}`)

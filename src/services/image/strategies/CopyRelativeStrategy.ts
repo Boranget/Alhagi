@@ -11,7 +11,7 @@
 //   - 绝对路径       → **拒绝**：copy-relative 模式不应产出 ../../ 绝对引用，
 //                      回退到默认子目录并 console.warn
 
-import type { ImageInsertContext, ImageInsertStrategy } from '../types'
+import { sourceFilename, type ImageInsertContext, type ImageInsertStrategy } from '../types'
 import { FILE } from '@/constants'
 import { getDirname, getRelativePath } from '@/utils/helpers'
 import { saveTempImage } from '@/utils/tempImageManager'
@@ -20,15 +20,15 @@ import {
   resolvePathVariables,
   generateImageName,
 } from '../ImagePathResolver'
-import { persistImage } from '../persist'
-import { fileToBase64 } from '../persist'
+import { persistImage, fileToBase64 } from '../persist'
 
 export class CopyRelativeStrategy implements ImageInsertStrategy {
   readonly mode = 'copy-relative' as const
 
   async resolveFinalPath(ctx: ImageInsertContext): Promise<string> {
-    const fileName = generateImageName(ctx.file)
-    const subDir = this.resolveSubDir(ctx)
+    const filename = sourceFilename(ctx.source)
+    const fileName = generateImageName(filename)
+    const subDir = this.resolveSubDir(ctx, filename)
 
     // 未保存：把图片以「同样的子目录结构」写到 temp/<tabId>/<subDir>/<fileName>。
     // markdown 写入相对路径 `./<subDir>/<fileName>`，saveAs 时
@@ -36,7 +36,7 @@ export class CopyRelativeStrategy implements ImageInsertStrategy {
     // 子目录结构原样保留，markdown 路径无需重写。
     if (!ctx.tabFilePath) {
       const relativePath = `${subDir}/${fileName}`
-      const base64 = await fileToBase64(ctx.file)
+      const base64 = 'base64' in ctx.source ? ctx.source.base64 : await fileToBase64(ctx.source)
       await saveTempImage(ctx.tabId, relativePath, base64)
       return `./${relativePath}`
     }
@@ -44,7 +44,7 @@ export class CopyRelativeStrategy implements ImageInsertStrategy {
     const mdDir = getDirname(ctx.tabFilePath)
     const targetDir = `${mdDir}/${subDir}`
     const absolutePath = `${targetDir}/${fileName}`
-    await persistImage(ctx.file, absolutePath)
+    await persistImage(ctx.source, absolutePath)
     const rel = getRelativePath(mdDir, absolutePath)
     // 严格 CommonMark 解析器要求相对路径以 ./ 或 ../ 开头，否则可能被识别为 URL scheme（如 `foo:bar`）。
     // 避免重复加前缀。
@@ -55,7 +55,7 @@ export class CopyRelativeStrategy implements ImageInsertStrategy {
    * 计算「.md 旁边的子目录」名（已展开变量、剔除绝对路径用户设置）。
    * 不含 mdDir 前缀，便于未保存场景直接用作 temp 子路径。
    */
-  private resolveSubDir(ctx: ImageInsertContext): string {
+  private resolveSubDir(ctx: ImageInsertContext, filename: string): string {
     const userSetting = ctx.storagePathTemplate
     let template: string
 
@@ -73,7 +73,7 @@ export class CopyRelativeStrategy implements ImageInsertStrategy {
     }
 
     return resolvePathVariables(template, {
-      fileName: ctx.file.name.replace(/\.[^.]+$/, ''),
+      fileName: filename.replace(/\.[^.]+$/, ''),
       filePath: ctx.tabFilePath,
     })
   }

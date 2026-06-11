@@ -344,6 +344,9 @@ onMounted(async () => {
   // 监听搜索事件（来自菜单或命令系统）
   window.addEventListener('editor:showSearch', handleShowSearch)
 
+  // 命令 format.image 派发的「打开文件选择对话框 → 插入图片」事件
+  window.addEventListener('editor:insertImage', handleInsertImage)
+
   // 图片粘贴/拖拽：Crepe upload plugin 内部已注册 handlePaste/handleDrop，
   // 触发后会调用 uploadConfig.uploader（已在 crepeEditorManager 中覆盖为
   // ImageInsertOrchestrator.resolveOnly）。本组件不再单独 wire 事件。

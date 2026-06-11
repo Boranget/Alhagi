@@ -13,7 +13,7 @@
 //
 // 然后用 ImagePathResolver 展开 {filename}/{date}/... 占位符。
 
-import type { ImageInsertContext, ImageInsertStrategy } from '../types'
+import { sourceFilename, type ImageInsertContext, type ImageInsertStrategy } from '../types'
 import { getGlobalImageStorageDir } from '@/utils/tempImageManager'
 import {
   isAbsolutePath,
@@ -26,14 +26,15 @@ export class CopyAbsoluteStrategy implements ImageInsertStrategy {
   readonly mode = 'copy-absolute' as const
 
   async resolveFinalPath(ctx: ImageInsertContext): Promise<string> {
-    const targetDir = await this.resolveTargetDir(ctx)
-    const fileName = generateImageName(ctx.file)
+    const filename = sourceFilename(ctx.source)
+    const targetDir = await this.resolveTargetDir(ctx, filename)
+    const fileName = generateImageName(filename)
     const absolutePath = `${targetDir}/${fileName}`
-    await persistImage(ctx.file, absolutePath)
+    await persistImage(ctx.source, absolutePath)
     return absolutePath
   }
 
-  private async resolveTargetDir(ctx: ImageInsertContext): Promise<string> {
+  private async resolveTargetDir(ctx: ImageInsertContext, filename: string): Promise<string> {
     const userSetting = ctx.storagePathTemplate
 
     let raw: string
@@ -47,7 +48,7 @@ export class CopyAbsoluteStrategy implements ImageInsertStrategy {
     }
 
     return resolvePathVariables(raw, {
-      fileName: ctx.file.name.replace(/\.[^.]+$/, ''),
+      fileName: filename.replace(/\.[^.]+$/, ''),
       filePath: ctx.tabFilePath,
     })
   }

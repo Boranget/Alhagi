@@ -113,7 +113,7 @@ const keep = new KeepOriginalStrategy()
 
 eq('http URL → 原样返回',
   await keep.resolveFinalPath({
-    file: fakeFile('a.png'),
+    source: fakeFile('a.png'),
     originalUrl: 'http://example.com/foo.png',
     tabId: 't1',
   }),
@@ -122,7 +122,7 @@ eq('http URL → 原样返回',
 
 eq('https URL → 原样返回',
   await keep.resolveFinalPath({
-    file: fakeFile('a.png'),
+    source: fakeFile('a.png'),
     originalUrl: 'https://cdn.example.com/x.jpg',
     tabId: 't1',
   }),
@@ -131,7 +131,7 @@ eq('https URL → 原样返回',
 
 clearIpcCalls()
 const fileProtoRes = await keep.resolveFinalPath({
-  file: fakeFile('local.png'),
+  source: fakeFile('local.png'),
   originalUrl: 'file:///C:/Users/Pictures/x.png',
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
@@ -148,7 +148,7 @@ eq('file:/// → 触发 ensureDir + saveBinaryFile',
 clearIpcCalls()
 match('无 URL（截图）→ 走 relative',
   await keep.resolveFinalPath({
-    file: fakeFile('screenshot.png'),
+    source: fakeFile('screenshot.png'),
     tabId: 't1',
     tabFilePath: 'D:/notes/foo.md',
   }),
@@ -163,7 +163,7 @@ const rel = new CopyRelativeStrategy()
 // 5a 已保存 + 无 userSetting
 clearIpcCalls()
 const r5a = await rel.resolveFinalPath({
-  file: fakeFile('a.png'),
+  source: fakeFile('a.png'),
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
 })
@@ -180,7 +180,7 @@ match('写盘路径 = mdDir/assets/...',
 clearIpcCalls()
 match('已保存 + userSetting=pics → ./pics/<ts>_b.png',
   await rel.resolveFinalPath({
-    file: fakeFile('b.png'),
+    source: fakeFile('b.png'),
     tabId: 't1',
     tabFilePath: 'D:/notes/foo.md',
     storagePathTemplate: 'pics',
@@ -194,7 +194,7 @@ const origWarn = console.warn
 let warned = ''
 console.warn = (msg: unknown) => { warned = String(msg) }
 const r5c = await rel.resolveFinalPath({
-  file: fakeFile('c.png'),
+  source: fakeFile('c.png'),
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
   storagePathTemplate: 'D:/global-images',
@@ -213,7 +213,7 @@ eq('绝对 userSetting → 触发警告',
 clearIpcCalls()
 match('{filename} → ./assets/d/<ts>_d.png',
   await rel.resolveFinalPath({
-    file: fakeFile('d.png'),
+    source: fakeFile('d.png'),
     tabId: 't1',
     tabFilePath: 'D:/notes/foo.md',
     storagePathTemplate: 'assets/{filename}',
@@ -224,7 +224,7 @@ match('{filename} → ./assets/d/<ts>_d.png',
 // 5e 未保存 + 用户值（修复 B3）
 clearIpcCalls()
 const r5e = await rel.resolveFinalPath({
-  file: fakeFile('e.png'),
+  source: fakeFile('e.png'),
   tabId: 't_unsaved',
   storagePathTemplate: 'pics',
 })
@@ -241,7 +241,7 @@ match('未保存写盘到 temp/<tabId>/pics/...',
 clearIpcCalls()
 match('未保存 + 无设 → ./assets/<ts>_f.png',
   await rel.resolveFinalPath({
-    file: fakeFile('f.png'),
+    source: fakeFile('f.png'),
     tabId: 't_unsaved2',
   }),
   /^\.\/assets\/\d+_f\.png$/,
@@ -250,7 +250,7 @@ match('未保存 + 无设 → ./assets/<ts>_f.png',
 // 5g 深层 mdDir
 clearIpcCalls()
 const r5g = await rel.resolveFinalPath({
-  file: fakeFile('g.png'),
+  source: fakeFile('g.png'),
   tabId: 't1',
   tabFilePath: 'D:/notes/sub/inner/bar.md',
 })
@@ -272,7 +272,7 @@ const abs = new CopyAbsoluteStrategy()
 clearIpcCalls()
 match('absolute + 无设 + 无ws → <Doc>/alhagi/images/<ts>_a.png',
   await abs.resolveFinalPath({
-    file: fakeFile('a.png'),
+    source: fakeFile('a.png'),
     tabId: 't1',
     tabFilePath: 'D:/notes/foo.md',
   }),
@@ -283,7 +283,7 @@ match('absolute + 无设 + 无ws → <Doc>/alhagi/images/<ts>_a.png',
 clearIpcCalls()
 match('absolute + 无设 + 有ws → 仍走全局',
   await abs.resolveFinalPath({
-    file: fakeFile('b.png'),
+    source: fakeFile('b.png'),
     tabId: 't1',
     tabFilePath: 'D:/workspace/notes/bar.md',
     workspaceRoot: 'D:/workspace',
@@ -295,7 +295,7 @@ match('absolute + 无设 + 有ws → 仍走全局',
 clearIpcCalls()
 match('absolute + 相对设 + 有ws → workspace/assets/...',
   await abs.resolveFinalPath({
-    file: fakeFile('c.png'),
+    source: fakeFile('c.png'),
     tabId: 't1',
     tabFilePath: 'D:/workspace/notes/bar.md',
     workspaceRoot: 'D:/workspace',
@@ -308,7 +308,7 @@ match('absolute + 相对设 + 有ws → workspace/assets/...',
 clearIpcCalls()
 match('absolute + 相对设 + 无ws → 全局/pics（修复 B4）',
   await abs.resolveFinalPath({
-    file: fakeFile('d.png'),
+    source: fakeFile('d.png'),
     tabId: 't1',
     storagePathTemplate: 'pics',
   }),
@@ -319,7 +319,7 @@ match('absolute + 相对设 + 无ws → 全局/pics（修复 B4）',
 clearIpcCalls()
 match('absolute + 绝对设 → 直接用',
   await abs.resolveFinalPath({
-    file: fakeFile('e.png'),
+    source: fakeFile('e.png'),
     tabId: 't1',
     storagePathTemplate: 'D:/Pictures',
   }),
@@ -330,7 +330,7 @@ match('absolute + 绝对设 → 直接用',
 clearIpcCalls()
 match('{date} 展开',
   await abs.resolveFinalPath({
-    file: fakeFile('f.png'),
+    source: fakeFile('f.png'),
     tabId: 't1',
     storagePathTemplate: 'D:/Pictures/{date}',
   }),
@@ -341,7 +341,7 @@ match('{date} 展开',
 clearIpcCalls()
 match('{filename} = file.name 去扩展名',
   await abs.resolveFinalPath({
-    file: fakeFile('g.png'),
+    source: fakeFile('g.png'),
     tabId: 't1',
     storagePathTemplate: 'D:/Pictures/{filename}',
   }),
@@ -354,7 +354,7 @@ section('边界')
 // 7a 无扩展名
 clearIpcCalls()
 const r7a = await rel.resolveFinalPath({
-  file: fakeFile('README'),
+  source: fakeFile('README'),
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
 })
@@ -368,7 +368,7 @@ eq('确认末尾不是 .README', r7a.endsWith('.README'), false)
 clearIpcCalls()
 match('跨盘符 mdFile + 默认相对',
   await rel.resolveFinalPath({
-    file: fakeFile('x.png'),
+    source: fakeFile('x.png'),
     tabId: 't1',
     tabFilePath: 'C:/notes/foo.md',
   }),
@@ -382,7 +382,7 @@ match('确认写盘到 C: 盘',
 // 7c 相对路径回到父目录
 clearIpcCalls()
 const r7c = await rel.resolveFinalPath({
-  file: fakeFile('p.png'),
+  source: fakeFile('p.png'),
   tabId: 't1',
   tabFilePath: 'D:/notes/sub/foo.md',
   storagePathTemplate: '../assets',
@@ -396,7 +396,7 @@ match('相对回退路径生成 (无论 ./ 还是 ../)',
 // 7d 多点扩展
 clearIpcCalls()
 const r7d = await rel.resolveFinalPath({
-  file: fakeFile('archive.tar.gz'),
+  source: fakeFile('archive.tar.gz'),
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
 })
@@ -408,7 +408,7 @@ match('archive.tar.gz → 保留 archive.tar.gz',
 // 7e 隐藏文件
 clearIpcCalls()
 const r7e = await rel.resolveFinalPath({
-  file: fakeFile('.gitkeep'),
+  source: fakeFile('.gitkeep'),
   tabId: 't1',
   tabFilePath: 'D:/notes/foo.md',
 })
@@ -419,6 +419,47 @@ match('.gitkeep → 无 .gitkeep 双后缀',
 eq('确认末尾是 _.gitkeep 不是 _.gitkeep.gitkeep',
   r7e.split('_').pop(),
   '.gitkeep',
+)
+
+// ---------- base64 直传路径 ----------
+section('ImageSource base64 直传（截图大文件优化）')
+
+// 模拟主进程 NativeClipboardImage 返回的 base64 source
+const base64Source = {
+  base64: 'SGVsbG8=',  // "Hello" base64
+  filename: 'clipboard-12345.png',
+  mimeType: 'image/png',
+}
+
+clearIpcCalls()
+const r8a = await abs.resolveFinalPath({
+  source: base64Source,
+  tabId: 't1',
+  tabFilePath: 'D:/notes/foo.md',
+})
+match('base64 source → absolute path 正常',
+  r8a,
+  /^D:\/Users\/Documents\/alhagi\/images\/\d+_clipboard-12345\.png$/,
+)
+const saveCall = ipcCalls.find(c => c.method === 'saveBinaryFile')
+eq('base64 source → IPC 直接传同一份 base64，不经 FileReader 二次编码',
+  saveCall?.args[1],
+  '<base64 8B>',  // base64 字符串 "SGVsbG8=" 本身 8 字符
+)
+
+clearIpcCalls()
+const r8b = await rel.resolveFinalPath({
+  source: base64Source,
+  tabId: 't_unsaved',
+})
+match('base64 source + 未保存 → ./assets/<ts>_clipboard-12345.png',
+  r8b,
+  /^\.\/assets\/\d+_clipboard-12345\.png$/,
+)
+const saveCallRel = ipcCalls.find(c => c.method === 'saveBinaryFile')
+eq('base64 source → 临时图片也直传 base64',
+  saveCallRel?.args[1],
+  '<base64 8B>',
 )
 
 // ---------- 总结 ----------
