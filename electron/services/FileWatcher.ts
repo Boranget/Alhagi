@@ -8,6 +8,10 @@
 //   - awaitWriteFinish 保证大文件写完才触发，避免半写时读到截断内容。
 //   - markSaved(path) 记入 recentlySaves；接下来 SAVE_DEBOUNCE_MS 毫秒内的
 //     change 事件被认为是「自己刚保存」，过滤掉，避免「保存 → 提示外部修改」死循环。
+//   - recentlySaves 由三处协同回收，避免长期累积：
+//       (1) remove(path)        关闭 tab 时显式删该条目
+//       (2) handleUnlink(path)  外部删文件时显式删（标记早已无意义）
+//       (3) markSaved(path)     每次保存顺手扫一遍删过期条目（兜底）
 //   - 每个 watcher 实例与一个 WindowManager 绑定；change 路由到具体 windowId
 //     的 BrowserWindow，避免跨窗口干扰。
 
@@ -29,8 +33,10 @@ export class FileWatcher {
   /**
    * 标记一个文件刚被自己保存，接下来 SAVE_DEBOUNCE_MS 内的 change 事件忽略。
    * 应在 FileSystemService.registerSave/SaveAs/SaveBinary 写文件后立即调用。
+   * 副作用：顺手清理 recentlySaves 中所有已过期条目，避免长期运行内存泄漏。
    */
   markSaved(filePath: string): void {
+    this.pruneRecentlySaves()
     this.recentlySaves.set(filePath, Date.now())
   }
 
@@ -47,12 +53,15 @@ export class FileWatcher {
 
   /**
    * 停止监视一个文件（引用计数减一；到 0 才真正 unwatch）。
+   * 引用计数归零时同步清理 recentlySaves —— 文件已不再被任何窗口打开，
+   * 标记时间戳没有意义，留着只会泄漏。
    */
   remove(filePath: string): void {
     const prev = this.watched.get(filePath) ?? 0
     if (prev <= 0) return
     if (prev === 1) {
       this.watched.delete(filePath)
+      this.recentlySaves.delete(filePath)
       this.chokidar?.unwatch(filePath)
     } else {
       this.watched.set(filePath, prev - 1)
@@ -112,6 +121,8 @@ export class FileWatcher {
   }
 
   private handleUnlink(filePath: string): void {
+    // 文件已被外部删除，自己之前的保存时间戳无意义；立即清理
+    this.recentlySaves.delete(filePath)
     for (const [windowId, openFiles] of this.windowManager.getOpenFilesMap()) {
       if (!openFiles.includes(filePath)) continue
       const win = this.windowManager.getWindow(windowId)
@@ -132,5 +143,14 @@ export class FileWatcher {
       return false
     }
     return true
+  }
+
+  /** 兜底回收：遍历 recentlySaves，删所有早于 SAVE_DEBOUNCE_MS 的条目 */
+  private pruneRecentlySaves(): void {
+    if (this.recentlySaves.size === 0) return
+    const cutoff = Date.now() - SAVE_DEBOUNCE_MS
+    for (const [path, ts] of this.recentlySaves) {
+      if (ts < cutoff) this.recentlySaves.delete(path)
+    }
   }
 }
