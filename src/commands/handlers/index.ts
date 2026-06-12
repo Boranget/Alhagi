@@ -70,7 +70,7 @@ export function initCommandHandlers(): void {
 
   dispatcher.register('edit.undo', () => {
     // 通过 eventBus 触发：EditorContainer 会按当前模式分别处理 codemirror / crepe，
-    // 直接调 editorManager.undo() 会丢失源码/分屏模式下的 codemirror undo。
+    // 直接调 editorManager.commands.undo() 会丢失源码/分屏模式下的 codemirror undo。
     eventBus.emit(AppEvents.EDIT_UNDO)
   })
 
@@ -116,23 +116,23 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('format.bold', () => {
-    editorManager.toggleBold()
+    editorManager.commands.toggleBold()
   })
 
   dispatcher.register('format.italic', () => {
-    editorManager.toggleItalic()
+    editorManager.commands.toggleItalic()
   })
 
   dispatcher.register('format.strikethrough', () => {
-    editorManager.toggleStrikethrough()
+    editorManager.commands.toggleStrikethrough()
   })
 
   dispatcher.register('format.code', () => {
-    editorManager.toggleInlineCode()
+    editorManager.commands.toggleInlineCode()
   })
 
   dispatcher.register('format.link', () => {
-    editorManager.toggleLink()
+    editorManager.commands.toggleLink()
   })
 
   dispatcher.register('format.image', () => {
@@ -141,7 +141,7 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('format.highlight', () => {
-    editorManager.toggleHighlight()
+    editorManager.commands.toggleHighlight()
   })
 
   // ========================================
@@ -149,59 +149,59 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('paragraph.heading1', () => {
-    editorManager.toggleHeading(1)
+    editorManager.commands.toggleHeading(1)
   })
 
   dispatcher.register('paragraph.heading2', () => {
-    editorManager.toggleHeading(2)
+    editorManager.commands.toggleHeading(2)
   })
 
   dispatcher.register('paragraph.heading3', () => {
-    editorManager.toggleHeading(3)
+    editorManager.commands.toggleHeading(3)
   })
 
   dispatcher.register('paragraph.heading4', () => {
-    editorManager.toggleHeading(4)
+    editorManager.commands.toggleHeading(4)
   })
 
   dispatcher.register('paragraph.heading5', () => {
-    editorManager.toggleHeading(5)
+    editorManager.commands.toggleHeading(5)
   })
 
   dispatcher.register('paragraph.heading6', () => {
-    editorManager.toggleHeading(6)
+    editorManager.commands.toggleHeading(6)
   })
 
   dispatcher.register('paragraph.paragraph', () => {
-    editorManager.toggleParagraph()
+    editorManager.commands.toggleParagraph()
   })
 
   dispatcher.register('paragraph.quote', () => {
-    editorManager.toggleBlockQuote()
+    editorManager.commands.toggleBlockQuote()
   })
 
   dispatcher.register('paragraph.bulletList', () => {
-    editorManager.toggleBulletList()
+    editorManager.commands.toggleBulletList()
   })
 
   dispatcher.register('paragraph.orderedList', () => {
-    editorManager.toggleOrderedList()
+    editorManager.commands.toggleOrderedList()
   })
 
   dispatcher.register('paragraph.taskList', () => {
-    editorManager.toggleTaskList()
+    editorManager.commands.toggleTaskList()
   })
 
   dispatcher.register('paragraph.codeBlock', () => {
-    editorManager.toggleCodeFence()
+    editorManager.commands.toggleCodeFence()
   })
 
   dispatcher.register('paragraph.mathBlock', () => {
-    editorManager.insertMathBlock()
+    editorManager.commands.insertMathBlock()
   })
 
   dispatcher.register('paragraph.horizontalRule', () => {
-    editorManager.insertHorizontalRule()
+    editorManager.commands.insertHorizontalRule()
   })
 
   // ========================================
@@ -209,31 +209,31 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('table.insert', () => {
-    editorManager.insertTable()
+    editorManager.commands.insertTable()
   })
 
   dispatcher.register('table.insertRowAbove', () => {
-    editorManager.insertTableRowAbove()
+    editorManager.commands.insertTableRowAbove()
   })
 
   dispatcher.register('table.insertRowBelow', () => {
-    editorManager.insertTableRowBelow()
+    editorManager.commands.insertTableRowBelow()
   })
 
   dispatcher.register('table.insertColumnLeft', () => {
-    editorManager.insertTableColumnLeft()
+    editorManager.commands.insertTableColumnLeft()
   })
 
   dispatcher.register('table.insertColumnRight', () => {
-    editorManager.insertTableColumnRight()
+    editorManager.commands.insertTableColumnRight()
   })
 
   dispatcher.register('table.deleteRow', () => {
-    editorManager.deleteTableRow()
+    editorManager.commands.deleteTableRow()
   })
 
   dispatcher.register('table.deleteColumn', () => {
-    editorManager.deleteTableColumn()
+    editorManager.commands.deleteTableColumn()
   })
 
   // ========================================

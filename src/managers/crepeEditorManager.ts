@@ -106,7 +106,7 @@ export class CrepeEditorManager {
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
   private searchManager = useEditorSearchManager()
   private stateManager = new EditorStateManager()
-  private commands = new EditorCommands()
+  readonly commands = new EditorCommands()
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
@@ -130,7 +130,7 @@ export class CrepeEditorManager {
    * 用于打字机模式等需要访问编辑器 DOM 的场景
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getEditorView(): any {
+  getEditorView(): EditorView | null {
     return this.editorView
   }
 
@@ -757,114 +757,6 @@ export class CrepeEditorManager {
 
   replaceAll(replacement: string) {
     return this.searchManager.replaceAll(replacement)
-  }
-
-  insertImage(imageUrl: string, altText: string): void {
-    this.commands.insertImage(imageUrl, altText)
-  }
-
-  undo(): void {
-    this.commands.undo()
-  }
-
-  redo(): void {
-    this.commands.redo()
-  }
-
-  toggleBold(): void {
-    this.commands.toggleBold()
-  }
-
-  toggleItalic(): void {
-    this.commands.toggleItalic()
-  }
-
-  toggleStrikethrough(): void {
-    this.commands.toggleStrikethrough()
-  }
-
-  toggleInlineCode(): void {
-    this.commands.toggleInlineCode()
-  }
-
-  toggleLink(): void {
-    this.commands.toggleLink()
-  }
-
-  toggleHeading(level: number): void {
-    this.commands.toggleHeading(level)
-  }
-
-  toggleParagraph(): void {
-    this.commands.toggleParagraph()
-  }
-
-  toggleHighlight(): void {
-    this.commands.toggleHighlight()
-  }
-
-  toggleBulletList(): void {
-    this.commands.toggleBulletList()
-  }
-
-  toggleOrderedList(): void {
-    this.commands.toggleOrderedList()
-  }
-
-  toggleTaskList(): void {
-    this.commands.toggleTaskList()
-  }
-
-  toggleBlockQuote(): void {
-    this.commands.toggleBlockQuote()
-  }
-
-  toggleCodeBlock(): void {
-    this.commands.toggleCodeBlock()
-  }
-
-  toggleCodeFence(): void {
-    this.commands.toggleCodeFence()
-  }
-
-  insertCodeBlock(): void {
-    this.commands.insertCodeBlock()
-  }
-
-  insertMathBlock(): void {
-    this.commands.insertMathBlock()
-  }
-
-  insertHorizontalRule(): void {
-    this.commands.insertHorizontalRule()
-  }
-
-  insertTable(): void {
-    this.commands.insertTable()
-  }
-
-  insertTableRowAbove(): void {
-    this.commands.insertTableRowAbove()
-  }
-
-  insertTableRowBelow(): void {
-    this.commands.insertTableRowBelow()
-  }
-
-  deleteTableRow(): void {
-    this.commands.deleteTableRow()
-  }
-
-  insertTableColumnLeft(): void {
-    this.commands.insertTableColumnLeft()
-  }
-
-  insertTableColumnRight(): void {
-    this.commands.insertTableColumnRight()
-  }
-
-  deleteTableColumn(): void {
-    this.commands.deleteTableColumn()
   }
 }
 

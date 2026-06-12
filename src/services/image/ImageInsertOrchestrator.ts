@@ -47,7 +47,7 @@ export class ImageInsertOrchestrator {
     const finalPath = await this.resolveOnly(file, originalUrl)
     if (finalPath === null) return null
     const altText = file.name.replace(/\.[^.]+$/, '')
-    this.editorManager.insertImage(finalPath, altText)
+    this.editorManager.commands.insertImage(finalPath, altText)
     const activeTab = this.tabsStore.activeTab
     if (activeTab) {
       this.tabsStore.updateTab(activeTab.id, {
@@ -92,7 +92,7 @@ export class ImageInsertOrchestrator {
     const activeTab = this.tabsStore.activeTab
     if (!activeTab) return
     const alt = altText || imagePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'image'
-    this.editorManager.insertImage(imagePath, alt)
+    this.editorManager.commands.insertImage(imagePath, alt)
     this.tabsStore.updateTab(activeTab.id, { isDirty: true, lastModified: Date.now() })
   }
 }

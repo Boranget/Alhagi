@@ -295,7 +295,7 @@ const unsubscribeEditUndo = eventBus.on(AppEvents.EDIT_UNDO, () => {
     }
   }
   if (editorManager.isReady()) {
-    editorManager.undo()
+    editorManager.commands.undo()
   }
 })
 unsubscribes.push(unsubscribeEditUndo)
@@ -314,7 +314,7 @@ const unsubscribeEditRedo = eventBus.on(AppEvents.EDIT_REDO, () => {
     }
   }
   if (editorManager.isReady()) {
-    editorManager.redo()
+    editorManager.commands.redo()
   }
 })
 unsubscribes.push(unsubscribeEditRedo)
