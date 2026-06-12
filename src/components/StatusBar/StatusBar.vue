@@ -165,25 +165,39 @@ function toggleSidebar() {
   prefsStore.showSidebar = !prefsStore.showSidebar
 }
 
+// 模块级变量：记录从 split→非 split 时应该去哪一侧
+// 规则：crepe → split（标记"回去时去 source"）
+//       source → split（标记"回去时去 crepe"）
+//       从 split → 根据标记决定去 crepe 还是 source
+let _splitExitTarget: 'wysiwyg' | 'source' = 'source'
+
 /**
- * 切换编辑器视图模式：wysiwyg -> source -> split -> wysiwyg
+ * 切换编辑器视图模式：crepe → split → source → split → crepe → ...
+ *
+ * 从 crepe 切到 split（"看看分屏效果"），
+ * 再从 split 切到 source（"还是想看源码"），
+ * 再从 source 切到 split（"还是分屏看着好"），
+ * 再从 split 切回 crepe（"够了，回 WYSIWYG"）。
+ *
+ * 这样分屏在两个单向模式之间做过渡桥，视觉上比直接硬跳更平滑。
  */
 function toggleViewMode() {
   if (!activeTab.value) return
-  
+
   const currentMode = activeTab.value.viewMode
   let nextMode: 'wysiwyg' | 'source' | 'split'
-  
-  // 循环切换：wysiwyg -> source -> split -> wysiwyg
+
   if (currentMode === 'wysiwyg') {
-    nextMode = 'source'
+    _splitExitTarget = 'source'
+    nextMode = 'split'
   } else if (currentMode === 'source') {
+    _splitExitTarget = 'wysiwyg'
     nextMode = 'split'
   } else {
-    nextMode = 'wysiwyg'
+    // current === split → 按标记回 crepe 或 source
+    nextMode = _splitExitTarget
   }
-  
-  // 触发视图模式切换事件
+
   eventBus.emit(AppEvents.VIEW_MODE_CHANGED, nextMode)
 }
 

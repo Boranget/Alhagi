@@ -4,10 +4,12 @@
     :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
   >
     <div class="app-content">
-      <EnhancedSidebar
-        v-if="prefsStore.showSidebar"
-        @open-settings="showSettings = true"
-      />
+      <Transition name="sidebar-slide">
+        <EnhancedSidebar
+          v-if="prefsStore.showSidebar"
+          @open-settings="showSettings = true"
+        />
+      </Transition>
       <div class="editor-wrapper">
         <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
         <div class="editor-area">
@@ -16,7 +18,9 @@
         </div>
       </div>
     </div>
-    <StatusBar v-if="prefsStore.showStatusBar" />
+    <Transition name="statusbar-slide">
+      <StatusBar v-if="prefsStore.showStatusBar" />
+    </Transition>
     <SettingsPanel
       :visible="showSettings"
       @close="showSettings = false"
@@ -134,5 +138,61 @@ onUnmounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* ----------------------------------------------------------
+ * 侧边栏 / 状态栏 显隐过渡（GPU 合成层动画）
+ *
+ * 性能约束（必须遵守）：
+ *   ✔ 只动画 `transform` 和 `opacity` —— 合成线程内完成，0 layout、0 paint
+ *   ✗ 不碰 width/height/margin/padding（引起 layout 重排，每帧几十 ms）
+ *   ✗ 不碰 box-shadow/background（引起 paint，每帧几 ms）
+ *
+ * 曲线选择：
+ *   放弃原来 180 ms + 激进 ease-out（刚冲就停，硬撞墙感）。
+ *   改用 250 ms + `cubic-bezier(0.25, 0.1, 0.25, 1)` —— Apple HIG
+ *   "standard ease-in-out" 的典型取值：前 25% 匀加速、后 50% 匀减速、
+ *   终段 25% 极慢靠边。人眼能轻易追踪的运动轨迹 → 感知上"更顺"。
+ *
+ * 侧边栏比状态栏稍快 30 ms（用户更频繁交互侧栏；状态栏是边角操作）。
+ *
+ * 无障碍：`prefers-reduced-motion` 用户跳过动画，直接瞬切（保持可用性）。
+ * ---------------------------------------------------------- */
+
+.sidebar-slide-enter-active,
+.sidebar-slide-leave-active {
+  transition:
+    transform 220ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 220ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  will-change: transform, opacity;
+}
+
+.sidebar-slide-enter-from,
+.sidebar-slide-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.statusbar-slide-enter-active,
+.statusbar-slide-leave-active {
+  transition:
+    transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 250ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  will-change: transform, opacity;
+}
+
+.statusbar-slide-enter-from,
+.statusbar-slide-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-slide-enter-active,
+  .sidebar-slide-leave-active,
+  .statusbar-slide-enter-active,
+  .statusbar-slide-leave-active {
+    transition-duration: 0ms !important;
+  }
 }
 </style>

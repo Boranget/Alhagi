@@ -29,45 +29,54 @@
         </p>
       </div>
 
-      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
-        ref="crepeContainer"
-        class="crepe"
-        :class="{
-          'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
-          'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
-        }"
-        @focus="handleCrepeFocus"
-        @click="handleCrepeClick"
-      />
+      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用
+           性能：用 v-show 保留 Crepe 实例避免反复 init；<Transition> 配 v-show
+           会在 enter/leave 时正确触发 opacity 过渡（Vue 内部把 display 切换延后到
+           transition 结束）。 -->
+      <Transition name="pane-fade">
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
+          ref="crepeContainer"
+          class="crepe"
+          :class="{
+            'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
+            'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
+          }"
+          @focus="handleCrepeFocus"
+          @click="handleCrepeClick"
+        />
+      </Transition>
 
       <!-- CodeMirror 编辑器 - 源码模式和分屏模式共用 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE || currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="codemirror-wrapper"
-        :class="{
-          'editor-source': currentMode === EDITOR.VIEW_MODES.SOURCE,
-          'editor-split-source': currentMode === EDITOR.VIEW_MODES.SPLIT
-        }"
-      >
-        <CodeMirrorEditor
-          ref="codeMirrorEditorRef"
-          :model-value="sourceContent"
-          @update:model-value="handleCodeMirrorChange"
-          @focus="handleCodeMirrorFocus"
-          @blur="handleCodeMirrorBlur"
-        />
-      </div>
+      <Transition name="pane-fade">
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.SOURCE || currentMode === EDITOR.VIEW_MODES.SPLIT"
+          class="codemirror-wrapper"
+          :class="{
+            'editor-source': currentMode === EDITOR.VIEW_MODES.SOURCE,
+            'editor-split-source': currentMode === EDITOR.VIEW_MODES.SPLIT
+          }"
+        >
+          <CodeMirrorEditor
+            ref="codeMirrorEditorRef"
+            :model-value="sourceContent"
+            @update:model-value="handleCodeMirrorChange"
+            @focus="handleCodeMirrorFocus"
+            @blur="handleCodeMirrorBlur"
+          />
+        </div>
+      </Transition>
 
       <!-- 分屏分割线 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="split-resizer"
-        @mousedown="handleResizerMouseDown"
-      >
-        <div class="split-resizer-handle" />
-      </div>
+      <Transition name="pane-fade">
+        <div
+          v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+          class="split-resizer"
+          @mousedown="handleResizerMouseDown"
+        >
+          <div class="split-resizer-handle" />
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -692,6 +701,39 @@ function handleInsertImage() {
     font-size: 13px;
     opacity: 0.7;
     margin-top: 8px;
+  }
+}
+
+/* ----------------------------------------------------------
+ * 视图模式切换动画（WYSIWYG ↔ Source ↔ Split）
+ *
+ * 用 v-show + Vue <Transition> `<Transition>` 自动管理 enter/leave。
+ * 进入/离开两侧都只 animation `opacity`。
+ *
+ * 不同模式之间不加 `mode="out-in"`（会让每次切换分两段，总时长加倍，
+ * 300ms 编辑场景下太拖沓）。两层 pane 同时 cross-fade，
+ * 中间会有短暂的双半透明瞬间，但因为 200ms 极短 + 曲线末端慢速切入，
+ * 人眼感知为"平滑过渡"而非"闪烁"。极端场景（慢速动画用户）可通过
+ * prefers-reduced-motion 关掉。
+ *
+ * 性能：仅 opacity，合成线程 GPU 加速，0 layout / 0 paint。
+ * ---------------------------------------------------------- */
+
+.pane-fade-leave-active,
+.pane-fade-enter-active {
+  transition: opacity 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  will-change: opacity;
+}
+
+.pane-fade-enter-from,
+.pane-fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-fade-leave-active,
+  .pane-fade-enter-active {
+    transition-duration: 0ms !important;
   }
 }
 </style>
