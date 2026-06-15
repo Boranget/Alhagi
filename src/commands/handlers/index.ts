@@ -29,6 +29,12 @@ export function initCommandHandlers(): void {
     tabsStore.createTab({ title: '未命名' })
   })
 
+  dispatcher.register('file.newWindow', () => {
+    // 命令面板 / 快捷键路径 → 主进程；菜单 click 已直接命中
+    // mainProcessCommands['file.newWindow']，不会走到这里
+    electronService.getAPI()?.executeMainCommand('file.newWindow')
+  })
+
   dispatcher.register('file.open', () => {
     tabService.openFile()
   })

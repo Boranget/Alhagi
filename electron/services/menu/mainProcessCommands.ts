@@ -24,6 +24,10 @@ export interface MainCommandContext {
 export type MainCommandHandler = (ctx: MainCommandContext) => void
 
 export const MAIN_PROCESS_COMMANDS: Record<string, MainCommandHandler> = {
+  'file.newWindow': ({ windowManager }) => {
+    windowManager.createNewWindow()
+  },
+
   'view.fullscreen': ({ windowManager }) => {
     const win = windowManager.getMainWindow()
     if (win) win.setFullScreen(!win.isFullScreen())

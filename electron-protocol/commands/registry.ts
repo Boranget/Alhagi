@@ -49,6 +49,15 @@ export const COMMANDS: CommandEntry[] = [
     menuGroup: 1,
   },
   {
+    id: 'file.newWindow',
+    category: 'file',
+    label: 'commands.file.newWindow',
+    description: '创建新的应用窗口',
+    keybinding: { key: 'n', modifiers: { ctrl: true, shift: true } },
+    executionContext: 'global',
+    menuGroup: 1,
+  },
+  {
     id: 'file.open',
     category: 'file',
     label: 'commands.file.open',

@@ -190,6 +190,7 @@ documentOutline: '文档大纲',
   commands: {
     file: {
       new: '新建',
+      newWindow: '新建窗口',
       open: '打开',
       openFolder: '打开文件夹',
       save: '保存',
@@ -427,6 +428,7 @@ documentOutline: 'Document Outline',
   commands: {
     file: {
       new: 'New',
+      newWindow: 'New Window',
       open: 'Open',
       openFolder: 'Open Folder',
       save: 'Save',
