@@ -4,6 +4,7 @@
 
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 
 // 触发菜单重建的上下文键（低频变化的键）
 const REBUILD_TRIGGERS = new Set([
@@ -177,20 +178,20 @@ function initializeContext(ctx: CommandContext): void {
     return platform.includes('linux') || platform.includes('x11')
   })
 
-  // UI 状态
+  // UI 状态（per-window 运行期布局）
   ctx.register('showSidebar', () => {
-    const prefsStore = usePreferencesStore()
-    return prefsStore.showSidebar
+    const layoutStore = useLayoutStore()
+    return layoutStore.showSidebar
   })
 
   ctx.register('showTabBar', () => {
-    const prefsStore = usePreferencesStore()
-    return prefsStore.showTabBar
+    const layoutStore = useLayoutStore()
+    return layoutStore.showTabBar
   })
 
   ctx.register('showStatusBar', () => {
-    const prefsStore = usePreferencesStore()
-    return prefsStore.showStatusBar
+    const layoutStore = useLayoutStore()
+    return layoutStore.showStatusBar
   })
 
   ctx.register('isStickyNoteMode', () => {

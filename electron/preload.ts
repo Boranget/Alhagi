@@ -156,6 +156,10 @@ const api: ElectronAPI = {
   readClipboardImage: () =>
     createIpcHandler<{ base64: string; width: number; height: number } | null>(IPC_CHANNELS.CLIPBOARD.READ_IMAGE),
 
+  // ========== 窗口运行期布局 ==========
+  layoutChanged: (payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean }) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.LAYOUT.CHANGED, payload),
+
   // ========== 文件外部修改检测（P2-10） ==========
   onExternalFileChanged: (callback: (payload: { filePath: string; kind: 'modified' | 'deleted' }) => void) =>
     createListener<[{ filePath: string; kind: 'modified' | 'deleted' }]>(

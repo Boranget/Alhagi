@@ -80,6 +80,16 @@ export interface CommandEntry {
   menuOrder?: number           // 菜单顺序
   hidden?: boolean             // 隐藏（不显示在菜单）
 
+  /**
+   * 标记此命令在菜单中渲染为 `type: 'checkbox'`，并以 `cmd.id` 作为 MenuItem id，
+   * 便于主进程通过 `Menu.getMenuItemById(cmd.id).checked = X` in-place 更新勾选状态。
+   *
+   * 当前用于三个布局开关（view.toggleSidebar / toggleTabBar / toggleStatusBar），
+   * 它们的实际状态由渲染端 layout store 驱动，主进程通过 LAYOUT.CHANGED 通道
+   * 同步到对应窗口的菜单项 —— 不再读取/持久化任何偏好。
+   */
+  checkbox?: boolean
+
   // 平台特定
   platformOverrides?: {
     macOS?: Partial<Pick<CommandEntry, 'keybinding' | 'hidden'>>

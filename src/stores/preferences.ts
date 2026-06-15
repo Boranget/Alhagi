@@ -6,6 +6,7 @@ import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 import { useThemeService } from '@/services/theme/ThemeService'
 import { useRecentFilesService } from '@/services/recentFiles/RecentFilesService'
 import { setLanguage as setI18nLanguage } from '@/services/i18n'
+import { useLayoutStore } from '@/stores/layout'
 
 export interface Preferences {
   launchMode: 'last-session' | 'welcome' | 'empty' | 'folder'
@@ -13,9 +14,6 @@ export interface Preferences {
   autoSave: boolean
   autoSaveInterval: number
   theme: 'light' | 'dark' | 'system' | string
-  showSidebar: boolean
-  showTabBar: boolean
-  showStatusBar: boolean
   showMenuBar: boolean
   hideScrollBars: boolean
   isStickyNoteMode: boolean
@@ -78,9 +76,6 @@ const DEFAULT_PREFERENCES: Preferences = {
   autoSave: true,
   autoSaveInterval: AUTO_SAVE.DEFAULT_INTERVAL,
   theme: UI.THEMES.LIGHT,
-  showSidebar: true,
-  showTabBar: true,
-  showStatusBar: true,
   showMenuBar: true,
   hideScrollBars: false,
   isStickyNoteMode: false,
@@ -115,9 +110,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const autoSave = ref<boolean>(DEFAULT_PREFERENCES.autoSave)
   const autoSaveInterval = ref<number>(DEFAULT_PREFERENCES.autoSaveInterval)
   const theme = ref<Preferences['theme']>(DEFAULT_PREFERENCES.theme)
-  const showSidebar = ref<boolean>(DEFAULT_PREFERENCES.showSidebar)
-  const showTabBar = ref<boolean>(DEFAULT_PREFERENCES.showTabBar)
-  const showStatusBar = ref<boolean>(DEFAULT_PREFERENCES.showStatusBar)
   const showMenuBar = ref<boolean>(DEFAULT_PREFERENCES.showMenuBar)
   const hideScrollBars = ref<boolean>(DEFAULT_PREFERENCES.hideScrollBars)
   const isStickyNoteMode = ref<boolean>(DEFAULT_PREFERENCES.isStickyNoteMode)
@@ -167,9 +159,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
       autoSave: autoSave.value,
       autoSaveInterval: autoSaveInterval.value,
       theme: theme.value,
-      showSidebar: showSidebar.value,
-      showTabBar: showTabBar.value,
-      showStatusBar: showStatusBar.value,
       showMenuBar: showMenuBar.value,
       hideScrollBars: hideScrollBars.value,
       isStickyNoteMode: isStickyNoteMode.value,
@@ -210,9 +199,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
         theme.value = value as Preferences['theme']
         applyTheme()
         break
-      case 'showSidebar': showSidebar.value = value as boolean; break
-      case 'showTabBar': showTabBar.value = value as boolean; break
-      case 'showStatusBar': showStatusBar.value = value as boolean; break
       case 'showMenuBar': showMenuBar.value = value as boolean; break
       case 'hideScrollBars': hideScrollBars.value = value as boolean; break
       case 'isStickyNoteMode': isStickyNoteMode.value = value as boolean; break
@@ -255,15 +241,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function toggleStickyNoteMode(): void {
     isStickyNoteMode.value = !isStickyNoteMode.value
+    const layoutStore = useLayoutStore()
     if (isStickyNoteMode.value) {
-      showSidebar.value = false
-      showTabBar.value = false
-      showStatusBar.value = false
+      layoutStore.setAll(false, false, false)
       showMenuBar.value = false
     } else {
-      showSidebar.value = DEFAULT_PREFERENCES.showSidebar
-      showTabBar.value = DEFAULT_PREFERENCES.showTabBar
-      showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+      layoutStore.restoreDefaults()
       showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
     }
     savePreferences()
@@ -271,15 +254,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function toggleImmersiveMode(): void {
     isImmersiveMode.value = !isImmersiveMode.value
+    const layoutStore = useLayoutStore()
     if (isImmersiveMode.value) {
-      showSidebar.value = false
-      showTabBar.value = false
-      showStatusBar.value = false
+      layoutStore.setAll(false, false, false)
       showMenuBar.value = false
     } else {
-      showSidebar.value = DEFAULT_PREFERENCES.showSidebar
-      showTabBar.value = DEFAULT_PREFERENCES.showTabBar
-      showStatusBar.value = DEFAULT_PREFERENCES.showStatusBar
+      layoutStore.restoreDefaults()
       showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
     }
     savePreferences()
@@ -473,9 +453,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
       autoSave: autoSave.value,
       autoSaveInterval: autoSaveInterval.value,
       theme: theme.value,
-      showSidebar: showSidebar.value,
-      showTabBar: showTabBar.value,
-      showStatusBar: showStatusBar.value,
       hideScrollBars: hideScrollBars.value,
       isStickyNoteMode: isStickyNoteMode.value,
       isImmersiveMode: isImmersiveMode.value,
@@ -517,9 +494,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     autoSave,
     autoSaveInterval,
     theme,
-    showSidebar,
-    showTabBar,
-    showStatusBar,
     showMenuBar,
     hideScrollBars,
     isStickyNoteMode,

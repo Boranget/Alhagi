@@ -6,12 +6,12 @@
     <div class="app-content">
       <Transition name="sidebar-slide">
         <EnhancedSidebar
-          v-if="prefsStore.showSidebar"
+          v-if="layoutStore.showSidebar"
           @open-settings="showSettings = true"
         />
       </Transition>
       <div class="editor-wrapper">
-        <TabBar v-if="prefsStore.showTabBar && tabsStore.tabs.size > 0" />
+        <TabBar v-if="layoutStore.showTabBar && tabsStore.tabs.size > 0" />
         <div class="editor-area">
           <EditorContainer v-if="tabsStore.tabs.size > 0" />
           <Welcome v-else />
@@ -19,7 +19,7 @@
       </div>
     </div>
     <Transition name="statusbar-slide">
-      <StatusBar v-if="prefsStore.showStatusBar" />
+      <StatusBar v-if="layoutStore.showStatusBar" />
     </Transition>
     <SettingsPanel
       :visible="showSettings"
@@ -40,6 +40,7 @@
 import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 import { useApp } from '@/composables/useApp'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import TabBar from '@/components/Tabs/TabBar.vue'
@@ -57,6 +58,7 @@ const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/E
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const layoutStore = useLayoutStore()
 const { showSettings, isFullscreen, initializeApp } = useApp()
 
 const showCommandPalette = ref(false)

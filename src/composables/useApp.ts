@@ -173,6 +173,14 @@ export function useApp() {
     window.addEventListener('beforeunload', saveCurrentSession)
 
     await prefsStore.loadPreferences()
+    // 主进程菜单是在窗口创建前就 install 的（语言锁定占位），但真正构建菜单
+    // 是在窗口 ready 时按 currentLanguage 跑。loadPreferences 后才知道用户
+    // 偏好的语言，触发主进程按当前语言重建所有窗口菜单（zh-CN/en 两套标签生效）。
+    // 布局 checkbox（侧边栏/标签栏/状态栏）由 layoutStore 驱动，初始默认 true，
+    // 与 buildMenuTemplate 默认 checked: true 一致——无需额外回灌。
+    if (window.electronAPI) {
+      void window.electronAPI.rebuildMenu(prefsStore.language as 'zh-CN' | 'en')
+    }
     initWritingEnhancement()
     startListening()
 

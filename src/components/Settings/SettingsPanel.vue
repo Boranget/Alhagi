@@ -108,24 +108,6 @@
               <div class="setting-item">
                 <label>
                   <input
-                    v-model="prefsStore.showSidebar"
-                    type="checkbox"
-                  >
-                  显示侧边栏
-                </label>
-              </div>
-              <div class="setting-item">
-                <label>
-                  <input
-                    v-model="prefsStore.showStatusBar"
-                    type="checkbox"
-                  >
-                  显示状态栏
-                </label>
-              </div>
-              <div class="setting-item">
-                <label>
-                  <input
                     v-model="prefsStore.hideScrollBars"
                     type="checkbox"
                   >

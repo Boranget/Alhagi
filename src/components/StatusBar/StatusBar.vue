@@ -7,7 +7,7 @@
         @click="toggleSidebar"
       >
         <Icon
-          :name="prefsStore.showSidebar ? 'collapse-left' : 'expand-right'"
+          :name="layoutStore.showSidebar ? 'collapse-left' : 'expand-right'"
           size="sm"
         />
       </button>
@@ -109,6 +109,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
@@ -116,6 +117,7 @@ import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const layoutStore = useLayoutStore()
 const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
 
 const activeTab = computed(() => tabsStore.activeTab)
@@ -162,7 +164,7 @@ const isDarkMode = computed(() => {
 })
 
 function toggleSidebar() {
-  prefsStore.showSidebar = !prefsStore.showSidebar
+  layoutStore.toggleSidebar()
 }
 
 // 模块级变量：记录从 split→非 split 时应该去哪一侧

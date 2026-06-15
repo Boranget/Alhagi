@@ -15,6 +15,7 @@ import type { PreferenceStore } from './PreferenceStore'
 import type { ThemeService } from './ThemeService'
 import { attachRendererCrashHandler } from './crashHandler'
 import type { FileWatcher } from './FileWatcher'
+import type { MenuBuilder } from './MenuBuilder'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -30,6 +31,8 @@ export class WindowManager {
   private mainWindow: BrowserWindow | null = null
   /** P2-10：可选注入；用于在 updateOpenedFiles 时同步监视列表 */
   private fileWatcher: FileWatcher | null = null
+  /** 通过 setter 注入避免循环依赖（MenuBuilder 也要依赖 WindowManager） */
+  private menu: MenuBuilder | null = null
 
   constructor(
     private prefs: PreferenceStore,
@@ -41,6 +44,11 @@ export class WindowManager {
   /** P2-10：AppContext 在构造完 FileWatcher 后回调注入，避免循环依赖 */
   attachFileWatcher(watcher: FileWatcher): void {
     this.fileWatcher = watcher
+  }
+
+  /** AppContext 构造完 MenuBuilder 后回调注入。注入后续创建的窗口会自动获得专属菜单 */
+  attachMenuBuilder(menu: MenuBuilder): void {
+    this.menu = menu
   }
 
   getMainWindow(): BrowserWindow | null {
@@ -152,6 +160,7 @@ export class WindowManager {
       this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
+      this.menu?.removeWindow(win.id)
       if (this.mainWindow === win) {
         this.mainWindow = null
       }
@@ -193,6 +202,7 @@ export class WindowManager {
       this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
+      this.menu?.removeWindow(win.id)
     })
 
     win.on('ready-to-show', () => win.show())
@@ -256,5 +266,13 @@ export class WindowManager {
     this.windowOpenFiles.set(win.id, [])
     // P2-11：渲染进程崩溃时弹 Reload / Close 对话框
     attachRendererCrashHandler(win)
+
+    // 给该窗口绑定专属菜单（per-window layout：A 关侧栏不影响 B）。
+    // macOS 上还要在 focus 时把该窗的菜单切换为应用菜单 —— 监听器先 attach
+    // 再 install，避免新窗口 ready-to-show 后立刻 focus 时漏了第一次切换。
+    if (process.platform === 'darwin') {
+      win.on('focus', () => this.menu?.onWindowFocus(win))
+    }
+    this.menu?.installForWindow(win)
   }
 }

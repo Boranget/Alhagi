@@ -5,7 +5,7 @@
 // 入口处按固定顺序构造全部服务，相互通过构造函数注入。
 // 任何模块都从 AppContext 取依赖，不再直接 import 单例或读 global。
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { PreferenceStore } from './services/PreferenceStore'
 import { ThemeService } from './services/ThemeService'
 import { WindowManager } from './services/WindowManager'
@@ -46,8 +46,11 @@ export class AppContext {
     this.dialog = new DialogService(this.windowManager)
     this.search = new SearchService()
     this.windowIpc = new WindowIpcHandlers(this.windowManager, this.theme)
-    this.preferenceIpc = new PreferenceIpcHandlers(this.prefs)
     this.menu = new MenuBuilder(this.windowManager)
+    this.windowManager.attachMenuBuilder(this.menu)
+    // 偏好持久化只做存取——三个 layout 开关已不再持久化，菜单 checkbox
+    // 由独立的 LAYOUT.CHANGED 通道按窗口 in-place 更新（见下方 registerMenuHandlers）。
+    this.preferenceIpc = new PreferenceIpcHandlers(this.prefs)
     this.clipboard = new ClipboardService()
   }
 
@@ -80,6 +83,31 @@ export class AppContext {
       const handler = MAIN_PROCESS_COMMANDS[commandId]
       if (!handler) return { success: false, data: false }
       handler({ windowManager: this.windowManager })
+      return { success: true, data: true }
+    })
+
+    // 窗口运行期布局变化：用 event.sender 反查 BrowserWindow，
+    // in-place 更新该窗口菜单中对应 checkbox 的 checked 状态。不持久化、不重建。
+    ipcMain.handle(IPC_CHANNELS.LAYOUT.CHANGED, (event, payload: {
+      showSidebar?: boolean
+      showTabBar?: boolean
+      showStatusBar?: boolean
+    }) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return { success: false, data: false }
+
+      const map = {
+        showSidebar: 'view.toggleSidebar',
+        showTabBar: 'view.toggleTabBar',
+        showStatusBar: 'view.toggleStatusBar',
+      } as const
+
+      for (const k of Object.keys(map) as Array<keyof typeof map>) {
+        const v = payload[k]
+        if (typeof v === 'boolean') {
+          this.menu.setLayoutItem(win.id, map[k], v)
+        }
+      }
       return { success: true, data: true }
     })
   }

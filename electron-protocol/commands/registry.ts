@@ -449,6 +449,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'b', modifiers: { ctrl: true, shift: true } },
     executionContext: 'global',
     menuGroup: 1,
+    checkbox: true,
   },
   {
     id: 'view.toggleTabBar',
@@ -457,6 +458,7 @@ export const COMMANDS: CommandEntry[] = [
     description: '显示/隐藏标签栏',
     executionContext: 'global',
     menuGroup: 1,
+    checkbox: true,
   },
   {
     id: 'view.toggleStatusBar',
@@ -465,6 +467,7 @@ export const COMMANDS: CommandEntry[] = [
     description: '显示/隐藏状态栏',
     executionContext: 'global',
     menuGroup: 1,
+    checkbox: true,
   },
   {
     id: 'view.toggleSourceMode',

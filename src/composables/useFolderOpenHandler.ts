@@ -1,14 +1,14 @@
 import { onMounted, onUnmounted } from 'vue'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 
 export function useFolderOpenHandler() {
-  const prefsStore = usePreferencesStore()
+  const layoutStore = useLayoutStore()
 
   let unsubscribeFolderOpened: (() => void) | null = null
 
   function handleFolderOpened() {
-    prefsStore.showSidebar = true
+    layoutStore.setSidebar(true)
     eventBus.emit(AppEvents.SIDEBAR_VIEW_CHANGED, 'files')
   }
 

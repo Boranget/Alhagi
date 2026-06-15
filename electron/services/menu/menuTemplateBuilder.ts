@@ -13,7 +13,8 @@
 //      - 默认 → click 发送 IPC_CHANNELS.COMMAND.EXECUTE 带命令 ID
 //   3. 顶级 label 用 t(CATEGORY_LABELS[cat])
 
-import type { MenuItemConstructorOptions, BrowserWindow } from 'electron'
+import type { MenuItemConstructorOptions } from 'electron'
+import { BrowserWindow } from 'electron'
 import {
   COMMANDS,
   CATEGORY_LABELS,
@@ -125,27 +126,43 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
     }
   }
 
+  // checkbox 命令：渲染为 type: 'checkbox'。
+  // 关键：
+  //   - id 取自 cmd.id，让主进程能 menu.getMenuItemById(cmd.id).checked = X
+  //     in-place 更新（避免重建整菜单）。
+  //   - checked 默认 true，与渲染端 layout store 默认一致——这三个开关
+  //     不再持久化，初始状态由 store 决定。
+  //   - click 用 Electron 提供的 focusedWindow 实参，保证多窗口下点哪个
+  //     窗口的菜单就发给哪个窗口。
+  if (cmd.checkbox) {
+    return {
+      label,
+      accelerator,
+      id: cmd.id,
+      type: 'checkbox',
+      checked: true,
+      click: (_item, focusedWindow) => {
+        // Electron 8+ click 实参是 BaseWindow（可能是 BrowserWindow，可能不是），
+        // 统一窄化到 BrowserWindow 才能拿 webContents。
+        if (focusedWindow instanceof BrowserWindow) {
+          focusedWindow.webContents.send(IPC_CHANNELS.COMMAND.EXECUTE, cmd.id)
+        }
+      },
+    }
+  }
+
   // 默认：通过 COMMAND.EXECUTE 通知渲染端 dispatcher 派发
   return {
     label,
     accelerator,
-    click: () => {
-      const target = getTargetWindow(ctx.windowManager)
-      target?.webContents.send(IPC_CHANNELS.COMMAND.EXECUTE, cmd.id)
+    click: (_item, focusedWindow) => {
+      if (focusedWindow instanceof BrowserWindow) {
+        focusedWindow.webContents.send(IPC_CHANNELS.COMMAND.EXECUTE, cmd.id)
+      }
     },
   }
 }
 
-function getTargetWindow(windowManager: WindowManager): BrowserWindow | null {
-  // 优先 focused 窗口，回退 mainWindow（保留与旧 MenuBuilder.send 一致的行为）
-  const all = windowManager.getAllWindows()
-  for (const win of all.values()) {
-    if (!win.isDestroyed() && win.isFocused()) return win
-  }
-  return windowManager.getMainWindow()
-}
-
-// dev 模式自检：未翻译命令早发现
 function assertCommandLabelsTranslated(language: Language): void {
   for (const cmd of COMMANDS) {
     const translated = translate(cmd.label, language)

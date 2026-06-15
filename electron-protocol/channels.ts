@@ -101,4 +101,17 @@ export const IPC_CHANNELS = {
   CLIPBOARD: {
     READ_IMAGE: 'clipboard:read-image',
   },
+  /**
+   * 窗口运行期 UI 布局通道。
+   * CHANGED：renderer → main，渲染端 layout store 中
+   * showSidebar/showTabBar/showStatusBar 任一变化时，发送增量 payload，
+   * 主进程根据 event.sender 找到对应 BrowserWindow，in-place 修改该窗口
+   * 菜单中对应 checkbox 项的 checked 状态（不重建菜单）。
+   *
+   * 这三个状态仅运行期、不持久化、每窗口独立，所以走独立通道而不是
+   * 复用 PREFERENCES.SET_ALL。
+   */
+  LAYOUT: {
+    CHANGED: 'layout:changed',
+  },
 } as const

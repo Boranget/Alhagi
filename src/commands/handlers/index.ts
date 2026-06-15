@@ -5,6 +5,7 @@
 import { getDispatcher } from '../dispatcher'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
@@ -17,6 +18,7 @@ export function initCommandHandlers(): void {
   const editorManager = useCrepeEditorManager()
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
+  const layoutStore = useLayoutStore()
   const tabService = useTabService()
 
   // ========================================
@@ -241,15 +243,15 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('view.toggleSidebar', () => {
-    prefsStore.showSidebar = !prefsStore.showSidebar
+    layoutStore.toggleSidebar()
   })
 
   dispatcher.register('view.toggleTabBar', () => {
-    prefsStore.showTabBar = !prefsStore.showTabBar
+    layoutStore.toggleTabBar()
   })
 
   dispatcher.register('view.toggleStatusBar', () => {
-    prefsStore.showStatusBar = !prefsStore.showStatusBar
+    layoutStore.toggleStatusBar()
   })
 
   dispatcher.register('view.toggleSourceMode', () => {

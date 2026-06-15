@@ -96,6 +96,18 @@ export interface ElectronAPI {
    */
   readClipboardImage: () => Promise<IPCResponse<{ base64: string; width: number; height: number } | null>>
 
+  // ========== 窗口运行期布局 ==========
+  /**
+   * 通知主进程：本窗口某个 layout 开关变了。
+   * 主进程会按窗口 id in-place 修改对应菜单 checkbox 的 checked 状态，
+   * 不持久化、不重建菜单。payload 中可只携带变化的字段。
+   */
+  layoutChanged: (payload: {
+    showSidebar?: boolean
+    showTabBar?: boolean
+    showStatusBar?: boolean
+  }) => Promise<IPCResponse<boolean>>
+
   // ========== 文件外部修改检测（P2-10） ==========
   /**
    * 订阅「已打开文件被外部修改/删除」通知。
