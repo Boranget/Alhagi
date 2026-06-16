@@ -58,7 +58,7 @@
       <button
         v-if="isEditorFile"
         class="status-btn"
-        :class="{ active: prefsStore.typewriterMode }"
+        :class="{ active: viewMode.typewriterMode }"
         :title="t('editor.typewriterMode')"
         @click="toggleTypewriterMode"
       >
@@ -70,7 +70,7 @@
       <button
         v-if="isEditorFile"
         class="status-btn"
-        :class="{ active: prefsStore.focusMode }"
+        :class="{ active: viewMode.focusMode }"
         :title="t('editor.focusMode')"
         @click="toggleFocusMode"
       >
@@ -109,6 +109,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
 import { useLayoutStore } from '@/stores/layout'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
@@ -117,6 +118,7 @@ import { Icon } from '@/components/Icons'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const viewMode = useViewModeStore()
 const layoutStore = useLayoutStore()
 const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
 

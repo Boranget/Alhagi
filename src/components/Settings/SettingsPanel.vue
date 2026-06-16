@@ -112,28 +112,6 @@
             v-show="activeSection === 'editor'"
             class="settings-section"
           >
-            <h3>编辑增强</h3>
-            <div class="setting-item">
-              <label>
-                <input
-                  type="checkbox"
-                  :checked="prefsStore.typewriterMode"
-                  @change="onCheckbox('typewriterMode', $event)"
-                >
-                打字机模式
-              </label>
-            </div>
-            <div class="setting-item">
-              <label>
-                <input
-                  type="checkbox"
-                  :checked="prefsStore.focusMode"
-                  @change="onCheckbox('focusMode', $event)"
-                >
-                专注模式
-              </label>
-            </div>
-
             <h3>字体（所见即所得视图）</h3>
             <div class="setting-item">
               <label>字体大小</label>

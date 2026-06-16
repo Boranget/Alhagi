@@ -1,5 +1,5 @@
 import { watch } from 'vue'
-import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 
 // 模块级状态 —— 确保多实例间共享，避免重复注册事件
@@ -144,18 +144,20 @@ function handleSelectionChange() {
  * 公共 API - 导出给组件使用
  */
 export function useWritingEnhancement() {
-  const prefsStore = usePreferencesStore()
+  // typewriter / focus 是 per-window 的临时视图模式（不持久化、不跨窗口同步），
+  // 由 viewModeStore 持有；Pinia 单例 = 每个渲染进程一份，天然 per-window。
+  const viewMode = useViewModeStore()
 
   function toggleTypewriterMode() {
-    prefsStore.setOne('typewriterMode', !prefsStore.typewriterMode)
+    viewMode.toggleTypewriterMode()
   }
 
   function toggleFocusMode() {
-    prefsStore.setOne('focusMode', !prefsStore.focusMode)
+    viewMode.toggleFocusMode()
   }
 
   function applyTypewriterMode() {
-    typewriterActive = prefsStore.typewriterMode
+    typewriterActive = viewMode.typewriterMode
     if (typewriterActive) {
       document.body.classList.add('typewriter-mode')
       // 立即滚动光标到中心
@@ -166,7 +168,7 @@ export function useWritingEnhancement() {
   }
 
   function applyFocusMode() {
-    focusActive = prefsStore.focusMode
+    focusActive = viewMode.focusMode
     if (focusActive) {
       document.body.classList.add('focus-mode')
     } else {
@@ -178,16 +180,17 @@ export function useWritingEnhancement() {
     if (initialized) return
     initialized = true
 
-    // 启动时恢复状态
+    // 启动时恢复状态（这两个 ref 在 viewModeStore 初始默认就是 false，
+    // 所以启动等价于"清掉 body class"——applyXxx 会处理）
     applyTypewriterMode()
     applyFocusMode()
 
     // 监听 store 变化
     storeWatchers = [
-      watch(() => prefsStore.typewriterMode, () => {
+      watch(() => viewMode.typewriterMode, () => {
         applyTypewriterMode()
       }),
-      watch(() => prefsStore.focusMode, () => {
+      watch(() => viewMode.focusMode, () => {
         applyFocusMode()
       })
     ]

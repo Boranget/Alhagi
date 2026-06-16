@@ -2,8 +2,8 @@
   <div
     class="editor-container"
     :class="{
-      'focus-mode': prefsStore.focusMode,
-      'typewriter-mode': prefsStore.typewriterMode
+      'focus-mode': viewMode.focusMode,
+      'typewriter-mode': viewMode.typewriterMode
     }"
     :style="containerStyle"
   >
@@ -85,6 +85,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
 import { useEditorView } from '@/composables/useEditorView'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
@@ -99,6 +100,7 @@ import CodeMirrorEditor from './CodeMirrorEditor.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const viewMode = useViewModeStore()
 
 const editorManager = useCrepeEditorManager()
 const imageOrchestrator = useImageInsertOrchestrator()
@@ -134,8 +136,8 @@ const containerStyle = computed(() => ({
 
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': prefsStore.typewriterMode,
-  'focus-mode': prefsStore.focusMode,
+  'typewriter-mode': viewMode.typewriterMode,
+  'focus-mode': viewMode.focusMode,
   'small-screen': isSmallScreen.value
 }))
 

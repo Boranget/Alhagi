@@ -36,8 +36,6 @@ export interface Preferences {
   hideScrollBars: boolean
   isStickyNoteMode: boolean
   isImmersiveMode: boolean
-  typewriterMode: boolean
-  focusMode: boolean
   fontSize: number
   lineHeight: number
   sourceFontSize: number
@@ -101,8 +99,6 @@ const DEFAULT_PREFERENCES: Preferences = {
   hideScrollBars: false,
   isStickyNoteMode: false,
   isImmersiveMode: false,
-  typewriterMode: false,
-  focusMode: false,
   fontSize: EDITOR.DEFAULT_FONT_SIZE,
   lineHeight: EDITOR.DEFAULT_LINE_HEIGHT,
   sourceFontSize: EDITOR.DEFAULT_SOURCE_FONT_SIZE,
@@ -139,8 +135,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const hideScrollBars = ref<boolean>(DEFAULT_PREFERENCES.hideScrollBars)
   const isStickyNoteMode = ref<boolean>(DEFAULT_PREFERENCES.isStickyNoteMode)
   const isImmersiveMode = ref<boolean>(DEFAULT_PREFERENCES.isImmersiveMode)
-  const typewriterMode = ref<boolean>(DEFAULT_PREFERENCES.typewriterMode)
-  const focusMode = ref<boolean>(DEFAULT_PREFERENCES.focusMode)
   const fontSize = ref<number>(DEFAULT_PREFERENCES.fontSize)
   const lineHeight = ref<number>(DEFAULT_PREFERENCES.lineHeight)
   const sourceFontSize = ref<number>(DEFAULT_PREFERENCES.sourceFontSize)
@@ -201,8 +195,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
       hideScrollBars: hideScrollBars.value,
       isStickyNoteMode: isStickyNoteMode.value,
       isImmersiveMode: isImmersiveMode.value,
-      typewriterMode: typewriterMode.value,
-      focusMode: focusMode.value,
       fontSize: fontSize.value,
       lineHeight: lineHeight.value,
       sourceFontSize: sourceFontSize.value,
@@ -242,8 +234,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
         case 'hideScrollBars': hideScrollBars.value = value as boolean; break
         case 'isStickyNoteMode': isStickyNoteMode.value = value as boolean; break
         case 'isImmersiveMode': isImmersiveMode.value = value as boolean; break
-        case 'typewriterMode': typewriterMode.value = value as boolean; break
-        case 'focusMode': focusMode.value = value as boolean; break
         case 'fontSize': fontSize.value = value as number; break
         case 'lineHeight': lineHeight.value = value as number; break
         case 'sourceFontSize': sourceFontSize.value = value as number; break
@@ -491,8 +481,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     hideScrollBars,
     isStickyNoteMode,
     isImmersiveMode,
-    typewriterMode,
-    focusMode,
     fontSize,
     lineHeight,
     sourceFontSize,
