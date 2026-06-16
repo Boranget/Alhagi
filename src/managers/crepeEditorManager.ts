@@ -26,8 +26,7 @@ import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestr
 import { NativeClipboardImage } from '@/services/image/NativeClipboardImage'
 import remarkHighlight from '@/plugins/remarkHighlight'
 import remarkSuperSub from '@/plugins/remarkSuperSub'
-import { remarkFrontmatterToCode, convertFrontmatterToCodeBlock, convertCodeBlockToFrontmatter } from '@/plugins/frontmatter'
-import remarkFrontmatter from 'remark-frontmatter'
+import { frontmatterFeature } from '@/plugins/frontmatter'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { createCustomCodeMirrorPlugin } from '@/components/Editor/codemirror/customCodeMirrorPlugin'
 import { codeBlockConfig } from '@milkdown/kit/component/code-block'
@@ -72,24 +71,6 @@ const inlineMarksParsersPlugin: MilkdownPlugin = (ctx) => async () => {
     { plugin: remarkHighlight, options: {} },
     { plugin: remarkSuperSub, options: {} },
   ])
-}
-
-/**
- * MilkdownPlugin: 注册 remark-frontmatter 和转换插件，
- * 将文档开头的 YAML frontmatter 解析为 yaml 代码块显示。
- * 注意：remark-frontmatter 必须在 remarkFrontmatterToCode 之前执行。
- *
- * remark-frontmatter 的 options 类型（Matter|Preset[]）与 Milkdown 的
- * `RemarkPlugin<Record<string, unknown>>` 不严格兼容，这里用 cast 绕过——
- * 运行时是 remark/unified 统一接受的 plugin 形态。
- */
-const frontmatterPlugin: MilkdownPlugin = (ctx) => async () => {
-  await ctx.wait(InitReady)
-  ctx.update(remarkPluginsCtx, (rp) => [
-    ...rp,
-    { plugin: remarkFrontmatter, options: { type: 'yaml', marker: '-' } },
-    { plugin: remarkFrontmatterToCode, options: {} },
-  ] as typeof rp)
 }
 
 export class CrepeEditorManager {
@@ -209,9 +190,11 @@ export class CrepeEditorManager {
             }
           })
 
-          // 配置 remark stringify handlers，使 highlight/superscript/subscript 正确序列化为 markdown 语法
+          // 配置 remark stringify handlers，使 highlight/superscript/subscript 正确序列化为 markdown 语法。
+          // 同时把 thematicBreak 的字符设为 '-'，让正文 hr 输出 `---` 而非默认的 `***`。
           ctx.update(remarkStringifyOptionsCtx, (options) => ({
             ...options,
+            rule: '-' as const,
             handlers: {
               ...options.handlers,
               highlight: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
@@ -266,7 +249,7 @@ export class CrepeEditorManager {
         .use(inlineMarksPlugin)
         .use(taskListPlugin)
         .use(inlineMarksParsersPlugin)
-        .use(frontmatterPlugin)
+        .use(frontmatterFeature)
         .use(codeBlockConfig) // 注册 codeBlockConfig ctx（CodeMirror view 由自定义插件提供）
         .use(createCustomCodeMirrorPlugin()) // 使用自定义 CodeMirror 插件
     } catch (error) {
@@ -303,10 +286,9 @@ export class CrepeEditorManager {
     }
 
     try {
+      // frontmatter 已是一等公民节点，序列化器直接产出 ---...--- 形态，无需后处理
       const markdown = this.crepe.getMarkdown()
-      // 将 yaml 代码块转回 frontmatter 格式（用于保存到文件）
-      const result = convertCodeBlockToFrontmatter(markdown || this.content)
-      return result
+      return markdown || this.content
     } catch (error) {
       return this.content
     }
@@ -328,15 +310,13 @@ export class CrepeEditorManager {
     this.isUpdatingContent = true
     this.content = content
 
-    // 将 frontmatter 转换为 yaml 代码块后再解析
-    const convertedContent = convertFrontmatterToCodeBlock(content)
-
     try {
       this.crepe.editor.action((ctx) => {
         try {
           const view = ctx.get(editorViewCtx)
           const parser = ctx.get(parserCtx)
-          const doc = parser(convertedContent)
+          // remark-frontmatter 已注册，parser 直接消费 ---...--- 产出 frontmatter 节点
+          const doc = parser(content)
 
           if (!doc) {
             return
@@ -663,10 +643,8 @@ export class CrepeEditorManager {
       return
     }
 
-    // 将 yaml 代码块转回 frontmatter 格式
-    const frontmatterContent = convertCodeBlockToFrontmatter(markdown)
-
-    if (this.content === frontmatterContent) {
+    // 序列化器已经直接产出 ---...--- 形态，无需字符串转换
+    if (this.content === markdown) {
       return
     }
 
@@ -674,21 +652,21 @@ export class CrepeEditorManager {
       return
     }
 
-    this.content = frontmatterContent
+    this.content = markdown
 
     if (this.currentTabId) {
       const tabsStore = useTabsStore()
       tabsStore.updateTab(this.currentTabId, {
-        content: frontmatterContent,
+        content: markdown,
         isDirty: true,
         lastModified: Date.now(),
       })
 
-      this.contentCache.set(this.currentTabId, frontmatterContent)
+      this.contentCache.set(this.currentTabId, markdown)
     }
 
     eventBus.emit(AppEvents.CONTENT_CHANGED, {
-      content: frontmatterContent,
+      content: markdown,
       tabId: this.currentTabId || '',
     })
   }
