@@ -64,13 +64,34 @@ export const IPC_CHANNELS = {
     FOCUS_FOR_FILE: 'focus-tab-for-file',
   },
   /**
-   * 用户偏好持久化通道。
-   * 数据存储到主进程的 electron-store（用户数据目录），
-   * 替代旧的 localStorage 方案——多窗口可同源、不会被浏览器清缓存清掉。
+   * 用户偏好持久化通道 —— Single-Writer 模式（仿 Muya）。
+   *
+   * 真源：主进程 electron-store。
+   * 写入：渲染端永远走 SET_ONE 单字段写入（不允许直写本地 store）。
+   * 同步：主进程写盘后通过 CHANGED 把 patch 广播给所有窗口（含发起方），
+   *       各窗口在收到广播时才更新本地 ref —— 这是渲染端唯一写入路径。
+   *
+   * - GET_ALL: 启动时一次性读取全部，灌入 store 默认值
+   * - SET_ALL: 仅供 localStorage→electron-store 迁移用，UI 不应使用
+   * - SET_ONE: UI 操作的唯一入口；payload {key, value}
+   * - CHANGED: 主进程 → 所有窗口；payload 是增量 patch {[key]: value}
    */
   PREFERENCES: {
     GET_ALL: 'preferences:get-all',
     SET_ALL: 'preferences:set-all',
+    SET_ONE: 'preferences:set-one',
+    CHANGED: 'preferences:changed',
+  },
+  /**
+   * 独立设置窗口通道。
+   * OPEN：renderer → main，主窗请求打开设置窗（已开则聚焦，确保单例）。
+   * CLOSE：renderer → main，设置窗自身请求关闭（也可直接 window.close()）。
+   * 设置窗的 SettingsApp 是独立 BrowserWindow，不是 main 的 child，
+   * 用户可以拖出主窗范围、独立最小化/最大化。
+   */
+  SETTINGS: {
+    OPEN: 'settings:open',
+    CLOSE: 'settings:close',
   },
   /**
    * 命令系统统一执行通道（P2-12 引入）。

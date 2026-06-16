@@ -9,11 +9,14 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { PreferenceStore } from './services/PreferenceStore'
 import { ThemeService } from './services/ThemeService'
 import { WindowManager } from './services/WindowManager'
+import { SettingsWindowManager } from './services/SettingsWindowManager'
+import { PreferenceBroadcaster } from './services/PreferenceBroadcaster'
 import { FileSystemService } from './services/FileSystemService'
 import { DialogService } from './services/DialogService'
 import { SearchService } from './services/SearchService'
 import { WindowIpcHandlers } from './services/WindowIpcHandlers'
 import { PreferenceIpcHandlers } from './services/PreferenceIpcHandlers'
+import { SettingsIpcHandlers } from './services/SettingsIpcHandlers'
 import { MenuBuilder } from './services/MenuBuilder'
 import { FileWatcher } from './services/FileWatcher'
 import { ClipboardService } from './services/ClipboardService'
@@ -25,21 +28,27 @@ export class AppContext {
   readonly prefs: PreferenceStore
   readonly theme: ThemeService
   readonly windowManager: WindowManager
+  readonly settingsWindow: SettingsWindowManager
+  readonly preferenceBroadcaster: PreferenceBroadcaster
   readonly fileSystem: FileSystemService
   readonly dialog: DialogService
   readonly search: SearchService
   readonly windowIpc: WindowIpcHandlers
   readonly preferenceIpc: PreferenceIpcHandlers
+  readonly settingsIpc: SettingsIpcHandlers
   readonly menu: MenuBuilder
   readonly fileWatcher: FileWatcher
   readonly clipboard: ClipboardService
 
   constructor(viteDevServerUrl: string | undefined, rendererDist: string) {
     // 构造顺序按依赖关系排列：
-    // PreferenceStore → ThemeService → WindowManager → FileWatcher → 其余 IPC 服务 → MenuBuilder
+    // PreferenceStore → ThemeService → WindowManager / SettingsWindowManager
+    //   → PreferenceBroadcaster → FileWatcher → 其余 IPC 服务 → MenuBuilder
     this.prefs = new PreferenceStore()
     this.theme = new ThemeService(this.prefs)
     this.windowManager = new WindowManager(this.prefs, this.theme, viteDevServerUrl, rendererDist)
+    this.settingsWindow = new SettingsWindowManager(this.prefs, this.theme, viteDevServerUrl, rendererDist)
+    this.preferenceBroadcaster = new PreferenceBroadcaster(this.windowManager, this.settingsWindow)
     this.fileWatcher = new FileWatcher(this.windowManager)
     this.windowManager.attachFileWatcher(this.fileWatcher)
     this.fileSystem = new FileSystemService(this.windowManager, this.fileWatcher)
@@ -50,7 +59,8 @@ export class AppContext {
     this.windowManager.attachMenuBuilder(this.menu)
     // 偏好持久化只做存取——三个 layout 开关已不再持久化，菜单 checkbox
     // 由独立的 LAYOUT.CHANGED 通道按窗口 in-place 更新（见下方 registerMenuHandlers）。
-    this.preferenceIpc = new PreferenceIpcHandlers(this.prefs)
+    this.preferenceIpc = new PreferenceIpcHandlers(this.prefs, this.preferenceBroadcaster)
+    this.settingsIpc = new SettingsIpcHandlers(this.settingsWindow)
     this.clipboard = new ClipboardService()
   }
 
@@ -63,6 +73,7 @@ export class AppContext {
     this.search.registerHandlers()
     this.windowIpc.registerHandlers()
     this.preferenceIpc.registerHandlers()
+    this.settingsIpc.registerHandlers()
     this.clipboard.registerHandlers()
     this.registerMenuHandlers()
     // 启动菜单语言：从偏好读取（兼容首次启动 / 旧用户）

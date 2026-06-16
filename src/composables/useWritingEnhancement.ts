@@ -147,11 +147,11 @@ export function useWritingEnhancement() {
   const prefsStore = usePreferencesStore()
 
   function toggleTypewriterMode() {
-    prefsStore.typewriterMode = !prefsStore.typewriterMode
+    prefsStore.setOne('typewriterMode', !prefsStore.typewriterMode)
   }
 
   function toggleFocusMode() {
-    prefsStore.focusMode = !prefsStore.focusMode
+    prefsStore.setOne('focusMode', !prefsStore.focusMode)
   }
 
   function applyTypewriterMode() {

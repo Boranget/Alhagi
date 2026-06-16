@@ -42,6 +42,13 @@ export default defineConfig(({ command }) => ({
     // 生产环境移除 console/debugger
     minify: 'esbuild',
     rollupOptions: {
+      // 多入口：主窗 (index.html) + 独立设置窗 (settings.html)
+      // 两个 entry 共享 vendor chunk，但各自只加载自身需要的根组件链
+      // —— 设置窗不会拖入 EditorContainer / Crepe / CodeMirror 这堆几 MB 的依赖。
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        settings: resolve(__dirname, 'settings.html'),
+      },
       output: {
         // 代码分割：将大型依赖拆分为独立 chunk
         // 拆分原则：

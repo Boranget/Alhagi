@@ -67,11 +67,29 @@ export interface ElectronAPI {
   setZoom: (zoomLevel: number) => Promise<IPCResponse<void>>
   setTheme: (theme: 'light' | 'dark' | 'system') => Promise<IPCResponse<void>>
 
-  // ========== 偏好持久化 ==========
-  /** 读取全部用户偏好（主进程 electron-store）。返回 null 表示从未保存过。 */
+  // ========== 偏好持久化（Single-Writer 模式） ==========
+  /** 读取全部用户偏好（启动时一次性灌入 store）。返回 null 表示从未保存过。 */
   preferencesGetAll: () => Promise<IPCResponse<Record<string, unknown> | null>>
-  /** 保存全部用户偏好。整体覆写，调用方负责合并增量。 */
+  /** 整体覆写用户偏好。仅供 localStorage→electron-store 迁移使用，UI 路径不应调用。 */
   preferencesSetAll: (prefs: Record<string, unknown>) => Promise<IPCResponse<boolean>>
+  /**
+   * 单字段写入 —— UI 操作的唯一入口。
+   * 主进程写盘后通过 onPreferencesChanged 把同样的 patch 广播给所有窗口
+   * （含发起方），各窗口收到才更新本地 ref。这是 single-writer 模式：
+   * 渲染端永远不直接写本地 store，所有变更都先经主进程。
+   */
+  preferencesSetOne: (key: string, value: unknown) => Promise<IPCResponse<boolean>>
+  /**
+   * 订阅偏好变更广播。payload 是 patch（仅含本次变化的字段），
+   * 渲染端 store 用其更新本地 ref —— 这是渲染端唯一写入路径。
+   */
+  onPreferencesChanged: (
+    callback: (patch: Record<string, unknown>) => void
+  ) => () => void
+
+  // ========== 独立设置窗口（与主窗解耦） ==========
+  /** 主窗请求打开设置窗。已存在则聚焦，永远只有一个设置窗实例。 */
+  openSettings: () => Promise<IPCResponse<boolean>>
 
   // ========== 命令 & 菜单（P2-12） ==========
   /**

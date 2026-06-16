@@ -19,6 +19,15 @@ export const EDITOR = {
   MIN_FONT_SIZE: 8,
   MAX_FONT_SIZE: 32,
   DEFAULT_FONT_SIZE: 14,
+
+  // 行高（无单位倍数）：1.0 = 紧凑，1.6 = 阅读舒适，3.0 = 极松
+  MIN_LINE_HEIGHT: 1.0,
+  MAX_LINE_HEIGHT: 3.0,
+  DEFAULT_LINE_HEIGHT: 1.6,
+
+  // 源码模式（CodeMirror）独立的字体/行高，与 wysiwyg 解耦
+  DEFAULT_SOURCE_FONT_SIZE: 14,
+  DEFAULT_SOURCE_LINE_HEIGHT: 1.5,
   
   // 历史记录
   MAX_UNDO_STACK_SIZE: 100,

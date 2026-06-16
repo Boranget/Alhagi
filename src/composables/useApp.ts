@@ -9,9 +9,9 @@ import { electronService } from '@/services/electron/ElectronService'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useCapture } from '@/services/capture'
+import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 
 // 模块级响应式状态：useApp() 调用方共享同一份 ref
-const showSettings = ref(false)
 const isFullscreen = ref(false)
 
 // 启动期幂等 guard：initializeApp 只跑一次，多次调用返回同一个 cleanup
@@ -32,11 +32,16 @@ export function useApp() {
   const setupEventListeners = () => {
     const unsubscribers: (() => void)[] = []
 
-    // 设置面板：dispatcher.tools.preferences 通过 window CustomEvent 触发，
-    // App.vue 接住后 set showSettings = true；这里 eventBus 路径暂留兼容
+    // 设置面板已重构为独立 BrowserWindow（settings.html）。
+    // 主窗各处（侧边栏齿轮、命令面板"打开设置"等）触发 OPEN_SETTINGS 时，
+    // 通过 IPC 让主进程的 SettingsWindowManager 创建/聚焦设置窗。
     unsubscribers.push(
       eventBus.on(AppEvents.OPEN_SETTINGS, () => {
-        showSettings.value = true
+        if (window.electronAPI?.openSettings) {
+          window.electronAPI.openSettings().catch(() => {
+            // 静默失败：用户可以重试
+          })
+        }
       })
     )
 
@@ -169,6 +174,8 @@ export function useApp() {
     const { startListening, stopListening } = setupSystemThemeListener()
     const stopThemeWatch = setupThemeWatchers()
     const eventUnsubscribers = setupEventListeners()
+    // 字体大小 / 行高 → CSS 变量同步：watchEffect 跟随 store 单例，仅装载一次。
+    setupEditorTypography()
 
     window.addEventListener('beforeunload', saveCurrentSession)
 
@@ -229,11 +236,9 @@ export function useApp() {
     return bootCleanup
   }
 
-  provide('showSettings', showSettings)
   provide('editorManager', editorManager)
 
   return {
-    showSettings,
     isFullscreen,
     initializeApp
   }

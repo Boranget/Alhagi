@@ -57,16 +57,15 @@ export function useThemeService() {
     ]
     const currentIndex = themes.indexOf(preferences.theme as 'light' | 'dark' | 'system')
     const nextIndex = (currentIndex + 1) % themes.length
-    preferences.theme = themes[nextIndex]
-    applyTheme()
-    
-    if (preferences.theme === UI.THEMES.SYSTEM) {
+    const next = themes[nextIndex]
+    // Single-writer: setOne → IPC → 主进程广播 → 本地 ref 更新 → watch(theme) → applyTheme
+    preferences.setOne('theme', next)
+
+    if (next === UI.THEMES.SYSTEM) {
       subscribeToSystemTheme()
     } else {
       unsubscribeFromSystemTheme()
     }
-    
-    preferences.savePreferences()
   }
 
   function toggleLightDark(): void {
@@ -75,10 +74,9 @@ export function useThemeService() {
           ? UI.THEMES.DARK
           : UI.THEMES.LIGHT)
       : preferences.theme
-    
-    preferences.theme = currentTheme === UI.THEMES.DARK ? UI.THEMES.LIGHT : UI.THEMES.DARK
-    applyTheme()
-    preferences.savePreferences()
+
+    // Single-writer: setOne 唯一入口
+    preferences.setOne('theme', currentTheme === UI.THEMES.DARK ? UI.THEMES.LIGHT : UI.THEMES.DARK)
   }
 
   return {

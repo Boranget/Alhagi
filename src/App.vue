@@ -7,7 +7,7 @@
       <Transition name="sidebar-slide">
         <EnhancedSidebar
           v-if="layoutStore.showSidebar"
-          @open-settings="showSettings = true"
+          @open-settings="openSettingsWindow"
         />
       </Transition>
       <div class="editor-wrapper">
@@ -21,10 +21,6 @@
     <Transition name="statusbar-slide">
       <StatusBar v-if="layoutStore.showStatusBar" />
     </Transition>
-    <SettingsPanel
-      :visible="showSettings"
-      @close="showSettings = false"
-    />
     <CommandPalette
       :visible="showCommandPalette"
       @close="showCommandPalette = false"
@@ -49,7 +45,6 @@ import StatusBar from '@/components/StatusBar/StatusBar.vue'
 import Welcome from '@/components/Welcome/Welcome.vue'
 
 // 按需对话框：仅在用户触发时才加载，减小首屏 bundle 体积
-const SettingsPanel = defineAsyncComponent(() => import('@/components/Settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
 const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
 // 编辑器异步加载（P2-9）：仅当有打开文件时拉取 milkdown/crepe + codemirror，
@@ -59,10 +54,23 @@ const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/E
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 const layoutStore = useLayoutStore()
-const { showSettings, isFullscreen, initializeApp } = useApp()
+const { isFullscreen, initializeApp } = useApp()
 
 const showCommandPalette = ref(false)
 const showShortcuts = ref(false)
+
+/**
+ * 主窗请求打开设置窗。设置已重构为独立 BrowserWindow（settings.html 入口）：
+ * 主窗调 IPC，主进程的 SettingsWindowManager 创建/聚焦设置窗，
+ * 之后两边通过 PREFERENCES.CHANGED 广播双向同步偏好。
+ */
+function openSettingsWindow() {
+  if (window.electronAPI?.openSettings) {
+    window.electronAPI.openSettings().catch(() => {
+      // 静默失败：用户可以重试
+    })
+  }
+}
 
 let cleanup: (() => void) | null = null
 const eventUnsubscribers: (() => void)[] = []

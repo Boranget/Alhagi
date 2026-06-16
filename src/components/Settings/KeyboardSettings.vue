@@ -304,7 +304,7 @@ function saveAndClose() {
   localStorage.setItem('alhagi-custom-keybindings', JSON.stringify(customKeybindings.value))
   // 将自定义快捷键应用到 KeybindingManager
   applyCustomKeybindings()
-  prefsStore.savePreferences()
+  // 注：自定义快捷键自有 localStorage 通道，与偏好系统解耦，不需要走 prefsStore。
   emit('save')
   close()
 }

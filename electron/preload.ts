@@ -136,12 +136,25 @@ const api: ElectronAPI = {
   setTheme: (theme: 'light' | 'dark' | 'system') =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_THEME, theme),
 
-  // ========== 偏好持久化 ==========
+  // ========== 偏好持久化（Single-Writer 模式） ==========
   preferencesGetAll: () =>
     createIpcHandler(IPC_CHANNELS.PREFERENCES.GET_ALL),
 
   preferencesSetAll: (prefs: Record<string, unknown>) =>
     createIpcHandler(IPC_CHANNELS.PREFERENCES.SET_ALL, prefs),
+
+  preferencesSetOne: (key: string, value: unknown) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.PREFERENCES.SET_ONE, { key, value }),
+
+  onPreferencesChanged: (callback) =>
+    createListener<[Record<string, unknown>]>(
+      IPC_CHANNELS.PREFERENCES.CHANGED,
+      callback,
+    ),
+
+  // ========== 独立设置窗口 ==========
+  openSettings: () =>
+    createIpcHandler<boolean>(IPC_CHANNELS.SETTINGS.OPEN),
 
   // ========== 命令 & 菜单（P2-12） ==========
   onExecuteCommand: (callback: (commandId: string) => void) =>

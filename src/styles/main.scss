@@ -142,6 +142,61 @@ textarea {
   padding: 0 !important;
 }
 
+/* ──────────────────────────────────────────────────────────
+ * 编辑器排版变量（字体大小 / 行高）
+ *
+ * 两组变量解耦 —— wysiwyg 阅读视图和源码（CodeMirror）视图分别可调：
+ *
+ *   --alhagi-editor-font-size  / --alhagi-editor-line-height
+ *      ↑ Crepe wysiwyg 编辑器（段落/标题/列表 + Crepe 内嵌 CodeMirror 代码块）
+ *   --alhagi-source-font-size  / --alhagi-source-line-height
+ *      ↑ 源码模式 / 分屏模式的源码侧（独立 CodeMirror 实例）
+ *
+ * Milkdown / Crepe 没有官方运行时排版 API，自带 reset.css 把字号行高
+ * 写成硬编码 px；CodeMirror baseTheme 又给 .cm-scroller 注入了
+ * line-height: 1.4 —— 两边都要用同样具体或更具体的选择器覆盖。
+ *
+ * 变量值由 services/typography/EditorTypographyService 同步。
+ * :root 默认值与 EDITOR.DEFAULT_*_FONT_SIZE / *_LINE_HEIGHT 一致。
+ * ────────────────────────────────────────────────────────── */
+:root {
+  --alhagi-editor-font-size: 14px;
+  --alhagi-editor-line-height: 1.6;
+  --alhagi-source-font-size: 14px;
+  --alhagi-source-line-height: 1.5;
+}
+
+/* ===== Crepe wysiwyg：段落/列表/引用/表格 + 标题倍数推导 ===== */
+.crepe .milkdown .ProseMirror {
+  p, li, blockquote, td, th {
+    font-size: var(--alhagi-editor-font-size);
+    line-height: var(--alhagi-editor-line-height);
+  }
+
+  h1 { font-size: calc(var(--alhagi-editor-font-size) * 2.0);  line-height: 1.2; }
+  h2 { font-size: calc(var(--alhagi-editor-font-size) * 1.7);  line-height: 1.25; }
+  h3 { font-size: calc(var(--alhagi-editor-font-size) * 1.45); line-height: 1.3; }
+  h4 { font-size: calc(var(--alhagi-editor-font-size) * 1.25); line-height: 1.35; }
+  h5 { font-size: calc(var(--alhagi-editor-font-size) * 1.1);  line-height: 1.4; }
+  h6 { font-size: calc(var(--alhagi-editor-font-size) * 1.0);  line-height: 1.5; }
+}
+
+/* ===== Crepe 内嵌的 CodeMirror（frontmatter / ``` 代码块）跟随 wysiwyg ===== */
+/* 关键：选择器要落到 .cm-scroller —— CodeMirror baseTheme 把 line-height 写在
+ * .cm-scroller 上（不是 .cm-content）。同一目标选择器再加上 `.crepe` 前缀
+ * 提高特异性，胜过 baseTheme 的 .ͼo .cm-scroller 规则。 */
+.crepe .cm-editor .cm-scroller {
+  font-size: calc(var(--alhagi-editor-font-size) * 0.95);
+  line-height: var(--alhagi-editor-line-height);
+}
+
+/* ===== 源码模式 / 分屏模式：独立 CodeMirror 实例（无 .crepe 祖先） ===== */
+/* 这层选择器锁定 .codemirror-editor 容器，避免影响 Crepe 内嵌的代码块。 */
+.codemirror-editor .cm-editor .cm-scroller {
+  font-size: var(--alhagi-source-font-size);
+  line-height: var(--alhagi-source-line-height);
+}
+
 /* CodeMirror 样式 - 参考官方 playground */
 .crepe .cm-editor {
   height: 100%;

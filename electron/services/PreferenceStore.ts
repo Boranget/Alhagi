@@ -20,6 +20,8 @@ import type { WindowState } from '../../electron-protocol'
 /** 主进程自有的存储结构（窗口/主题） */
 export interface MainStoreSchema {
   windowState: WindowState
+  /** 独立设置窗的几何状态。可缺省 —— 缺省时用 DEFAULT_SETTINGS_WINDOW_STATE。 */
+  settingsWindowState?: WindowState
   theme: 'light' | 'dark' | 'system'
   /** 用户全量偏好（来自渲染端 preferences store），扁平 K→V */
   userPreferences?: Record<string, unknown>
@@ -29,6 +31,12 @@ export interface MainStoreSchema {
 
 /** 当前 schema 版本号；之后改字段时同步递增并加 migration 逻辑 */
 const CURRENT_SCHEMA_VERSION = 1
+
+const DEFAULT_SETTINGS_WINDOW_STATE: WindowState = {
+  width: 760,
+  height: 560,
+  isMaximized: false,
+}
 
 export class PreferenceStore {
   private store: Store<MainStoreSchema>
@@ -55,6 +63,18 @@ export class PreferenceStore {
     this.store.set('windowState', state)
   }
 
+  /**
+   * 读取设置窗几何状态；首次未保存时回退到 DEFAULT_SETTINGS_WINDOW_STATE。
+   * 主窗口和设置窗使用独立 key，避免互相覆盖。
+   */
+  getSettingsWindowState(): WindowState {
+    return this.store.get('settingsWindowState') ?? DEFAULT_SETTINGS_WINDOW_STATE
+  }
+
+  setSettingsWindowState(state: WindowState): void {
+    this.store.set('settingsWindowState', state)
+  }
+
   getTheme(): 'light' | 'dark' | 'system' {
     return this.store.get('theme') || 'light'
   }
@@ -71,9 +91,19 @@ export class PreferenceStore {
     return prefs ?? null
   }
 
-  /** 整体覆写用户偏好。 */
+  /** 整体覆写用户偏好。仅供迁移使用。 */
   setUserPreferences(prefs: Record<string, unknown>): void {
     this.store.set('userPreferences', prefs)
+  }
+
+  /**
+   * 单字段写入 —— UI 操作的真源入口。
+   * 不存在 userPreferences 节点时先用空对象初始化，再 merge 单字段。
+   * 这是 single-writer 模式的"写"端，只此一处真正落盘。
+   */
+  setUserPreferenceItem(key: string, value: unknown): void {
+    const current = this.store.get('userPreferences') ?? {}
+    this.store.set('userPreferences', { ...current, [key]: value })
   }
 
   // ---------- Migration ----------

@@ -1,3 +1,21 @@
+// ============================================================
+// Preferences Store — Single-Writer 模式（仿 Muya）
+// ============================================================
+//
+// 不变量：
+//   1. 渲染端永远不直接写本地 ref —— 只暴露 `setOne(key, value)` action，
+//      内部仅 IPC，不动本地 ref；
+//   2. 本地 ref 的唯一写入路径是主进程的 PREFERENCES.CHANGED 广播 → applyPatch；
+//   3. 所有副作用（applyTheme / setI18nLanguage / setZoom / CSS 变量 / 写盘）
+//      都挂在 ref 的 watch 上；single-writer 保证它们必然被触发。
+//
+// 这样从架构上一次性消除了：
+//   - v-model 直绑 ref 绕过副作用
+//   - updatePreferences 批量灌入引发 N 次 IPC 风暴
+//   - reactive proxy 经过 structured-clone 卡 IPC
+//   - 跨窗口广播回写循环 + isApplyingBroadcast 闸门
+//   - 多窗口短暂状态不一致
+
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { RecentFile, RecentFolder } from '@/types'
@@ -21,6 +39,9 @@ export interface Preferences {
   typewriterMode: boolean
   focusMode: boolean
   fontSize: number
+  lineHeight: number
+  sourceFontSize: number
+  sourceLineHeight: number
   zoom: number
   wordWrap: boolean
   imageInsertMode: 'keep-original' | 'copy-absolute' | 'copy-relative'
@@ -83,6 +104,9 @@ const DEFAULT_PREFERENCES: Preferences = {
   typewriterMode: false,
   focusMode: false,
   fontSize: EDITOR.DEFAULT_FONT_SIZE,
+  lineHeight: EDITOR.DEFAULT_LINE_HEIGHT,
+  sourceFontSize: EDITOR.DEFAULT_SOURCE_FONT_SIZE,
+  sourceLineHeight: EDITOR.DEFAULT_SOURCE_LINE_HEIGHT,
   zoom: 100,
   wordWrap: true,
   imageInsertMode: IMAGE.INSERT_MODES.KEEP_ORIGINAL,
@@ -105,6 +129,7 @@ const DEFAULT_PREFERENCES: Preferences = {
 const STORAGE_KEY = 'alhagi-preferences'
 
 export const usePreferencesStore = defineStore('preferences', () => {
+  // —————————————— 状态 refs ——————————————
   const launchMode = ref<Preferences['launchMode']>(DEFAULT_PREFERENCES.launchMode)
   const launchFolderPath = ref<string | undefined>(DEFAULT_PREFERENCES.launchFolderPath)
   const autoSave = ref<boolean>(DEFAULT_PREFERENCES.autoSave)
@@ -117,6 +142,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const typewriterMode = ref<boolean>(DEFAULT_PREFERENCES.typewriterMode)
   const focusMode = ref<boolean>(DEFAULT_PREFERENCES.focusMode)
   const fontSize = ref<number>(DEFAULT_PREFERENCES.fontSize)
+  const lineHeight = ref<number>(DEFAULT_PREFERENCES.lineHeight)
+  const sourceFontSize = ref<number>(DEFAULT_PREFERENCES.sourceFontSize)
+  const sourceLineHeight = ref<number>(DEFAULT_PREFERENCES.sourceLineHeight)
   const zoom = ref<number>(DEFAULT_PREFERENCES.zoom)
   const wordWrap = ref<boolean>(DEFAULT_PREFERENCES.wordWrap)
   const imageInsertMode = ref<Preferences['imageInsertMode']>(DEFAULT_PREFERENCES.imageInsertMode)
@@ -135,23 +163,33 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const wordCountDisplayType = ref<Preferences['wordCountDisplayType']>(DEFAULT_PREFERENCES.wordCountDisplayType)
   const lastSession = ref<Preferences['lastSession']>(DEFAULT_PREFERENCES.lastSession)
 
-  // 语言变更时同步到 i18n 服务，让所有调用 t() 的组件自动重渲染
+  // —————————————— 副作用挂在 watch 上 ——————————————
+  // ref 一旦变化就触发，无论变化来源（applyPatch / 启动初始化）。
+
   watch(language, (lang) => {
     setI18nLanguage(lang)
   }, { immediate: true })
 
   const { applyTheme, toggleLightDark } = useThemeService()
-  const {
-    addRecentFile,
-    removeRecentFile,
-    pinRecentFile,
-    clearRecentFiles,
-    addRecentFolder,
-    removeRecentFolder,
-    pinRecentFolder,
-    clearRecentFolders
-  } = useRecentFilesService()
+  watch(() => theme.value, () => {
+    applyTheme()
+  }, { immediate: true })
 
+  watch(zoom, async (newZoom) => {
+    if (window.electronAPI) {
+      await window.electronAPI.setZoom(newZoom)
+    }
+  })
+
+  // RecentFilesService 在 store setup 期间不实例化（避免 store 内部循环 useStore）。
+  // 通过 lazy getter 在首次使用时才实例化 —— 此时 store 已经 ready。
+  let recentFilesService: ReturnType<typeof useRecentFilesService> | null = null
+  function rfs() {
+    if (!recentFilesService) recentFilesService = useRecentFilesService()
+    return recentFilesService
+  }
+
+  // —————————————— 辅助：从 store 读出全量快照（用于 SET_ALL 迁移） ——————————————
   function getAllPreferences(): Preferences {
     return {
       launchMode: launchMode.value,
@@ -166,6 +204,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
       typewriterMode: typewriterMode.value,
       focusMode: focusMode.value,
       fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+      sourceFontSize: sourceFontSize.value,
+      sourceLineHeight: sourceLineHeight.value,
       zoom: zoom.value,
       wordWrap: wordWrap.value,
       imageInsertMode: imageInsertMode.value,
@@ -186,88 +227,128 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
-  function setPreference<K extends keyof Preferences>(
-    key: K,
-    value: Preferences[K]
-  ): void {
-    switch (key) {
-      case 'launchMode': launchMode.value = value as Preferences['launchMode']; break
-      case 'launchFolderPath': launchFolderPath.value = value as string; break
-      case 'autoSave': autoSave.value = value as boolean; break
-      case 'autoSaveInterval': autoSaveInterval.value = value as number; break
-      case 'theme':
-        theme.value = value as Preferences['theme']
-        applyTheme()
-        break
-      case 'showMenuBar': showMenuBar.value = value as boolean; break
-      case 'hideScrollBars': hideScrollBars.value = value as boolean; break
-      case 'isStickyNoteMode': isStickyNoteMode.value = value as boolean; break
-      case 'isImmersiveMode': isImmersiveMode.value = value as boolean; break
-      case 'typewriterMode': typewriterMode.value = value as boolean; break
-      case 'focusMode': focusMode.value = value as boolean; break
-      case 'fontSize': fontSize.value = value as number; break
-      case 'zoom': zoom.value = value as number; break
-      case 'wordWrap': wordWrap.value = value as boolean; break
-      case 'imageInsertMode': imageInsertMode.value = value as Preferences['imageInsertMode']; break
-      case 'imageStoragePath': imageStoragePath.value = value as string; break
-      case 'language': language.value = value as Preferences['language']; break
-      case 'devToolsOnStartup': devToolsOnStartup.value = value as boolean; break
-      case 'openFileInNewWindow': openFileInNewWindow.value = value as boolean; break
-      case 'openFolderInNewWindow': openFolderInNewWindow.value = value as boolean; break
-      case 'lineEnding': lineEnding.value = value as Preferences['lineEnding']; break
-      case 'recentFiles': recentFiles.value = value as RecentFile[]; break
-      case 'maxRecentFiles': maxRecentFiles.value = value as number; break
-      case 'recentFolders': recentFolders.value = value as RecentFolder[]; break
-      case 'maxRecentFolders': maxRecentFolders.value = value as number; break
-      case 'customThemePath': customThemePath.value = value as string; break
-      case 'customThemes': customThemes.value = value as CustomTheme[]; break
-      case 'wordCountDisplayType': wordCountDisplayType.value = value as Preferences['wordCountDisplayType']; break
-      case 'lastSession': lastSession.value = value as Preferences['lastSession']; break
-    }
-    savePreferences()
-  }
-
-  function updatePreferences(updates: Partial<Preferences>): void {
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        setPreference(key as keyof Preferences, value as Preferences[keyof Preferences])
+  // —————————————— 唯一的"写"入口：把 patch 应用到本地 ref ——————————————
+  // 仅在 IPC 广播回调里被调用（包括启动时 GET_ALL 灌入）。UI 路径不允许直接调。
+  function applyPatch(patch: Partial<Preferences>): void {
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue
+      switch (key as keyof Preferences) {
+        case 'launchMode': launchMode.value = value as Preferences['launchMode']; break
+        case 'launchFolderPath': launchFolderPath.value = value as string; break
+        case 'autoSave': autoSave.value = value as boolean; break
+        case 'autoSaveInterval': autoSaveInterval.value = value as number; break
+        case 'theme': theme.value = value as Preferences['theme']; break
+        case 'showMenuBar': showMenuBar.value = value as boolean; break
+        case 'hideScrollBars': hideScrollBars.value = value as boolean; break
+        case 'isStickyNoteMode': isStickyNoteMode.value = value as boolean; break
+        case 'isImmersiveMode': isImmersiveMode.value = value as boolean; break
+        case 'typewriterMode': typewriterMode.value = value as boolean; break
+        case 'focusMode': focusMode.value = value as boolean; break
+        case 'fontSize': fontSize.value = value as number; break
+        case 'lineHeight': lineHeight.value = value as number; break
+        case 'sourceFontSize': sourceFontSize.value = value as number; break
+        case 'sourceLineHeight': sourceLineHeight.value = value as number; break
+        case 'zoom': zoom.value = value as number; break
+        case 'wordWrap': wordWrap.value = value as boolean; break
+        case 'imageInsertMode': imageInsertMode.value = value as Preferences['imageInsertMode']; break
+        case 'imageStoragePath': imageStoragePath.value = value as string; break
+        case 'language': language.value = value as Preferences['language']; break
+        case 'devToolsOnStartup': devToolsOnStartup.value = value as boolean; break
+        case 'openFileInNewWindow': openFileInNewWindow.value = value as boolean; break
+        case 'openFolderInNewWindow': openFolderInNewWindow.value = value as boolean; break
+        case 'lineEnding': lineEnding.value = value as Preferences['lineEnding']; break
+        case 'recentFiles': recentFiles.value = value as RecentFile[]; break
+        case 'maxRecentFiles': maxRecentFiles.value = value as number; break
+        case 'recentFolders': recentFolders.value = value as RecentFolder[]; break
+        case 'maxRecentFolders': maxRecentFolders.value = value as number; break
+        case 'customThemePath': customThemePath.value = value as string; break
+        case 'customThemes': customThemes.value = value as CustomTheme[]; break
+        case 'wordCountDisplayType': wordCountDisplayType.value = value as Preferences['wordCountDisplayType']; break
+        case 'lastSession': lastSession.value = value as Preferences['lastSession']; break
       }
     }
   }
 
-  function resetToDefaults(): void {
-    updatePreferences(DEFAULT_PREFERENCES)
+  // —————————————— Single-Writer 写入入口 ——————————————
+  /**
+   * UI 操作的唯一写入入口。
+   *
+   * 行为：发 IPC SET_ONE → 主进程写盘 → 主进程广播 patch 给所有窗口（含发起方）
+   *      → 各窗口 onPreferencesChanged 收到 patch → applyPatch → ref 更新 → watcher 触发副作用。
+   *
+   * 故意不本地乐观更新：保证多窗口在同一帧看到同样的值，无任何竞态。
+   * 多花一帧的代价（毫秒级）换来零一致性 bug。
+   *
+   * 浏览器/无 Electron 环境兜底：直接 applyPatch + localStorage 写入。
+   */
+  function setOne<K extends keyof Preferences>(key: K, value: Preferences[K]): void {
+    if (window.electronAPI?.preferencesSetOne) {
+      window.electronAPI.preferencesSetOne(key as string, value as unknown).catch((err) => {
+        errorManager.createError(
+          ErrorCode.FILE_WRITE_ERROR,
+          `保存偏好 ${key} 失败：${err instanceof Error ? err.message : String(err)}`,
+          ErrorSeverity.ERROR,
+          { context: 'preferences.setOne' }
+        )
+      })
+    } else {
+      // 浏览器/无 IPC：本地直接写 + localStorage。这是退化路径。
+      applyPatch({ [key]: value } as Partial<Preferences>)
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(getAllPreferences()))
+      } catch {
+        // 配额满等故障静默
+      }
+    }
   }
 
+  /**
+   * 批量写入（仅供"恢复默认"等少数场景）。
+   * 内部循环 setOne —— Electron 环境下产生 N 次 IPC + N 次广播。这是可接受的
+   * 因为这种入口极少调用，且每次 patch 都是"用户明确想批量重置"。
+   * 不对外暴露给 UI 控件 onChange 这种高频路径。
+   */
+  function setMany(patch: Partial<Preferences>): void {
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) setOne(k as keyof Preferences, v as Preferences[keyof Preferences])
+    }
+  }
+
+  function resetToDefaults(): void {
+    setMany(DEFAULT_PREFERENCES)
+  }
+
+  // —————————————— 复合操作（多字段联动） ——————————————
+  // 这些操作同时影响多个字段；每个字段独立走 setOne，主进程会逐次广播。
+
   function toggleStickyNoteMode(): void {
-    isStickyNoteMode.value = !isStickyNoteMode.value
+    const next = !isStickyNoteMode.value
+    setOne('isStickyNoteMode', next)
     const layoutStore = useLayoutStore()
-    if (isStickyNoteMode.value) {
+    if (next) {
       layoutStore.setAll(false, false, false)
-      showMenuBar.value = false
+      setOne('showMenuBar', false)
     } else {
       layoutStore.restoreDefaults()
-      showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
+      setOne('showMenuBar', DEFAULT_PREFERENCES.showMenuBar)
     }
-    savePreferences()
   }
 
   function toggleImmersiveMode(): void {
-    isImmersiveMode.value = !isImmersiveMode.value
+    const next = !isImmersiveMode.value
+    setOne('isImmersiveMode', next)
     const layoutStore = useLayoutStore()
-    if (isImmersiveMode.value) {
+    if (next) {
       layoutStore.setAll(false, false, false)
-      showMenuBar.value = false
+      setOne('showMenuBar', false)
     } else {
       layoutStore.restoreDefaults()
-      showMenuBar.value = DEFAULT_PREFERENCES.showMenuBar
+      setOne('showMenuBar', DEFAULT_PREFERENCES.showMenuBar)
     }
-    savePreferences()
   }
 
   function saveSession(data: Preferences['lastSession']): void {
-    lastSession.value = data
-    savePreferences()
+    setOne('lastSession', data)
   }
 
   function getLastSession(): Preferences['lastSession'] {
@@ -275,86 +356,39 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   function clearSession(): void {
-    lastSession.value = undefined
-    savePreferences()
+    setOne('lastSession', undefined)
   }
 
   function toggleWordCountDisplayType(): void {
-    wordCountDisplayType.value = wordCountDisplayType.value === 'raw' ? 'rendered' : 'raw'
-    savePreferences()
+    setOne('wordCountDisplayType', wordCountDisplayType.value === 'raw' ? 'rendered' : 'raw')
   }
 
   function zoomIn(): void {
-    const newZoom = Math.min(200, zoom.value + 10)
-    console.log(`[PreferencesStore] zoomIn: ${zoom.value} -> ${newZoom}`)
-    zoom.value = newZoom
-    savePreferences()
+    setOne('zoom', Math.min(200, zoom.value + 10))
   }
 
   function zoomOut(): void {
-    const newZoom = Math.max(50, zoom.value - 10)
-    console.log(`[PreferencesStore] zoomOut: ${zoom.value} -> ${newZoom}`)
-    zoom.value = newZoom
-    savePreferences()
+    setOne('zoom', Math.max(50, zoom.value - 10))
   }
 
   function resetZoom(): void {
-    console.log(`[PreferencesStore] resetZoom: ${zoom.value} -> ${DEFAULT_PREFERENCES.zoom}`)
-    zoom.value = DEFAULT_PREFERENCES.zoom
-    savePreferences()
+    setOne('zoom', DEFAULT_PREFERENCES.zoom)
   }
 
-  /**
-   * 保存全部偏好。
-   *
-   * 优先写入主进程 electron-store（多窗口数据来源一致、不会被浏览器清缓存清掉）；
-   * 同时保留 localStorage 写入作为：
-   *  1. 浏览器/无 Electron 环境的兜底
-   *  2. 紧急场景下用户可以通过开发者工具检查/手改
-   *
-   * IPC 写入是异步的，不 await 以避免阻塞 UI；失败时不重试（下次保存会覆盖）。
-   */
-  function savePreferences(): void {
-    try {
-      const preferences = getAllPreferences()
-      const serialized = JSON.stringify(preferences)
-
-      // 兜底：localStorage（无 Electron 环境时唯一可用）
-      localStorage.setItem(STORAGE_KEY, serialized)
-
-      // 主路径：主进程 electron-store
-      if (window.electronAPI) {
-        window.electronAPI.preferencesSetAll(preferences as unknown as Record<string, unknown>)
-          .catch(() => {
-            // 静默失败：localStorage 已经写入了，下次启动还能恢复
-          })
-      }
-    } catch (error) {
-      errorManager.createError(
-        ErrorCode.FILE_WRITE_ERROR,
-        '保存偏好设置失败',
-        ErrorSeverity.ERROR,
-        { context: 'preferences.savePreferences' }
-      )
-    }
-  }
+  // —————————————— 启动时加载 + 订阅广播 ——————————————
 
   /**
-   * 加载全部偏好。
+   * 加载偏好并订阅广播。
    *
-   * 启动时按以下顺序决定数据源：
-   *  1. 主进程 electron-store（权威源）
-   *  2. localStorage（旧用户的迁移源 / 无 Electron 兜底）
-   *
-   * 若从 localStorage 读到但主进程为空，会自动迁移一次：将本地数据写入主进程，
-   * 之后该用户的偏好就全在主进程了。
+   * 加载顺序：主进程 electron-store > localStorage（旧用户迁移） > 默认值。
+   * 把已存数据用 applyPatch 灌入本地 ref，watch 自动触发副作用。
    */
   async function loadPreferences(): Promise<void> {
-    try {
-      let preferences: Partial<Preferences> | null = null
-      let needMigrate = false
+    let preferences: Partial<Preferences> | null = null
+    let needMigrate = false
 
-      // 1. 优先从主进程读取
+    try {
+      // 1. 主进程 electron-store
       if (window.electronAPI) {
         try {
           const resp = await window.electronAPI.preferencesGetAll()
@@ -362,34 +396,38 @@ export const usePreferencesStore = defineStore('preferences', () => {
             preferences = resp.data as Partial<Preferences>
           }
         } catch {
-          // IPC 失败，回退到 localStorage
+          // IPC 失败回退 localStorage
         }
       }
 
-      // 2. 主进程没有 → 尝试 localStorage
+      // 2. localStorage（旧用户迁移）
       if (!preferences) {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
           preferences = JSON.parse(saved) as Partial<Preferences>
-          // 主进程没数据但 localStorage 有 → 一次性迁移
-          if (window.electronAPI) {
-            needMigrate = true
-          }
+          if (window.electronAPI) needMigrate = true
         }
       }
 
       if (preferences) {
-        updatePreferences(preferences)
-        applyTheme()
-        if (needMigrate) {
-          // 迁移：把 localStorage 的数据搬到主进程（savePreferences 会同时写两边）
-          savePreferences()
+        applyPatch(preferences)
+        if (needMigrate && window.electronAPI) {
+          // 一次性迁移：整体覆写主进程 store。SET_ALL 不广播给发起方，
+          // 不会触发回写循环；之后的所有写入都走 setOne。
+          // 必须 JSON 反序列化剥掉 reactive proxy（structured-clone 会卡）。
+          const plain = JSON.parse(JSON.stringify(getAllPreferences())) as Record<string, unknown>
+          window.electronAPI.preferencesSetAll(plain).catch(() => { /* 静默 */ })
         }
-      } else {
-        applyTheme()
       }
-    } catch (error) {
-      applyTheme()
+    } catch {
+      // 加载失败：用默认值，watch immediate 已经把默认值的副作用跑了
+    }
+
+    // 订阅 patch 广播 —— 渲染端唯一写入路径。
+    if (window.electronAPI?.onPreferencesChanged) {
+      window.electronAPI.onPreferencesChanged((patch) => {
+        applyPatch(patch as Partial<Preferences>)
+      })
     }
   }
 
@@ -415,80 +453,35 @@ export const usePreferencesStore = defineStore('preferences', () => {
                   })
                 }
               } catch {
-                // Skip invalid theme files
+                // skip invalid theme
               }
             }
           }
         }
-        customThemes.value = themes
-        savePreferences()
+        setOne('customThemes', themes)
       }
-    } catch (error) {
-      // Handle error silently
+    } catch {
+      // silent
     }
   }
 
   function applyCustomTheme(themeId: string): void {
-    const customTheme = customThemes.value.find(t => t.id === themeId)
+    const customTheme = customThemes.value.find((t) => t.id === themeId)
     if (!customTheme) return
 
     Object.entries(customTheme.colors).forEach(([property, value]) => {
       document.documentElement.style.setProperty(property, value as string)
     })
 
-    theme.value = `custom-${themeId}` as 'light' | 'dark' | 'system'
-    savePreferences()
+    setOne('theme', `custom-${themeId}` as 'light' | 'dark' | 'system')
   }
 
   function resetToBuiltInTheme(): void {
-    applyTheme()
-    theme.value = DEFAULT_PREFERENCES.theme
-    savePreferences()
+    setOne('theme', DEFAULT_PREFERENCES.theme)
   }
 
-  watch(
-    () => ({
-      launchMode: launchMode.value,
-      launchFolderPath: launchFolderPath.value,
-      autoSave: autoSave.value,
-      autoSaveInterval: autoSaveInterval.value,
-      theme: theme.value,
-      hideScrollBars: hideScrollBars.value,
-      isStickyNoteMode: isStickyNoteMode.value,
-      isImmersiveMode: isImmersiveMode.value,
-      typewriterMode: typewriterMode.value,
-      focusMode: focusMode.value,
-      fontSize: fontSize.value,
-      zoom: zoom.value,
-      wordWrap: wordWrap.value,
-      imageInsertMode: imageInsertMode.value,
-      imageStoragePath: imageStoragePath.value,
-      language: language.value,
-      devToolsOnStartup: devToolsOnStartup.value,
-      openFileInNewWindow: openFileInNewWindow.value,
-      openFolderInNewWindow: openFolderInNewWindow.value,
-      lineEnding: lineEnding.value,
-      wordCountDisplayType: wordCountDisplayType.value
-    }),
-    () => {
-      savePreferences()
-    },
-    { deep: true }
-  )
-
-  watch(zoom, async (newZoom, oldZoom) => {
-    console.log(`[PreferencesStore] zoom changed: ${oldZoom} -> ${newZoom}`)
-    if (window.electronAPI) {
-      console.log(`[PreferencesStore] Calling electronAPI.setZoom(${newZoom})`)
-      const result = await window.electronAPI.setZoom(newZoom)
-      console.log(`[PreferencesStore] setZoom result:`, result)
-    } else {
-      console.log('[PreferencesStore] electronAPI not available')
-    }
-  })
-
   return {
-    // Getters
+    // —— 状态（外部只读使用；写入必走 setOne / 复合操作）
     launchMode,
     launchFolderPath,
     autoSave,
@@ -501,6 +494,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     typewriterMode,
     focusMode,
     fontSize,
+    lineHeight,
+    sourceFontSize,
+    sourceLineHeight,
     zoom,
     wordWrap,
     imageInsertMode,
@@ -519,21 +515,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
     wordCountDisplayType,
     lastSession,
 
-    // Methods
-    getAllPreferences,
-    setPreference,
-    updatePreferences,
+    // —— Single-Writer 写入入口
+    setOne,
+    setMany,
     resetToDefaults,
+
+    // —— 复合操作 / 命令系统使用
     applyTheme,
     toggleLightDark,
-    addRecentFile,
-    removeRecentFile,
-    pinRecentFile,
-    clearRecentFiles,
-    addRecentFolder,
-    removeRecentFolder,
-    pinRecentFolder,
-    clearRecentFolders,
+    addRecentFile: (filePath: string, title: string) => rfs().addRecentFile(filePath, title),
+    removeRecentFile: (filePath: string) => rfs().removeRecentFile(filePath),
+    pinRecentFile: (filePath: string, pinned: boolean) => rfs().pinRecentFile(filePath, pinned),
+    clearRecentFiles: () => rfs().clearRecentFiles(),
+    addRecentFolder: (folderPath: string, name: string) => rfs().addRecentFolder(folderPath, name),
+    removeRecentFolder: (folderPath: string) => rfs().removeRecentFolder(folderPath),
+    pinRecentFolder: (folderPath: string, pinned: boolean) => rfs().pinRecentFolder(folderPath, pinned),
+    clearRecentFolders: () => rfs().clearRecentFolders(),
     loadCustomThemes,
     applyCustomTheme,
     resetToBuiltInTheme,
@@ -543,10 +540,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
     zoomIn,
     zoomOut,
     resetZoom,
-    savePreferences,
-    loadPreferences,
     saveSession,
     getLastSession,
-    clearSession
+    clearSession,
+    loadPreferences,
+
+    // —— 兼容旧调用（已废弃，仅保留导出避免破坏；实现走 setOne）
+    /** @deprecated 用 setOne(key, value) 替代 */
+    setPreference: setOne,
+    /** @deprecated 用 setMany(patch) 替代 */
+    updatePreferences: setMany,
+    /** @deprecated 不再需要：所有写入走 IPC，无单独 save 入口 */
+    savePreferences: () => { /* no-op */ },
   }
 })
