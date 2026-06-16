@@ -3,6 +3,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
+import { detectFileType } from '@/utils/tabHelpers'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
 import { electronService } from './electron/ElectronService'
@@ -33,7 +34,14 @@ export class TabService {
     }
 
     const title = extractTitleFromPath(filePath)
-    const tab = this.tabsStore.createTab({ filePath, content, title })
+    // 按文件类型分流：非 markdown（图片/不支持）不灌 content，避免污染编辑器
+    const fileType = detectFileType(filePath)
+    const tab = this.tabsStore.createTab({
+      filePath,
+      content: fileType === 'editor' ? content : '',
+      title,
+      fileType,
+    })
     this.tabsStore.switchTab(tab.id)
 
     eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
@@ -59,11 +67,15 @@ export class TabService {
     if (!electronService.isAvailable()) return null
 
     try {
-      const contentResp = await electronService.readFile(filePath)
-      if (!contentResp.success) return null
-      const content = contentResp.data
+      const fileType = detectFileType(filePath)
+      let content = ''
+      if (fileType === 'editor') {
+        const contentResp = await electronService.readFile(filePath)
+        if (!contentResp.success || contentResp.data === undefined) return null
+        content = contentResp.data
+      }
       const title = extractTitleFromPath(filePath)
-      const tab = this.tabsStore.createTab({ filePath, content, title })
+      const tab = this.tabsStore.createTab({ filePath, content, title, fileType })
       this.tabsStore.switchTab(tab.id)
 
       eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })

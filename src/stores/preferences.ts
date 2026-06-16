@@ -272,8 +272,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * 浏览器/无 Electron 环境兜底：直接 applyPatch + localStorage 写入。
    */
   function setOne<K extends keyof Preferences>(key: K, value: Preferences[K]): void {
+    // 关键：value 可能是 Vue reactive proxy 包的数组/对象（例如 recentFiles）。
+    // ipcRenderer.invoke 用 structured-clone 序列化 Proxy 会抛
+    // "An object could not be cloned"。复杂值（非原始类型）走 JSON 剥 proxy
+    // 后再发 IPC；原始类型直接传，零额外开销。
+    const plainValue = (value !== null && typeof value === 'object')
+      ? (JSON.parse(JSON.stringify(value)) as Preferences[K])
+      : value
+
     if (window.electronAPI?.preferencesSetOne) {
-      window.electronAPI.preferencesSetOne(key as string, value as unknown).catch((err) => {
+      window.electronAPI.preferencesSetOne(key as string, plainValue as unknown).catch((err) => {
         errorManager.createError(
           ErrorCode.FILE_WRITE_ERROR,
           `保存偏好 ${key} 失败：${err instanceof Error ? err.message : String(err)}`,
@@ -283,7 +291,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       })
     } else {
       // 浏览器/无 IPC：本地直接写 + localStorage。这是退化路径。
-      applyPatch({ [key]: value } as Partial<Preferences>)
+      applyPatch({ [key]: plainValue } as Partial<Preferences>)
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(getAllPreferences()))
       } catch {

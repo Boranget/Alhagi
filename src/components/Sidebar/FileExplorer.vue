@@ -127,6 +127,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
+import { detectFileType } from '@/utils/tabHelpers'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
@@ -204,46 +205,51 @@ async function openFolder() {
 }
 
 async function handleSelect(node: FileTreeNodeType) {
-  if (node.type === 'file') {
-    // 首先检查文件是否已在其他窗口打开
-    if (window.electronAPI) {
-      const checkResult = await window.electronAPI.checkFileOpen(node.path)
-      if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
-        // 文件已在其他窗口打开，聚焦到该窗口并切换到对应标签页
-        await window.electronAPI.focusWindow(checkResult.data.windowId, node.path)
-        return
-      }
-    }
-    
-    let content: string | null = null
-    
-    if (window.electronAPI) {
-      try {
-        const response = await window.electronAPI.readFile(node.path)
-        if (response && response.success && response.data !== undefined) {
-          content = response.data
-        }
-      } catch {
-        // 忽略文件读取错误
-      }
-    }
-    
-    if (content !== null && content !== undefined) {
-      const existingTab = Array.from(tabsStore.tabs.values()).find(
-        t => t.filePath === node.path
-      )
-      
-      if (existingTab) {
-        tabsStore.switchTab(existingTab.id)
-      } else {
-        tabsStore.createTab({
-          filePath: node.path,
-          content: content,
-          title: extractTitleFromPath(node.path)
-        })
-      }
+  if (node.type !== 'file') return
+
+  // 首先检查文件是否已在其他窗口打开
+  if (window.electronAPI) {
+    const checkResult = await window.electronAPI.checkFileOpen(node.path)
+    if (checkResult.success && checkResult.data && checkResult.data.windowId !== null) {
+      await window.electronAPI.focusWindow(checkResult.data.windowId, node.path)
+      return
     }
   }
+
+  // 已经在本窗口打开了 → 切到那个 tab
+  const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === node.path)
+  if (existingTab) {
+    tabsStore.switchTab(existingTab.id)
+    return
+  }
+
+  // 按文件类型分流：
+  //   - editor (markdown)：UTF-8 读全文塞 tab.content，让 Crepe 渲染
+  //   - image：不读内容（ImagePreview 自己用 readBinaryFile），content 留空
+  //              避免把图片二进制当 UTF-8 读出来灌进 Crepe，污染 isDirty
+  //   - unsupported：同样不读，仅展示提示
+  const fileType = detectFileType(node.path)
+  let content = ''
+
+  if (fileType === 'editor' && window.electronAPI) {
+    try {
+      const response = await window.electronAPI.readFile(node.path)
+      if (response?.success && response.data !== undefined) {
+        content = response.data
+      } else {
+        return // 读失败，不创建 tab
+      }
+    } catch {
+      return
+    }
+  }
+
+  tabsStore.createTab({
+    filePath: node.path,
+    content,
+    title: extractTitleFromPath(node.path),
+    fileType,
+  })
 }
 
 function handleContextMenu(event: MouseEvent, node: FileTreeNodeType) {
