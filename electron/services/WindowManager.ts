@@ -7,7 +7,7 @@
 // - 窗口列表查询 / 跨窗口"该文件是否已打开"
 // - 主进程发出去的 tab 跨窗口转发（merge/detach/focus-for-file）
 
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, screen, type Event as ElectronEvent } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { IPC_CHANNELS, type DetachedTabData } from '../../electron-protocol'
@@ -33,6 +33,8 @@ export class WindowManager {
   private fileWatcher: FileWatcher | null = null
   /** 通过 setter 注入避免循环依赖（MenuBuilder 也要依赖 WindowManager） */
   private menu: MenuBuilder | null = null
+  private pendingCloseWindows = new Set<number>()
+  private allowedCloseWindows = new Set<number>()
 
   constructor(
     private prefs: PreferenceStore,
@@ -71,6 +73,18 @@ export class WindowManager {
     const prev = this.windowOpenFiles.get(windowId) ?? []
     this.windowOpenFiles.set(windowId, filePaths)
     this.fileWatcher?.syncForWindow(prev, filePaths)
+  }
+
+  allowWindowClose(windowId: number, allowClose: boolean): boolean {
+    const win = this.windows.get(windowId)
+    this.pendingCloseWindows.delete(windowId)
+
+    if (!win || win.isDestroyed()) return false
+    if (!allowClose) return true
+
+    this.allowedCloseWindows.add(windowId)
+    win.close()
+    return true
   }
 
   /**
@@ -141,7 +155,9 @@ export class WindowManager {
       win.show()
     })
 
-    win.on('close', () => {
+    win.on('close', (event) => {
+      if (!this.handleCloseRequest(win, event)) return
+
       if (!win.isDestroyed()) {
         const bounds = win.getBounds()
         this.prefs.setWindowState({
@@ -160,6 +176,8 @@ export class WindowManager {
       this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
+      this.pendingCloseWindows.delete(win.id)
+      this.allowedCloseWindows.delete(win.id)
       this.menu?.removeWindow(win.id)
       if (this.mainWindow === win) {
         this.mainWindow = null
@@ -197,11 +215,17 @@ export class WindowManager {
 
     this.registerWindow(win)
 
+    win.on('close', (event) => {
+      this.handleCloseRequest(win, event)
+    })
+
     win.on('closed', () => {
       const prevFiles = this.windowOpenFiles.get(win.id) ?? []
       this.fileWatcher?.syncForWindow(prevFiles, [])
       this.windows.delete(win.id)
       this.windowOpenFiles.delete(win.id)
+      this.pendingCloseWindows.delete(win.id)
+      this.allowedCloseWindows.delete(win.id)
       this.menu?.removeWindow(win.id)
     })
 
@@ -259,6 +283,23 @@ export class WindowManager {
    */
   getPrimaryDisplay(): { x: number; y: number; width: number; height: number } {
     return screen.getPrimaryDisplay().bounds
+  }
+
+  private handleCloseRequest(win: BrowserWindow, event: ElectronEvent): boolean {
+    const windowId = win.id
+
+    if (this.allowedCloseWindows.has(windowId)) {
+      this.allowedCloseWindows.delete(windowId)
+      return true
+    }
+
+    event.preventDefault()
+
+    if (this.pendingCloseWindows.has(windowId)) return false
+
+    this.pendingCloseWindows.add(windowId)
+    win.webContents.send(IPC_CHANNELS.WINDOW.CLOSE_REQUEST)
+    return false
   }
 
   private registerWindow(win: BrowserWindow): void {

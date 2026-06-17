@@ -38,6 +38,8 @@ export const IPC_CHANNELS = {
     MINIMIZE: 'window:minimize',
     MAXIMIZE: 'window:maximize',
     CLOSE: 'window:close',
+    CLOSE_REQUEST: 'window:close-request',
+    CLOSE_RESPONSE: 'window:close-response',
     SET_ALWAYS_ON_TOP: 'window:set-always-on-top',
     OPEN_NEW_WINDOW: 'window:open-new-window',
     MERGE_TAB: 'window:merge-tab',

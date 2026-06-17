@@ -11,6 +11,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useCapture } from '@/services/capture'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 
 // 模块级响应式状态：useApp() 调用方共享同一份 ref
 const isFullscreen = ref(false)
@@ -24,7 +25,8 @@ export function useApp() {
   const prefsStore = usePreferencesStore()
   const fileStore = useFileExplorerStore()
   const editorManager = useCrepeEditorManager()
-  
+  const { confirm } = useConfirmDialog()
+
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
 
@@ -130,6 +132,30 @@ export function useApp() {
     return { startListening, stopListening }
   }
 
+  const confirmCloseWindow = async () => {
+    const dirtyTabs = tabsStore.dirtyTabs
+    let allowClose = true
+
+    if (dirtyTabs.length > 0) {
+      const dirtyNames = dirtyTabs
+        .slice(0, 3)
+        .map(tab => `「${tab.title}」`)
+        .join('、')
+      const suffix = dirtyTabs.length > 3 ? ` 等 ${dirtyTabs.length} 个文件` : ''
+
+      allowClose = await confirm({
+        title: '未保存的更改',
+        message: `${dirtyNames}${suffix} 有未保存的更改，确定要关闭窗口吗？`,
+        confirmText: '关闭窗口',
+        cancelText: '取消',
+        danger: true,
+      })
+    }
+
+    if (allowClose) saveCurrentSession()
+    await window.electronAPI?.closeResponse(allowClose)
+  }
+
   const saveCurrentSession = () => {
     const sessionTabs = tabsStore.getAllTabs().map(tab => ({
       title: tab.title,
@@ -185,6 +211,7 @@ export function useApp() {
     setupEditorTypography()
 
     window.addEventListener('beforeunload', saveCurrentSession)
+    const stopCloseRequest = window.electronAPI?.onCloseRequest(confirmCloseWindow)
 
     await prefsStore.loadPreferences()
     // 主进程菜单是在窗口创建前就 install 的（语言锁定占位），但真正构建菜单
@@ -234,6 +261,7 @@ export function useApp() {
       stopListening()
       stopThemeWatch()
       eventUnsubscribers.forEach(unsub => unsub())
+      stopCloseRequest?.()
       window.removeEventListener('beforeunload', saveCurrentSession)
       cleanupWritingEnhancement()
       saveCurrentSession()

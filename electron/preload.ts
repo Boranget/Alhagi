@@ -130,6 +130,12 @@ const api: ElectronAPI = {
   updateOpenedFiles: (filePaths: string[]) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.UPDATE_OPENED_FILES, filePaths),
 
+  closeResponse: (allowClose: boolean) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.WINDOW.CLOSE_RESPONSE, allowClose),
+
+  onCloseRequest: (callback) =>
+    createListener<[]>(IPC_CHANNELS.WINDOW.CLOSE_REQUEST, callback),
+
   setZoom: (zoomLevel: number) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
 

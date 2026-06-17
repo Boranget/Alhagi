@@ -47,9 +47,15 @@ export class WindowIpcHandlers {
       return undefined
     })
 
-    registerHandler(IPC_CHANNELS.WINDOW.CLOSE, IPCErrorCode.UNKNOWN_ERROR, () => {
-      this.windowManager.getMainWindow()?.close()
+    registerHandler(IPC_CHANNELS.WINDOW.CLOSE, IPCErrorCode.UNKNOWN_ERROR, (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.close()
       return undefined
+    })
+
+    registerHandler(IPC_CHANNELS.WINDOW.CLOSE_RESPONSE, IPCErrorCode.UNKNOWN_ERROR, (event, allowClose: boolean) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+      return createSuccessResponse(this.windowManager.allowWindowClose(win.id, allowClose))
     })
 
     registerHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, IPCErrorCode.UNKNOWN_ERROR, (_, flag: boolean) => {

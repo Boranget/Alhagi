@@ -64,6 +64,8 @@ export interface ElectronAPI {
   focusWindow: (windowId: number, filePath?: string) => Promise<IPCResponse<boolean>>
   checkFileOpen: (filePath: string) => Promise<IPCResponse<{ windowId: number | null }>>
   updateOpenedFiles: (filePaths: string[]) => Promise<IPCResponse<boolean>>
+  closeResponse: (allowClose: boolean) => Promise<IPCResponse<boolean>>
+  onCloseRequest: (callback: () => void) => () => void
   setZoom: (zoomLevel: number) => Promise<IPCResponse<void>>
   setTheme: (theme: 'light' | 'dark' | 'system') => Promise<IPCResponse<void>>
 
