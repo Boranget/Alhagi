@@ -137,6 +137,16 @@
               >
               <span class="setting-value">{{ prefsStore.lineHeight.toFixed(1) }}</span>
             </div>
+            <div class="setting-item compact">
+              <span class="setting-hint">影响 Markdown 正文、标题、列表、引用和内嵌代码块。</span>
+              <button
+                type="button"
+                class="btn-small"
+                @click="resetWysiwygTypography"
+              >
+                恢复默认
+              </button>
+            </div>
 
             <h3>字体（源码模式）</h3>
             <div class="setting-item">
@@ -162,6 +172,16 @@
                 @input="onNumber('sourceLineHeight', $event)"
               >
               <span class="setting-value">{{ prefsStore.sourceLineHeight.toFixed(1) }}</span>
+            </div>
+            <div class="setting-item compact">
+              <span class="setting-hint">影响 Markdown 源码模式、分屏源码侧和纯文本编辑器。</span>
+              <button
+                type="button"
+                class="btn-small"
+                @click="resetSourceTypography"
+              >
+                恢复默认
+              </button>
             </div>
 
             <h3>缩放</h3>
@@ -427,6 +447,16 @@ async function pickImageStorageDir() {
   }
 }
 
+function resetWysiwygTypography(): void {
+  prefsStore.setOne('fontSize', EDITOR.DEFAULT_FONT_SIZE)
+  prefsStore.setOne('lineHeight', EDITOR.DEFAULT_LINE_HEIGHT)
+}
+
+function resetSourceTypography(): void {
+  prefsStore.setOne('sourceFontSize', EDITOR.DEFAULT_SOURCE_FONT_SIZE)
+  prefsStore.setOne('sourceLineHeight', EDITOR.DEFAULT_SOURCE_LINE_HEIGHT)
+}
+
 async function showImageStorageInFolder() {
   if (!prefsStore.imageStoragePath) return
   const api = electronService.getAPI()
@@ -587,6 +617,36 @@ async function showImageStorageInFolder() {
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
+
+    &.compact {
+      padding-top: 0;
+    }
+
+    .setting-hint {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+  }
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 }
 
