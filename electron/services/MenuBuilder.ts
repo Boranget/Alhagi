@@ -20,6 +20,7 @@ import type { Language } from '../../electron-protocol/i18n/dictionaries'
 
 /** 渲染端 layout store 的 key → 菜单项 id（即 cmd.id）的映射 */
 const LAYOUT_COMMAND_IDS = ['view.toggleSidebar', 'view.toggleTabBar', 'view.toggleStatusBar'] as const
+const MODE_COMMAND_IDS = ['view.stickyNoteMode', 'view.immersiveMode'] as const
 
 export class MenuBuilder {
   private currentLanguage: Language = 'zh-CN'
@@ -76,6 +77,17 @@ export class MenuBuilder {
     if (item) item.checked = checked
   }
 
+  setLayoutItems(windowId: number, visible: boolean): void {
+    for (const id of LAYOUT_COMMAND_IDS) {
+      this.setLayoutItem(windowId, id, visible)
+    }
+  }
+
+  setModeItems(windowId: number, mode: 'normal' | 'sticky' | 'immersive'): void {
+    this.setLayoutItem(windowId, 'view.stickyNoteMode', mode === 'sticky')
+    this.setLayoutItem(windowId, 'view.immersiveMode', mode === 'immersive')
+  }
+
   /**
    * macOS 焦点窗口切换：把目标窗口的菜单设为 application menu。
    * Win/Linux 上每窗各自挂菜单，无需此操作（直接 no-op）。
@@ -103,7 +115,7 @@ export class MenuBuilder {
       const oldMenu = this.windowMenus.get(win.id)
       const snapshot: Record<string, boolean> = {}
       if (oldMenu) {
-        for (const id of LAYOUT_COMMAND_IDS) {
+        for (const id of [...LAYOUT_COMMAND_IDS, ...MODE_COMMAND_IDS]) {
           const item = oldMenu.getMenuItemById(id)
           if (item) snapshot[id] = item.checked
         }

@@ -58,6 +58,8 @@ export interface WindowState {
   isMaximized: boolean
 }
 
+export type WindowMode = 'normal' | 'sticky' | 'immersive'
+
 export interface DetachedTabData {
   id: string
   title: string

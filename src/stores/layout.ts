@@ -17,13 +17,23 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+interface LayoutPayload {
+  showSidebar?: boolean
+  showTabBar?: boolean
+  showStatusBar?: boolean
+  isStickyNoteMode?: boolean
+  isImmersiveMode?: boolean
+}
+
 export const useLayoutStore = defineStore('layout', () => {
   const showSidebar = ref(true)
   const showTabBar = ref(true)
   const showStatusBar = ref(true)
+  const isStickyNoteMode = ref(false)
+  const isImmersiveMode = ref(false)
 
   /** 通知主进程 in-place 更新当前窗口菜单的 checkbox。失败静默——菜单项错位远比 IPC 异常容忍 */
-  function notify(payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean }): void {
+  function notify(payload: LayoutPayload): void {
     window.electronAPI?.layoutChanged(payload).catch(() => {
       /* 静默失败：菜单 checkbox 短暂错位用户可重新点一次 */
     })
@@ -62,15 +72,52 @@ export const useLayoutStore = defineStore('layout', () => {
     notify({ showSidebar: sidebar, showTabBar: tabBar, showStatusBar: statusBar })
   }
 
+  function applyWindowMode(mode: 'normal' | 'sticky' | 'immersive'): void {
+    isStickyNoteMode.value = mode === 'sticky'
+    isImmersiveMode.value = mode === 'immersive'
+
+    if (mode === 'normal') {
+      showSidebar.value = true
+      showTabBar.value = true
+      showStatusBar.value = true
+    } else {
+      showSidebar.value = false
+      showTabBar.value = false
+      showStatusBar.value = false
+    }
+  }
+
   /** 恢复到新窗口的默认布局（全显示） */
   function restoreDefaults(): void {
     setAll(true, true, true)
+  }
+
+  function setStickyNoteMode(v: boolean): void {
+    isStickyNoteMode.value = v
+    isImmersiveMode.value = false
+    if (v) {
+      setAll(false, false, false)
+    } else {
+      restoreDefaults()
+    }
+  }
+
+  function setImmersiveMode(v: boolean): void {
+    isImmersiveMode.value = v
+    isStickyNoteMode.value = false
+    if (v) {
+      setAll(false, false, false)
+    } else {
+      restoreDefaults()
+    }
   }
 
   return {
     showSidebar,
     showTabBar,
     showStatusBar,
+    isStickyNoteMode,
+    isImmersiveMode,
     setSidebar,
     setTabBar,
     setStatusBar,
@@ -78,6 +125,9 @@ export const useLayoutStore = defineStore('layout', () => {
     toggleTabBar,
     toggleStatusBar,
     setAll,
+    applyWindowMode,
     restoreDefaults,
+    setStickyNoteMode,
+    setImmersiveMode,
   }
 })

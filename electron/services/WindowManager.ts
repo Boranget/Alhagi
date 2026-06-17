@@ -10,7 +10,7 @@
 import { BrowserWindow, screen, type Event as ElectronEvent } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { IPC_CHANNELS, type DetachedTabData } from '../../electron-protocol'
+import { IPC_CHANNELS, type DetachedTabData, type WindowMode } from '../../electron-protocol'
 import type { PreferenceStore } from './PreferenceStore'
 import type { ThemeService } from './ThemeService'
 import { attachRendererCrashHandler } from './crashHandler'
@@ -18,6 +18,8 @@ import type { FileWatcher } from './FileWatcher'
 import type { MenuBuilder } from './MenuBuilder'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DEFAULT_WINDOW_SIZE = { width: 1200, height: 800 }
+const STICKY_WINDOW_SIZE = { width: 250, height: 300 }
 
 export interface NewWindowOptions {
   bounds?: { x: number; y: number; width: number; height: number }
@@ -35,6 +37,8 @@ export class WindowManager {
   private menu: MenuBuilder | null = null
   private pendingCloseWindows = new Set<number>()
   private allowedCloseWindows = new Set<number>()
+  private windowModes = new Map<number, WindowMode>()
+  private normalWindowBounds = new Map<number, { x: number; y: number; width: number; height: number }>()
 
   constructor(
     private prefs: PreferenceStore,
@@ -84,6 +88,43 @@ export class WindowManager {
 
     this.allowedCloseWindows.add(windowId)
     win.close()
+    return true
+  }
+
+  setWindowMode(windowId: number, mode: WindowMode): boolean {
+    const win = this.windows.get(windowId)
+    if (!win || win.isDestroyed()) return false
+
+    const currentMode = this.windowModes.get(windowId) ?? 'normal'
+    if (mode === currentMode) mode = 'normal'
+
+    if (currentMode === 'normal' && mode !== 'normal') {
+      this.normalWindowBounds.set(windowId, win.getBounds())
+    }
+
+    if (mode === 'normal') {
+      if (win.isFullScreen()) win.setFullScreen(false)
+      win.setAlwaysOnTop(false)
+      win.setAutoHideMenuBar(false)
+      win.setMenuBarVisibility(true)
+      const bounds = this.normalWindowBounds.get(windowId)
+      if (bounds) win.setBounds(bounds)
+      else win.setSize(DEFAULT_WINDOW_SIZE.width, DEFAULT_WINDOW_SIZE.height)
+      this.normalWindowBounds.delete(windowId)
+    } else if (mode === 'sticky') {
+      if (win.isFullScreen()) win.setFullScreen(false)
+      win.setAlwaysOnTop(true)
+      win.setMinimumSize(STICKY_WINDOW_SIZE.width, STICKY_WINDOW_SIZE.height)
+      win.setSize(STICKY_WINDOW_SIZE.width, STICKY_WINDOW_SIZE.height)
+    } else {
+      win.setAlwaysOnTop(false)
+      win.setFullScreen(true)
+    }
+
+    this.windowModes.set(windowId, mode)
+    win.webContents.send(IPC_CHANNELS.WINDOW.MODE_CHANGED, mode)
+    this.menu?.setLayoutItems(windowId, mode === 'normal')
+    this.menu?.setModeItems(windowId, mode)
     return true
   }
 
@@ -159,13 +200,13 @@ export class WindowManager {
       if (!this.handleCloseRequest(win, event)) return
 
       if (!win.isDestroyed()) {
-        const bounds = win.getBounds()
+        const bounds = this.normalWindowBounds.get(win.id) ?? win.getBounds()
         this.prefs.setWindowState({
           width: bounds.width,
           height: bounds.height,
           x: bounds.x,
           y: bounds.y,
-          isMaximized: win.isMaximized(),
+          isMaximized: win.isMaximized() && (this.windowModes.get(win.id) ?? 'normal') === 'normal',
         })
       }
     })
@@ -178,9 +219,17 @@ export class WindowManager {
       this.windowOpenFiles.delete(win.id)
       this.pendingCloseWindows.delete(win.id)
       this.allowedCloseWindows.delete(win.id)
+      this.windowModes.delete(win.id)
+      this.normalWindowBounds.delete(win.id)
       this.menu?.removeWindow(win.id)
       if (this.mainWindow === win) {
         this.mainWindow = null
+      }
+    })
+
+    win.on('leave-full-screen', () => {
+      if ((this.windowModes.get(win.id) ?? 'normal') === 'immersive') {
+        this.setWindowMode(win.id, 'normal')
       }
     })
 
@@ -226,7 +275,15 @@ export class WindowManager {
       this.windowOpenFiles.delete(win.id)
       this.pendingCloseWindows.delete(win.id)
       this.allowedCloseWindows.delete(win.id)
+      this.windowModes.delete(win.id)
+      this.normalWindowBounds.delete(win.id)
       this.menu?.removeWindow(win.id)
+    })
+
+    win.on('leave-full-screen', () => {
+      if ((this.windowModes.get(win.id) ?? 'normal') === 'immersive') {
+        this.setWindowMode(win.id, 'normal')
+      }
     })
 
     win.on('ready-to-show', () => win.show())

@@ -11,6 +11,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   type DetachedTabData,
+  type WindowMode,
 } from '../../electron-protocol'
 import { registerHandler } from '../ipc-handler'
 import type { WindowManager } from './WindowManager'
@@ -56,6 +57,12 @@ export class WindowIpcHandlers {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
       return createSuccessResponse(this.windowManager.allowWindowClose(win.id, allowClose))
+    })
+
+    registerHandler(IPC_CHANNELS.WINDOW.SET_MODE, IPCErrorCode.UNKNOWN_ERROR, (event, mode: WindowMode) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Window not found')
+      return createSuccessResponse(this.windowManager.setWindowMode(win.id, mode))
     })
 
     registerHandler(IPC_CHANNELS.WINDOW.SET_ALWAYS_ON_TOP, IPCErrorCode.UNKNOWN_ERROR, (_, flag: boolean) => {

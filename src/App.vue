@@ -1,8 +1,14 @@
 <template>
   <div
     class="app-container"
-    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': prefsStore.isStickyNoteMode, 'is-immersive': prefsStore.isImmersiveMode }"
+    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': layoutStore.isStickyNoteMode, 'is-immersive': layoutStore.isImmersiveMode }"
   >
+    <div
+      v-if="layoutStore.isImmersiveMode"
+      class="immersive-tip"
+    >
+      按 Esc 退出沉浸模式
+    </div>
     <div class="app-content">
       <Transition name="sidebar-slide">
         <EnhancedSidebar
@@ -77,6 +83,17 @@ function openSettingsWindow() {
 let cleanup: (() => void) | null = null
 const eventUnsubscribers: (() => void)[] = []
 
+function exitImmersiveMode() {
+  if (!layoutStore.isImmersiveMode) return
+  window.electronAPI?.setWindowMode('normal')
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    exitImmersiveMode()
+  }
+}
+
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault()
@@ -93,6 +110,7 @@ onMounted(async () => {
   cleanup = await initializeApp()
 
   window.addEventListener('wheel', handleWheel, { passive: false })
+  window.addEventListener('keydown', handleKeydown)
 
   // 全局对话框开关订阅 —— dispatcher 通过 eventBus 触发
   eventUnsubscribers.push(
@@ -105,10 +123,16 @@ onMounted(async () => {
       showShortcuts.value = true
     }),
   )
+
+  const stopModeWatch = window.electronAPI?.onWindowModeChanged((mode) => {
+    layoutStore.applyWindowMode(mode)
+  })
+  if (stopModeWatch) eventUnsubscribers.push(stopModeWatch)
 })
 
 onUnmounted(() => {
   window.removeEventListener('wheel', handleWheel)
+  window.removeEventListener('keydown', handleKeydown)
   for (const unsubscribe of eventUnsubscribers) unsubscribe()
   eventUnsubscribers.length = 0
 
@@ -119,6 +143,22 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+.immersive-tip {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 2500;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
 .app-container {
   width: 100vw;
   height: 100vh;

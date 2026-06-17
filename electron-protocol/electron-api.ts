@@ -16,6 +16,7 @@ import type {
   SearchResult,
   LineEnding,
   DetachedTabData,
+  WindowMode,
 } from './types'
 import type { Language } from './i18n/dictionaries'
 
@@ -66,6 +67,8 @@ export interface ElectronAPI {
   updateOpenedFiles: (filePaths: string[]) => Promise<IPCResponse<boolean>>
   closeResponse: (allowClose: boolean) => Promise<IPCResponse<boolean>>
   onCloseRequest: (callback: () => void) => () => void
+  setWindowMode: (mode: WindowMode) => Promise<IPCResponse<boolean>>
+  onWindowModeChanged: (callback: (mode: WindowMode) => void) => () => void
   setZoom: (zoomLevel: number) => Promise<IPCResponse<void>>
   setTheme: (theme: 'light' | 'dark' | 'system') => Promise<IPCResponse<void>>
 
@@ -126,6 +129,8 @@ export interface ElectronAPI {
     showSidebar?: boolean
     showTabBar?: boolean
     showStatusBar?: boolean
+    isStickyNoteMode?: boolean
+    isImmersiveMode?: boolean
   }) => Promise<IPCResponse<boolean>>
 
   // ========== 文件外部修改检测（P2-10） ==========

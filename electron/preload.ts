@@ -5,6 +5,7 @@ import {
   IPC_CHANNELS,
   FILE_TYPES,
   DetachedTabData,
+  WindowMode,
 } from '../electron-protocol'
 import type { Language } from '../electron-protocol/i18n/dictionaries'
 
@@ -136,6 +137,12 @@ const api: ElectronAPI = {
   onCloseRequest: (callback) =>
     createListener<[]>(IPC_CHANNELS.WINDOW.CLOSE_REQUEST, callback),
 
+  setWindowMode: (mode: WindowMode) =>
+    createIpcHandler<boolean>(IPC_CHANNELS.WINDOW.SET_MODE, mode),
+
+  onWindowModeChanged: (callback) =>
+    createListener<[WindowMode]>(IPC_CHANNELS.WINDOW.MODE_CHANGED, callback),
+
   setZoom: (zoomLevel: number) =>
     createIpcHandler(IPC_CHANNELS.WINDOW.SET_ZOOM, zoomLevel),
 
@@ -176,7 +183,7 @@ const api: ElectronAPI = {
     createIpcHandler<{ base64: string; width: number; height: number } | null>(IPC_CHANNELS.CLIPBOARD.READ_IMAGE),
 
   // ========== 窗口运行期布局 ==========
-  layoutChanged: (payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean }) =>
+  layoutChanged: (payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean; isStickyNoteMode?: boolean; isImmersiveMode?: boolean }) =>
     createIpcHandler<boolean>(IPC_CHANNELS.LAYOUT.CHANGED, payload),
 
   // ========== 文件外部修改检测（P2-10） ==========

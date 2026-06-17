@@ -37,6 +37,7 @@ import { debounce } from '@/utils/helpers'
 export type ThemeType = 'dark' | 'light'
 
 const themeCompartment = new Compartment()
+const typographyCompartment = new Compartment()
 
 /**
  * Transaction 标注：标记由"外部 modelValue 同步"驱动的 dispatch
@@ -58,8 +59,26 @@ function getThemeExtension(theme: ThemeType): Extension {
   return theme === 'dark' ? githubDark : githubLight
 }
 
+function getTypographyExtension(): Extension {
+  return EditorView.theme({
+    '.cm-scroller': {
+      fontSize: 'var(--alhagi-source-font-size)',
+      lineHeight: 'var(--alhagi-source-line-height)',
+    },
+  })
+}
+
 export function getThemeExtensions(theme: ThemeType): Extension[] {
-  return [themeCompartment.of(getThemeExtension(theme))]
+  return [
+    themeCompartment.of(getThemeExtension(theme)),
+    typographyCompartment.of(getTypographyExtension()),
+  ]
+}
+
+export function updateEditorTypography(view: EditorView): void {
+  view.dispatch({
+    effects: typographyCompartment.reconfigure(getTypographyExtension()),
+  })
 }
 
 /**

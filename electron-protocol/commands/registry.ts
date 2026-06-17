@@ -559,6 +559,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'f', modifiers: { ctrl: true, shift: true } },
     executionContext: 'global',
     menuGroup: 6,
+    checkbox: true,
   },
   {
     id: 'view.immersiveMode',
@@ -568,6 +569,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 'enter', modifiers: { ctrl: true, shift: true } },
     executionContext: 'global',
     menuGroup: 6,
+    checkbox: true,
   },
   {
     id: 'view.focusMode',

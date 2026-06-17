@@ -195,13 +195,13 @@ function initializeContext(ctx: CommandContext): void {
   })
 
   ctx.register('isStickyNoteMode', () => {
-    const prefsStore = usePreferencesStore()
-    return prefsStore.isStickyNoteMode
+    const layoutStore = useLayoutStore()
+    return layoutStore.isStickyNoteMode
   })
 
   ctx.register('isImmersiveMode', () => {
-    const prefsStore = usePreferencesStore()
-    return prefsStore.isImmersiveMode
+    const layoutStore = useLayoutStore()
+    return layoutStore.isImmersiveMode
   })
 
   ctx.register('hasSearchResults', () => {

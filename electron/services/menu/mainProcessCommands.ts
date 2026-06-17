@@ -19,6 +19,7 @@ import type { WindowManager } from '../WindowManager'
 
 export interface MainCommandContext {
   windowManager: WindowManager
+  windowId?: number
 }
 
 export type MainCommandHandler = (ctx: MainCommandContext) => void
@@ -28,13 +29,13 @@ export const MAIN_PROCESS_COMMANDS: Record<string, MainCommandHandler> = {
     windowManager.createNewWindow()
   },
 
-  'view.fullscreen': ({ windowManager }) => {
-    const win = windowManager.getMainWindow()
+  'view.fullscreen': ({ windowManager, windowId }) => {
+    const win = windowId ? windowManager.getWindow(windowId) : windowManager.getMainWindow()
     if (win) win.setFullScreen(!win.isFullScreen())
   },
 
-  'view.devTools': ({ windowManager }) => {
-    const win = windowManager.getMainWindow()
+  'view.devTools': ({ windowManager, windowId }) => {
+    const win = windowId ? windowManager.getWindow(windowId) : windowManager.getMainWindow()
     if (!win) return
     if (win.webContents.isDevToolsOpened()) {
       win.webContents.closeDevTools()
@@ -46,18 +47,9 @@ export const MAIN_PROCESS_COMMANDS: Record<string, MainCommandHandler> = {
   // 注意命名带 `.window` 后缀：与 registry 中用户层 `view.stickyNoteMode` 错开，
   // 菜单 click view.stickyNoteMode 走默认 COMMAND.EXECUTE → 渲染端 dispatcher，
   // dispatcher 再调 executeMainCommand('view.stickyNoteMode.window') 触发这里。
-  'view.stickyNoteMode.window': ({ windowManager }) => {
-    const win = windowManager.getMainWindow()
-    if (!win) return
-    const [w, h] = win.getSize()
-    const isSmall = w <= 400 && h <= 500
-    if (isSmall) {
-      win.setSize(1200, 800)
-      win.setAlwaysOnTop(false)
-    } else {
-      win.setSize(350, 450)
-      win.setAlwaysOnTop(true)
-    }
+  'view.stickyNoteMode.window': ({ windowManager, windowId }) => {
+    const win = windowId ? windowManager.getWindow(windowId) : windowManager.getMainWindow()
+    if (win) windowManager.setWindowMode(win.id, 'sticky')
   },
 
   'help.about': () => {

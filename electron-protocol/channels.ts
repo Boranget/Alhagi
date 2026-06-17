@@ -40,6 +40,8 @@ export const IPC_CHANNELS = {
     CLOSE: 'window:close',
     CLOSE_REQUEST: 'window:close-request',
     CLOSE_RESPONSE: 'window:close-response',
+    SET_MODE: 'window:set-mode',
+    MODE_CHANGED: 'window:mode-changed',
     SET_ALWAYS_ON_TOP: 'window:set-always-on-top',
     OPEN_NEW_WINDOW: 'window:open-new-window',
     MERGE_TAB: 'window:merge-tab',

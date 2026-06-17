@@ -7,10 +7,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { createCodeMirrorView, updateEditorTheme, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
+import { createCodeMirrorView, updateEditorTheme, updateEditorTypography, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 
 interface Props {
   modelValue: string
@@ -22,6 +23,7 @@ const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const layoutStore = useLayoutStore()
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
@@ -146,6 +148,10 @@ onUnmounted(() => {
 
 watch(isDarkMode, (newTheme) => {
   handleThemeChange(newTheme)
+})
+
+watch(() => layoutStore.isStickyNoteMode, () => {
+  if (editorView) updateEditorTypography(editorView)
 })
 
 watch(() => props.modelValue, (newValue) => {

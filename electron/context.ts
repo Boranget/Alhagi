@@ -90,10 +90,11 @@ export class AppContext {
 
     // 渲染端命令面板/快捷键触发 main-only 命令（如 fullscreen/devTools/stickyNote）时，
     // 通过这一通道让主进程执行，与菜单 click 走同一份实现。
-    ipcMain.handle(IPC_CHANNELS.COMMAND.EXECUTE_MAIN, (_event, commandId: string) => {
+    ipcMain.handle(IPC_CHANNELS.COMMAND.EXECUTE_MAIN, (event, commandId: string) => {
       const handler = MAIN_PROCESS_COMMANDS[commandId]
       if (!handler) return { success: false, data: false }
-      handler({ windowManager: this.windowManager })
+      const win = BrowserWindow.fromWebContents(event.sender)
+      handler({ windowManager: this.windowManager, windowId: win?.id })
       return { success: true, data: true }
     })
 
@@ -103,6 +104,8 @@ export class AppContext {
       showSidebar?: boolean
       showTabBar?: boolean
       showStatusBar?: boolean
+      isStickyNoteMode?: boolean
+      isImmersiveMode?: boolean
     }) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return { success: false, data: false }
@@ -111,6 +114,8 @@ export class AppContext {
         showSidebar: 'view.toggleSidebar',
         showTabBar: 'view.toggleTabBar',
         showStatusBar: 'view.toggleStatusBar',
+        isStickyNoteMode: 'view.stickyNoteMode',
+        isImmersiveMode: 'view.immersiveMode',
       } as const
 
       for (const k of Object.keys(map) as Array<keyof typeof map>) {

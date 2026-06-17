@@ -135,12 +135,16 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
   //   - click 用 Electron 提供的 focusedWindow 实参，保证多窗口下点哪个
   //     窗口的菜单就发给哪个窗口。
   if (cmd.checkbox) {
+    const checked = cmd.id === 'view.stickyNoteMode' || cmd.id === 'view.immersiveMode'
+      ? false
+      : true
+
     return {
       label,
       accelerator,
       id: cmd.id,
       type: 'checkbox',
-      checked: true,
+      checked,
       click: (_item, focusedWindow) => {
         // Electron 8+ click 实参是 BaseWindow（可能是 BrowserWindow，可能不是），
         // 统一窄化到 BrowserWindow 才能拿 webContents。

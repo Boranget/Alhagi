@@ -320,14 +320,15 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('view.stickyNoteMode', () => {
-    // 主进程负责 setSize/setAlwaysOnTop；渲染端 prefsStore 也需要切，
-    // 两条副作用分别由主进程 .window 后缀命令和这里的 store 调用各管一段。
-    prefsStore.toggleStickyNoteMode()
-    electronService.getAPI()?.executeMainCommand('view.stickyNoteMode.window')
+    // 便签模式是当前窗口范围内的临时 UI 状态：布局/排版/窗口尺寸都不写入偏好。
+    const next = layoutStore.isStickyNoteMode ? 'normal' : 'sticky'
+    electronService.getAPI()?.setWindowMode(next)
   })
 
   dispatcher.register('view.immersiveMode', () => {
-    prefsStore.toggleImmersiveMode()
+    // 沉浸模式与便签模式互斥，由主进程按当前窗口更新全屏状态和菜单勾选。
+    const next = layoutStore.isImmersiveMode ? 'normal' : 'immersive'
+    electronService.getAPI()?.setWindowMode(next)
   })
 
   dispatcher.register('view.focusMode', () => {
