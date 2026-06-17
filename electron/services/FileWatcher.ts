@@ -20,6 +20,7 @@ import type { WindowManager } from './WindowManager'
 import { IPC_CHANNELS } from '../../electron-protocol/channels'
 
 const SAVE_DEBOUNCE_MS = 2000
+const SAFE_WRITE_TEMP_RE = /\.alhagi-tmp-/
 
 export class FileWatcher {
   private chokidar: FSWatcher | null = null
@@ -93,6 +94,7 @@ export class FileWatcher {
     this.chokidar = watch([], {
       persistent: true,
       ignoreInitial: true,
+      ignored: (filePath: string) => SAFE_WRITE_TEMP_RE.test(filePath),
       awaitWriteFinish: {
         stabilityThreshold: 1000,
         pollInterval: 150,
@@ -121,6 +123,8 @@ export class FileWatcher {
   }
 
   private handleUnlink(filePath: string): void {
+    if (this.isRecentlySaved(filePath)) return
+
     // 文件已被外部删除，自己之前的保存时间戳无意义；立即清理
     this.recentlySaves.delete(filePath)
     for (const [windowId, openFiles] of this.windowManager.getOpenFilesMap()) {

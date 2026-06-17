@@ -94,7 +94,9 @@ export class TabService {
 
     if (tab.filePath) {
       const lineEnding = this.preferencesStore.lineEnding as LineEnding
-      await electronService.saveFile(tab.filePath, tab.content, lineEnding)
+      const response = await electronService.saveFile(tab.filePath, tab.content, lineEnding)
+      if (!response.success) return false
+
       this.tabsStore.markClean(tabId)
 
       eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })

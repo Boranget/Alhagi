@@ -5,6 +5,7 @@
 import { app, dialog } from 'electron'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import {
   IPCErrorCode,
   IPC_CHANNELS,
@@ -52,6 +53,46 @@ export class FileSystemService {
     if (!lineEnding || !(lineEnding in LINE_ENDINGS)) return content
     const targetEnding = LINE_ENDINGS[lineEnding]
     return content.replace(/\r\n/g, '\n').replace(/\n/g, targetEnding)
+  }
+
+  /**
+   * 轻量安全保存：普通文本文件先写同目录临时文件，再 rename 覆盖目标。
+   *
+   * 这样可以避免直接 truncate 目标文件后写入失败，导致原文件变成空文件或半截文件。
+   * symlink 自动降级为普通写，避免把链接本身替换成普通文件。
+   */
+  private async safeWriteTextFile(filePath: string, content: string): Promise<void> {
+    let isSymlink = false
+    try {
+      isSymlink = (await fs.lstat(filePath)).isSymbolicLink()
+    } catch {
+      // 文件不存在时仍可走安全写；保存未命名/另存为场景会创建新文件。
+    }
+
+    if (isSymlink) {
+      await fs.writeFile(filePath, content, 'utf-8')
+      return
+    }
+
+    const dirPath = path.dirname(filePath)
+    await fs.mkdir(dirPath, { recursive: true })
+
+    const tempPath = path.join(
+      dirPath,
+      `${path.basename(filePath)}.alhagi-tmp-${process.pid}-${randomUUID()}`,
+    )
+
+    try {
+      await fs.writeFile(tempPath, content, 'utf-8')
+      await fs.rename(tempPath, filePath)
+    } catch (error) {
+      try {
+        await fs.rm(tempPath, { force: true })
+      } catch {
+        // 保留原始保存错误。
+      }
+      throw error
+    }
   }
 
   private async buildFileTree(dirPath: string, maxDepth: number, currentDepth = 0): Promise<FileTreeNode[]> {
@@ -104,7 +145,7 @@ export class FileSystemService {
         const finalContent = this.applyLineEnding(content, lineEnding)
         // markSaved 必须在写之前，否则极小概率 chokidar 先 fire change 再被记录
         this.fileWatcher.markSaved(filePath)
-        await fs.writeFile(filePath, finalContent, 'utf-8')
+        await this.safeWriteTextFile(filePath, finalContent)
         return true
       },
     )
@@ -127,7 +168,7 @@ export class FileSystemService {
         if (result.canceled || !result.filePath) return createSuccessResponse(null)
         const finalContent = this.applyLineEnding(content, lineEnding)
         this.fileWatcher.markSaved(result.filePath)
-        await fs.writeFile(result.filePath, finalContent, 'utf-8')
+        await this.safeWriteTextFile(result.filePath, finalContent)
         return createSuccessResponse(result.filePath)
       },
     )
