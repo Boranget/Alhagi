@@ -6,9 +6,19 @@
     @click="handleClick"
     @contextmenu="handleContextMenu"
   >
-    <Icon 
-      :name="nodeIcon" 
-      size="sm" 
+    <Icon
+      v-if="node.type === 'directory'"
+      :name="node.expanded ? 'chevron-down' : 'chevron-right'"
+      size="sm"
+      class="expand-marker"
+    />
+    <span
+      v-else
+      class="expand-spacer"
+    />
+    <Icon
+      :name="nodeIcon"
+      size="sm"
       class="node-icon"
     />
     <span class="node-name">{{ node.name }}</span>
@@ -124,6 +134,25 @@ function handleContextMenu(event: MouseEvent) {
     background: var(--primary-color);
     color: white;
   }
+}
+
+.expand-marker,
+.expand-spacer {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.expand-marker {
+  color: var(--text-secondary);
+}
+
+.file-tree-node:hover .expand-marker {
+  color: var(--text-primary);
+}
+
+.file-tree-node.selected .expand-marker {
+  color: white;
 }
 
 .node-icon {
