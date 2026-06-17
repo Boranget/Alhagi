@@ -197,9 +197,11 @@ import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
 import { Icon } from '@/components/Icons'
 import { useTabService } from '@/services/tabService'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 
 const tabsStore = useTabsStore()
 const tabService = useTabService()
+const { confirm } = useConfirmDialog()
 
 const {
   dragState,
@@ -260,12 +262,21 @@ function handleGlobalClick() {
   hideContextMenu()
 }
 
-function handleTabClose(tabId: string) {
+async function confirmCloseDirtyTab(tab: TabState): Promise<boolean> {
+  return await confirm({
+    title: '未保存的更改',
+    message: `文件 "${tab.title}" 有未保存的更改，确定要关闭吗？`,
+    confirmText: '关闭',
+    cancelText: '取消',
+    danger: true,
+  })
+}
+
+async function handleTabClose(tabId: string) {
   const tab = getTab(tabId)
   if (tab?.isDirty) {
-    if (!confirm('文件有未保存的更改，确定要关闭吗？')) {
-      return
-    }
+    const ok = await confirmCloseDirtyTab(tab)
+    if (!ok) return
   }
   tabsStore.removeTab(tabId)
 }
@@ -288,14 +299,14 @@ function saveAsCurrentTab() {
   hideContextMenu()
 }
 
-function closeCurrentTab() {
+async function closeCurrentTab() {
   if (contextMenu.value.tabId) {
-    handleTabClose(contextMenu.value.tabId)
+    await handleTabClose(contextMenu.value.tabId)
   }
   hideContextMenu()
 }
 
-function closeOtherTabs() {
+async function closeOtherTabs() {
   const activeTabId = tabsStore.activeTabId
   const allTabIds = Array.from(tabsStore.tabs.keys())
 
@@ -303,9 +314,8 @@ function closeOtherTabs() {
     if (tabId !== activeTabId) {
       const tab = getTab(tabId)
       if (tab?.isDirty) {
-        if (!confirm(`文件 "${tab.title}" 有未保存的更改，确定要关闭吗？`)) {
-          continue
-        }
+        const ok = await confirmCloseDirtyTab(tab)
+        if (!ok) continue
       }
       tabsStore.removeTab(tabId)
     }
@@ -325,20 +335,19 @@ function closeSavedTabs() {
   hideContextMenu()
 }
 
-function closeAllTabs() {
+async function closeAllTabs() {
   const allTabIds = Array.from(tabsStore.tabs.keys())
-  let hasDirtyTab = false
-
-  for (const tabId of allTabIds) {
-    const tab = getTab(tabId)
-    if (tab?.isDirty) {
-      hasDirtyTab = true
-      break
-    }
-  }
+  const hasDirtyTab = allTabIds.some((tabId) => getTab(tabId)?.isDirty)
 
   if (hasDirtyTab) {
-    if (!confirm('有些文件有未保存的更改，确定要关闭全部吗？')) {
+    const ok = await confirm({
+      title: '未保存的更改',
+      message: '有些文件有未保存的更改，确定要关闭全部吗？',
+      confirmText: '关闭全部',
+      cancelText: '取消',
+      danger: true,
+    })
+    if (!ok) {
       hideContextMenu()
       return
     }
@@ -347,7 +356,7 @@ function closeAllTabs() {
   for (const tabId of allTabIds) {
     tabsStore.removeTab(tabId)
   }
-  
+
   hideContextMenu()
 }
 

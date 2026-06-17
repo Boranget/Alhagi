@@ -1,6 +1,7 @@
 <template>
   <div class="settings-window-root">
     <SettingsPanel />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -22,6 +23,7 @@ import { onMounted } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const prefs = usePreferencesStore()
 

@@ -11,6 +11,7 @@ import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
 // 初始化所有命令处理器
@@ -22,6 +23,7 @@ export function initCommandHandlers(): void {
   const layoutStore = useLayoutStore()
   const fileStore = useFileExplorerStore()
   const tabService = useTabService()
+  const { confirm } = useConfirmDialog()
 
   // ========================================
   // 文件操作命令
@@ -61,18 +63,23 @@ export function initCommandHandlers(): void {
     }
   })
 
-  dispatcher.register('file.close', () => {
-    if (tabsStore.activeTabId) {
-      // 脏文件确认关闭
-      const tab = tabsStore.tabs.get(tabsStore.activeTabId)
-      if (tab?.isDirty) {
-        if (confirm('文件有未保存的更改，确定要关闭吗？')) {
-          tabsStore.removeTab(tabsStore.activeTabId)
-        }
-      } else {
-        tabsStore.removeTab(tabsStore.activeTabId)
-      }
+  dispatcher.register('file.close', async () => {
+    const tabId = tabsStore.activeTabId
+    if (!tabId) return
+
+    const tab = tabsStore.tabs.get(tabId)
+    if (tab?.isDirty) {
+      const ok = await confirm({
+        title: '未保存的更改',
+        message: `文件 "${tab.title}" 有未保存的更改，确定要关闭吗？`,
+        confirmText: '关闭',
+        cancelText: '取消',
+        danger: true,
+      })
+      if (!ok) return
     }
+
+    tabsStore.removeTab(tabId)
   })
 
   // ========================================

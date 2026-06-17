@@ -15,6 +15,7 @@
 import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabService } from '@/services/tabService'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { executeCommand } from '@/commands'
 import type { ElectronAPI } from 'electron-protocol'
 
@@ -23,11 +24,13 @@ export class ElectronEventHandler {
   private readonly api: ElectronAPI | undefined
   private tabsStore: ReturnType<typeof useTabsStore>
   private tabService: ReturnType<typeof useTabService>
+  private confirm: ReturnType<typeof useConfirmDialog>['confirm']
 
   constructor(api: ElectronAPI | undefined) {
     this.api = api
     this.tabsStore = useTabsStore()
     this.tabService = useTabService()
+    this.confirm = useConfirmDialog().confirm
   }
 
   initialize(): void {
@@ -99,14 +102,16 @@ export class ElectronEventHandler {
             return
           }
 
-          const shouldReload = tab.isDirty
-            ? confirm(
-                `文件「${tab.title}」已被外部修改，但当前标签有未保存的更改。\n\n` +
-                  `点击「确定」从磁盘重新加载（丢弃当前修改）；点击「取消」保留当前修改。`
-              )
-            : confirm(
-                `文件「${tab.title}」已被外部修改。\n\n点击「确定」从磁盘重新加载；点击「取消」保留当前内容。`
-              )
+          const shouldReload = await this.confirm({
+            title: '外部文件变更',
+            message: tab.isDirty
+              ? `文件「${tab.title}」已被外部修改，但当前标签有未保存的更改。\n\n` +
+                `点击「重新加载」从磁盘重新加载（丢弃当前修改）；点击「保留」保留当前修改。`
+              : `文件「${tab.title}」已被外部修改。\n\n点击「重新加载」从磁盘重新加载；点击「保留」保留当前内容。`,
+            confirmText: '重新加载',
+            cancelText: '保留',
+            danger: tab.isDirty,
+          })
 
           if (shouldReload) {
             await this.tabService.reloadFromDisk(filePath)

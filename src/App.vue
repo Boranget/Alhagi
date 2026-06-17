@@ -29,6 +29,7 @@
       :visible="showShortcuts"
       @close="showShortcuts = false"
     />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -47,6 +48,7 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 // 按需对话框：仅在用户触发时才加载，减小首屏 bundle 体积
 const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
 const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
+const ConfirmDialog = defineAsyncComponent(() => import('@/components/ConfirmDialog.vue'))
 // 编辑器异步加载（P2-9）：仅当有打开文件时拉取 milkdown/crepe + codemirror，
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
 const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))

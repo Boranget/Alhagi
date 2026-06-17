@@ -121,6 +121,7 @@ import { t } from '@/services/i18n'
 import type { Keybinding, CommandCategory } from '@/commands/types'
 import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -128,6 +129,7 @@ const emit = defineEmits<{
 }>()
 
 const prefsStore = usePreferencesStore()
+const { confirm } = useConfirmDialog()
 const searchQuery = ref('')
 const recordingFor = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -238,8 +240,16 @@ function resetBinding(commandId: string) {
   customKeybindings.value = { ...customKeybindings.value }
 }
 
-function resetAll() {
-  if (confirm('确定要重置所有快捷键为默认值吗？')) {
+async function resetAll() {
+  const ok = await confirm({
+    title: '重置快捷键',
+    message: '确定要重置所有快捷键为默认值吗？',
+    confirmText: '重置',
+    cancelText: '取消',
+    danger: true,
+  })
+
+  if (ok) {
     customKeybindings.value = {}
   }
 }

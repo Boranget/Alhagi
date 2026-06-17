@@ -175,12 +175,14 @@ import { useTabService } from '@/services/tabService'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 
 const activeTab = ref<'files' | 'folders'>('files')
 
 const prefs = usePreferencesStore()
 const fileStore = useFileExplorerStore()
 const tabService = useTabService()
+const { confirm } = useConfirmDialog()
 
 const recentFiles = computed(() => prefs.recentFiles)
 const recentFolders = computed(() => prefs.recentFolders)
@@ -208,13 +210,21 @@ function togglePinFolder(folder: RecentFolder) {
   prefs.pinRecentFolder(folder.folderPath, !folder.pinned)
 }
 
-function clearHistory() {
-  if (confirm(t('sidebar.clearHistory'))) {
-    if (activeTab.value === 'files') {
-      prefs.clearRecentFiles()
-    } else {
-      prefs.clearRecentFolders()
-    }
+async function clearHistory() {
+  const ok = await confirm({
+    title: t('sidebar.clearHistory'),
+    message: t('sidebar.clearHistory'),
+    confirmText: t('common.confirm'),
+    cancelText: t('common.cancel'),
+    danger: true,
+  })
+
+  if (!ok) return
+
+  if (activeTab.value === 'files') {
+    prefs.clearRecentFiles()
+  } else {
+    prefs.clearRecentFolders()
   }
 }
 </script>

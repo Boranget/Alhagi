@@ -131,9 +131,11 @@ import { detectDescriptor } from '@/fileTypes'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 
 const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
+const { confirm } = useConfirmDialog()
 const newItemInput = ref<HTMLInputElement | null>(null)
 
 interface ContextMenu {
@@ -418,8 +420,17 @@ async function handleRename(node: FileTreeNodeType | null) {
 async function handleDelete(node: FileTreeNodeType | null) {
   if (!node) return
 
-  const confirmMsg = node.type === 'directory' ? t('common.delete') + '文件夹?' : t('common.delete') + '文件?'
-  if (confirm(confirmMsg)) {
+  const ok = await confirm({
+    title: t('common.delete'),
+    message: node.type === 'directory'
+      ? `${t('common.delete')}文件夹「${node.name}」?`
+      : `${t('common.delete')}文件「${node.name}」?`,
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+    danger: true,
+  })
+
+  if (ok) {
     await fileStore.deleteFile(node.path)
   }
 }
