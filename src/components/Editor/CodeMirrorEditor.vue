@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { createCodeMirrorView, updateEditorTheme, EditorView, type ThemeType } from './codemirror/setup'
+import { createCodeMirrorView, updateEditorTheme, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -153,11 +153,13 @@ watch(() => props.modelValue, (newValue) => {
     const currentDoc = editorView.state.doc
     const currentLength = currentDoc.length
     const newLength = newValue.length
-    
+
     const selection = editorView.state.selection.main
     const from = Math.min(selection.from, newLength)
     const to = Math.min(selection.to, newLength)
-    
+
+    // 带 ExternalChange 标注 —— 这是"切 tab / 保存反馈" 等外部驱动的同步，
+    // 不是用户编辑。updateListener 据此跳过 onChange，避免误标 isDirty。
     editorView.dispatch({
       changes: {
         from: 0,
@@ -167,7 +169,8 @@ watch(() => props.modelValue, (newValue) => {
       selection: {
         anchor: from,
         head: to
-      }
+      },
+      annotations: ExternalChange.of(true),
     })
   }
 })

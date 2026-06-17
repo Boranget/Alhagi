@@ -382,12 +382,9 @@ export class CrepeEditorManager {
   }
 
   setViewMode(mode: ViewMode): void {
+    // 仅维护 manager 内部的当前模式；tab.viewMode 的权威写入由 useEditorView
+    // 的 currentMode computed setter 负责（per-tab 状态）。避免同一次切换双写 store。
     this.currentMode = mode
-
-    if (this.currentTabId) {
-      const tabsStore = useTabsStore()
-      tabsStore.setViewMode(this.currentTabId, mode)
-    }
   }
 
   getViewMode(): ViewMode {

@@ -63,6 +63,7 @@ export const useTabsStore = defineStore('tabs', () => {
     title?: string
     viewMode?: ViewMode
     fileType?: FileType
+    splitRatio?: number
   } = {}): TabState {
     const id = generateUUID()
     const filePath = options.filePath || null
@@ -75,6 +76,7 @@ export const useTabsStore = defineStore('tabs', () => {
       isDirty: false,
       title: options.title || generateUntitledTitle(),
       viewMode: options.viewMode || EDITOR.VIEW_MODES.WYSIWYG,
+      splitRatio: options.splitRatio ?? 50,
       fileType,
       createdAt: Date.now(),
       lastModified: Date.now(),

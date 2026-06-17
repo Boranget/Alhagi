@@ -62,6 +62,7 @@ export interface Preferences {
       content: string
       filePath: string | null
       viewMode: string
+      splitRatio?: number
       isDirty: boolean
       cursor: { from: number; to: number }
     }>

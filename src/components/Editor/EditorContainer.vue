@@ -13,11 +13,11 @@
     >
       <FloatingSearch ref="floatingSearchRef" />
 
-      <!-- 编辑器（Crepe + CodeMirror）始终保留在 DOM 中——避免切到图片/不支持文件时
-           Crepe 实例被 v-if 卸载，下次切回 markdown 标签需重新 init 造成短暂空白 + 状态丢失。
-           image / unsupported 通过绝对定位覆盖在编辑器上方，只在非编辑器文件类型时显示。 -->
+      <!-- 主编辑器外壳（Crepe + CodeMirror）始终保留在 DOM 中——避免切到辅助 viewer 时
+           Crepe 实例被 v-if 卸载、下次切回 markdown 标签需重新 init 造成短暂空白 + 状态丢失。
+           辅助 viewer（image / text / unsupported / 未来 PDF 等）通过绝对定位覆盖在编辑器上方。 -->
       <div
-        v-show="!isImageFile && !isUnsupportedFile"
+        v-show="useEditorShell"
         class="editor-shell"
       >
         <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用
@@ -35,6 +35,7 @@
             }"
             @focus="handleCrepeFocus"
             @click="handleCrepeClick"
+            @scroll="handleCrepeScroll"
           />
         </Transition>
 
@@ -70,28 +71,18 @@
         </Transition>
       </div>
 
-      <!-- 不支持的文件格式提示（覆盖层） -->
-      <div
-        v-if="isUnsupportedFile"
-        class="unsupported-file-message"
-      >
-        <Icon
-          name="file"
-          size="lg"
-          class="message-icon"
-        />
-        <h3>{{ t('editor.unsupportedFileType') }}</h3>
-        <p>{{ activeTab?.filePath }}</p>
-        <p class="hint">
-          {{ t('editor.onlyMarkdownSupported') }}
-        </p>
-      </div>
-
-      <!-- 图片文件预览（覆盖层） -->
-      <ImagePreview
-        v-if="isImageFile"
-        class="image-preview-overlay"
-        :file-path="activeTab?.filePath ?? null"
+      <!-- 辅助 viewer 覆盖层（image / text / unsupported / 未来 PDF 等）。
+           descriptor.viewer 非 null 时挂载。canSave 决定是否双向绑定 model-value。
+           tabId 透传给 viewer，viewer 可往 tab.viewerState[descriptor.id] 持久化私有状态
+           （PDF 页码 / 图片 zoom / 文本编辑器光标位置等）。 -->
+      <component
+        :is="currentDescriptor.viewer"
+        v-if="!useEditorShell && currentDescriptor.viewer && activeTab"
+        class="viewer-overlay"
+        :tab-id="activeTab.id"
+        :file-path="activeTab.filePath ?? null"
+        :model-value="currentDescriptor.canSave ? activeTab.content : undefined"
+        @update:model-value="currentDescriptor.canSave ? handleViewerChange($event) : undefined"
       />
     </div>
   </div>
@@ -105,15 +96,13 @@ import { useViewModeStore } from '@/stores/viewMode'
 import { useEditorView } from '@/composables/useEditorView'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
-import { EDITOR, FILE } from '@/constants'
+import { EDITOR } from '@/constants'
+import { getDescriptor, detectDescriptor, type FileTypeDescriptor } from '@/fileTypes'
 import type { ViewMode } from '@/types'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
-import { t } from '@/services/i18n'
-import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
 import CodeMirrorEditor from './CodeMirrorEditor.vue'
-import ImagePreview from './ImagePreview.vue'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
@@ -140,11 +129,22 @@ const unsubscribes: (() => void)[] = []
 
 const activeTab = computed(() => tabsStore.activeTab)
 
-// 文件类型分支：Crepe/CodeMirror 编辑器仅适用 fileType === 'editor'。
-// 图片走专用 ImagePreview，其它扩展名走"不支持"提示。
-// 欢迎页（无 activeTab / 无 filePath）也走 editor 分支，让 Crepe 挂载占位。
-const isImageFile = computed(() => activeTab.value?.fileType === 'image')
-const isUnsupportedFile = computed(() => activeTab.value?.fileType === 'unsupported')
+/**
+ * 当前 tab 对应的 descriptor —— 渲染分支的单一事实源。
+ *   - editor：viewer === null，走主编辑器外壳（Crepe + CodeMirror）
+ *   - 其它：viewer 非 null，作为绝对定位覆盖层渲染
+ *
+ * 欢迎页（无 activeTab）→ 默认按 editor 处理，让 Crepe 挂载占位。
+ */
+const currentDescriptor = computed<FileTypeDescriptor>(() => {
+  if (!activeTab.value) return detectDescriptor(null)
+  return getDescriptor(activeTab.value.fileType) ?? detectDescriptor(null)
+})
+
+/** 使用主编辑器外壳的条件 = descriptor 没有自己的 viewer。 */
+const useEditorShell = computed(() => currentDescriptor.value.viewer === null)
+/** 当前 viewer 是否是 markdown 主编辑器（用于"是否走 Crepe.switchToTab"）。 */
+const isMarkdownEditor = computed(() => currentDescriptor.value.id === 'editor')
 
 const containerStyle = computed(() => ({
   '--editor-scale': editorScale.value.toString()
@@ -162,11 +162,15 @@ watch(activeTab, async (tab, oldTab) => {
   if (tab) {
     const previousTabId = oldTab?.id
     
-    // 标签页切换时，保存旧标签的 CodeMirror 状态（光标和滚动位置）
+    // 标签页切换时，保存旧标签的 CodeMirror 状态（光标和滚动位置）。
+    // 只保存 markdown 且旧 tab 当前模式是 source/split 的情况；否则隐藏的
+    // CodeMirror 实例可能还停留在别的 tab 内容上，保存会覆盖错误状态。
     if (previousTabId && previousTabId !== tab.id && codeMirrorEditorRef.value) {
-      const currentState = codeMirrorEditorRef.value.getCurrentState()
       const prevTab = tabsStore.getTab(previousTabId)
-      if (prevTab) {
+      const prevUsesSource = prevTab?.fileType === 'editor' &&
+        (prevTab.viewMode === EDITOR.VIEW_MODES.SOURCE || prevTab.viewMode === EDITOR.VIEW_MODES.SPLIT)
+      if (prevTab && prevUsesSource) {
+        const currentState = codeMirrorEditorRef.value.getCurrentState()
         tabsStore.updateTab(previousTabId, {
           codeMirror: {
             ...prevTab.codeMirror,
@@ -177,23 +181,26 @@ watch(activeTab, async (tab, oldTab) => {
       }
     }
     
-    // 调用 Crepe 编辑器切换标签页 —— 仅 markdown / 欢迎页（fileType === 'editor'），
-    // 图片 / 不支持文件不需要走 Crepe 链路：
-    //   - 它们的 tab.content 是空字符串（FileExplorer 已分流）
-    //   - 即便不空，也不该灌给 Crepe（会触发 markdownUpdated → isDirty=true）
-    if (editorManager.isReady() && tab.fileType === 'editor') {
-      if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-        await editorManager.switchToTab(tab.id)
+    // 调用 Crepe 编辑器切换标签页 + 同步源码 CodeMirror —— 仅 markdown
+    // （fileType === 'editor'）。辅助 tab（image / text / unsupported / 未来 PDF）
+    // 完全不动 sourceContent / Crepe：
+    //   - 它们的 tab.content 可能是空（image）或纯文本（text），不能灌给 markdown 解析链
+    //   - 灌进去会触发 CM A 的 docChanged → 在 hasFocus 的窄窗口里误标 isDirty
+    if (tab.fileType === 'editor') {
+      if (editorManager.isReady()) {
+        if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
+          await editorManager.switchToTab(tab.id)
+        }
       }
-    }
-    
-    // 更新源码内容
-    sourceContent.value = tab.content
-    
-    // 等待 DOM 更新后，恢复新标签的 CodeMirror 状态
-    await nextTick()
-    if (codeMirrorEditorRef.value && tab.codeMirror) {
-      codeMirrorEditorRef.value.restoreState(tab.codeMirror.cursor, tab.codeMirror.scrollTop)
+      sourceContent.value = tab.content
+
+      // 等待 DOM 更新后，恢复新标签的 CodeMirror 状态。
+      // 仅 source/split 模式需要；wysiwyg 下不碰隐藏源码编辑器，避免污染状态。
+      await nextTick()
+      const usesSource = tab.viewMode === EDITOR.VIEW_MODES.SOURCE || tab.viewMode === EDITOR.VIEW_MODES.SPLIT
+      if (usesSource && codeMirrorEditorRef.value && tab.codeMirror) {
+        codeMirrorEditorRef.value.restoreState(tab.codeMirror.cursor, tab.codeMirror.scrollTop)
+      }
     }
   }
 }, { immediate: true })
@@ -212,6 +219,26 @@ const handleCrepeClick = () => {
     editorManager.focus()
   }
 }
+
+/**
+ * 实时保存 Crepe/WYSIWYG 滚动位置。
+ *
+ * 过去只在 switchToTab 时读取 scrollTop，per-tab viewMode 后该时机容易撞上
+ * v-show / split 布局切换，读到 0 或旧值。现在滚动时就写入当前 tab state，
+ * 切走前状态已经是最新，恢复更稳定。
+ */
+const handleCrepeScroll = debounce((event: unknown) => {
+  const tab = activeTab.value
+  if (!tab || tab.fileType !== 'editor') return
+  const target = (event as Event).currentTarget as HTMLElement | null
+  if (!target) return
+  tabsStore.updateTab(tab.id, {
+    crepe: {
+      ...tab.crepe,
+      scrollTop: target.scrollTop,
+    },
+  })
+}, 80)
 
 const handleCodeMirrorFocus = () => {
   editorManager.setActiveEditor('codemirror')
@@ -274,14 +301,30 @@ const handleResizerMouseUp = () => {
 
 const handleSourceContentChange = debounce((newContent: unknown) => {
   const content = newContent as string
-  if (activeTab.value && editorManager.isReady()) {
-    tabsStore.updateTab(activeTab.value.id, {
-      content: content,
-      isDirty: true,
-    })
-    editorManager.setMarkdown(content)
-  }
+  // 双重守卫：源码模式 CM 实例（A）只服务 markdown tab。
+  // 当 active 是辅助 tab（text/image/unsupported）时，CM A 仍然挂载着但隐藏，
+  // 它的 watch(modelValue) 在 sourceContent 变化时会 dispatch 修改 doc，
+  // 进而 docChanged 触发 onChange——这里直接拒绝写回，避免误标 isDirty。
+  if (!activeTab.value || activeTab.value.fileType !== 'editor') return
+  if (!editorManager.isReady()) return
+  tabsStore.updateTab(activeTab.value.id, {
+    content: content,
+    isDirty: true,
+  })
+  editorManager.setMarkdown(content)
 }, 100)
+
+/**
+ * 辅助 viewer 内容变化（仅 canSave 的 viewer 触发，如 PlainTextEditor）。
+ * 写回 store + 标脏。不调 editorManager.setMarkdown：辅助 tab 不参与 Crepe 链路。
+ */
+function handleViewerChange(content: string) {
+  if (!activeTab.value) return
+  tabsStore.updateTab(activeTab.value.id, {
+    content,
+    isDirty: true,
+  })
+}
 
 const handleWindowResize = () => {
   windowWidth.value = window.innerWidth
@@ -402,7 +445,9 @@ function handleShowSearch(e: Event) {
 function handleInsertImage() {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = FILE.IMAGE_EXTENSIONS.join(',')
+  // 从 image descriptor 拿扩展名 —— 单一事实源（fileTypes registry）
+  const imageDesc = getDescriptor('image')
+  input.accept = imageDesc?.extensions.join(',') ?? ''
   input.multiple = false
   input.onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0]
@@ -512,6 +557,17 @@ function handleInsertImage() {
   // 分屏模式样式
   &.mode-split {
     flex-direction: row;
+
+    // editor-shell 是为了保留 Crepe/CodeMirror DOM 而加的中间层；
+    // 分屏真正的三个子项（源码 / 分割条 / 预览）都在它里面，
+    // 所以 row 布局必须落在 editor-shell 上。
+    .editor-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      min-width: 0;
+      min-height: 0;
+    }
 
     .crepe.editor-split-preview {
       height: 100%;
@@ -688,46 +744,6 @@ function handleInsertImage() {
   }
 }
 
-.unsupported-file-message {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  background: var(--editor-bg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 40px;
-
-  .message-icon {
-    font-size: 64px;
-    opacity: 0.5;
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  p {
-    margin: 0;
-    font-size: 14px;
-    max-width: 500px;
-    word-break: break-all;
-  }
-
-  .hint {
-    font-size: 13px;
-    opacity: 0.7;
-    margin-top: 8px;
-  }
-}
-
 /* 编辑器外壳：把 Crepe + CodeMirror + 分屏分割线包在一起，
  * 通过 v-show 而非 v-if 切换，保持实例不被销毁。 */
 .editor-shell {
@@ -739,10 +755,14 @@ function handleInsertImage() {
   overflow: hidden;
 }
 
-/* 图片预览覆盖层：与 unsupported 同款，绝对定位填满 .editor-content。
- * 用 :deep() 是因为 .image-preview-overlay class 落在 ImagePreview 子组件的
- * 根元素上，scoped CSS 编译选择器需要穿透才能命中。 */
-:deep(.image-preview-overlay) {
+/* 辅助 viewer 覆盖层（image / text / unsupported / 未来 PDF 等）。
+ *
+ * 用 :deep() 是因为 viewer 是 dynamic <component>，class 落在子组件根元素上，
+ * scoped CSS 编译选择器需要穿透才能命中。
+ *
+ * 同时只有一个 viewer 在挂载（v-if 保证），所以 z-index 不会互相冲突；
+ * z-index:5 高于 .editor-shell 的默认堆叠，盖住底下的 Crepe。 */
+:deep(.viewer-overlay) {
   position: absolute;
   inset: 0;
   z-index: 5;

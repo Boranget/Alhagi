@@ -61,12 +61,11 @@ export const AUTO_SAVE = {
 } as const
 
 // ==================== 文件操作常量 ====================
+//
+// 注意：文件类型扩展名清单已迁到 src/fileTypes/descriptors/*。
+// 这里只保留与文件 IO 相关、不与 fileType 绑定的常量。
 
 export const FILE = {
-  // 文件类型
-  MARKDOWN_EXTENSIONS: ['.md', '.markdown', '.mdown', '.mkd', '.mkdn'],
-  IMAGE_EXTENSIONS: ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'],
-  
   // 默认路径
   DEFAULT_FOLDER: '',
   // 与主流 markdown 工具（Typora、marktext、VSCode 等）对齐用 'assets' 单层；

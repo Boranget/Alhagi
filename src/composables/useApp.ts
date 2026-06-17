@@ -131,6 +131,7 @@ export function useApp() {
       content: tab.content,
       filePath: tab.filePath,
       viewMode: tab.viewMode,
+      splitRatio: tab.splitRatio,
       isDirty: tab.isDirty,
       cursor: { from: 0, to: 0 }
     }))
@@ -148,7 +149,8 @@ export function useApp() {
         title: tabData.title,
         content: tabData.content,
         filePath: tabData.filePath ?? undefined,
-        viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split'
+        viewMode: tabData.viewMode as 'wysiwyg' | 'source' | 'split',
+        splitRatio: tabData.splitRatio ?? 50,
       })
       if (tabData.isDirty) {
         tabsStore.updateTab(tab.id, { isDirty: true })

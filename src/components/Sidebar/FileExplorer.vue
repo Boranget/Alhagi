@@ -127,7 +127,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import FileTreeNode from './FileTreeNode.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
-import { detectFileType } from '@/utils/tabHelpers'
+import { detectDescriptor } from '@/fileTypes'
 import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
@@ -223,15 +223,13 @@ async function handleSelect(node: FileTreeNodeType) {
     return
   }
 
-  // 按文件类型分流：
-  //   - editor (markdown)：UTF-8 读全文塞 tab.content，让 Crepe 渲染
-  //   - image：不读内容（ImagePreview 自己用 readBinaryFile），content 留空
-  //              避免把图片二进制当 UTF-8 读出来灌进 Crepe，污染 isDirty
-  //   - unsupported：同样不读，仅展示提示
-  const fileType = detectFileType(node.path)
+  // 按 descriptor.loadStrategy 分流：
+  //   utf8 → readFile (UTF-8) 灌 tab.content（markdown / text）
+  //   none → 不读，content 留空（image/unsupported；image viewer 自取 binary）
+  const descriptor = detectDescriptor(node.path)
   let content = ''
 
-  if (fileType === 'editor' && window.electronAPI) {
+  if (descriptor.loadStrategy === 'utf8' && window.electronAPI) {
     try {
       const response = await window.electronAPI.readFile(node.path)
       if (response?.success && response.data !== undefined) {
@@ -248,7 +246,7 @@ async function handleSelect(node: FileTreeNodeType) {
     filePath: node.path,
     content,
     title: extractTitleFromPath(node.path),
-    fileType,
+    fileType: descriptor.id,
   })
 }
 

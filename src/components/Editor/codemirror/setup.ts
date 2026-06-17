@@ -1,5 +1,5 @@
 import type { Extension } from '@codemirror/state'
-import { Compartment } from '@codemirror/state'
+import { Annotation, Compartment } from '@codemirror/state'
 import {
   autocompletion,
   closeBrackets,
@@ -37,6 +37,18 @@ import { debounce } from '@/utils/helpers'
 export type ThemeType = 'dark' | 'light'
 
 const themeCompartment = new Compartment()
+
+/**
+ * Transaction 标注：标记由"外部 modelValue 同步"驱动的 dispatch
+ * （切 tab、saveAs、其它窗口同步等），与"用户在编辑器里敲键盘"区分开。
+ *
+ * 配合 EditorView.updateListener 检查：带此标注的 transaction
+ * 不再调用 onChange，避免把外部输入当用户编辑触发 isDirty。
+ *
+ * 跟 PlainTextEditor 内部那个 ExternalChange 是同义物（PlainTextEditor 不依赖
+ * setup.ts，自己定义了一份）。两者做完全一样的事。
+ */
+export const ExternalChange = Annotation.define<boolean>()
 
 /**
  * 获取主题扩展
@@ -168,9 +180,21 @@ export const createCodeMirrorState = ({
             onBlur?.()
           }
         }
-        
-        onCodeMirrorUpdate(onChange, viewUpdate)
-        
+
+        // 仅在文档真正变化时通知外部 onChange。
+        // 否则点击 / 滚动 / 仅 selection 变化等"非编辑"update 也会被当成
+        // 内容修改，导致父组件错误地标记 tab.isDirty。
+        // 同时跳过带 ExternalChange 标注的 transaction —— 那是"切 tab 等外部
+        // 同步"产生的 doc 替换，不是用户编辑。
+        if (viewUpdate.docChanged) {
+          const fromExternal = viewUpdate.transactions.some(
+            (tr) => tr.annotation(ExternalChange) === true,
+          )
+          if (!fromExternal) {
+            onCodeMirrorUpdate(onChange, viewUpdate)
+          }
+        }
+
         if (onSelectionChange && viewUpdate.selectionSet) {
           onSelectionChange()
         }

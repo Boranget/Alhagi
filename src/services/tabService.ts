@@ -3,7 +3,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
-import { detectFileType } from '@/utils/tabHelpers'
+import { detectDescriptor } from '@/fileTypes'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
 import { electronService } from './electron/ElectronService'
@@ -34,13 +34,14 @@ export class TabService {
     }
 
     const title = extractTitleFromPath(filePath)
-    // 按文件类型分流：非 markdown（图片/不支持）不灌 content，避免污染编辑器
-    const fileType = detectFileType(filePath)
+    // 按 descriptor.loadStrategy 决定是否把 content 塞进 tab：
+    //   utf8 → 用 dialog 给的 content；none → 留空（图片自取 binary 等）
+    const descriptor = detectDescriptor(filePath)
     const tab = this.tabsStore.createTab({
       filePath,
-      content: fileType === 'editor' ? content : '',
+      content: descriptor.loadStrategy === 'utf8' ? content : '',
       title,
-      fileType,
+      fileType: descriptor.id,
     })
     this.tabsStore.switchTab(tab.id)
 
@@ -67,15 +68,15 @@ export class TabService {
     if (!electronService.isAvailable()) return null
 
     try {
-      const fileType = detectFileType(filePath)
+      const descriptor = detectDescriptor(filePath)
       let content = ''
-      if (fileType === 'editor') {
+      if (descriptor.loadStrategy === 'utf8') {
         const contentResp = await electronService.readFile(filePath)
         if (!contentResp.success || contentResp.data === undefined) return null
         content = contentResp.data
       }
       const title = extractTitleFromPath(filePath)
-      const tab = this.tabsStore.createTab({ filePath, content, title, fileType })
+      const tab = this.tabsStore.createTab({ filePath, content, title, fileType: descriptor.id })
       this.tabsStore.switchTab(tab.id)
 
       eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
@@ -108,7 +109,16 @@ export class TabService {
     if (!tab || !electronService.isAvailable()) return false
 
     const lineEnding = this.preferencesStore.lineEnding as LineEnding
-    const defaultPath = tab.title.endsWith('.md') ? tab.title : tab.title + '.md'
+    // 默认文件名：尊重 tab 已有的扩展名，否则用 descriptor.defaultExtension 补。
+    //   - tab.title 已带扩展名（无论什么后缀）→ 原样
+    //   - 没扩展名 + descriptor 给了 defaultExtension → 自动补
+    //   - 没扩展名 + descriptor.defaultExtension 为空（如 text）→ 不强加，让用户对话框里自己写
+    const hasExt = /\.[^.\\/]+$/.test(tab.title)
+    const descriptor = detectDescriptor(tab.filePath ?? null)
+    let defaultPath = tab.title
+    if (!hasExt && descriptor.defaultExtension) {
+      defaultPath = tab.title + descriptor.defaultExtension
+    }
 
     const filePathResp = await electronService.saveAsFile(tab.content, defaultPath, lineEnding)
 
@@ -117,7 +127,14 @@ export class TabService {
 
       await this.handleTempImagesOnSave(tabId, filePath)
 
-      this.tabsStore.updateTab(tabId, { filePath, title: extractTitleFromPath(filePath) })
+      // 另存为后路径变了，fileType 可能跟着变（.md 改名 .txt 或反之）。
+      // 重新算并写回 tab，让 EditorContainer 的渲染分支随之切换。
+      const newDescriptor = detectDescriptor(filePath)
+      this.tabsStore.updateTab(tabId, {
+        filePath,
+        title: extractTitleFromPath(filePath),
+        fileType: newDescriptor.id,
+      })
       this.tabsStore.markClean(tabId)
 
       this.preferencesStore.addRecentFile(filePath, tab.title)

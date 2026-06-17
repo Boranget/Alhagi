@@ -23,9 +23,8 @@ export class EditorStateManager {
     }
 
     let scrollTop: number | undefined
-    const scrollContainer = this.view.dom.closest('.crepe') as HTMLElement ||
-                           this.view.dom.parentElement?.parentElement as HTMLElement
-    
+    const scrollContainer = this.getScrollContainer()
+
     if (scrollContainer) {
       scrollTop = scrollContainer.scrollTop
     }
@@ -38,15 +37,9 @@ export class EditorStateManager {
       return
     }
 
-    if (scrollTop >= 0) {
-      const scrollContainer = this.view.dom.closest('.crepe') as HTMLElement ||
-                             this.view.dom.parentElement?.parentElement as HTMLElement
-      
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollTop
-      }
-    }
-
+    // 先恢复 selection，再恢复 scrollTop。
+    // ProseMirror setSelection 过程中浏览器可能自动 scrollIntoView，
+    // 如果先设 scrollTop 再 setSelection，会把刚恢复的滚动位置覆盖掉。
     if (cursor.from >= 0 && cursor.to >= 0 && cursor.from <= this.view.state.doc.content.size) {
       try {
         const tr = this.view.state.tr
@@ -64,6 +57,23 @@ export class EditorStateManager {
         }
       }
     }
+
+    if (scrollTop >= 0) {
+      // 放到下一帧，确保 layout/v-show/split 切换和 selection dispatch 都完成后，
+      // 最终以 tab.crepe.scrollTop 作为权威滚动位置。
+      requestAnimationFrame(() => {
+        const scrollContainer = this.getScrollContainer()
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollTop
+        }
+      })
+    }
+  }
+
+  private getScrollContainer(): HTMLElement | null {
+    if (!this.view) return null
+    return (this.view.dom.closest('.crepe') as HTMLElement | null) ||
+      (this.view.dom.parentElement?.parentElement as HTMLElement | null)
   }
 
   focus(): void {

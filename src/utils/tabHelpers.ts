@@ -1,5 +1,6 @@
 import type { TabState, ViewMode, FileType, EditorSpecificState } from '@/types'
-import { TABS, EDITOR, FILE } from '@/constants'
+import { TABS, EDITOR } from '@/constants'
+import { detectDescriptor, getRegisteredIds } from '@/fileTypes'
 
 export function createDefaultEditorState(): EditorSpecificState {
   return {
@@ -40,7 +41,11 @@ export function validateTabState(tabState: unknown): tabState is TabState {
     return false
   }
 
-  if (!['editor', 'image', 'unsupported'].includes(obj.fileType as string)) {
+  if (!getRegisteredIds().includes(obj.fileType as string)) {
+    return false
+  }
+
+  if ('splitRatio' in obj && (typeof obj.splitRatio !== 'number' || obj.splitRatio < 0 || obj.splitRatio > 100)) {
     return false
   }
 
@@ -67,26 +72,12 @@ export function validateTabState(tabState: unknown): tabState is TabState {
   return true
 }
 
+/**
+ * 路径 → FileType id。委托给 fileTypes registry —— 不再在这里维护扩展名清单。
+ * 兼容旧调用方（FileExplorer / tabService 等仍在用 detectFileType(path)）。
+ */
 export function detectFileType(filePath: string | null): FileType {
-  if (!filePath) {
-    return 'editor'
-  }
-  
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  
-  if (!ext) {
-    return 'unsupported'
-  }
-  
-  if (FILE.MARKDOWN_EXTENSIONS.some(mdExt => mdExt === `.${ext}`)) {
-    return 'editor'
-  }
-  
-  if (FILE.IMAGE_EXTENSIONS.some(imgExt => imgExt === `.${ext}`)) {
-    return 'image'
-  }
-  
-  return 'unsupported'
+  return detectDescriptor(filePath).id as FileType
 }
 
 export function createDefaultTabState(id: string): TabState {
@@ -97,6 +88,7 @@ export function createDefaultTabState(id: string): TabState {
     isDirty: false,
     title: TABS.NEW_TAB_TITLE,
     viewMode: EDITOR.VIEW_MODES.WYSIWYG,
+    splitRatio: 50,
     fileType: 'editor',
     createdAt: Date.now(),
     lastModified: Date.now(),

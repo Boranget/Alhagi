@@ -18,7 +18,10 @@ export interface TabState {
   content: string
   isDirty: boolean
   title: string
+  /** Markdown 编辑 tab 的当前视图模式（每个 tab 独立）：wysiwyg / source / split */
   viewMode: ViewMode
+  /** split 模式左右比例（每个 tab 独立，单位百分比，源码侧宽度占比）。 */
+  splitRatio: number
   fileType: FileType
   createdAt: number
   lastModified: number
@@ -33,6 +36,12 @@ export interface TabState {
   scrollTop?: number
   crepe: EditorSpecificState
   codeMirror: EditorSpecificState
+  /**
+   * 辅助 viewer 的私有状态（图片 zoom、PDF 页码等），按 descriptor.id 命名空间存放。
+   * 主编辑器外壳（fileType === 'editor'）一般不用此字段，沿用 crepe/codeMirror。
+   * 必须可 JSON 序列化，将来要进 lastSession 持久化。
+   */
+  viewerState?: Record<string, unknown>
 }
 
 export interface HistoryItem {
@@ -45,7 +54,12 @@ export interface HistoryItem {
 
 export type ViewMode = 'wysiwyg' | 'source' | 'split'
 
-export type FileType = 'editor' | 'image' | 'unsupported'
+/**
+ * 文件类型 id —— 实际合法值由 src/fileTypes 注册表决定（getRegisteredIds()）。
+ * 字符串类型故意开放：每加一个 descriptor 不需要改这里。
+ * 已知核心 id 列出来给 IDE 自动补全 + 类型友好用，但 (string & {}) 兜住其它。
+ */
+export type FileType = 'editor' | 'image' | 'text' | 'unsupported' | (string & {})
 
 export type SidebarView = 'files' | 'recent' | 'search' | 'outline'
 
