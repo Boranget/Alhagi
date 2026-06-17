@@ -171,7 +171,6 @@
 import { ref, computed } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
-import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabService } from '@/services/tabService'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
@@ -196,8 +195,9 @@ function openFile(file: RecentFile) {
 }
 
 async function openFolder(folder: RecentFolder) {
+  // openFolderByPath 内部已统一 emit FOLDER_OPENED；
+  // useFolderOpenHandler 会据此切回"文件资源管理器"页，避免这里重复 emit。
   await fileStore.openFolderByPath(folder.folderPath)
-  eventBus.emit(AppEvents.FOLDER_OPENED, { folderPath: folder.folderPath })
 }
 
 function togglePinFile(file: RecentFile) {

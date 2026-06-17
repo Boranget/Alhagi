@@ -6,6 +6,7 @@ import { getDispatcher } from '../dispatcher'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useLayoutStore } from '@/stores/layout'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
@@ -19,6 +20,7 @@ export function initCommandHandlers(): void {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const layoutStore = useLayoutStore()
+  const fileStore = useFileExplorerStore()
   const tabService = useTabService()
 
   // ========================================
@@ -40,10 +42,11 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('file.openFolder', async () => {
-    const api = electronService.getAPI()
-    if (api) {
-      await api.openFolder()
-    }
+    // 所有打开文件夹入口统一走 fileExplorerStore.openFolder：
+    //   1. 更新 currentFolder/fileTree
+    //   2. 写最近文件夹
+    //   3. emit FOLDER_OPENED → useFolderOpenHandler 自动切到侧边栏 files 页
+    await fileStore.openFolder()
   })
 
   dispatcher.register('file.save', () => {

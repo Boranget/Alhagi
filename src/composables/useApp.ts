@@ -4,6 +4,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { useAutoSave } from '@/composables/useAutoSave'
+import { useFolderOpenHandler } from '@/composables/useFolderOpenHandler'
 import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
@@ -28,6 +29,10 @@ export function useApp() {
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
 
   useAutoSave()
+  // 打开文件夹成功后，自动切回侧边栏"文件资源管理器"页。
+  // fileExplorerStore.openFolder/openFolderByPath 都统一 emit FOLDER_OPENED，
+  // 这里集中监听，保证最近文件夹、欢迎页、命令面板等所有入口行为一致。
+  useFolderOpenHandler()
 
   const setupEventListeners = () => {
     const unsubscribers: (() => void)[] = []
