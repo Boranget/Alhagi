@@ -498,6 +498,15 @@ export const COMMANDS: CommandEntry[] = [
     menuGroup: 2,
   },
   {
+    id: 'view.splitMode',
+    category: 'view',
+    label: 'commands.view.splitMode',
+    description: '切换到分屏模式',
+    executionContext: 'editor',
+    when: ['hasOpenFile'],
+    menuGroup: 2,
+  },
+  {
     id: 'view.toggleTheme',
     category: 'view',
     label: 'commands.view.toggleTheme',

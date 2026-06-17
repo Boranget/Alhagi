@@ -50,7 +50,7 @@ export function buildMenuTemplate(opts: BuildOptions): MenuItemConstructorOption
   const template: MenuItemConstructorOptions[] = []
 
   for (const [category, commands] of grouped) {
-    const submenu = buildSubmenu(commands, { language, platform, windowManager, t })
+    const submenu = buildSubmenu(commands, { language, platform, windowManager, t }, category)
     if (submenu.length === 0) continue
     template.push({
       label: t(CATEGORY_LABELS[category]),
@@ -83,8 +83,13 @@ interface SubmenuCtx {
 
 function buildSubmenu(
   commands: CommandEntry[],
-  ctx: SubmenuCtx
+  ctx: SubmenuCtx,
+  category?: CommandCategory,
 ): MenuItemConstructorOptions[] {
+  if (category === 'view') {
+    return buildViewSubmenu(commands, ctx)
+  }
+
   const out: MenuItemConstructorOptions[] = []
   let lastGroup: number | undefined
 
@@ -100,6 +105,79 @@ function buildSubmenu(
   }
 
   return out
+}
+
+function buildViewSubmenu(commands: CommandEntry[], ctx: SubmenuCtx): MenuItemConstructorOptions[] {
+  const byId = new Map(
+    commands
+      .filter(cmd => !isHiddenOnPlatform(cmd, ctx.platform))
+      .map(cmd => [cmd.id, cmd])
+  )
+
+  const item = (id: string): MenuItemConstructorOptions | null => {
+    const cmd = byId.get(id)
+    return cmd ? buildItem(cmd, ctx) : null
+  }
+  const items = (ids: string[]): MenuItemConstructorOptions[] => ids
+    .map(id => item(id))
+    .filter((entry): entry is MenuItemConstructorOptions => entry !== null)
+  const submenu = (labelKey: string, ids: string[]): MenuItemConstructorOptions | null => {
+    const children = items(ids)
+    if (children.length === 0) return null
+    return { label: ctx.t(labelKey), submenu: children }
+  }
+
+  const out: MenuItemConstructorOptions[] = []
+  const push = (entry: MenuItemConstructorOptions | null): void => {
+    if (entry) out.push(entry)
+  }
+  const separator = (): void => {
+    if (out.length > 0 && out[out.length - 1].type !== 'separator') {
+      out.push({ type: 'separator' })
+    }
+  }
+
+  push(submenu('menu.view.layout', [
+    'view.toggleSidebar',
+    'view.toggleTabBar',
+    'view.toggleStatusBar',
+  ]))
+
+  push(submenu('menu.view.editorMode', [
+    'view.wysiwygMode',
+    'view.toggleSourceMode',
+    'view.splitMode',
+  ]))
+
+  separator()
+  push(item('view.toggleTheme'))
+  push(submenu('menu.view.zoom', [
+    'view.zoomIn',
+    'view.zoomOut',
+    'view.resetZoom',
+  ]))
+
+  separator()
+  push(submenu('menu.view.windowMode', [
+    'view.fullscreen',
+    'view.stickyNoteMode',
+    'view.immersiveMode',
+  ]))
+  push(submenu('menu.view.writing', [
+    'view.focusMode',
+    'view.typewriterMode',
+  ]))
+  push(submenu('menu.view.tabs', [
+    'view.nextTab',
+    'view.prevTab',
+  ]))
+
+  separator()
+  push(item('view.devTools'))
+
+  return out.filter((entry, index, arr) =>
+    entry.type !== 'separator' || (index > 0 && index < arr.length - 1 && arr[index + 1].type !== 'separator')
+  )
 }
 
 function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptions {
@@ -122,7 +200,12 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
     return {
       label,
       accelerator,
-      click: () => mainHandler({ windowManager: ctx.windowManager }),
+      click: (_item, focusedWindow) => {
+        mainHandler({
+          windowManager: ctx.windowManager,
+          windowId: focusedWindow instanceof BrowserWindow ? focusedWindow.id : undefined,
+        })
+      },
     }
   }
 

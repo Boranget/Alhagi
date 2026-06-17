@@ -270,20 +270,26 @@ export function initCommandHandlers(): void {
     layoutStore.toggleStatusBar()
   })
 
+  function changeMarkdownViewMode(mode: 'wysiwyg' | 'source' | 'split'): void {
+    const tab = tabsStore.activeTab
+    if (!tab || tab.fileType !== 'editor') return
+
+    // 通过 eventBus 转发：useApp 监听器调 tabsStore.updateTab（会触发 TAB_UPDATED），
+    // 比直接 setViewMode 更完整地保留下游订阅。
+    eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode })
+  }
+
   dispatcher.register('view.toggleSourceMode', () => {
-    if (tabsStore.activeTabId) {
-      const currentMode = tabsStore.activeTab?.viewMode
-      const newMode = currentMode === 'source' ? 'wysiwyg' : 'source'
-      // 通过 eventBus 转发：useApp 监听器调 tabsStore.updateTab（会触发 TAB_UPDATED），
-      // 比直接 setViewMode 更完整地保留下游订阅。
-      eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: newMode })
-    }
+    const currentMode = tabsStore.activeTab?.viewMode
+    changeMarkdownViewMode(currentMode === 'source' ? 'wysiwyg' : 'source')
   })
 
   dispatcher.register('view.wysiwygMode', () => {
-    if (tabsStore.activeTabId) {
-      eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: 'wysiwyg' })
-    }
+    changeMarkdownViewMode('wysiwyg')
+  })
+
+  dispatcher.register('view.splitMode', () => {
+    changeMarkdownViewMode('split')
   })
 
   dispatcher.register('view.toggleTheme', () => {

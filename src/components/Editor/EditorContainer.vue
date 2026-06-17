@@ -249,6 +249,8 @@ const handleCodeMirrorBlur = () => {
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
+  if (!activeTab.value || activeTab.value.fileType !== 'editor') return
+
   const prevMode = currentMode.value
   
   if (mode === prevMode) {
