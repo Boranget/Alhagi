@@ -2,6 +2,7 @@
   <Transition name="slide-down">
     <div
       v-if="isVisible"
+      ref="searchBarRef"
       class="search-bar"
       @click.stop="noop"
     >
@@ -46,7 +47,7 @@
               type="text"
               class="search-input"
               :placeholder="t('search.searchPlaceholder')"
-              @input="handleSearchInput"
+              @input="handleSearchInputSafely"
               @keydown.enter="handleEnter"
               @keydown.escape="handleClose"
               @keydown.up.prevent="navigatePrev"
@@ -205,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { t } from '@/services/i18n'
 import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 
@@ -227,7 +228,26 @@ const {
 } = useWorkspaceSearch()
 
 const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchBarRef = ref<HTMLElement | null>(null)
 const showReplace = ref(false)
+let selectionBeforeSearch: { start: number | null; end: number | null; direction: 'forward' | 'backward' | 'none' | null } | null = null
+
+// 监听命令系统发送的搜索事件
+function handleShowSearch(event: CustomEvent) {
+  if (event.detail?.showReplace) {
+    showWithReplace()
+  } else {
+    showFloating()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('editor:showSearch', handleShowSearch as EventListener)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('editor:showSearch', handleShowSearch as EventListener)
+})
 
 const searchErrorMsg = computed(() => {
   if (!options.regex || !searchQuery.value) return ''
@@ -260,6 +280,29 @@ const toggleOption = (option: BooleanOptions) => {
   performSearch()
 }
 
+function restoreSearchInputSelection(selection = selectionBeforeSearch) {
+  const input = searchInputRef.value
+  if (!input || document.activeElement !== input || !selection) return
+
+  input.setSelectionRange(selection.start, selection.end, selection.direction ?? 'none')
+}
+
+function handleSearchInputSafely(event: Event) {
+  const input = event.target as HTMLInputElement
+  selectionBeforeSearch = {
+    start: input.selectionStart,
+    end: input.selectionEnd,
+    direction: input.selectionDirection,
+  }
+
+  handleSearchInput()
+
+  // 搜索高亮会移动编辑器内部 selection。输入框仍聚焦时，恢复用户正在输入的光标，
+  // 避免「输入 1 → 1 被选中 → 继续输入 23 变成 23」这种覆盖。
+  requestAnimationFrame(() => restoreSearchInputSelection())
+  window.setTimeout(() => restoreSearchInputSelection(), 340)
+}
+
 const handleEnter = (event: KeyboardEvent) => {
   if (event.shiftKey) {
     navigatePrev()
@@ -270,22 +313,37 @@ const handleEnter = (event: KeyboardEvent) => {
 
 const handleClose = () => {
   hide()
+  showReplace.value = false
+}
+
+function showFloating() {
+  show('floating')
+}
+
+function showWithReplace() {
+  showReplace.value = true
+  show('floating')
 }
 
 const noop = () => {}
 
-// 当搜索框显示时聚焦输入框
+// 当搜索框显示时聚焦输入框。之后不锁焦点：用户点击编辑器后应能像 VS Code 一样继续编辑。
 watch(isVisible, (newVal) => {
   if (newVal) {
     nextTick(() => {
-      searchInputRef.value?.focus()
+      searchInputRef.value?.focus({ preventScroll: true })
+      const end = searchInputRef.value?.value.length ?? 0
+      searchInputRef.value?.setSelectionRange(end, end)
     })
+  } else {
+    selectionBeforeSearch = null
   }
 })
 
 defineExpose({
-  show,
-  hide,
+  show: showFloating,
+  showWithReplace,
+  hide: handleClose,
   searchQuery
 })
 </script>

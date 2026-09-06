@@ -12,8 +12,8 @@
           role="dialog"
           aria-modal="true"
           tabindex="-1"
-          @keydown.esc.prevent="close(false)"
           :style="dialogStyle"
+          @keydown.esc.prevent="close(false)"
           @keydown.enter.self.prevent="close(true)"
         >
           <div
@@ -21,7 +21,10 @@
             @pointerdown="startDrag"
             @dragstart.prevent
           >
-            <span class="dialog-mark" aria-hidden="true" />
+            <span
+              class="dialog-mark"
+              aria-hidden="true"
+            />
             <h3>{{ state.title }}</h3>
           </div>
           <p>{{ state.message }}</p>

@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
     "format": "prettier --write src/",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.2",
@@ -38,21 +43,25 @@
     "vue": "^3.4.21"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
     "@typescript-eslint/parser": "^7.3.1",
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/test-utils": "^2.5.0",
     "electron": "42.1.0",
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.0",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.23.0",
+    "happy-dom": "^20.14.0",
     "prettier": "^3.2.5",
     "sass": "^1.72.0",
     "typescript": "^5.4.3",
     "vite": "^8.0.13",
     "vite-plugin-electron": "^1.0.0-beta.11",
     "vite-plugin-electron-renderer": "^0.14.7",
+    "vitest": "^5.0.0",
     "vue-tsc": "^2.0.7"
   },
   "build": {

@@ -41,9 +41,15 @@
                 :value="prefsStore.launchMode"
                 @change="onSelect('launchMode', $event)"
               >
-                <option value="last-session">恢复上次状态</option>
-                <option value="welcome">欢迎页</option>
-                <option value="empty">空白编辑器</option>
+                <option value="last-session">
+                  恢复上次状态
+                </option>
+                <option value="welcome">
+                  欢迎页
+                </option>
+                <option value="empty">
+                  空白编辑器
+                </option>
               </select>
             </div>
           </div>
@@ -88,9 +94,15 @@
                 :value="prefsStore.theme"
                 @change="onSelect('theme', $event)"
               >
-                <option value="light">浅色</option>
-                <option value="dark">深色</option>
-                <option value="system">跟随系统</option>
+                <option value="light">
+                  浅色
+                </option>
+                <option value="dark">
+                  深色
+                </option>
+                <option value="system">
+                  跟随系统
+                </option>
               </select>
             </div>
 
@@ -204,8 +216,12 @@
                 :value="prefsStore.lineEnding"
                 @change="onSelect('lineEnding', $event)"
               >
-                <option value="lf">LF (Unix)</option>
-                <option value="crlf">CRLF (Windows)</option>
+                <option value="lf">
+                  LF (Unix)
+                </option>
+                <option value="crlf">
+                  CRLF (Windows)
+                </option>
               </select>
             </div>
           </div>
@@ -222,9 +238,15 @@
                 :value="prefsStore.imageInsertMode"
                 @change="onSelect('imageInsertMode', $event)"
               >
-                <option value="keep-original">{{ t('settings.keepOriginal') }}</option>
-                <option value="copy-absolute">{{ t('settings.copyAbsolute') }}</option>
-                <option value="copy-relative">{{ t('settings.copyRelative') }}</option>
+                <option value="keep-original">
+                  {{ t('settings.keepOriginal') }}
+                </option>
+                <option value="copy-absolute">
+                  {{ t('settings.copyAbsolute') }}
+                </option>
+                <option value="copy-relative">
+                  {{ t('settings.copyRelative') }}
+                </option>
               </select>
             </div>
 
@@ -274,7 +296,9 @@
                 <p class="help-text">
                   设置相对于当前文档的图片保存位置。留空则使用默认路径（assets）。
                 </p>
-                <p class="help-label">可用变量：</p>
+                <p class="help-label">
+                  可用变量：
+                </p>
                 <div class="path-variables">
                   <code>{filename}</code> - 原文件名（不含扩展名）
                   <code>{filedir}</code> - 当前文档所在目录
@@ -282,7 +306,9 @@
                   <code>{time}</code> - 当前时间（格式：14-30-00）
                   <code>{datetime}</code> - 日期时间组合
                 </div>
-                <p class="help-label">示例：</p>
+                <p class="help-label">
+                  示例：
+                </p>
                 <div class="path-examples">
                   <p><code>assets</code> - 保存到文档同目录的 assets 文件夹</p>
                   <p><code>images/{date}</code> - 按日期分组的图片文件夹</p>
@@ -310,8 +336,12 @@
                 :value="prefsStore.language"
                 @change="onSelect('language', $event)"
               >
-                <option value="zh-CN">简体中文</option>
-                <option value="en">English</option>
+                <option value="zh-CN">
+                  简体中文
+                </option>
+                <option value="en">
+                  English
+                </option>
               </select>
             </div>
           </div>

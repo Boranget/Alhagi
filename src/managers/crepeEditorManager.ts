@@ -1,77 +1,19 @@
-import { Crepe } from '@milkdown/crepe'
-import { editorViewCtx, parserCtx } from '@milkdown/kit/core'
-import { InitReady, remarkPluginsCtx, remarkStringifyOptionsCtx } from '@milkdown/core'
-import type { MilkdownPlugin } from '@milkdown/ctx'
-import { $prose } from '@milkdown/kit/utils'
+import { Crepe, CrepeFeature } from '@milkdown/crepe'
+import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/kit/core'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
-import { uploadConfig } from '@milkdown/kit/plugin/upload'
 import { Slice } from '@milkdown/kit/prose/model'
 import { Selection } from '@milkdown/kit/prose/state'
-import { Plugin } from '@milkdown/kit/prose/state'
-import { EditorStateManager } from './EditorStateManager'
-import { EditorCommands } from './EditorCommands'
-import { resolveImageToDisplayUrl, debounce } from '@/utils/helpers'
+import { getMarkdown } from '@milkdown/kit/utils'
+import { eclipse } from '@uiw/codemirror-theme-eclipse'
+import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
+import { debounce } from '@/utils/helpers'
 import { generateSlug } from '@/utils/headings'
-import { useEditorSearchManager, getSearchPlugin } from '@/managers/EditorSearchManager'
-import { focusModePlugin } from '@/plugins/focusModePlugin'
-import { inlineMarksPlugin } from '@/plugins/inlineMarksPlugin'
-import { taskListPlugin } from '@/plugins/taskListPlugin'
-import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
-import { NativeClipboardImage } from '@/services/image/NativeClipboardImage'
-import remarkHighlight from '@/plugins/remarkHighlight'
-import remarkSuperSub from '@/plugins/remarkSuperSub'
-import { frontmatterFeature } from '@/plugins/frontmatter'
-import type { EditorView } from '@milkdown/kit/prose/view'
-import { createCustomCodeMirrorPlugin } from '@/components/Editor/codemirror/customCodeMirrorPlugin'
-import { codeBlockConfig } from '@milkdown/kit/component/code-block'
-
-const imagePathPlugin = $prose(() => new Plugin({
-  view(editorView: EditorView) {
-    requestAnimationFrame(() => {
-      fixImageSources(editorView.dom)
-    })
-
-    return {
-      update() {
-        fixImageSources(editorView.dom)
-      }
-    }
-  }
-}))
-
-function fixImageSources(dom: Element): void {
-  const tabsStore = useTabsStore()
-  const activeTab = tabsStore.activeTab
-  const mdFilePath = activeTab?.filePath || ''
-
-  const imgs = dom.querySelectorAll('img')
-  imgs.forEach((img) => {
-    const src = img.getAttribute('src')
-    if (!src) return
-    const resolved = resolveImageToDisplayUrl(src, mdFilePath)
-    if (resolved !== src) {
-      img.src = resolved
-    }
-  })
-}
-
-/**
- * MilkdownPlugin: 注册 remark 解析插件，将 ==text== / ^text^ / ~text~ 解析为 AST 节点
- */
-const inlineMarksParsersPlugin: MilkdownPlugin = (ctx) => async () => {
-  await ctx.wait(InitReady)
-  ctx.update(remarkPluginsCtx, (rp) => [
-    ...rp,
-    { plugin: remarkHighlight, options: {} },
-    { plugin: remarkSuperSub, options: {} },
-  ])
-}
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -83,17 +25,13 @@ export class CrepeEditorManager {
   private isInitialized = false
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
-  private editorView: EditorView | null = null
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
-  private searchManager = useEditorSearchManager()
-  private stateManager = new EditorStateManager()
-  readonly commands = new EditorCommands()
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
   }
 
-  setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
+setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.activeEditor = editor
     eventBus.emit(AppEvents.ACTIVE_EDITOR_CHANGED, { editor })
   }
@@ -102,176 +40,86 @@ export class CrepeEditorManager {
     return this.activeEditor
   }
 
+  getView(): import('@milkdown/kit/prose/view').EditorView | null {
+    if (!this.crepe || !this.isInitialized) return null
+    let view: import('@milkdown/kit/prose/view').EditorView | null = null
+    this.crepe.editor.action((ctx) => {
+      view = ctx.get(editorViewCtx)
+    })
+    return view
+  }
+
+  /**
+   * 注册光标变化回调，供大纲组件使用
+   */
   onCursorChange(handler: (from: number, to: number) => void): void {
     this.cursorChangeHandler = handler
   }
 
-  /**
-   * 获取 ProseMirror EditorView 实例
-   * 用于打字机模式等需要访问编辑器 DOM 的场景
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getEditorView(): EditorView | null {
-    return this.editorView
-  }
-
-  /**
-   * 获取编辑器滚动容器
-   */
-  getContainer(): HTMLElement | null {
-    return this.container
-  }
-
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
-    console.log('[CrepeEditorManager] init 开始执行', {
-      container,
-      containerExists: !!container,
-      initialContentLength: initialContent?.length,
-      tabId
-    })
-
     if (!container) {
-      console.error('[CrepeEditorManager] init 失败：container 为空')
+      console.error('[CrepeEditorManager] Container is undefined, cannot initialize')
       return
     }
 
     const startTime = performance.now()
-    console.log('[CrepeEditorManager] 开始初始化...')
 
+    this.content = initialContent
     this.currentTabId = tabId || null
     this.container = container
-    this.content = initialContent
 
-    console.log('[CrepeEditorManager] 正在创建 Crepe 实例...')
-    try {
-      this.crepe = new Crepe({
-        root: container,
-        defaultValue: initialContent,
-        features: {
-          [Crepe.Feature.BlockEdit]: false,
-          [Crepe.Feature.CodeMirror]: false, // 禁用默认的 CodeMirror 功能
-          [Crepe.Feature.LinkTooltip]: true,
-          [Crepe.Feature.Table]: true,
-          [Crepe.Feature.Toolbar]: false,
-          [Crepe.Feature.Placeholder]: true,
-          [Crepe.Feature.Cursor]: false,
-          [Crepe.Feature.ImageBlock]: false,
-          [Crepe.Feature.Latex]: false,
+    const isDark = this.isDarkMode()
+    
+    this.crepe = new Crepe({
+      root: container,
+      defaultValue: initialContent,
+      features: {
+        [Crepe.Feature.BlockEdit]: false,
+        [Crepe.Feature.CodeMirror]: true,
+        [Crepe.Feature.LinkTooltip]: true,
+        [Crepe.Feature.Table]: true,
+        [Crepe.Feature.Toolbar]: false,
+        [Crepe.Feature.Placeholder]: true,
+        [Crepe.Feature.Cursor]: false,
+      },
+      featureConfigs: {
+        [Crepe.Feature.CodeMirror]: {
+          theme: isDark ? undefined : eclipse,
         },
-      })
-      console.log('[CrepeEditorManager] Crepe 实例创建成功')
-    } catch (error) {
-      console.error('[CrepeEditorManager] Crepe 实例创建失败:', error)
-      throw error
-    }
+      },
+    })
 
-    console.log('[CrepeEditorManager] 正在配置插件...')
-    try {
-      this.crepe.editor
-        .config((ctx) => {
-          console.log('[CrepeEditorManager] config 回调执行中')
-          
-          ctx.get(listenerCtx).markdownUpdated(
-            debounce((...args: unknown[]) => {
-              const markdown = args[1] as string
-              this.handleMarkdownUpdate(markdown)
-            }, 200)
-          )
+    this.crepe.editor
+      .config((ctx) => {
+        ctx.get(listenerCtx).markdownUpdated(
+          debounce((...args: unknown[]) => {
+            const markdown = args[1] as string
+            this.handleMarkdownUpdate(markdown)
+          }, 200)
+        )
 
-          ctx.get(listenerCtx).updated((ctx) => {
-            try {
-              const view = ctx.get(editorViewCtx)
-              this.editorView = view
-              this.stateManager.attach(view)
-              const { from, to } = view.state.selection
-              this.emitCursorChange(from, to)
-            } catch {
-              // 初始化时可能还拿不到 view
-            }
-          })
-
-          // 配置 remark stringify handlers，使 highlight/superscript/subscript 正确序列化为 markdown 语法。
-          // 同时把 thematicBreak 的字符设为 '-'，让正文 hr 输出 `---` 而非默认的 `***`。
-          ctx.update(remarkStringifyOptionsCtx, (options) => ({
-            ...options,
-            rule: '-' as const,
-            handlers: {
-              ...options.handlers,
-              highlight: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
-                const value = state.containerPhrasing(node, { ...info, before: '=', after: '=' })
-                return `==${value}==`
-              },
-              superscript: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
-                const value = state.containerPhrasing(node, { ...info, before: '^', after: '^' })
-                return `^${value}^`
-              },
-              subscript: (node: Record<string, unknown>, _parent: unknown, state: { containerPhrasing: (node: Record<string, unknown>, info: Record<string, string>) => string }, info: Record<string, string>) => {
-                const value = state.containerPhrasing(node, { ...info, before: '~', after: '~' })
-                return `~${value}~`
-              },
-            },
-          }))
-
-          // 接管 Crepe upload plugin：Crepe builder 默认的 uploader 用
-          // URL.createObjectURL(file) 生成 blob URL，markdown 会写 `blob:http://...`
-          // 这种临时引用——重启编辑器就失效。
-          // 改为走我们的 ImageInsertOrchestrator.resolveOnly：按用户选择的模式
-          // （keep-original / copy-absolute / copy-relative）真正落盘并返回最终 path。
-          // 大图（>1MB）走主进程 clipboard.readImage() 拿 base64 直传，避免渲染端
-          // FileReader 同步阻塞 + 双重编码。
-          ctx.update(uploadConfig.key, (prev) => ({
-            ...prev,
-            uploader: async (files, schema) => {
-              const imgs: File[] = []
-              for (let i = 0; i < files.length; i++) {
-                const f = files.item(i)
-                if (f && f.type.includes('image')) imgs.push(f)
-              }
-              const nodeType = schema.nodes['image-block'] ?? schema.nodes['image']
-              if (!nodeType) return []
-              const orch = useImageInsertOrchestrator()
-              const nodes = await Promise.all(imgs.map(async (file) => {
-                // 大文件走主进程原生路径加速：拿到 ImageSource（File 或 {base64}），
-                // orchestrator.resolveOnly 直接消费，不再 atob 重建 File
-                const source = await NativeClipboardImage.maybeUpgrade(file)
-                const src = await orch.resolveOnly(source)
-                if (!src) return null
-                return nodeType.createAndFill({ src, alt: file.name.replace(/\.[^.]+$/, '') })
-              }))
-              return nodes.filter((n): n is NonNullable<typeof n> => n !== null)
-            },
-          }))
+        // 监听编辑器更新（包括光标/选区变化）
+        ctx.get(listenerCtx).updated((ctx) => {
+          try {
+            const view = ctx.get(editorViewCtx)
+            const { from, to } = view.state.selection
+            this.emitCursorChange(from, to)
+          } catch {
+            // 初始化时可能还拿不到 view
+          }
         })
-        .use(listener)
-        .use(getSearchPlugin())
-        .use(imagePathPlugin)
-        .use(focusModePlugin)
-        .use(inlineMarksPlugin)
-        .use(taskListPlugin)
-        .use(inlineMarksParsersPlugin)
-        .use(frontmatterFeature)
-        .use(codeBlockConfig) // 注册 codeBlockConfig ctx（CodeMirror view 由自定义插件提供）
-        .use(createCustomCodeMirrorPlugin()) // 使用自定义 CodeMirror 插件
-    } catch (error) {
-      console.error('[CrepeEditorManager] 配置插件失败:', error)
-      throw error
-    }
+      })
+      .use(listener)
 
-    console.log('[CrepeEditorManager] 正在调用 create()...')
     try {
       await this.crepe.create()
-      console.log('[CrepeEditorManager] crepe.create() 执行成功')
     } catch (error) {
-      console.error('[CrepeEditorManager] crepe.create() 失败:', error)
+      console.error('[CrepeEditorManager] crepe.create() failed:', error)
       throw error
     }
-    
-    this.commands.setCrepe(this.crepe)
-    this.searchManager.init(this.crepe.editor)
-    this.isInitialized = true
 
+    this.isInitialized = true
     const initTime = performance.now() - startTime
-    console.log(`[CrepeEditorManager] 初始化完成，耗时 ${initTime.toFixed(2)}ms`)
 
     if (this.currentTabId) {
       eventBus.emit(AppEvents.EDITOR_READY, { tabId: this.currentTabId })
@@ -282,20 +130,22 @@ export class CrepeEditorManager {
 
   getMarkdown(): string {
     if (!this.crepe || !this.isInitialized) {
+      console.warn('[CrepeEditorManager] Cannot get markdown: Crepe not initialized')
       return this.content
     }
 
     try {
-      // frontmatter 已是一等公民节点，序列化器直接产出 ---...--- 形态，无需后处理
       const markdown = this.crepe.getMarkdown()
       return markdown || this.content
     } catch (error) {
+      console.error('[CrepeEditorManager] Failed to get markdown:', error)
       return this.content
     }
   }
 
   async setMarkdown(content: string): Promise<void> {
     if (!this.crepe) {
+      console.warn('[CrepeEditorManager] Cannot set markdown: Crepe not initialized')
       return
     }
 
@@ -310,15 +160,17 @@ export class CrepeEditorManager {
     this.isUpdatingContent = true
     this.content = content
 
+    const startTime = performance.now()
+
     try {
       this.crepe.editor.action((ctx) => {
         try {
           const view = ctx.get(editorViewCtx)
           const parser = ctx.get(parserCtx)
-          // remark-frontmatter 已注册，parser 直接消费 ---...--- 产出 frontmatter 节点
           const doc = parser(content)
 
           if (!doc) {
+            console.error('[CrepeEditorManager] Failed to parse markdown')
             return
           }
 
@@ -333,23 +185,21 @@ export class CrepeEditorManager {
           )
 
           const docSize = doc.content.size
-          if (docSize <= 2) {
-            tr = tr.setSelection(Selection.near(tr.doc.resolve(1)))
-          } else {
-            const safeFrom = Math.max(0, Math.min(from, docSize - 2))
-            tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
-          }
+          const safeFrom = Math.min(from, docSize - 2)
+          tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
           view.dispatch(tr)
         } catch (innerError) {
-          // Silent fail - ignore selection reset errors
+          console.error('[CrepeEditorManager] Error updating editor:', innerError)
         }
       })
+
+      const setTime = performance.now() - startTime
 
       if (this.currentTabId) {
         this.contentCache.set(this.currentTabId, content)
       }
     } catch (error) {
-      // Silent fail - content update errors
+      console.error('[CrepeEditorManager] Failed to set markdown:', error)
     } finally {
       this.isUpdatingContent = false
     }
@@ -357,6 +207,7 @@ export class CrepeEditorManager {
 
   getHTML(): string {
     if (!this.crepe || !this.isInitialized) {
+      console.warn('[CrepeEditorManager] Cannot get HTML: Crepe not initialized')
       return ''
     }
 
@@ -372,19 +223,23 @@ export class CrepeEditorManager {
             }
           }
         } catch (innerError) {
-          // Silent fail - ignore inner errors
+          console.error('[CrepeEditorManager] Failed to get editor view context:', innerError)
         }
       })
       return html
     } catch (error) {
+      console.error('[CrepeEditorManager] Failed to get HTML:', error)
       return ''
     }
   }
 
   setViewMode(mode: ViewMode): void {
-    // 仅维护 manager 内部的当前模式；tab.viewMode 的权威写入由 useEditorView
-    // 的 currentMode computed setter 负责（per-tab 状态）。避免同一次切换双写 store。
     this.currentMode = mode
+
+    if (this.currentTabId) {
+      const tabsStore = useTabsStore()
+      tabsStore.setViewMode(this.currentTabId, mode)
+    }
   }
 
   getViewMode(): ViewMode {
@@ -393,6 +248,7 @@ export class CrepeEditorManager {
 
   async switchToTab(tabId: string): Promise<void> {
     if (!this.crepe) {
+      console.warn('[CrepeEditorManager] Cannot switch tab: Crepe not initialized')
       return
     }
     
@@ -404,26 +260,11 @@ export class CrepeEditorManager {
     const tab = tabsStore.tabs.get(tabId)
 
     if (!tab) {
+      console.error(`[CrepeEditorManager] Tab not found: ${tabId}`)
       return
     }
 
     const previousTabId = this.currentTabId
-    
-    // 在切换前保存当前状态
-    if (previousTabId && this.isInitialized) {
-      const currentState = this.getCurrentEditorState()
-      const prevTab = tabsStore.getTab(previousTabId)
-      if (prevTab) {
-        tabsStore.updateTab(previousTabId, {
-          crepe: {
-            ...prevTab.crepe,
-            cursor: currentState.cursor || prevTab.crepe.cursor,
-            scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.crepe.scrollTop
-          }
-        })
-      }
-    }
-
     this.currentTabId = tabId
     this.currentMode = tab.viewMode
 
@@ -432,9 +273,6 @@ export class CrepeEditorManager {
     } else {
       this.content = tab.content
     }
-
-    // 切换后立即恢复新标签的状态
-    await this.restoreEditorState(tab.crepe.cursor, tab.crepe.scrollTop)
 
     eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })
   }
@@ -451,7 +289,6 @@ export class CrepeEditorManager {
     this.isInitialized = false
     this.cursorChangeHandler = null
     this.contentCache.clear()
-    this.stateManager.detach()
 
     eventBus.emit(AppEvents.EDITOR_DESTROYED, { tabId: this.currentTabId })
   }
@@ -460,36 +297,37 @@ export class CrepeEditorManager {
     return this.isInitialized && this.crepe !== null
   }
 
-  focus(): void {
-    if (!this.isInitialized) {
-      return
-    }
-    this.stateManager.focus()
-  }
-
-  async restoreEditorState(cursor: { from: number; to: number }, scrollTop: number): Promise<void> {
-    if (!this.isInitialized) return
-
-    await new Promise(resolve => setTimeout(resolve, 50))
-    this.stateManager.restoreState(cursor, scrollTop)
-  }
-
+  /**
+   * 在 ProseMirror/WYSIWYG 编辑器中滚动到指定标题
+   * 
+   * 实现原理（参考 MarkText/Typora）：
+   * 1. 直接使用 ProseMirror 节点位置（pos）定位
+   * 2. 通过 ProseMirror 的 nodeDOM API 找到标题对应的 DOM 元素
+   * 3. 定位到真正的滚动容器（.editor-wysiwyg 或 .editor-split-preview）
+   * 4. 计算标题相对于滚动容器的位置
+   * 5. 使用 scrollTo 执行平滑滚动
+   * 
+   * @param text - 标题文本内容（仅用于日志，不参与定位）
+   * @param line - 标题所在行号（仅用于日志，不参与定位）
+   * @param pos - ProseMirror 节点位置（必需，用于精确定位）
+   */
   scrollToHeading(text: string, line: number, pos?: number): void {
     if (!this.crepe || !this.isInitialized) return
     
+    // pos 是必需的，如果没有提供则无法定位
     if (pos === undefined || pos < 0) {
+      console.warn('[CrepeEditorManager] scrollToHeading: pos is required but not provided')
       return
     }
 
     this.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
-        if (!view || !view.state) {
-          return
-        }
         const targetPos = pos
         
+        // 直接使用 pos 进行定位
         const resolvedPos = view.state.doc.resolve(targetPos)
+        // 关键：在 transaction 上调用 scrollIntoView()，让 ProseMirror 知道需要滚动
         const tr = view.state.tr
           .setSelection(Selection.near(resolvedPos, 1))
           .scrollIntoView()
@@ -497,9 +335,11 @@ export class CrepeEditorManager {
         view.dispatch(tr)
         view.focus()
 
+        // 延迟执行 DOM 滚动，确保 ProseMirror 已更新 DOM
         setTimeout(() => {
           try {
-            if (!view.state) return
+            // 步骤 1: 获取标题对应的 DOM 元素
+            // 优先使用 ProseMirror 的 nodeDOM API，它返回节点对应的真实 DOM
             const node = view.state.doc.nodeAt(targetPos)
             let targetElement: HTMLElement | null = null
             
@@ -512,17 +352,21 @@ export class CrepeEditorManager {
               }
             }
             
+            // 备用方案：如果 nodeDOM 失败，通过 domAtPos 查找最近的 heading 元素
             if (!targetElement) {
               const domResult = view.domAtPos(targetPos)
               if (domResult && domResult.node) {
                 if (domResult.node.nodeType === Node.ELEMENT_NODE) {
                   const el = domResult.node as HTMLElement
+                  // 如果直接就是 heading 元素
                   if (el.tagName && /^H[1-6]$/.test(el.tagName)) {
                     targetElement = el
                   } else {
+                    // 否则向上查找最近的 heading 父元素
                     targetElement = el.closest('h1, h2, h3, h4, h5, h6')
                   }
                 } else {
+                  // 文本节点，向上查找 heading
                   targetElement = (domResult.node as Text).parentElement?.closest('h1, h2, h3, h4, h5, h6') || null
                 }
               }
@@ -530,38 +374,53 @@ export class CrepeEditorManager {
             
             if (!targetElement) return
             
+            // 步骤 2: 找到真正的滚动容器
+            // 注意：必须是具有 overflow: auto/scroll 的容器，而不是任意父元素
             let scrollContainer: HTMLElement | null = targetElement.closest('.editor-wysiwyg, .editor-split-preview')
             
+            // 如果没找到，尝试从 view.dom 向上查找
             if (!scrollContainer) {
               scrollContainer = view.dom.parentElement?.closest('.editor-wysiwyg, .editor-split-preview') || null
             }
             
             if (!scrollContainer) return
             
+            // 步骤 3: 计算滚动位置
+            // 使用 getBoundingClientRect 获取相对于视口的位置，避免受 CSS transform 影响
             const elementRect = targetElement.getBoundingClientRect()
             const containerRect = scrollContainer.getBoundingClientRect()
             
+            // 计算公式：
+            // relativeTop = 标题相对于视口的位置 - 容器相对于视口的位置
+            //             = 标题相对于容器顶部的位置
+            // targetScrollTop = 当前滚动位置 + 相对位置 - 边距
             const scrollTop = scrollContainer.scrollTop
             const relativeTop = elementRect.top - containerRect.top
-            const targetScrollTop = scrollTop + relativeTop - 20
+            const targetScrollTop = scrollTop + relativeTop - 20 // 留 20px 边距，让标题不紧贴顶部
             
+            // 步骤 4: 执行平滑滚动
+            // 使用 Math.max(0, ...) 确保滚动位置不为负数
             scrollContainer.scrollTo({
               top: Math.max(0, targetScrollTop),
               behavior: 'smooth'
             })
           } catch (scrollError) {
-            // Silent fail - scroll errors
+            console.error('[CrepeEditorManager] Smooth scroll error:', scrollError)
           }
         }, 50)
 
+        // 额外触发一次光标变化通知，更新大纲高亮状态
         const { from, to } = view.state.selection
         this.emitCursorChange(from, to)
       } catch (error) {
-        // Silent fail - scroll navigation errors
+        console.error('[CrepeEditorManager] scrollToHeading error:', error)
       }
     })
   }
 
+  /**
+   * 获取当前光标在 WYSIWYG 编辑器中所在的行号（相对于整个文档文本）
+   */
   getCurrentCursorLine(): number {
     if (!this.crepe || !this.isInitialized) return 0
 
@@ -570,6 +429,7 @@ export class CrepeEditorManager {
       try {
         const view = ctx.get(editorViewCtx)
         const { from } = view.state.selection
+        // 通过内容文本计算行号
         const text = view.state.doc.textBetween(0, from)
         line = text.split('\n').length
       } catch {
@@ -579,13 +439,11 @@ export class CrepeEditorManager {
     return line
   }
 
-  getCurrentEditorState(): { cursor?: { from: number; to: number }, scrollTop?: number } {
-    if (!this.isInitialized) {
-      return {}
-    }
-    return this.stateManager.getCurrentState()
-  }
-
+  /**
+   * 从 ProseMirror 文档中获取所有标题及其节点位置
+   * 
+   * @returns 包含 pos 信息的标题列表
+   */
   getHeadingsWithPos(): HeadingItem[] {
     if (!this.crepe || !this.isInitialized) return []
     
@@ -594,16 +452,15 @@ export class CrepeEditorManager {
     this.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
-        if (!view || !view.state) {
-          return
-        }
         const doc = view.state.doc
         
+        // 遍历 ProseMirror 文档查找所有标题节点
         doc.descendants((node, pos) => {
           if (node.type.name === 'heading') {
             const text = node.textContent.trim()
             const level = node.attrs.level || 1
             
+            // 计算行号（通过统计之前的换行符）
             const textBefore = doc.textBetween(0, pos)
             const line = textBefore.split('\n').length
             
@@ -612,12 +469,12 @@ export class CrepeEditorManager {
               level,
               slug: generateSlug(text),
               line,
-              pos
+              pos  // 存储 ProseMirror 节点位置
             })
           }
         })
       } catch (error) {
-        // Silent fail - heading extraction errors
+        console.error('[CrepeEditorManager] Failed to get headings with pos:', error)
       }
     })
     
@@ -640,7 +497,6 @@ export class CrepeEditorManager {
       return
     }
 
-    // 序列化器已经直接产出 ---...--- 形态，无需字符串转换
     if (this.content === markdown) {
       return
     }
@@ -691,47 +547,17 @@ export class CrepeEditorManager {
   }
 
   async updateTheme(): Promise<void> {
-    if (!this.crepe || !this.isInitialized) {
+    if (!this.crepe || !this.isInitialized || !this.container) {
+      console.warn('[CrepeEditorManager] Cannot update theme: Crepe not initialized')
       return
     }
-
-    const preferences = usePreferencesStore()
-    const effectiveTheme = preferences.theme === 'system'
-      ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light')
-      : preferences.theme
-
-    console.log(`[CrepeEditorManager] 切换主题为：${effectiveTheme}`)
-
-    // 发送主题变化事件，自定义 CodeMirror 插件会监听此事件并更新主题
-    eventBus.emit(AppEvents.THEME_CHANGED, effectiveTheme as 'light' | 'dark' | 'system')
     
-    console.log('[CrepeEditorManager] 主题切换事件已发送，CodeMirror 代码块将自动更新主题')
-  }
-
-  search(query: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
-    return this.searchManager.search(query)
-  }
-
-  clearSearch(): void {
-    this.searchManager.clearSearch()
-  }
-
-  findNext() {
-    return this.searchManager.findNext()
-  }
-
-  findPrev() {
-    return this.searchManager.findPrev()
-  }
-
-  replaceNext(replacement: string) {
-    return this.searchManager.replaceNext(replacement)
-  }
-
-  replaceAll(replacement: string) {
-    return this.searchManager.replaceAll(replacement)
+    const currentContent = this.getMarkdown()
+    const container = this.container
+    const tabId = this.currentTabId
+    
+    await this.destroy()
+    await this.init(container, currentContent, tabId || undefined)
   }
 }
 
@@ -748,47 +574,5 @@ export function resetCrepeEditorManager(): void {
   if (crepeEditorManagerInstance) {
     crepeEditorManagerInstance.destroy()
     crepeEditorManagerInstance = null
-  }
-}
-
-export function useEditorSearch() {
-  const searchManager = useEditorSearchManager()
-  
-  function setSearchHighlight(config: { search: string; caseSensitive?: boolean; wholeWord?: boolean; regexp?: boolean }) {
-    if (config.search) {
-      return searchManager.search(config)
-    } else {
-      searchManager.clearSearch()
-      return { current: 0, total: 0 }
-    }
-  }
-  
-  function clearSearchHighlight() {
-    searchManager.clearSearch()
-  }
-
-  function findNextMatch() {
-    return searchManager.findNext()
-  }
-
-  function findPrevMatch() {
-    return searchManager.findPrev()
-  }
-
-  function replaceNextMatch(replacement: string) {
-    return searchManager.replaceNext(replacement)
-  }
-
-  function replaceAllMatches(replacement: string) {
-    return searchManager.replaceAll(replacement)
-  }
-  
-  return {
-    setSearchHighlight,
-    clearSearchHighlight,
-    findNextMatch,
-    findPrevMatch,
-    replaceNextMatch,
-    replaceAllMatches
   }
 }

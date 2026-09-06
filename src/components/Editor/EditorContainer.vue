@@ -1,89 +1,72 @@
 <template>
   <div
     class="editor-container"
-    :class="{
-      'focus-mode': viewMode.focusMode,
-      'typewriter-mode': viewMode.typewriterMode
-    }"
     :style="containerStyle"
   >
+    <FloatingSearch ref="floatingSearchRef" />
     <div
       class="editor-content"
       :class="contentClasses"
     >
-      <FloatingSearch ref="floatingSearchRef" />
-
-      <!-- 主编辑器外壳（Crepe + CodeMirror）始终保留在 DOM 中——避免切到辅助 viewer 时
-           Crepe 实例被 v-if 卸载、下次切回 markdown 标签需重新 init 造成短暂空白 + 状态丢失。
-           辅助 viewer（image / text / unsupported / 未来 PDF 等）通过绝对定位覆盖在编辑器上方。 -->
-      <div
-        v-show="useEditorShell"
-        class="editor-shell"
+      <!-- 不支持的文件格式提示 -->
+      <div 
+        v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
+        class="unsupported-file-message"
       >
-        <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用
-             性能：用 v-show 保留 Crepe 实例避免反复 init；<Transition> 配 v-show
-             会在 enter/leave 时正确触发 opacity 过渡（Vue 内部把 display 切换延后到
-             transition 结束）。 -->
-        <Transition name="pane-fade">
-          <div
-            v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
-            ref="crepeContainer"
-            class="crepe"
-            :class="{
-              'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
-              'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
-            }"
-            @focus="handleCrepeFocus"
-            @click="handleCrepeClick"
-            @scroll="handleCrepeScroll"
-          />
-        </Transition>
-
-        <!-- CodeMirror 编辑器 - 源码模式和分屏模式共用 -->
-        <Transition name="pane-fade">
-          <div
-            v-show="currentMode === EDITOR.VIEW_MODES.SOURCE || currentMode === EDITOR.VIEW_MODES.SPLIT"
-            class="codemirror-wrapper"
-            :class="{
-              'editor-source': currentMode === EDITOR.VIEW_MODES.SOURCE,
-              'editor-split-source': currentMode === EDITOR.VIEW_MODES.SPLIT
-            }"
-          >
-            <CodeMirrorEditor
-              ref="codeMirrorEditorRef"
-              :model-value="sourceContent"
-              @update:model-value="handleCodeMirrorChange"
-              @focus="handleCodeMirrorFocus"
-              @blur="handleCodeMirrorBlur"
-            />
-          </div>
-        </Transition>
-
-        <!-- 分屏分割线 -->
-        <Transition name="pane-fade">
-          <div
-            v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-            class="split-resizer"
-            @mousedown="handleResizerMouseDown"
-          >
-            <div class="split-resizer-handle" />
-          </div>
-        </Transition>
+        <Icon
+          name="file"
+          size="lg"
+          class="message-icon"
+        />
+        <h3>{{ t('editor.unsupportedFileType') }}</h3>
+        <p>{{ activeTab?.filePath }}</p>
+        <p class="hint">
+          {{ t('editor.onlyMarkdownSupported') }}
+        </p>
       </div>
 
-      <!-- 辅助 viewer 覆盖层（image / text / unsupported / 未来 PDF 等）。
-           descriptor.viewer 非 null 时挂载。canSave 决定是否双向绑定 model-value。
-           tabId 透传给 viewer，viewer 可往 tab.viewerState[descriptor.id] 持久化私有状态
-           （PDF 页码 / 图片 zoom / 文本编辑器光标位置等）。 -->
-      <component
-        :is="currentDescriptor.viewer"
-        v-if="!useEditorShell && currentDescriptor.viewer && activeTab"
-        class="viewer-overlay"
-        :tab-id="activeTab.id"
-        :file-path="activeTab.filePath ?? null"
-        :model-value="currentDescriptor.canSave ? activeTab.content : undefined"
-        @update:model-value="currentDescriptor.canSave ? handleViewerChange($event) : undefined"
+      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
+        ref="crepeContainer"
+        class="crepe"
+        :class="{
+          'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
+          'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
+        }"
+        @focus="handleCrepeFocus"
       />
+
+      <!-- CodeMirror 编辑器 - 源码模式 -->
+      <CodeMirrorEditor
+        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
+        :model-value="sourceContent"
+        @update:model-value="handleCodeMirrorChange"
+        @focus="handleCodeMirrorFocus"
+        @blur="handleCodeMirrorBlur"
+      />
+
+      <!-- CodeMirror 编辑器 - 分屏源码模式 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+        class="editor-split-source"
+      >
+        <CodeMirrorEditor
+          :model-value="sourceContent"
+          @update:model-value="handleCodeMirrorChange"
+          @focus="handleCodeMirrorFocus"
+          @blur="handleCodeMirrorBlur"
+        />
+      </div>
+
+      <!-- 分屏分割线 -->
+      <div
+        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
+        class="split-resizer"
+        @mousedown="handleResizerMouseDown"
+      >
+        <div class="split-resizer-handle" />
+      </div>
     </div>
   </div>
 </template>
@@ -92,59 +75,59 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { useViewModeStore } from '@/stores/viewMode'
-import { useEditorView } from '@/composables/useEditorView'
+import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
-import { getDescriptor, detectDescriptor, type FileTypeDescriptor } from '@/fileTypes'
 import type { ViewMode } from '@/types'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
-import { useImageInsertOrchestrator } from '@/services/image/ImageInsertOrchestrator'
+import { t } from '@/services/i18n'
+import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
 import CodeMirrorEditor from './CodeMirrorEditor.vue'
+import { provideSearchService } from '@/composables/useSearch'
+import { CrepeSearchService } from '@/services/search'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
-const viewMode = useViewModeStore()
 
 const editorManager = useCrepeEditorManager()
-const imageOrchestrator = useImageInsertOrchestrator()
-const {
-  currentMode,
-  splitRatio,
-  isResizing,
-  windowWidth,
-  windowHeight,
-  isSmallScreen,
-  editorScale
-} = useEditorView()
 
 const crepeContainer = ref<HTMLElement | null>(null)
-const codeMirrorEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const sourceContent = ref('')
+const currentMode = ref<ViewMode>('wysiwyg')
+const splitRatio = ref(50)
+const isResizing = ref(false)
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
+
+const searchService = computed(() => {
+  if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
+    return new CrepeSearchService(() => editorManager.getView())
+  }
+  return null
+})
+
+provideSearchService(searchService)
 
 const activeTab = computed(() => tabsStore.activeTab)
 
-/**
- * 当前 tab 对应的 descriptor —— 渲染分支的单一事实源。
- *   - editor：viewer === null，走主编辑器外壳（Crepe + CodeMirror）
- *   - 其它：viewer 非 null，作为绝对定位覆盖层渲染
- *
- * 欢迎页（无 activeTab）→ 默认按 editor 处理，让 Crepe 挂载占位。
- */
-const currentDescriptor = computed<FileTypeDescriptor>(() => {
-  if (!activeTab.value) return detectDescriptor(null)
-  return getDescriptor(activeTab.value.fileType) ?? detectDescriptor(null)
+const isSmallScreen = computed(() => windowWidth.value < 800)
+const editorScale = computed(() => {
+  if (windowWidth.value < 600) return 0.8
+  if (windowWidth.value < 1000) return 0.9
+  return 1
 })
 
-/** 使用主编辑器外壳的条件 = descriptor 没有自己的 viewer。 */
-const useEditorShell = computed(() => currentDescriptor.value.viewer === null)
-/** 当前 viewer 是否是 markdown 主编辑器（用于"是否走 Crepe.switchToTab"）。 */
-const isMarkdownEditor = computed(() => currentDescriptor.value.id === 'editor')
+// 检查文件是否为支持的格式（仅支持 Markdown）
+function isSupportedFileType(filePath: string | null): boolean {
+  if (!filePath) return true // 没有文件路径时（欢迎页）显示编辑器
+  const ext = filePath.split('.').pop()?.toLowerCase()
+  return ext === 'md' || ext === 'markdown'
+}
 
 const containerStyle = computed(() => ({
   '--editor-scale': editorScale.value.toString()
@@ -152,56 +135,22 @@ const containerStyle = computed(() => ({
 
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': viewMode.typewriterMode,
-  'focus-mode': viewMode.focusMode,
+  'typewriter-mode': prefsStore.typewriterMode,
+  'focus-mode': prefsStore.focusMode,
   'small-screen': isSmallScreen.value
 }))
 
-// 监听标签页切换，保存和恢复 CodeMirror 编辑器状态
 watch(activeTab, async (tab, oldTab) => {
   if (tab) {
-    const previousTabId = oldTab?.id
-    
-    // 标签页切换时，保存旧标签的 CodeMirror 状态（光标和滚动位置）。
-    // 只保存 markdown 且旧 tab 当前模式是 source/split 的情况；否则隐藏的
-    // CodeMirror 实例可能还停留在别的 tab 内容上，保存会覆盖错误状态。
-    if (previousTabId && previousTabId !== tab.id && codeMirrorEditorRef.value) {
-      const prevTab = tabsStore.getTab(previousTabId)
-      const prevUsesSource = prevTab?.fileType === 'editor' &&
-        (prevTab.viewMode === EDITOR.VIEW_MODES.SOURCE || prevTab.viewMode === EDITOR.VIEW_MODES.SPLIT)
-      if (prevTab && prevUsesSource) {
-        const currentState = codeMirrorEditorRef.value.getCurrentState()
-        tabsStore.updateTab(previousTabId, {
-          codeMirror: {
-            ...prevTab.codeMirror,
-            cursor: currentState.cursor || prevTab.codeMirror.cursor,
-            scrollTop: currentState.scrollTop !== undefined ? currentState.scrollTop : prevTab.codeMirror.scrollTop
-          }
-        })
+    // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
+    if (editorManager.isReady()) {
+      if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
+        await editorManager.switchToTab(tab.id)
       }
     }
     
-    // 调用 Crepe 编辑器切换标签页 + 同步源码 CodeMirror —— 仅 markdown
-    // （fileType === 'editor'）。辅助 tab（image / text / unsupported / 未来 PDF）
-    // 完全不动 sourceContent / Crepe：
-    //   - 它们的 tab.content 可能是空（image）或纯文本（text），不能灌给 markdown 解析链
-    //   - 灌进去会触发 CM A 的 docChanged → 在 hasFocus 的窄窗口里误标 isDirty
-    if (tab.fileType === 'editor') {
-      if (editorManager.isReady()) {
-        if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-          await editorManager.switchToTab(tab.id)
-        }
-      }
-      sourceContent.value = tab.content
-
-      // 等待 DOM 更新后，恢复新标签的 CodeMirror 状态。
-      // 仅 source/split 模式需要；wysiwyg 下不碰隐藏源码编辑器，避免污染状态。
-      await nextTick()
-      const usesSource = tab.viewMode === EDITOR.VIEW_MODES.SOURCE || tab.viewMode === EDITOR.VIEW_MODES.SPLIT
-      if (usesSource && codeMirrorEditorRef.value && tab.codeMirror) {
-        codeMirrorEditorRef.value.restoreState(tab.codeMirror.cursor, tab.codeMirror.scrollTop)
-      }
-    }
+    // 更新源码内容
+    sourceContent.value = tab.content
   }
 }, { immediate: true })
 
@@ -214,32 +163,6 @@ const handleCrepeFocus = () => {
   editorManager.setActiveEditor('crepe')
 }
 
-const handleCrepeClick = () => {
-  if (editorManager.isReady()) {
-    editorManager.focus()
-  }
-}
-
-/**
- * 实时保存 Crepe/WYSIWYG 滚动位置。
- *
- * 过去只在 switchToTab 时读取 scrollTop，per-tab viewMode 后该时机容易撞上
- * v-show / split 布局切换，读到 0 或旧值。现在滚动时就写入当前 tab state，
- * 切走前状态已经是最新，恢复更稳定。
- */
-const handleCrepeScroll = debounce((event: unknown) => {
-  const tab = activeTab.value
-  if (!tab || tab.fileType !== 'editor') return
-  const target = (event as Event).currentTarget as HTMLElement | null
-  if (!target) return
-  tabsStore.updateTab(tab.id, {
-    crepe: {
-      ...tab.crepe,
-      scrollTop: target.scrollTop,
-    },
-  })
-}, 80)
-
 const handleCodeMirrorFocus = () => {
   editorManager.setActiveEditor('codemirror')
 }
@@ -249,8 +172,6 @@ const handleCodeMirrorBlur = () => {
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
-  if (!activeTab.value || activeTab.value.fileType !== 'editor') return
-
   const prevMode = currentMode.value
   
   if (mode === prevMode) {
@@ -277,7 +198,7 @@ const handleViewModeChange = async (mode: ViewMode) => {
   await nextTick()
 }
 
-const handleResizerMouseDown = (_e: MouseEvent) => {
+const handleResizerMouseDown = (e: MouseEvent) => {
   isResizing.value = true
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
@@ -303,30 +224,14 @@ const handleResizerMouseUp = () => {
 
 const handleSourceContentChange = debounce((newContent: unknown) => {
   const content = newContent as string
-  // 双重守卫：源码模式 CM 实例（A）只服务 markdown tab。
-  // 当 active 是辅助 tab（text/image/unsupported）时，CM A 仍然挂载着但隐藏，
-  // 它的 watch(modelValue) 在 sourceContent 变化时会 dispatch 修改 doc，
-  // 进而 docChanged 触发 onChange——这里直接拒绝写回，避免误标 isDirty。
-  if (!activeTab.value || activeTab.value.fileType !== 'editor') return
-  if (!editorManager.isReady()) return
-  tabsStore.updateTab(activeTab.value.id, {
-    content: content,
-    isDirty: true,
-  })
-  editorManager.setMarkdown(content)
+  if (activeTab.value && editorManager.isReady()) {
+    tabsStore.updateTab(activeTab.value.id, {
+      content: content,
+      isDirty: true,
+    })
+    editorManager.setMarkdown(content)
+  }
 }, 100)
-
-/**
- * 辅助 viewer 内容变化（仅 canSave 的 viewer 触发，如 PlainTextEditor）。
- * 写回 store + 标脏。不调 editorManager.setMarkdown：辅助 tab 不参与 Crepe 链路。
- */
-function handleViewerChange(content: string) {
-  if (!activeTab.value) return
-  tabsStore.updateTab(activeTab.value.id, {
-    content,
-    isDirty: true,
-  })
-}
 
 const handleWindowResize = () => {
   windowWidth.value = window.innerWidth
@@ -336,15 +241,17 @@ const handleWindowResize = () => {
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
-    // 在非 WYSIWYG 模式下，总是更新 sourceContent
-    if (currentMode.value !== EDITOR.VIEW_MODES.WYSIWYG) {
+    const activeEditor = editorManager.getActiveEditor()
+    if (activeEditor !== 'codemirror') {
       sourceContent.value = data.content
     }
   }
 })
 unsubscribes.push(unsubscribeContentChanged)
 
-const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async () => {
+const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
+  const data = payload as { tabId: string | null }
+  
   if (activeTab.value && editorManager.isReady()) {
     await editorManager.switchToTab(activeTab.value.id)
   }
@@ -355,46 +262,6 @@ const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, asyn
   await handleViewModeChange(mode as 'wysiwyg' | 'source' | 'split')
 })
 unsubscribes.push(unsubscribeViewModeChanged)
-
-const unsubscribeEditUndo = eventBus.on(AppEvents.EDIT_UNDO, () => {
-  if (currentMode.value === 'source' || currentMode.value === 'split') {
-    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as HTMLElement
-    if (codemirrorEditor && '_editableView' in codemirrorEditor) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editableView = (codemirrorEditor as any)._editableView
-      if (editableView?.view) {
-        editableView.view.dispatch({
-          userEvent: 'undo'
-        })
-      }
-    }
-  }
-  if (editorManager.isReady()) {
-    editorManager.commands.undo()
-  }
-})
-unsubscribes.push(unsubscribeEditUndo)
-
-const unsubscribeEditRedo = eventBus.on(AppEvents.EDIT_REDO, () => {
-  if (currentMode.value === 'source' || currentMode.value === 'split') {
-    const codemirrorEditor = document.querySelector('.codemirror-editor .cm-editor') as HTMLElement
-    if (codemirrorEditor && '_editableView' in codemirrorEditor) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editableView = (codemirrorEditor as any)._editableView
-      if (editableView?.view) {
-        editableView.view.dispatch({
-          userEvent: 'redo'
-        })
-      }
-    }
-  }
-  if (editorManager.isReady()) {
-    editorManager.commands.redo()
-  }
-})
-unsubscribes.push(unsubscribeEditRedo)
-
-// 滚动监听已移除，改为在 switchToTab 时一次性保存状态
 
 onMounted(async () => {
   if (crepeContainer.value) {
@@ -408,54 +275,31 @@ onMounted(async () => {
         await editorManager.switchToTab(tabId)
       }
     } catch (error) {
-      console.error('[EditorContainer] 编辑器初始化失败:', error)
+      console.error('[EditorContainer] Failed to initialize:', error)
     }
+  } else {
+    console.error('[EditorContainer] crepeContainer is null!')
   }
   
+  window.addEventListener('keydown', handleEditorKeydown)
   window.addEventListener('resize', handleWindowResize)
   document.addEventListener('mousemove', handleResizerMouseMove)
   document.addEventListener('mouseup', handleResizerMouseUp)
-  
-  // 监听搜索事件（来自菜单或命令系统）
-  window.addEventListener('editor:showSearch', handleShowSearch)
-
-  // 命令 format.image 派发的「打开文件选择对话框 → 插入图片」事件
-  window.addEventListener('editor:insertImage', handleInsertImage)
-
-  // 图片粘贴/拖拽：Crepe upload plugin 内部已注册 handlePaste/handleDrop，
-  // 触发后会调用 uploadConfig.uploader（已在 crepeEditorManager 中覆盖为
-  // ImageInsertOrchestrator.resolveOnly）。本组件不再单独 wire 事件。
 })
 
 onUnmounted(async () => {
   unsubscribes.forEach(unsubscribe => unsubscribe())
+  window.removeEventListener('keydown', handleEditorKeydown)
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleResizerMouseMove)
   document.removeEventListener('mouseup', handleResizerMouseUp)
-  window.removeEventListener('editor:showSearch', handleShowSearch)
-  window.removeEventListener('editor:insertImage', handleInsertImage)
 })
 
-function handleShowSearch(e: Event) {
-  const customEvent = e as CustomEvent<{ showReplace?: boolean }>
-  floatingSearchRef.value?.show()
-  if (customEvent.detail?.showReplace) {
-    // TODO: 显示替换框
+function handleEditorKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault()
+    floatingSearchRef.value?.show()
   }
-}
-
-function handleInsertImage() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  // 从 image descriptor 拿扩展名 —— 单一事实源（fileTypes registry）
-  const imageDesc = getDescriptor('image')
-  input.accept = imageDesc?.extensions.join(',') ?? ''
-  input.multiple = false
-  input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (file) await imageOrchestrator.insertFromFile(file)
-  }
-  input.click()
 }
 </script>
 
@@ -526,15 +370,10 @@ function handleInsertImage() {
 
   // 源码模式样式
   &.mode-source {
-    .codemirror-wrapper.editor-source {
+    .codemirror-editor {
       flex: 1;
       overflow: hidden;
       min-height: 0;
-    }
-
-    .codemirror-editor {
-      height: 100%;
-      overflow: hidden;
 
       :deep(.cm-scroller) {
         &::-webkit-scrollbar {
@@ -559,17 +398,6 @@ function handleInsertImage() {
   // 分屏模式样式
   &.mode-split {
     flex-direction: row;
-
-    // editor-shell 是为了保留 Crepe/CodeMirror DOM 而加的中间层；
-    // 分屏真正的三个子项（源码 / 分割条 / 预览）都在它里面，
-    // 所以 row 布局必须落在 editor-shell 上。
-    .editor-shell {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      min-width: 0;
-      min-height: 0;
-    }
 
     .crepe.editor-split-preview {
       height: 100%;
@@ -618,7 +446,7 @@ function handleInsertImage() {
       }
     }
 
-    .codemirror-wrapper.editor-split-source {
+    .editor-split-source {
       height: 100%;
       flex-shrink: 0;
       overflow: hidden;
@@ -672,70 +500,15 @@ function handleInsertImage() {
     }
   }
 
-  // ── 打字机模式 ──
   &.typewriter-mode {
-    // WYSIWYG 视图：给 ProseMirror 添加大量上下 padding，
-    // 确保即使文档很短，光标也能被滚动到视口中央
-    .editor-wysiwyg, .editor-split-preview {
-      :deep(.ProseMirror) {
-        padding-top: 45vh !important;
-        padding-bottom: 45vh !important;
-        min-height: 100%;
-      }
-    }
-
-    // 源码视图：通过 scroll-padding 实现类似效果
-    .codemirror-editor {
-      :deep(.cm-scroller) {
-        scroll-padding-top: 45vh;
-        scroll-padding-bottom: 45vh;
-      }
-    }
-
-    // 分屏源码
-    .editor-split-source {
-      :deep(.cm-scroller) {
-        scroll-padding-top: 45vh;
-        scroll-padding-bottom: 45vh;
-      }
+    .editor-wysiwyg, .codemirror-editor, .editor-split-source, .editor-split-preview {
+      scroll-behavior: smooth;
     }
   }
 
-  // ── 专注模式 ──
   &.focus-mode {
-    // WYSIWYG：所有内容块默认为弱化状态
-    // 参考 MarkText 的简洁实现方式
-    .editor-wysiwyg, .editor-split-preview {
-      :deep(.ProseMirror) {
-        // 所有 ProseMirror 下的直接子元素都默认弱化
-        > * {
-          opacity: 0.25 !important;
-          transition: opacity 0.35s ease;
-        }
-        
-        // 高优先级选择器：确保 focus-highlight 保持正常
-        > .focus-highlight {
-          opacity: 1 !important;
-        }
-
-        ::selection {
-          background: var(--primary-color);
-          color: white;
-        }
-      }
-    }
-
-    // 源码视图：所有行默认为弱化状态，当前活动行保持正常
-    // 使用 CodeMirror 内置的 cm-activeLine 类来高亮当前行
-    .codemirror-editor, .editor-split-source {
-      :deep(.cm-line) {
-        opacity: 0.1;
-        transition: opacity 0.35s ease;
-
-        &.cm-activeLine {
-          opacity: 1;
-        }
-      }
+    .editor-wysiwyg, .codemirror-editor {
+      background: var(--bg-primary);
     }
   }
 
@@ -746,61 +519,40 @@ function handleInsertImage() {
   }
 }
 
-/* 编辑器外壳：把 Crepe + CodeMirror + 分屏分割线包在一起，
- * 通过 v-show 而非 v-if 切换，保持实例不被销毁。 */
-.editor-shell {
+.unsupported-file-message {
   flex: 1;
   display: flex;
   flex-direction: column;
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-}
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
 
-/* 辅助 viewer 覆盖层（image / text / unsupported / 未来 PDF 等）。
- *
- * 用 :deep() 是因为 viewer 是 dynamic <component>，class 落在子组件根元素上，
- * scoped CSS 编译选择器需要穿透才能命中。
- *
- * 同时只有一个 viewer 在挂载（v-if 保证），所以 z-index 不会互相冲突；
- * z-index:5 高于 .editor-shell 的默认堆叠，盖住底下的 Crepe。 */
-:deep(.viewer-overlay) {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  background: var(--editor-bg);
-}
+  .message-icon {
+    font-size: 64px;
+    opacity: 0.5;
+  }
 
-/* ----------------------------------------------------------
- * 视图模式切换动画（WYSIWYG ↔ Source ↔ Split）
- *
- * 用 v-show + Vue <Transition> `<Transition>` 自动管理 enter/leave。
- * 进入/离开两侧都只 animation `opacity`。
- *
- * 不同模式之间不加 `mode="out-in"`（会让每次切换分两段，总时长加倍，
- * 300ms 编辑场景下太拖沓）。两层 pane 同时 cross-fade，
- * 中间会有短暂的双半透明瞬间，但因为 200ms 极短 + 曲线末端慢速切入，
- * 人眼感知为"平滑过渡"而非"闪烁"。极端场景（慢速动画用户）可通过
- * prefers-reduced-motion 关掉。
- *
- * 性能：仅 opacity，合成线程 GPU 加速，0 layout / 0 paint。
- * ---------------------------------------------------------- */
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
 
-.pane-fade-leave-active,
-.pane-fade-enter-active {
-  transition: opacity 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
-  will-change: opacity;
-}
+  p {
+    margin: 0;
+    font-size: 14px;
+    max-width: 500px;
+    word-break: break-all;
+  }
 
-.pane-fade-enter-from,
-.pane-fade-leave-to {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pane-fade-leave-active,
-  .pane-fade-enter-active {
-    transition-duration: 0ms !important;
+  .hint {
+    font-size: 13px;
+    opacity: 0.7;
+    margin-top: 8px;
   }
 }
 </style>

@@ -4,7 +4,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
-import { useEditorSearch } from '@/managers/crepeEditorManager'
+import { useSearch } from './useSearch'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
 export type SearchScope = 'file' | 'folder' | 'all'
@@ -29,14 +29,7 @@ export interface SearchResult {
 export function useWorkspaceSearch() {
   const tabsStore = useTabsStore()
   const fileStore = useFileExplorerStore()
-  const { 
-    setSearchHighlight, 
-    clearSearchHighlight,
-    findNextMatch,
-    findPrevMatch,
-    replaceNextMatch,
-    replaceAllMatches
-  } = useEditorSearch()
+  const searchService = useSearch()
 
   const isVisible = ref(false)
   const searchQuery = ref('')
@@ -74,21 +67,27 @@ export function useWorkspaceSearch() {
     }
   }
 
-  function updateEditorHighlight() {
-    if (!searchQuery.value.trim()) {
-      clearSearchHighlight()
+  function updateEditorHighlight(select = true) {
+    if (!searchService.value) {
       totalMatches.value = 0
       currentMatchIndex.value = 0
       return
     }
-    
-    const result = setSearchHighlight({
+
+    if (!searchQuery.value.trim()) {
+      searchService.value.clear()
+      totalMatches.value = 0
+      currentMatchIndex.value = 0
+      return
+    }
+
+    const result = searchService.value.search({
       search: searchQuery.value,
       caseSensitive: options.caseSensitive,
       wholeWord: options.wholeWord,
       regexp: options.regex
-    })
-    
+    }, { select })
+
     totalMatches.value = result.total
     currentMatchIndex.value = result.current
   }
@@ -151,7 +150,7 @@ export function useWorkspaceSearch() {
     
     if (searchScope.value === 'file') {
       searchInActiveFile(pattern)
-      updateEditorHighlight()
+      updateEditorHighlight(false)
       isSearching.value = false
     } else if (searchScope.value === 'all') {
       searchInAllTabs(pattern)
@@ -256,9 +255,11 @@ export function useWorkspaceSearch() {
 
   function navigateNext() {
     if (searchScope.value === 'file') {
-      const result = findNextMatch()
-      currentMatchIndex.value = result.current
-      totalMatches.value = result.total
+      if (searchService.value) {
+        const result = searchService.value.findNext()
+        currentMatchIndex.value = result.current
+        totalMatches.value = result.total
+      }
     } else {
       if (totalMatches.value === 0) return
       currentMatchIndex.value = (currentMatchIndex.value + 1) % totalMatches.value
@@ -268,9 +269,11 @@ export function useWorkspaceSearch() {
 
   function navigatePrev() {
     if (searchScope.value === 'file') {
-      const result = findPrevMatch()
-      currentMatchIndex.value = result.current
-      totalMatches.value = result.total
+      if (searchService.value) {
+        const result = searchService.value.findPrev()
+        currentMatchIndex.value = result.current
+        totalMatches.value = result.total
+      }
     } else {
       if (totalMatches.value === 0) return
       currentMatchIndex.value = currentMatchIndex.value === 0 ? totalMatches.value - 1 : currentMatchIndex.value - 1
@@ -298,12 +301,13 @@ export function useWorkspaceSearch() {
 
   function replaceSingle() {
     if (searchScope.value === 'file') {
-      if (!replaceQuery.value) return
-      const result = replaceNextMatch(replaceQuery.value)
-      currentMatchIndex.value = result.current
-      totalMatches.value = result.total
+      if (searchService.value) {
+        const result = searchService.value.replaceNext(replaceQuery.value)
+        currentMatchIndex.value = result.current
+        totalMatches.value = result.total
+      }
     } else {
-      if (totalMatches.value === 0 || !replaceQuery.value) return
+      if (totalMatches.value === 0) return
       const activeTab = tabsStore.activeTab
       if (!activeTab) return
       const pattern = buildSearchPattern()
@@ -315,11 +319,12 @@ export function useWorkspaceSearch() {
   }
 
   function replaceAll() {
-    if (!replaceQuery.value) return
     if (searchScope.value === 'file') {
-      const result = replaceAllMatches(replaceQuery.value)
-      if (result.replaced > 0) {
-        performSearch()
+      if (searchService.value) {
+        const result = searchService.value.replaceAll(replaceQuery.value)
+        if (result.replaced > 0) {
+          performSearch()
+        }
       }
     } else if (searchScope.value === 'all') {
       replaceInAllTabs()
@@ -418,9 +423,9 @@ export function useWorkspaceSearch() {
     if (searchQuery.value) {
       performSearch()
       if (scope === 'file') {
-        updateEditorHighlight()
+        updateEditorHighlight(false)
       } else {
-        clearSearchHighlight()
+        searchService.value?.clear()
       }
     }
   }
@@ -441,13 +446,13 @@ export function useWorkspaceSearch() {
     currentMatchIndex.value = 0
     results.value = []
     expandedFiles.value.clear()
-    clearSearchHighlight()
+    searchService.value?.clear()
   }
 
   const debouncedSearch = debounce(() => {
     performSearch()
     if (searchScope.value === 'file') {
-      updateEditorHighlight()
+      updateEditorHighlight(false)
     }
   }, 300)
 
@@ -462,7 +467,7 @@ export function useWorkspaceSearch() {
       if (searchQuery.value.trim()) {
         performSearch()
         if (searchScope.value === 'file') {
-          updateEditorHighlight()
+          updateEditorHighlight(false)
         }
       }
     }
@@ -475,14 +480,14 @@ export function useWorkspaceSearch() {
     unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
       // 只有在有搜索查询时才重新更新
       if (searchQuery.value.trim() && searchScope.value === 'file') {
-        updateEditorHighlight()
+        updateEditorHighlight(false)
       }
     })
   })
 
   onUnmounted(() => {
     unsubscribeContentChanged?.()
-    clearSearchHighlight()
+    searchService.value?.clear()
   })
 
   return {

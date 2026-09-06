@@ -25,7 +25,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
+import { search, highlightSelectionMatches } from '@codemirror/search'
 import {
   EditorView,
   drawSelection,
@@ -40,6 +40,7 @@ import { githubLight, githubDark } from '@uiw/codemirror-theme-github'
 
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { CodeMirrorSearchService, codeMirrorSearchHighlight } from '@/services/search'
 
 interface Props {
   modelValue: string
@@ -60,6 +61,7 @@ const prefsStore = usePreferencesStore()
 
 const editorRef = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
+const searchManager = new CodeMirrorSearchService(() => view)
 
 const themeCompartment = new Compartment()
 
@@ -99,11 +101,12 @@ function buildExtensions(): Extension[] {
     rectangularSelection(),
     crosshairCursor(),
     highlightActiveLine(),
+    search(),
+    codeMirrorSearchHighlight(),
     highlightSelectionMatches(),
     keymap.of([
       ...defaultKeymap,
       ...historyKeymap,
-      ...searchKeymap,
     ]),
     themeCompartment.of(getTheme()),
     EditorView.updateListener.of((update) => {
@@ -192,6 +195,7 @@ function createView(content: string) {
 
 function destroyView() {
   if (!view) return
+  searchManager.clear()
   persistViewerState()
   view.destroy()
   view = null
@@ -242,6 +246,15 @@ watch(
     }
   },
 )
+
+defineExpose({
+  search: searchManager.search.bind(searchManager),
+  clearSearch: searchManager.clear.bind(searchManager),
+  findNext: searchManager.findNext.bind(searchManager),
+  findPrev: searchManager.findPrev.bind(searchManager),
+  replaceNext: searchManager.replaceNext.bind(searchManager),
+  replaceAll: searchManager.replaceAll.bind(searchManager),
+})
 </script>
 
 <style scoped lang="scss">

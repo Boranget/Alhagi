@@ -52,7 +52,7 @@ class NodeFileReader {
     })
   }
 }
-;(globalThis as { FileReader?: typeof NodeFileReader }).FileReader = NodeFileReader
+(globalThis as { FileReader?: typeof NodeFileReader }).FileReader = NodeFileReader
 
 // 现在 import 真实策略（动态 import 确保在 polyfill 之后求值；
 // 静态 import 会被 ESM 提到模块顶部，比 polyfill 先跑，导致 window 未定义）

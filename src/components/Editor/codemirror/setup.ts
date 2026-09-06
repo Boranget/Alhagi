@@ -14,7 +14,7 @@ import {
   indentOnInput,
   LanguageDescription,
 } from '@codemirror/language'
-import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
+import { highlightSelectionMatches, search } from '@codemirror/search'
 import { EditorState } from '@codemirror/state'
 import {
   Decoration,
@@ -33,6 +33,7 @@ import {
 import { githubLight } from '@uiw/codemirror-theme-github'
 import { githubDark } from '@uiw/codemirror-theme-github'
 import { debounce } from '@/utils/helpers'
+import { codeMirrorSearchHighlight } from '@/services/search'
 
 export type ThemeType = 'dark' | 'light'
 
@@ -107,11 +108,12 @@ const basicSetup: Extension = [
   rectangularSelection(),
   crosshairCursor(),
   highlightActiveLine(),
+  search(),
+  codeMirrorSearchHighlight(),
   highlightSelectionMatches(),
   keymap.of([
     ...closeBracketsKeymap,
     ...defaultKeymap,
-    ...searchKeymap,
     ...historyKeymap,
     ...completionKeymap,
   ]),

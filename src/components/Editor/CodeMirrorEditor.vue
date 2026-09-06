@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { createCodeMirrorView, updateEditorTheme, updateEditorTypography, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
+import { CodeMirrorSearchService } from '@/services/search'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -27,6 +28,7 @@ const layoutStore = useLayoutStore()
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
+const searchManager = new CodeMirrorSearchService(() => editorView)
 
 const isDarkMode = computed<ThemeType>(() => {
   if (prefsStore.theme === 'dark') return 'dark'
@@ -127,6 +129,7 @@ function initEditor() {
 
 function destroyEditor() {
   if (editorView) {
+    searchManager.clear()
     editorView.destroy()
     editorView = null
   }
@@ -184,7 +187,13 @@ watch(() => props.modelValue, (newValue) => {
 // 暴露方法供父组件调用
 defineExpose({
   getCurrentState,
-  restoreState
+  restoreState,
+  search: searchManager.search.bind(searchManager),
+  clearSearch: searchManager.clear.bind(searchManager),
+  findNext: searchManager.findNext.bind(searchManager),
+  findPrev: searchManager.findPrev.bind(searchManager),
+  replaceNext: searchManager.replaceNext.bind(searchManager),
+  replaceAll: searchManager.replaceAll.bind(searchManager),
 })
 </script>
 
