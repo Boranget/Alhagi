@@ -1,4 +1,4 @@
-import { ref, reactive, computed, onUnmounted, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted, watch, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
@@ -43,6 +43,11 @@ export function useWorkspaceSearch() {
   const searchScope = ref<SearchScope>('file')
   const searchMode = ref<SearchMode>('sidebar')
   const linkedFromGlobalSearch = ref(false)
+
+  // Issue 1 fix: 导航锁，防止 navigateNext/navigatePrev 后
+  // CONTENT_CHANGED 事件重置 totalMatches
+  let isNavigating = false
+  let navigateLockTimer: ReturnType<typeof setTimeout> | null = null
 
   const options = reactive({
     caseSensitive: false,
@@ -255,7 +260,14 @@ export function useWorkspaceSearch() {
     }
   }
 
+  function acquireNavigateLock() {
+    isNavigating = true
+    if (navigateLockTimer) clearTimeout(navigateLockTimer)
+    navigateLockTimer = setTimeout(() => { isNavigating = false }, 500)
+  }
+
   function navigateNext() {
+    acquireNavigateLock()
     if (searchScope.value === 'file') {
       if (searchService.value) {
         const result = searchService.value.findNext()
@@ -270,6 +282,7 @@ export function useWorkspaceSearch() {
   }
 
   function navigatePrev() {
+    acquireNavigateLock()
     if (searchScope.value === 'file') {
       if (searchService.value) {
         const result = searchService.value.findPrev()
@@ -307,6 +320,9 @@ export function useWorkspaceSearch() {
         const result = searchService.value.replaceNext(replaceQuery.value)
         currentMatchIndex.value = result.current
         totalMatches.value = result.total
+        // Issue 2 fix: replaceNext 已更新 ProseMirror 状态，
+        // 等待 markdownUpdated 回调传播到 tab.content 后再刷新搜索
+        scheduleReplaceRefresh()
       }
     } else {
       if (totalMatches.value === 0) return
@@ -325,7 +341,8 @@ export function useWorkspaceSearch() {
       if (searchService.value) {
         const result = searchService.value.replaceAll(replaceQuery.value)
         if (result.replaced > 0) {
-          performSearch()
+          // Issue 2 fix: 等待 ProseMirror 内容同步后再重新搜索
+          scheduleReplaceRefresh()
         }
       }
     } else if (searchScope.value === 'all') {
@@ -333,6 +350,18 @@ export function useWorkspaceSearch() {
     } else if (searchScope.value === 'folder') {
       replaceInFolder()
     }
+  }
+
+  // Issue 2 fix: 替换后等待 ProseMirror markdown 同步，再刷新搜索高亮
+  let replaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleReplaceRefresh() {
+    if (replaceRefreshTimer) clearTimeout(replaceRefreshTimer)
+    // markdownUpdated 有 200ms debounce，等 300ms 确保 content 已同步
+    replaceRefreshTimer = setTimeout(() => {
+      if (searchQuery.value.trim() && searchScope.value === 'file') {
+        updateEditorHighlight(false)
+      }
+    }, 300)
   }
 
   function replaceInActiveFile() {
@@ -479,8 +508,12 @@ export function useWorkspaceSearch() {
 
   onMounted(() => {
     // 监听内容变化事件，当文档内容变化时更新搜索高亮
+    // Issue 1 fix: 导航期间跳过，避免 navigateNext 的选区变化触发
+    // CONTENT_CHANGED → updateEditorHighlight 重置 totalMatches
     unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
-      // 只有在有搜索查询时才重新更新
+      if (isNavigating) {
+        return
+      }
       if (searchQuery.value.trim() && searchScope.value === 'file') {
         updateEditorHighlight(false)
       }

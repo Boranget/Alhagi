@@ -15,13 +15,10 @@ interface SearchQuery {
   regexp: boolean
 }
 
-interface SearchState {
-  query: SearchQuery | null
-  decorations: DecorationSet
-  currentMatchIndex: number
-  totalMatches: number
-  matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>
-}
+// 模块级状态：与实例解耦，即使创建新实例也能保持状态
+let moduleCurrentQuery: SearchQuery | null = null
+let moduleCurrentMatches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
+let moduleCurrentIndex: number = -1
 
 class SearchCache {
   private cache: {
@@ -49,6 +46,14 @@ class SearchCache {
 
 const searchCache = new SearchCache()
 const searchPluginKey = new PluginKey<SearchState>('search-highlight')
+
+interface SearchState {
+  query: SearchQuery | null
+  decorations: DecorationSet
+  currentMatchIndex: number
+  totalMatches: number
+  matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>
+}
 
 function findAllMatches(doc: Node, query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> {
   const matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
@@ -191,6 +196,14 @@ export function getSearchPluginKey() {
   return searchPluginKey
 }
 
+/**
+ * CrepeSearchService - ProseMirror 编辑器搜索服务
+ *
+ * 架构说明：
+ * - 搜索状态（query、matches）存储在模块级变量中，而非实例属性
+ * - 这样即使 computed 创建新实例，状态也能保持
+ * - 解决了 Vue computed 每次访问可能创建新实例导致状态丢失的问题
+ */
 export class CrepeSearchService implements SearchService {
   constructor(private getView: () => EditorView | null) {}
 
@@ -214,8 +227,12 @@ export class CrepeSearchService implements SearchService {
       searchCache.set(searchQuery, matches)
     }
 
+    // 更新模块级状态（与实例解耦）
+    moduleCurrentQuery = searchQuery
+    moduleCurrentMatches = matches
+
+    // 通过 plugin meta 触发高亮装饰
     const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
-    view.dispatch(tr)
 
     const sel = state.selection
     let currentMatchIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
@@ -223,13 +240,15 @@ export class CrepeSearchService implements SearchService {
       currentMatchIndex = 0
       if (options?.select !== false) {
         const firstMatch = matches[0]
-        const selectTr = view.state.tr.setSelection(
+        tr.setSelection(
           new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to)),
         ).scrollIntoView()
-        view.dispatch(selectTr)
         this.ensureMatchVisible(view, firstMatch.from)
       }
     }
+
+    moduleCurrentIndex = currentMatchIndex
+    view.dispatch(tr)
 
     return {
       current: currentMatchIndex,
@@ -238,11 +257,17 @@ export class CrepeSearchService implements SearchService {
   }
 
   clear(): void {
-    const view = this.getView()
-    if (!view) return
+    moduleCurrentQuery = null
+    moduleCurrentMatches = []
+    moduleCurrentIndex = -1
+    searchCache.clear()
 
-    const tr = view.state.tr.setMeta(searchPluginKey, { type: 'clear' })
-    view.dispatch(tr)
+    // 通过 plugin meta 清除高亮装饰
+    const view = this.getView()
+    if (view) {
+      const tr = view.state.tr.setMeta(searchPluginKey, { type: 'clear' })
+      view.dispatch(tr)
+    }
   }
 
   findNext(): SearchResult {
@@ -251,33 +276,35 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    const state = view.state
-    const pluginState = searchPluginKey.getState(state)
-    if (!pluginState || !pluginState.query || !pluginState.query.search) {
+    // 使用模块级状态（即使创建新实例也能访问）
+    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = pluginState.matches
+    const matches = moduleCurrentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
 
-    const sel = state.selection
-    let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-
-    if (currentIndex === -1) {
+    // 使用 moduleCurrentIndex 而非 view.state.selection
+    // 因为 ProseMirror dispatch 不是同步更新 view.state 的
+    let currentIndex = moduleCurrentIndex
+    if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = 0
     } else {
       currentIndex = (currentIndex + 1) % matches.length
     }
 
     const nextMatch = matches[currentIndex]
+    const state = view.state
     const tr = state.tr.setSelection(
       new TextSelection(state.doc.resolve(nextMatch.from), state.doc.resolve(nextMatch.to)),
     ).scrollIntoView()
     view.dispatch(tr)
 
     this.ensureMatchVisible(view, nextMatch.from)
+
+    moduleCurrentIndex = currentIndex
 
     return {
       current: currentIndex,
@@ -291,33 +318,33 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    const state = view.state
-    const pluginState = searchPluginKey.getState(state)
-    if (!pluginState || !pluginState.query || !pluginState.query.search) {
+    // 使用模块级状态
+    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = pluginState.matches
+    const matches = moduleCurrentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
 
-    const sel = state.selection
-    let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-
-    if (currentIndex === -1) {
+    let currentIndex = moduleCurrentIndex
+    if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = matches.length - 1
     } else {
       currentIndex = currentIndex <= 0 ? matches.length - 1 : currentIndex - 1
     }
 
     const prevMatch = matches[currentIndex]
+    const state = view.state
     const tr = state.tr.setSelection(
       new TextSelection(state.doc.resolve(prevMatch.from), state.doc.resolve(prevMatch.to)),
     ).scrollIntoView()
     view.dispatch(tr)
 
     this.ensureMatchVisible(view, prevMatch.from)
+
+    moduleCurrentIndex = currentIndex
 
     return {
       current: currentIndex,
@@ -331,17 +358,17 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    const state = view.state
-    const pluginState = searchPluginKey.getState(state)
-    if (!pluginState || !pluginState.query || !pluginState.query.search) {
+    // 使用模块级状态
+    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = pluginState.matches
+    const matches = moduleCurrentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
 
+    const state = view.state
     const sel = state.selection
     let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
 
@@ -350,7 +377,7 @@ export class CrepeSearchService implements SearchService {
     }
 
     const match = matches[currentIndex]
-    const replacedText = pluginState.query.regexp && match.match
+    const replacedText = moduleCurrentQuery.regexp && match.match
       ? expandRegexReplacement(replacement, match.match)
       : replacement
     const tr = replacedText === ''
@@ -359,12 +386,11 @@ export class CrepeSearchService implements SearchService {
 
     view.dispatch(tr)
 
+    // 重新计算匹配
     const newState = view.state
-    const newMatches = findAllMatches(newState.doc, pluginState.query)
-    searchCache.set(pluginState.query, newMatches)
-
-    const updateTr = newState.tr.setMeta(searchPluginKey, { type: 'set', query: pluginState.query })
-    view.dispatch(updateTr)
+    const newMatches = findAllMatches(newState.doc, moduleCurrentQuery)
+    searchCache.set(moduleCurrentQuery, newMatches)
+    moduleCurrentMatches = newMatches
 
     const newCurrentIndex = 0
     if (newMatches.length > 0) {
@@ -386,18 +412,18 @@ export class CrepeSearchService implements SearchService {
       return { replaced: 0 }
     }
 
-    const pluginState = searchPluginKey.getState(view.state)
-    if (!pluginState || !pluginState.query || !pluginState.query.search) {
+    // 使用模块级状态
+    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
       return { replaced: 0 }
     }
 
-    const matches = pluginState.matches
+    const matches = moduleCurrentMatches
     if (matches.length === 0) {
       return { replaced: 0 }
     }
 
     const initialState = view.state
-    const query = pluginState.query
+    const query = moduleCurrentQuery
     let replacedCount = 0
 
     let tr = initialState.tr

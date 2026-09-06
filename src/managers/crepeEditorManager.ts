@@ -14,6 +14,8 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
 import { generateSlug } from '@/utils/headings'
+import { searchPlugin } from '@/services/search'
+import { EditorCommands } from './EditorCommands'
 
 export class CrepeEditorManager {
   private crepe: Crepe | null = null
@@ -26,6 +28,7 @@ export class CrepeEditorManager {
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
+  readonly commands = new EditorCommands()
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
@@ -88,6 +91,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         },
       },
     })
+    this.commands.setCrepe(this.crepe)
 
     this.crepe.editor
       .config((ctx) => {
@@ -110,6 +114,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         })
       })
       .use(listener)
+      .use(searchPlugin)
 
     try {
       await this.crepe.create()
@@ -281,6 +286,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     if (this.crepe) {
       this.crepe.destroy()
       this.crepe = null
+      this.commands.setCrepe(null as unknown as Crepe)
     }
 
     this.content = ''
