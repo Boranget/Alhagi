@@ -39,6 +39,7 @@
 
       <!-- CodeMirror 编辑器 - 源码模式 -->
       <CodeMirrorEditor
+        ref="sourceEditorRef"
         v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
         :model-value="sourceContent"
         @update:model-value="handleCodeMirrorChange"
@@ -75,6 +76,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
@@ -87,14 +89,18 @@ import FloatingSearch from './FloatingSearch.vue'
 import CodeMirrorEditor from './CodeMirrorEditor.vue'
 import { provideSearchService } from '@/composables/useSearch'
 import { CrepeSearchService } from '@/services/search'
+import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
+import type { SearchConfig } from '@/utils/search'
 
 const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
+const viewModeStore = useViewModeStore()
 
 const editorManager = useCrepeEditorManager()
 
 const crepeContainer = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
+const sourceEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 
 const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
@@ -107,6 +113,19 @@ const unsubscribes: (() => void)[] = []
 const searchService = computed(() => {
   if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
     return new CrepeSearchService(() => editorManager.getView())
+  }
+  // Issue 3 fix: 源码模式返回 CodeMirrorSearchService 代理，
+  // 委托给 CodeMirrorEditor 暴露的搜索方法
+  if (currentMode.value === 'source' && sourceEditorRef.value) {
+    const ref = sourceEditorRef.value
+    return {
+      search: (config: SearchConfig, options?: { select?: boolean }) => ref.search(config, options),
+      clear: () => ref.clearSearch(),
+      findNext: (): SearchResult => ref.findNext(),
+      findPrev: (): SearchResult => ref.findPrev(),
+      replaceNext: (replacement: string): SearchResult => ref.replaceNext(replacement),
+      replaceAll: (replacement: string): ReplaceResult => ref.replaceAll(replacement),
+    } as SearchService
   }
   return null
 })
@@ -135,8 +154,8 @@ const containerStyle = computed(() => ({
 
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': prefsStore.typewriterMode,
-  'focus-mode': prefsStore.focusMode,
+  'typewriter-mode': viewModeStore.typewriterMode,
+  'focus-mode': viewModeStore.focusMode,
   'small-screen': isSmallScreen.value
 }))
 

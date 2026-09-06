@@ -53,7 +53,7 @@ test.describe('搜索功能', () => {
 
   test('输入关键词搜索', async () => {
     await window.keyboard.press('Control+f')
-    const input = window.locator('.search-input')
+    const input = window.locator('.search-bar .search-input')
     await expect(input).toBeVisible({ timeout: 10000 })
     await input.fill('hello')
     await expect(input).toHaveValue('hello')

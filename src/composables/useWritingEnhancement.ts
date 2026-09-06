@@ -96,7 +96,7 @@ function scrollCursorToCenter() {
       }
     } else if (isCrepe) {
       // Crepe WYSIWYG 模式：使用 EditorView API
-      const view = editorManager.getEditorView()
+      const view = editorManager.getView()
       if (view) {
         const coords = view.coordsAtPos(view.state.selection.from)
         cursorY = coords.top - scrollContainer.getBoundingClientRect().top
