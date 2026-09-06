@@ -12,6 +12,7 @@ import { eventBus, AppEvents } from '@/events/eventBus'
 import { useCapture } from '@/services/capture'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useToast } from '@/composables/useToast'
 
 // 模块级响应式状态：useApp() 调用方共享同一份 ref
 const isFullscreen = ref(false)
@@ -26,6 +27,7 @@ export function useApp() {
   const fileStore = useFileExplorerStore()
   const editorManager = useCrepeEditorManager()
   const { confirm } = useConfirmDialog()
+  const toast = useToast()
 
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
@@ -60,7 +62,7 @@ export function useApp() {
           const action = prompt('截图完成！选择操作：\n1. 复制到剪贴板\n2. 下载到本地\n3. 取消', '1')
           if (action === '1') {
             await copyCaptureToClipboard(result)
-            alert('已复制到剪贴板')
+            toast.success('已复制到剪贴板')
           } else if (action === '2') {
             const filename = `screenshot-${Date.now()}.png`
             downloadCapture(result, filename)

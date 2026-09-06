@@ -36,15 +36,17 @@
       @close="showShortcuts = false"
     />
     <ConfirmDialog />
+    <Toast ref="toastRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
+import { ref, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useLayoutStore } from '@/stores/layout'
 import { useApp } from '@/composables/useApp'
+import { useToast } from '@/composables/useToast'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
@@ -55,6 +57,7 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
 const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
 const ConfirmDialog = defineAsyncComponent(() => import('@/components/ConfirmDialog.vue'))
+const Toast = defineAsyncComponent(() => import('@/components/Toast/Toast.vue'))
 // 编辑器异步加载（P2-9）：仅当有打开文件时拉取 milkdown/crepe + codemirror，
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
 const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))
@@ -66,6 +69,11 @@ const { isFullscreen, initializeApp } = useApp()
 
 const showCommandPalette = ref(false)
 const showShortcuts = ref(false)
+const toastRef = ref<InstanceType<typeof import('@/components/Toast/Toast.vue').default> | null>(null)
+
+// 连接全局 toast
+const { toastRef: globalToastRef } = useToast()
+watch(toastRef, (val) => { globalToastRef.value = val })
 
 /**
  * 主窗请求打开设置窗。设置已重构为独立 BrowserWindow（settings.html 入口）：

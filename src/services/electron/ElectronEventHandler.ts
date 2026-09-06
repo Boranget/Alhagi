@@ -16,6 +16,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useTabService } from '@/services/tabService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { toast } from '@/composables/useToast'
 import { executeCommand } from '@/commands'
 import type { ElectronAPI } from 'electron-protocol'
 
@@ -97,7 +98,7 @@ export class ElectronEventHandler {
           if (kind === 'deleted') {
             this.tabsStore.markDirty(tab.id)
             window.setTimeout(() => {
-              alert(`文件「${tab.title}」已被外部删除。\n标签内容仍可保存，会重新创建文件。`)
+              toast.warning(`文件「${tab.title}」已被外部删除。\n标签内容仍可保存，会重新创建文件。`)
             }, 0)
             return
           }

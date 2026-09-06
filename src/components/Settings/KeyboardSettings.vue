@@ -122,6 +122,7 @@ import type { Keybinding, CommandCategory } from '@/commands/types'
 import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useToast } from '@/composables/useToast'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -130,6 +131,7 @@ const emit = defineEmits<{
 
 const prefsStore = usePreferencesStore()
 const { confirm } = useConfirmDialog()
+const toast = useToast()
 const searchQuery = ref('')
 const recordingFor = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -300,9 +302,9 @@ function handleImportKeybindings(e: Event) {
         }
         customKeybindings.value = converted
       }
-      alert('导入成功！')
+      toast.success('导入成功！')
     } catch {
-      alert('导入失败：文件格式不正确')
+      toast.error('导入失败：文件格式不正确')
     }
   }
   reader.readAsText(file)

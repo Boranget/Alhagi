@@ -198,10 +198,12 @@ import type { TabState } from '@/types'
 import { Icon } from '@/components/Icons'
 import { useTabService } from '@/services/tabService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useToast } from '@/composables/useToast'
 
 const tabsStore = useTabsStore()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
+const toast = useToast()
 
 const {
   dragState,
@@ -392,10 +394,10 @@ async function detachTab() {
       await window.electronAPI.openNewWindow({ tabData: serializeTabForIPC(tab) })
       tabsStore.removeTab(tabId)
     } catch (e) {
-      alert('分离标签页失败，请重试')
+      toast.error('分离标签页失败，请重试')
     }
   } else {
-    alert('此功能仅在 Electron 环境下可用')
+    toast.warning('此功能仅在 Electron 环境下可用')
   }
   
   hideContextMenu()

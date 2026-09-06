@@ -6,6 +6,7 @@ import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
 import { useSearch } from './useSearch'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { useToast } from './useToast'
 
 export type SearchScope = 'file' | 'folder' | 'all'
 export type SearchMode = 'floating' | 'sidebar'
@@ -30,6 +31,7 @@ export function useWorkspaceSearch() {
   const tabsStore = useTabsStore()
   const fileStore = useFileExplorerStore()
   const searchService = useSearch()
+  const toast = useToast()
 
   const isVisible = ref(false)
   const searchQuery = ref('')
@@ -356,7 +358,7 @@ export function useWorkspaceSearch() {
         replaceCount += matches.length
       }
     })
-    if (replaceCount > 0) alert(`已替换 ${replaceCount} 处匹配`)
+    if (replaceCount > 0) toast.success(`已替换 ${replaceCount} 处匹配`)
     performSearch()
   }
 
@@ -377,7 +379,7 @@ export function useWorkspaceSearch() {
         replaceCount += matches.length
       }
     })
-    if (replaceCount > 0) alert(`已替换 ${replaceCount} 处匹配`)
+    if (replaceCount > 0) toast.success(`已替换 ${replaceCount} 处匹配`)
     performSearch()
   }
 
