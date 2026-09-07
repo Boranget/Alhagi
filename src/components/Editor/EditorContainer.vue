@@ -107,7 +107,6 @@ const currentMode = ref<ViewMode>('wysiwyg')
 const splitRatio = ref(50)
 const isResizing = ref(false)
 const windowWidth = ref(window.innerWidth)
-const windowHeight = ref(window.innerHeight)
 const unsubscribes: (() => void)[] = []
 
 const searchService = computed(() => {
@@ -254,7 +253,6 @@ const handleSourceContentChange = debounce((newContent: unknown) => {
 
 const handleWindowResize = () => {
   windowWidth.value = window.innerWidth
-  windowHeight.value = window.innerHeight
 }
 
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {

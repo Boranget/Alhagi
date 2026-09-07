@@ -204,33 +204,6 @@ function toggleViewMode() {
 
   eventBus.emit(AppEvents.VIEW_MODE_CHANGED, nextMode)
 }
-
-let unsubscribeTabSwitched: (() => void) | null = null
-let unsubscribeTabUpdated: (() => void) | null = null
-let unsubscribeContentChanged: (() => void) | null = null
-
-onMounted(() => {
-  unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
-    // Tab switched handler
-  })
-
-  unsubscribeTabUpdated = eventBus.on(AppEvents.TAB_UPDATED, (payload) => {
-    const data = payload as { tabId: string; updates: Record<string, unknown> }
-    if (data.updates.isDirty !== undefined) {
-      // Dirty status updated
-    }
-  })
-
-  unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
-    // Content changed handler
-  })
-})
-
-onUnmounted(() => {
-  unsubscribeTabSwitched?.()
-  unsubscribeTabUpdated?.()
-  unsubscribeContentChanged?.()
-})
 </script>
 
 <style scoped lang="scss">

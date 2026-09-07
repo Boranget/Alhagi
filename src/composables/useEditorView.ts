@@ -16,9 +16,7 @@ import type { ViewMode } from '@/types'
 export function useEditorView() {
   const tabsStore = useTabsStore()
 
-  const isResizing = ref(false)
   const windowWidth = ref(window.innerWidth)
-  const windowHeight = ref(window.innerHeight)
 
   const currentMode = computed<ViewMode>({
     get() {
@@ -58,9 +56,7 @@ export function useEditorView() {
   return {
     currentMode,
     splitRatio,
-    isResizing,
     windowWidth,
-    windowHeight,
     isWysiwygMode,
     isSourceMode,
     isSplitMode,
