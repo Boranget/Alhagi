@@ -281,6 +281,12 @@ export class CustomCodeMirrorBlock implements NodeView {
   }
 
   private forwardUpdate = (update: ViewUpdate) => {
+    console.log('[DEBUG forwardUpdate] called', {
+      updating: this.updating,
+      hasFocus: this.cm.hasFocus,
+      docChanged: update.docChanged,
+      cmContent: this.cm.state.doc.toString(),
+    })
     if (this.updating || !this.cm.hasFocus) return
     let offset = (this.getPos() ?? 0) + 1
     const { main } = update.state.selection
@@ -865,6 +871,13 @@ export class CustomCodeMirrorBlock implements NodeView {
 
     if (this.updating) return true
 
+    console.log('[DEBUG update] called', {
+      oldText: this.node.textContent,
+      newText: node.textContent,
+      initialized: this.initialized,
+      cmContent: this.initialized ? this.cm.state.doc.toString() : '(not init)',
+    })
+
     this.node = node
     this.text.value = node.textContent
     this.language.value = node.attrs.language ?? ''
@@ -890,6 +903,7 @@ export class CustomCodeMirrorBlock implements NodeView {
     }
 
     const change = computeChange(this.cm.state.doc.toString(), node.textContent)
+    console.log('[DEBUG update] computeChange result:', change)
     if (change) {
       this.updating = true
       this.cm.dispatch({
@@ -902,6 +916,10 @@ export class CustomCodeMirrorBlock implements NodeView {
   }
 
   selectNode() {
+    console.log('[DEBUG selectNode] called', {
+      cmContent: this.cm?.state.doc.toString(),
+      nodeContent: this.node.textContent,
+    })
     if (!this.initialized) {
       this.initializeCodeMirror()
     }
@@ -910,6 +928,10 @@ export class CustomCodeMirrorBlock implements NodeView {
   }
 
   deselectNode() {
+    console.log('[DEBUG deselectNode] called', {
+      cmContent: this.cm?.state.doc.toString(),
+      nodeContent: this.node.textContent,
+    })
     this.selected.value = false
   }
 
