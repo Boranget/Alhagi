@@ -386,3 +386,8 @@ body.focus-mode {
 [data-theme="dark"] .cm-frontmatter-line {
   background-color: rgba(255, 255, 255, 0.035) !important;
 }
+
+// 隐藏代码块内 CodeMirror 原生搜索面板
+.milkdown-code-block .cm-panel {
+  display: none !important;
+}
