@@ -58,7 +58,7 @@ export interface AppError {
 
 type ErrorHandler = (error: AppError) => void
 
-class ErrorManager {
+export class ErrorManager {
   private errors: AppError[] = []
   private handlers: ErrorHandler[] = []
   private maxErrors = 100

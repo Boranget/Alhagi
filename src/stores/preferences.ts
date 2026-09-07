@@ -19,7 +19,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { RecentFile, RecentFolder } from '@/types'
-import { errorManager, ErrorCode, ErrorSeverity } from '@/services/errorHandler'
+import { useErrorStore, ErrorCode, ErrorSeverity } from '@/stores/error'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 import { useThemeService } from '@/services/theme/ThemeService'
 import { useRecentFilesService } from '@/services/recentFiles/RecentFilesService'
@@ -126,6 +126,7 @@ const DEFAULT_PREFERENCES: Preferences = {
 const STORAGE_KEY = 'alhagi-preferences'
 
 export const usePreferencesStore = defineStore('preferences', () => {
+  const errorStore = useErrorStore()
   // —————————————— 状态 refs ——————————————
   const launchMode = ref<Preferences['launchMode']>(DEFAULT_PREFERENCES.launchMode)
   const launchFolderPath = ref<string | undefined>(DEFAULT_PREFERENCES.launchFolderPath)
@@ -283,7 +284,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
     if (window.electronAPI?.preferencesSetOne) {
       window.electronAPI.preferencesSetOne(key as string, plainValue as unknown).catch((err) => {
-        errorManager.createError(
+        errorStore.createError(
           ErrorCode.FILE_WRITE_ERROR,
           `保存偏好 ${key} 失败：${err instanceof Error ? err.message : String(err)}`,
           ErrorSeverity.ERROR,

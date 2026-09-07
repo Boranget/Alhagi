@@ -7,6 +7,7 @@ import { $prose } from '@milkdown/kit/utils'
 import type { SearchConfig } from '@/utils/search'
 import { expandRegexReplacement, isInvalidRegexQuery } from '@/utils/searchReplace'
 import type { SearchService, SearchResult, ReplaceResult } from './types'
+import { useSearchStore } from '@/stores/search'
 
 interface SearchQuery {
   search: string
@@ -14,11 +15,6 @@ interface SearchQuery {
   wholeWord: boolean
   regexp: boolean
 }
-
-// 模块级状态：与实例解耦，即使创建新实例也能保持状态
-let moduleCurrentQuery: SearchQuery | null = null
-let moduleCurrentMatches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
-let moduleCurrentIndex: number = -1
 
 class SearchCache {
   private cache: {
@@ -205,6 +201,10 @@ export function getSearchPluginKey() {
  * - 解决了 Vue computed 每次访问可能创建新实例导致状态丢失的问题
  */
 export class CrepeSearchService implements SearchService {
+  private get store() {
+    return useSearchStore()
+  }
+
   constructor(private getView: () => EditorView | null) {}
 
   search(config: SearchConfig, options?: { select?: boolean }): SearchResult {
@@ -228,8 +228,8 @@ export class CrepeSearchService implements SearchService {
     }
 
     // 更新模块级状态（与实例解耦）
-    moduleCurrentQuery = searchQuery
-    moduleCurrentMatches = matches
+    this.store.currentQuery = searchQuery
+    this.store.currentMatches = matches
 
     // 通过 plugin meta 触发高亮装饰
     const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
@@ -247,7 +247,7 @@ export class CrepeSearchService implements SearchService {
       }
     }
 
-    moduleCurrentIndex = currentMatchIndex
+    this.store.currentIndex = currentMatchIndex
     view.dispatch(tr)
 
     return {
@@ -257,9 +257,9 @@ export class CrepeSearchService implements SearchService {
   }
 
   clear(): void {
-    moduleCurrentQuery = null
-    moduleCurrentMatches = []
-    moduleCurrentIndex = -1
+    this.store.currentQuery = null
+    this.store.currentMatches = []
+    this.store.currentIndex = -1
     searchCache.clear()
 
     // 通过 plugin meta 清除高亮装饰
@@ -277,18 +277,18 @@ export class CrepeSearchService implements SearchService {
     }
 
     // 使用模块级状态（即使创建新实例也能访问）
-    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
+    if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = moduleCurrentMatches
+    const matches = this.store.currentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
 
-    // 使用 moduleCurrentIndex 而非 view.state.selection
+    // 使用 this.store.currentIndex 而非 view.state.selection
     // 因为 ProseMirror dispatch 不是同步更新 view.state 的
-    let currentIndex = moduleCurrentIndex
+    let currentIndex = this.store.currentIndex
     if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = 0
     } else {
@@ -304,7 +304,7 @@ export class CrepeSearchService implements SearchService {
 
     this.ensureMatchVisible(view, nextMatch.from)
 
-    moduleCurrentIndex = currentIndex
+    this.store.currentIndex = currentIndex
 
     return {
       current: currentIndex,
@@ -319,16 +319,16 @@ export class CrepeSearchService implements SearchService {
     }
 
     // 使用模块级状态
-    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
+    if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = moduleCurrentMatches
+    const matches = this.store.currentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
 
-    let currentIndex = moduleCurrentIndex
+    let currentIndex = this.store.currentIndex
     if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = matches.length - 1
     } else {
@@ -344,7 +344,7 @@ export class CrepeSearchService implements SearchService {
 
     this.ensureMatchVisible(view, prevMatch.from)
 
-    moduleCurrentIndex = currentIndex
+    this.store.currentIndex = currentIndex
 
     return {
       current: currentIndex,
@@ -359,11 +359,11 @@ export class CrepeSearchService implements SearchService {
     }
 
     // 使用模块级状态
-    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
+    if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
 
-    const matches = moduleCurrentMatches
+    const matches = this.store.currentMatches
     if (matches.length === 0) {
       return { current: 0, total: 0 }
     }
@@ -377,7 +377,7 @@ export class CrepeSearchService implements SearchService {
     }
 
     const match = matches[currentIndex]
-    const replacedText = moduleCurrentQuery.regexp && match.match
+    const replacedText = this.store.currentQuery.regexp && match.match
       ? expandRegexReplacement(replacement, match.match)
       : replacement
     const tr = replacedText === ''
@@ -388,9 +388,9 @@ export class CrepeSearchService implements SearchService {
 
     // 重新计算匹配
     const newState = view.state
-    const newMatches = findAllMatches(newState.doc, moduleCurrentQuery)
-    searchCache.set(moduleCurrentQuery, newMatches)
-    moduleCurrentMatches = newMatches
+    const newMatches = findAllMatches(newState.doc, this.store.currentQuery)
+    searchCache.set(this.store.currentQuery, newMatches)
+    this.store.currentMatches = newMatches
 
     const newCurrentIndex = 0
     if (newMatches.length > 0) {
@@ -413,17 +413,17 @@ export class CrepeSearchService implements SearchService {
     }
 
     // 使用模块级状态
-    if (!moduleCurrentQuery || !moduleCurrentQuery.search) {
+    if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { replaced: 0 }
     }
 
-    const matches = moduleCurrentMatches
+    const matches = this.store.currentMatches
     if (matches.length === 0) {
       return { replaced: 0 }
     }
 
     const initialState = view.state
-    const query = moduleCurrentQuery
+    const query = this.store.currentQuery
     let replacedCount = 0
 
     let tr = initialState.tr
