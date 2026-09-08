@@ -11,7 +11,6 @@ import {
   MAX_UNDO_STACK_SIZE,
   MAX_REDO_STACK_SIZE 
 } from '@/utils/tabHelpers'
-import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { TABS, EDITOR } from '@/constants'
 
@@ -93,8 +92,7 @@ export const useTabsStore = defineStore('tabs', () => {
     tabOrder.value.push(id)
 
     if (options.filePath) {
-      const prefs = usePreferencesStore()
-      prefs.addRecentFile(options.filePath, tab.title)
+      eventBus.emit(AppEvents.FILE_OPENED, { filePath: options.filePath, tabId: id })
     }
 
     activeTabId.value = id
@@ -137,8 +135,7 @@ export const useTabsStore = defineStore('tabs', () => {
 
     const tab = tabs.value.get(tabId)
     if (tab && tab.filePath) {
-      const prefs = usePreferencesStore()
-      prefs.addRecentFile(tab.filePath, tab.title)
+      eventBus.emit(AppEvents.FILE_OPENED, { filePath: tab.filePath, tabId })
     }
 
     eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })

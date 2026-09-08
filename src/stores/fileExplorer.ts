@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { FileTreeNodeType, DirectoryEntry } from '@/types'
 import { FILE_TYPES } from '@electron-protocol/index'
-import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { electronService } from '@/services/electron/ElectronService'
 
@@ -28,9 +27,6 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
         currentFolder.value = response.data.path
         fileTree.value = response.data.tree as FileTreeNodeType[]
         
-        const prefs = usePreferencesStore()
-        const folderName = response.data.path.split(/[/\\]/).pop() || response.data.path
-        prefs.addRecentFolder(response.data.path, folderName)
         emitFolderOpened(response.data.path)
         
         return response.data
@@ -178,9 +174,6 @@ export const useFileExplorerStore = defineStore('fileExplorer', () => {
       currentFolder.value = folderPath
       fileTree.value = tree
       
-      const prefs = usePreferencesStore()
-      const folderName = folderPath.split(/[/\\]/).pop() || folderPath
-      prefs.addRecentFolder(folderPath, folderName)
       emitFolderOpened(folderPath)
       
       return { path: folderPath, tree }
