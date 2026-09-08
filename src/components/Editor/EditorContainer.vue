@@ -74,15 +74,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useViewModeStore } from '@/stores/viewMode'
-import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { useAppContext } from '@/composables/useAppContext'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
@@ -92,11 +88,7 @@ import { CrepeSearchService } from '@/services/search'
 import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
 import type { SearchConfig } from '@/utils/search'
 
-const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
-const viewModeStore = useViewModeStore()
-
-const editorManager = useCrepeEditorManager()
+const { tabs, editor, viewMode } = useAppContext()
 
 const crepeContainer = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
@@ -111,7 +103,7 @@ const unsubscribes: (() => void)[] = []
 
 const searchService = computed(() => {
   if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
-    return new CrepeSearchService(() => editorManager.getView())
+    return new CrepeSearchService(() => editor.getView())
   }
   // Issue 3 fix: 源码模式返回 CodeMirrorSearchService 代理，
   // 委托给 CodeMirrorEditor 暴露的搜索方法
@@ -131,7 +123,7 @@ const searchService = computed(() => {
 
 provideSearchService(searchService)
 
-const activeTab = computed(() => tabsStore.activeTab)
+const activeTab = tabs.activeTab
 
 const isSmallScreen = computed(() => windowWidth.value < 800)
 const editorScale = computed(() => {
@@ -153,17 +145,17 @@ const containerStyle = computed(() => ({
 
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': viewModeStore.typewriterMode,
-  'focus-mode': viewModeStore.focusMode,
+  'typewriter-mode': viewMode.typewriterMode.value,
+  'focus-mode': viewMode.focusMode.value,
   'small-screen': isSmallScreen.value
 }))
 
 watch(activeTab, async (tab, oldTab) => {
   if (tab) {
     // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
-    if (editorManager.isReady()) {
+    if (editor.isReady()) {
       if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-        await editorManager.switchToTab(tab.id)
+        await editor.switchToTab(tab.id)
       }
     }
     
@@ -178,15 +170,15 @@ const handleCodeMirrorChange = (val: string) => {
 }
 
 const handleCrepeFocus = () => {
-  editorManager.setActiveEditor('crepe')
+  editor.setActiveEditor('crepe')
 }
 
 const handleCodeMirrorFocus = () => {
-  editorManager.setActiveEditor('codemirror')
+  editor.setActiveEditor('codemirror')
 }
 
 const handleCodeMirrorBlur = () => {
-  editorManager.setActiveEditor(null)
+  editor.setActiveEditor(null)
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
@@ -197,20 +189,20 @@ const handleViewModeChange = async (mode: ViewMode) => {
   }
   
   // 如果切换到非 WYSIWYG 模式，同步 Crepe 的内容到 CodeMirror
-  if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editorManager.isReady()) {
-    sourceContent.value = editorManager.getMarkdown()
+  if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editor.isReady()) {
+    sourceContent.value = editor.getMarkdown()
   }
 
   // 如果切换到 WYSIWYG 模式，同步 CodeMirror 的内容到 Crepe
   if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
-    if (editorManager.isReady()) {
-      await editorManager.setMarkdown(sourceContent.value)
+    if (editor.isReady()) {
+      await editor.setMarkdown(sourceContent.value)
     }
   }
 
   // 更新模式
   currentMode.value = mode
-  editorManager.setViewMode(mode)
+  editor.setViewMode(mode)
   
   // 等待 DOM 更新，让 v-show 生效
   await nextTick()
@@ -242,12 +234,12 @@ const handleResizerMouseUp = () => {
 
 const handleSourceContentChange = debounce((newContent: unknown) => {
   const content = newContent as string
-  if (activeTab.value && editorManager.isReady()) {
-    tabsStore.updateTab(activeTab.value.id, {
+  if (activeTab.value && editor.isReady()) {
+    tabs.update(activeTab.value.id, {
       content: content,
       isDirty: true,
     })
-    editorManager.setMarkdown(content)
+    editor.setMarkdown(content)
   }
 }, 100)
 
@@ -258,7 +250,7 @@ const handleWindowResize = () => {
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
   if (data && data.tabId === activeTab.value?.id) {
-    const activeEditor = editorManager.getActiveEditor()
+    const activeEditor = editor.getActiveEditor()
     if (activeEditor !== 'codemirror') {
       sourceContent.value = data.content
     }
@@ -269,8 +261,8 @@ unsubscribes.push(unsubscribeContentChanged)
 const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
   const data = payload as { tabId: string | null }
   
-  if (activeTab.value && editorManager.isReady()) {
-    await editorManager.switchToTab(activeTab.value.id)
+  if (activeTab.value && editor.isReady()) {
+    await editor.switchToTab(activeTab.value.id)
   }
 })
 unsubscribes.push(unsubscribeEditorReady)
@@ -286,10 +278,10 @@ onMounted(async () => {
     const tabId = activeTab.value?.id
     
     try {
-      await editorManager.init(crepeContainer.value, initialContent, tabId)
+      await editor.init(crepeContainer.value, initialContent, tabId)
       
       if (tabId && initialContent) {
-        await editorManager.switchToTab(tabId)
+        await editor.switchToTab(tabId)
       }
     } catch (error) {
       console.error('[EditorContainer] Failed to initialize:', error)

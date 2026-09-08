@@ -7,7 +7,7 @@
         @click="toggleSidebar"
       >
         <Icon
-          :name="layoutStore.showSidebar ? 'collapse-left' : 'expand-right'"
+          :name="layout.showSidebar ? 'collapse-left' : 'expand-right'"
           size="sm"
         />
       </button>
@@ -45,11 +45,11 @@
       <span
         v-if="isEditorFile"
         class="status-item word-count-display"
-        :title="prefsStore.wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
-        @click="prefsStore.toggleWordCountDisplayType()"
+        :title="prefs.wordCountDisplayType.value === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
+        @click="prefs.toggleWordCountDisplayType()"
       >
         <Icon
-          :name="prefsStore.wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
+          :name="prefs.wordCountDisplayType.value === 'raw' ? 'file' : 'wysiwyg'"
           size="sm"
         />
         <span>{{ currentWordCount }}</span>
@@ -83,7 +83,7 @@
         class="status-btn"
         :class="{ active: isDarkMode }"
         :title="t('statusBar.switchTheme')"
-        @click="prefsStore.toggleLightDark()"
+        @click="prefs.toggleLightDark()"
       >
         <Icon
           :name="isDarkMode ? 'sun' : 'moon'"
@@ -99,30 +99,24 @@
           name="zoom-in"
           size="sm"
         />
-        <span>{{ prefsStore.zoom }}%</span>
+        <span>{{ prefs.zoom }}%</span>
       </span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useViewModeStore } from '@/stores/viewMode'
-import { useLayoutStore } from '@/stores/layout'
+import { computed } from 'vue'
+import { useAppContext } from '@/composables/useAppContext'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
-const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
-const viewMode = useViewModeStore()
-const layoutStore = useLayoutStore()
+const { tabs, prefs, layout, viewMode } = useAppContext()
 const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
 
-const activeTab = computed(() => tabsStore.activeTab)
+const activeTab = tabs.activeTab
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
 // 仅显示文件名，不显示完整路径
@@ -154,19 +148,19 @@ const plainTextChars = computed(() => {
 
 // 当前显示的字数统计
 const currentWordCount = computed(() => {
-  return prefsStore.wordCountDisplayType === 'raw' ? rawMarkdownChars.value : plainTextChars.value
+  return prefs.wordCountDisplayType.value === 'raw' ? rawMarkdownChars.value : plainTextChars.value
 })
 
 const isDarkMode = computed(() => {
-  if (prefsStore.theme === 'dark') return true
-  if (prefsStore.theme === 'system') {
+  if (prefs.theme.value === 'dark') return true
+  if (prefs.theme.value === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
   }
   return false
 })
 
 function toggleSidebar() {
-  layoutStore.toggleSidebar()
+  layout.toggleSidebar()
 }
 
 // 模块级变量：记录从 split→非 split 时应该去哪一侧
