@@ -29,6 +29,7 @@ export function useCapture() {
         height: canvas.height
       }
     } catch (error) {
+      console.error('Failed to capture editor:', error)
       return null
     }
   }
@@ -44,6 +45,7 @@ export function useCapture() {
       ])
       return true
     } catch (error) {
+      console.error('Failed to copy capture to clipboard:', error)
       return false
     }
   }

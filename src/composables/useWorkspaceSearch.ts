@@ -57,6 +57,8 @@ export function useWorkspaceSearch() {
   // CONTENT_CHANGED 事件重置 totalMatches
   let isNavigating = false
   let navigateLockTimer: ReturnType<typeof setTimeout> | null = null
+  let replaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
+  let linkResetTimer: ReturnType<typeof setTimeout> | null = null
 
   const options = reactive({
     caseSensitive: false,
@@ -362,7 +364,6 @@ export function useWorkspaceSearch() {
   }
 
   // Issue 2 fix: 替换后等待 ProseMirror markdown 同步，再刷新搜索高亮
-  let replaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
   function scheduleReplaceRefresh() {
     if (replaceRefreshTimer) clearTimeout(replaceRefreshTimer)
     // markdownUpdated 有 200ms debounce，等 300ms 确保 content 已同步
@@ -433,7 +434,8 @@ export function useWorkspaceSearch() {
       if (searchMode.value === 'floating') {
         linkedFromGlobalSearch.value = true
         searchScope.value = 'file'
-        setTimeout(() => {
+        if (linkResetTimer) clearTimeout(linkResetTimer)
+        linkResetTimer = setTimeout(() => {
           linkedFromGlobalSearch.value = false
         }, LINK_RESET_DELAY_MS)
       }
@@ -446,7 +448,8 @@ export function useWorkspaceSearch() {
     linkedFromGlobalSearch.value = true
     performSearch()
     updateEditorHighlight()
-    setTimeout(() => {
+    if (linkResetTimer) clearTimeout(linkResetTimer)
+    linkResetTimer = setTimeout(() => {
       linkedFromGlobalSearch.value = false
     }, LINK_RESET_DELAY_MS)
   }
@@ -532,6 +535,10 @@ export function useWorkspaceSearch() {
   onUnmounted(() => {
     unsubscribeContentChanged?.()
     searchService.value?.clear()
+    if (navigateLockTimer) clearTimeout(navigateLockTimer)
+    if (replaceRefreshTimer) clearTimeout(replaceRefreshTimer)
+    if (linkResetTimer) clearTimeout(linkResetTimer)
+    debouncedSearch.cancel()
   })
 
   return {

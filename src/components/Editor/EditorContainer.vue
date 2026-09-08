@@ -28,8 +28,8 @@
 
       <!-- CodeMirror 编辑器 - 源码模式 -->
       <CodeMirrorEditor
-        ref="sourceEditorRef"
         v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
+        ref="sourceEditorRef"
         :model-value="sourceContent"
         @update:model-value="handleCodeMirrorChange"
         @focus="handleCodeMirrorFocus"

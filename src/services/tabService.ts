@@ -81,7 +81,8 @@ export class TabService {
 
       eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
       return tab
-    } catch {
+    } catch (error) {
+      console.error('Failed to open recent file:', error)
       return null
     }
   }

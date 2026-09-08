@@ -30,6 +30,20 @@ export function useOutline() {
   let scrollContainer: HTMLElement | null = null
   let scrollHandler: ((event: Event) => void) | null = null
   const domPosCache = new Map<HTMLElement, number>()
+  const timerIds: ReturnType<typeof setTimeout>[] = []
+  const intervalIds: ReturnType<typeof setInterval>[] = []
+
+  function trackTimer(id: ReturnType<typeof setTimeout>) {
+    timerIds.push(id)
+    return id
+  }
+
+  function clearAllTimers() {
+    timerIds.forEach(id => clearTimeout(id))
+    timerIds.length = 0
+    intervalIds.forEach(id => clearInterval(id))
+    intervalIds.length = 0
+  }
 
   const activeTab = computed(() => tabsStore.activeTab)
 
@@ -67,9 +81,9 @@ export function useOutline() {
       flatHeadings.value = parseHeadings(tab.content)
     }
 
-    setTimeout(() => {
+    trackTimer(setTimeout(() => {
       buildDomPosCache()
-    }, CACHE_REBUILD_DELAY_MS)
+    }, CACHE_REBUILD_DELAY_MS))
   }
 
   function initScrollListener() {
@@ -118,6 +132,7 @@ export function useOutline() {
         clearInterval(retryInterval)
       }
     }, RETRY_INTERVAL_MS)
+    intervalIds.push(retryInterval)
   }
 
   function cleanupScrollListener() {
@@ -208,9 +223,9 @@ export function useOutline() {
       editorManager.scrollToHeading(node.label, node.line, node.pos)
     }
 
-    setTimeout(() => {
+    trackTimer(setTimeout(() => {
       isManualClick.value = false
-    }, MANUAL_CLICK_COOLDOWN_MS)
+    }, MANUAL_CLICK_COOLDOWN_MS))
   }
 
   function ensureOutlineReady() {
@@ -250,9 +265,9 @@ export function useOutline() {
     })
 
     unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, () => {
-      setTimeout(() => {
+      trackTimer(setTimeout(() => {
         ensureOutlineReady()
-      }, EDITOR_SETTLE_DELAY_MS)
+      }, EDITOR_SETTLE_DELAY_MS))
     })
 
     unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
@@ -261,15 +276,15 @@ export function useOutline() {
     })
 
     unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, () => {
-      setTimeout(() => {
+      trackTimer(setTimeout(() => {
         ensureOutlineReady()
-      }, EDITOR_SETTLE_DELAY_MS)
+      }, EDITOR_SETTLE_DELAY_MS))
     })
 
     unsubscribeActiveEditorChanged = eventBus.on(AppEvents.ACTIVE_EDITOR_CHANGED, () => {
-      setTimeout(() => {
+      trackTimer(setTimeout(() => {
         ensureOutlineReady()
-      }, EDITOR_SETTLE_DELAY_MS)
+      }, EDITOR_SETTLE_DELAY_MS))
     })
   }
 
@@ -296,12 +311,13 @@ export function useOutline() {
 
   onMounted(() => {
     setupEventListeners()
-    setTimeout(() => {
+    trackTimer(setTimeout(() => {
       ensureOutlineReady()
-    }, MOUNT_DELAY_MS)
+    }, MOUNT_DELAY_MS))
   })
 
   onUnmounted(() => {
+    clearAllTimers()
     cleanupEventListeners()
   })
 

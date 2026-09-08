@@ -17,19 +17,26 @@ interface ConfirmRequest {
   resolve: (value: boolean) => void
 }
 
-const state = reactive<ConfirmState>({
-  visible: false,
-  title: '确认操作',
-  message: '',
-  confirmText: '确定',
-  cancelText: '取消',
-  danger: false,
-})
+// 模块级闭包：共享同一份状态，但不在模块顶层暴露 queue/activeResolve
+let _sharedState: ReturnType<typeof reactive<ConfirmState>> | null = null
+const _queue: ConfirmRequest[] = []
+let _activeResolve: ((value: boolean) => void) | undefined
 
-const queue: ConfirmRequest[] = []
-let activeResolve: ((value: boolean) => void) | undefined
+function getSharedState() {
+  if (!_sharedState) {
+    _sharedState = reactive<ConfirmState>({
+      visible: false,
+      title: '确认操作',
+      message: '',
+      confirmText: '确定',
+      cancelText: '取消',
+      danger: false,
+    })
+  }
+  return _sharedState
+}
 
-function applyOptions(options: ConfirmOptions): void {
+function applyOptions(state: ConfirmState, options: ConfirmOptions): void {
   state.title = options.title ?? '确认操作'
   state.message = options.message
   state.confirmText = options.confirmText ?? '确定'
@@ -37,16 +44,16 @@ function applyOptions(options: ConfirmOptions): void {
   state.danger = options.danger ?? false
 }
 
-function showNext(): void {
-  const request = queue.shift()
+function showNext(state: ConfirmState): void {
+  const request = _queue.shift()
   if (!request) {
-    activeResolve = undefined
+    _activeResolve = undefined
     state.visible = false
     return
   }
 
-  activeResolve = request.resolve
-  applyOptions(request.options)
+  _activeResolve = request.resolve
+  applyOptions(state, request.options)
   state.visible = true
 }
 
@@ -58,27 +65,29 @@ function showNext(): void {
  * 应用内弹窗始终留在 renderer 焦点体系内，避免 native focus 竞态。
  */
 export function useConfirmDialog() {
+  const state = getSharedState()
+
   function confirm(options: ConfirmOptions): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      queue.push({ options, resolve })
-      if (!state.visible) showNext()
+      _queue.push({ options, resolve })
+      if (!state.visible) showNext(state)
     })
   }
 
   function close(result: boolean): void {
     if (!state.visible) return
 
-    const resolve = activeResolve
-    const nextRequest = queue.shift()
+    const resolve = _activeResolve
+    const nextRequest = _queue.shift()
     resolve?.(result)
 
     if (nextRequest) {
-      activeResolve = nextRequest.resolve
-      applyOptions(nextRequest.options)
+      _activeResolve = nextRequest.resolve
+      applyOptions(state, nextRequest.options)
       return
     }
 
-    activeResolve = undefined
+    _activeResolve = undefined
     state.visible = false
   }
 

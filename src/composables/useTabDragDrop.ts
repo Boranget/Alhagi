@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, shallowReactive, onMounted, onUnmounted } from 'vue'
 import type { DetachedTabData } from '@electron-protocol/index'
 import type { 
   TabState, 
@@ -28,7 +28,7 @@ export class DraggedTabIdentifier implements DraggedTabIdentifierType {
 export function useTabDragDrop() {
   const tabsStore = useTabsStore()
 
-  const dragState = reactive<DragDropState>({
+  const dragState = shallowReactive<DragDropState>({
     sourceTabId: null,
     targetType: 'none',
     targetTabId: null,

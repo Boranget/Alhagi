@@ -15,14 +15,17 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 
-// 模块级响应式状态：useApp() 调用方共享同一份 ref
-const isFullscreen = ref(false)
-
-// 启动期幂等 guard：initializeApp 只跑一次，多次调用返回同一个 cleanup
-// （防止后续有别处 useApp().initializeApp() 重复注册事件总线监听器、命令系统等）
+// 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
+let _isFullscreen: ReturnType<typeof ref<boolean>> | null = null
 let bootCleanup: (() => void) | null = null
 
+function getSharedFullscreenRef() {
+  if (!_isFullscreen) _isFullscreen = ref(false)
+  return _isFullscreen
+}
+
 export function useApp() {
+  const isFullscreen = getSharedFullscreenRef()
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const fileStore = useFileExplorerStore()

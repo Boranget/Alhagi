@@ -25,7 +25,7 @@
         :node="child"
         :active-pos="activePos"
         :depth="depth + 1"
-        @select="(n: any) => $emit('select', n)"
+        @select="(n: HeadingTreeNode) => $emit('select', n)"
       />
     </div>
   </div>

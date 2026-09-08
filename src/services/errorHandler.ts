@@ -249,7 +249,7 @@ export class ErrorManager {
       try {
         handler(error)
       } catch (e) {
-        // Silent fail - error handler errors
+        console.error('Error handler threw:', e)
       }
     })
   }

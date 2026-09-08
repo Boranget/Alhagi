@@ -1,20 +1,12 @@
 import { useTabsStore } from '@/stores/tabs'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { useSelectDialog } from '@/composables/useSelectDialog'
+import { xssSanitizer } from '@/services/xssSanitizer'
 
 export function useExport() {
   const tabsStore = useTabsStore()
   const editorManager = useCrepeEditorManager()
   const selectDialog = useSelectDialog()
-
-  function escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
-  }
 
   function getFullHtml(title: string): string {
     let content = ''
@@ -33,7 +25,7 @@ export function useExport() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
+  <title>${xssSanitizer.escapeHtml(title)}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
     code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }

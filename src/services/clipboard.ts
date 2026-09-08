@@ -1,5 +1,6 @@
 import { useTabsStore } from '@/stores/tabs'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { xssSanitizer } from '@/services/xssSanitizer'
 
 export function useClipboard() {
   const editorManager = useCrepeEditorManager()
@@ -12,7 +13,7 @@ export function useClipboard() {
     if (!activeTab) return false
     
     const text = getMarkdown()
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).catch(() => {})
     return true
   }
 
@@ -27,7 +28,7 @@ export function useClipboard() {
     
     const blob = new Blob([fullHtml], { type: 'text/html' })
     const clipboardItem = new ClipboardItem({ 'text/html': blob })
-    navigator.clipboard.write([clipboardItem])
+    navigator.clipboard.write([clipboardItem]).catch(() => {})
     
     return true
   }
@@ -38,7 +39,7 @@ export function useClipboard() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
+  <title>${xssSanitizer.escapeHtml(title)}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
     code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
@@ -52,15 +53,6 @@ export function useClipboard() {
 ${content}
 </body>
 </html>`
-  }
-
-  function escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
   }
 
   async function pasteAsPlainText(): Promise<boolean> {
@@ -77,6 +69,7 @@ ${content}
       document.execCommand('insertText', false, cleanText)
       return true
     } catch (e) {
+      console.warn('Failed to paste as plain text:', e)
       return false
     }
   }
