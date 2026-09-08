@@ -9,21 +9,10 @@
       :class="contentClasses"
     >
       <!-- 不支持的文件格式提示 -->
-      <div 
+      <UnsupportedFileMessage
         v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
-        class="unsupported-file-message"
-      >
-        <Icon
-          name="file"
-          size="lg"
-          class="message-icon"
-        />
-        <h3>{{ t('editor.unsupportedFileType') }}</h3>
-        <p>{{ activeTab?.filePath }}</p>
-        <p class="hint">
-          {{ t('editor.onlyMarkdownSupported') }}
-        </p>
-      </div>
+        :file-path="activeTab.filePath || ''"
+      />
 
       <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
       <div
@@ -80,15 +69,19 @@ import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
 import { t } from '@/services/i18n'
-import { Icon } from '@/components/Icons'
 import FloatingSearch from './FloatingSearch.vue'
+import UnsupportedFileMessage from './UnsupportedFileMessage.vue'
 import CodeMirrorEditor from './CodeMirrorEditor.vue'
 import { provideSearchService } from '@/composables/useSearch'
 import { CrepeSearchService } from '@/services/search'
 import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
 import type { SearchConfig } from '@/utils/search'
+import { useSplitResizer } from '@/composables/useSplitResizer'
+import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
 
 const { tabs, editor, viewMode } = useAppContext()
+const { splitRatio, handleResizerMouseDown } = useSplitResizer()
+const { windowWidth, isSmallScreen, editorScale } = useResponsiveEditor()
 
 const crepeContainer = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
@@ -96,9 +89,6 @@ const sourceEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 
 const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
-const splitRatio = ref(50)
-const isResizing = ref(false)
-const windowWidth = ref(window.innerWidth)
 const unsubscribes: (() => void)[] = []
 
 const searchService = computed(() => {
@@ -124,13 +114,6 @@ const searchService = computed(() => {
 provideSearchService(searchService)
 
 const activeTab = tabs.activeTab
-
-const isSmallScreen = computed(() => windowWidth.value < 800)
-const editorScale = computed(() => {
-  if (windowWidth.value < 600) return 0.8
-  if (windowWidth.value < 1000) return 0.9
-  return 1
-})
 
 // 检查文件是否为支持的格式（仅支持 Markdown）
 function isSupportedFileType(filePath: string | null): boolean {
@@ -208,30 +191,6 @@ const handleViewModeChange = async (mode: ViewMode) => {
   await nextTick()
 }
 
-const handleResizerMouseDown = (e: MouseEvent) => {
-  isResizing.value = true
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-const handleResizerMouseMove = (e: MouseEvent) => {
-  if (!isResizing.value) return
-  
-  const container = document.querySelector('.editor-content.mode-split') as HTMLElement
-  if (!container) return
-  
-  const rect = container.getBoundingClientRect()
-  let newRatio = ((e.clientX - rect.left) / rect.width) * 100
-  newRatio = Math.max(20, Math.min(80, newRatio))
-  splitRatio.value = newRatio
-}
-
-const handleResizerMouseUp = () => {
-  isResizing.value = false
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-}
-
 const handleSourceContentChange = debounce((newContent: unknown) => {
   const content = newContent as string
   if (activeTab.value && editor.isReady()) {
@@ -242,10 +201,6 @@ const handleSourceContentChange = debounce((newContent: unknown) => {
     editor.setMarkdown(content)
   }
 }, 100)
-
-const handleWindowResize = () => {
-  windowWidth.value = window.innerWidth
-}
 
 const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
   const data = payload as { tabId: string; content: string }
@@ -291,17 +246,11 @@ onMounted(async () => {
   }
   
   window.addEventListener('keydown', handleEditorKeydown)
-  window.addEventListener('resize', handleWindowResize)
-  document.addEventListener('mousemove', handleResizerMouseMove)
-  document.addEventListener('mouseup', handleResizerMouseUp)
 })
 
 onUnmounted(async () => {
   unsubscribes.forEach(unsubscribe => unsubscribe())
   window.removeEventListener('keydown', handleEditorKeydown)
-  window.removeEventListener('resize', handleWindowResize)
-  document.removeEventListener('mousemove', handleResizerMouseMove)
-  document.removeEventListener('mouseup', handleResizerMouseUp)
 })
 
 function handleEditorKeydown(e: KeyboardEvent) {
@@ -525,43 +474,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
     :deep(.milkdown-block-handle) {
       display: none !important;
     }
-  }
-}
-
-.unsupported-file-message {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 40px;
-
-  .message-icon {
-    font-size: 64px;
-    opacity: 0.5;
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  p {
-    margin: 0;
-    font-size: 14px;
-    max-width: 500px;
-    word-break: break-all;
-  }
-
-  .hint {
-    font-size: 13px;
-    opacity: 0.7;
-    margin-top: 8px;
   }
 }
 </style>

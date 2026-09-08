@@ -20,14 +20,7 @@
       </div>
 
       <div class="settings-content">
-        <div class="search-box">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="搜索快捷键..."
-            class="search-input"
-          >
-        </div>
+        <KeybindingSearchBox v-model="searchQuery" />
 
         <div class="keybindings-list">
           <div
@@ -36,78 +29,27 @@
             class="category-section"
           >
             <h3>{{ category.label }}</h3>
-            <div
+            <KeybindingItem
               v-for="cmd in category.commands"
               :key="cmd.id"
-              class="keybinding-item"
-            >
-              <div class="binding-info">
-                <span class="binding-description">{{ cmd.description || t(cmd.label) }}</span>
-              </div>
-              <div
-                class="binding-key"
-                @click="startRecording(cmd.id)"
-              >
-                <span
-                  v-if="recordingFor === cmd.id"
-                  class="recording"
-                >
-                  按键中...
-                </span>
-                <span
-                  v-else
-                  class="key-display"
-                >
-                  {{ getKeybindingDisplay(cmd.id) || '无' }}
-                </span>
-                <button
-                  v-if="isModified(cmd.id)"
-                  class="reset-btn"
-                  title="重置为默认"
-                  @click.stop="resetBinding(cmd.id)"
-                >
-                  ↩
-                </button>
-              </div>
-            </div>
+              :description="cmd.description || t(cmd.label)"
+              :display-key="getKeybindingDisplay(cmd.id) || '无'"
+              :is-recording="recordingFor === cmd.id"
+              :is-modified="isModified(cmd.id)"
+              @record="startRecording(cmd.id)"
+              @reset="resetBinding(cmd.id)"
+            />
           </div>
         </div>
 
-        <div class="settings-footer">
-          <button
-            class="btn secondary"
-            @click="resetAll"
-          >
-            重置全部
-          </button>
-          <div class="export-import">
-            <button
-              class="btn secondary"
-              @click="handleExportKeybindings"
-            >
-              导出
-            </button>
-            <button
-              class="btn secondary"
-              @click="triggerImport"
-            >
-              导入
-            </button>
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".json"
-              style="display: none"
-              @change="handleImportKeybindings"
-            >
-          </div>
-          <button
-            class="btn primary"
-            @click="saveAndClose"
-          >
-            保存
-          </button>
-        </div>
+        <KeybindingFooter
+          ref="footerRef"
+          @reset-all="resetAll"
+          @export="handleExportKeybindings"
+          @import="triggerImport"
+          @import-file="handleImportKeybindings"
+          @save="saveAndClose"
+        />
       </div>
     </div>
   </div>
@@ -123,6 +65,9 @@ import { getKeybindingManager } from '@/commands/keybinding'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import KeybindingItem from './KeybindingItem.vue'
+import KeybindingSearchBox from './KeybindingSearchBox.vue'
+import KeybindingFooter from './KeybindingFooter.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -134,7 +79,7 @@ const { confirm } = useConfirmDialog()
 const toast = useToast()
 const searchQuery = ref('')
 const recordingFor = ref<string | null>(null)
-const fileInput = ref<HTMLInputElement | null>(null)
+const footerRef = ref<InstanceType<typeof KeybindingFooter> | null>(null)
 
 // 用户自定义快捷键覆盖（key = commandId, value = Keybinding）
 const customKeybindings = ref<Record<string, Keybinding>>({})
@@ -272,7 +217,7 @@ function handleExportKeybindings() {
 }
 
 function triggerImport() {
-  fileInput.value?.click()
+  footerRef.value?.triggerImport()
 }
 
 function handleImportKeybindings(e: Event) {
@@ -422,26 +367,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.search-box {
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border-color);
-
-  .search-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-size: 13px;
-
-    &:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-  }
-}
-
 .keybindings-list {
   flex: 1;
   overflow-y: auto;
@@ -528,48 +453,6 @@ onUnmounted(() => {
     &:hover {
       background: var(--panel-hover-bg);
       color: var(--primary-color);
-    }
-  }
-}
-
-.settings-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border-color);
-  gap: 12px;
-}
-
-.export-import {
-  display: flex;
-  gap: 8px;
-}
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &.primary {
-    background: var(--primary-color);
-    color: white;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-
-  &.secondary {
-    background: var(--panel-hover-bg);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-
-    &:hover {
-      background: var(--sidebar-hover-bg);
     }
   }
 }

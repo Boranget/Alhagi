@@ -1,48 +1,11 @@
 <template>
   <div class="file-explorer">
-    <div class="explorer-header">
-      <span>{{ t('sidebar.fileExplorer') }}</span>
-      <div class="header-actions">
-        <button
-          class="action-btn"
-          :title="t('common.newFile')"
-          @click="handleNewFile"
-        >
-          <Icon
-            name="file"
-            size="sm"
-          />
-        </button>
-        <button
-          class="action-btn"
-          :title="t('common.newFolder')"
-          @click="handleNewFolder"
-        >
-          <Icon
-            name="folder"
-            size="sm"
-          />
-        </button>
-        <button
-          class="action-btn"
-          :title="t('common.refresh')"
-          @click="handleRefresh"
-        >
-          <Icon
-            name="refresh"
-            size="sm"
-          />
-        </button>
-      </div>
-    </div>
-    <div class="explorer-toolbar">
-      <button
-        class="toolbar-btn"
-        @click="openFolder"
-      >
-        {{ t('common.openFolder') }}
-      </button>
-    </div>
+    <ExplorerHeader
+      @new-file="handleNewFile"
+      @new-folder="handleNewFolder"
+      @refresh="handleRefresh"
+      @open-folder="openFolder"
+    />
     <div
       v-if="fileStore.currentFolder"
       class="file-tree"
@@ -132,6 +95,7 @@ import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import ExplorerHeader from './ExplorerHeader.vue'
 
 const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
@@ -466,63 +430,6 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   position: relative;
-}
-
-.explorer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-
-.header-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
-  color: var(--text-secondary);
-
-  &:hover {
-    background: var(--sidebar-hover-bg);
-    color: var(--text-primary);
-  }
-}
-
-.explorer-toolbar {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toolbar-btn {
-  width: 100%;
-  padding: 6px 12px;
-  border: 1px dashed var(--border-color);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--sidebar-hover-bg);
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-  }
 }
 
 .file-tree {
