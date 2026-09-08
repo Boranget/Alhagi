@@ -7,7 +7,7 @@ interface CodeBlockSearchState {
   decorations: DecorationSet
 }
 
-const codeBlockSearchEffect = StateEffect.define<SearchQuery | null>()
+const codeBlockSearchEffect = StateEffect.define<{ query: SearchQuery | null; activeFrom: number; activeTo: number }>()
 
 const searchMatchMark = Decoration.mark({ class: 'cm-searchMatch' })
 const selectedSearchMatchMark = Decoration.mark({ class: 'cm-searchMatch cm-searchMatch-selected' })
@@ -20,17 +20,15 @@ const codeBlockSearchTheme = EditorView.baseTheme({
   '&dark .cm-searchMatch-selected': { backgroundColor: '#ff00ff8a' },
 })
 
-function buildSearchDecorations(view: EditorView, query: SearchQuery | null): DecorationSet {
+function buildSearchDecorations(view: EditorView, query: SearchQuery | null, activeFrom: number, activeTo: number): DecorationSet {
   if (!query || !query.valid) return Decoration.none
 
   const builder = new RangeSetBuilder<Decoration>()
   for (const range of view.visibleRanges) {
     const cursor = query.getCursor(view.state, range.from, range.to)
     for (let next = cursor.next(); !next.done; next = cursor.next()) {
-      const selected = view.state.selection.ranges.some(selection =>
-        selection.from === next.value.from && selection.to === next.value.to,
-      )
-      builder.add(next.value.from, next.value.to, selected ? selectedSearchMatchMark : searchMatchMark)
+      const isActive = next.value.from === activeFrom && next.value.to === activeTo
+      builder.add(next.value.from, next.value.to, isActive ? selectedSearchMatchMark : searchMatchMark)
     }
   }
   return builder.finish()
@@ -38,18 +36,22 @@ function buildSearchDecorations(view: EditorView, query: SearchQuery | null): De
 
 // Module-level state for sharing search query across CodeMirror instances
 let currentQuery: SearchQuery | null = null
-const listeners = new Set<(query: SearchQuery | null) => void>()
+let currentActiveFrom = -1
+let currentActiveTo = -1
+const listeners = new Set<(query: SearchQuery | null, activeFrom: number, activeTo: number) => void>()
 
-export function updateCodeBlockSearchQuery(query: SearchQuery | null): void {
+export function updateCodeBlockSearchQuery(query: SearchQuery | null, activeFrom = -1, activeTo = -1): void {
   currentQuery = query
-  listeners.forEach(fn => fn(query))
+  currentActiveFrom = activeFrom
+  currentActiveTo = activeTo
+  listeners.forEach(fn => fn(query, activeFrom, activeTo))
 }
 
 export function getCurrentCodeBlockQuery(): SearchQuery | null {
   return currentQuery
 }
 
-export function onCodeBlockQueryChange(fn: (query: SearchQuery | null) => void): () => void {
+export function onCodeBlockQueryChange(fn: (query: SearchQuery | null, activeFrom: number, activeTo: number) => void): () => void {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
@@ -63,8 +65,14 @@ export function codeBlockSearchHighlight(): Extension {
     create: () => ({ query: null, decorations: Decoration.none }),
     update(value, tr) {
       let nextQuery = value.query
+      let activeFrom = currentActiveFrom
+      let activeTo = currentActiveTo
       for (const effect of tr.effects) {
-        if (effect.is(codeBlockSearchEffect)) nextQuery = effect.value
+        if (effect.is(codeBlockSearchEffect)) {
+          nextQuery = effect.value.query
+          activeFrom = effect.value.activeFrom
+          activeTo = effect.value.activeTo
+        }
       }
       return {
         query: nextQuery,
@@ -78,11 +86,12 @@ export function codeBlockSearchHighlight(): Extension {
     private unsubscribe: (() => void) | null = null
 
     constructor(private view: EditorView) {
-      this.decorations = buildSearchDecorations(view, view.state.field(searchHighlightField).query)
+      const state = view.state.field(searchHighlightField)
+      this.decorations = buildSearchDecorations(view, state.query, currentActiveFrom, currentActiveTo)
 
-      this.unsubscribe = onCodeBlockQueryChange((query) => {
+      this.unsubscribe = onCodeBlockQueryChange((query, activeFrom, activeTo) => {
         this.view.dispatch({
-          effects: [codeBlockSearchEffect.of(query)],
+          effects: [codeBlockSearchEffect.of({ query, activeFrom, activeTo })],
         })
       })
     }
@@ -91,7 +100,7 @@ export function codeBlockSearchHighlight(): Extension {
       const state = update.state.field(searchHighlightField)
       const prevState = update.startState.field(searchHighlightField)
       if (state.query !== prevState.query || update.docChanged || update.selectionSet || update.viewportChanged) {
-        this.decorations = buildSearchDecorations(this.view, state.query)
+        this.decorations = buildSearchDecorations(this.view, state.query, currentActiveFrom, currentActiveTo)
       }
     }
 

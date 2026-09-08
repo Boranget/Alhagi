@@ -240,7 +240,6 @@ export class CrepeSearchService implements SearchService {
       wholeWord: searchQuery.wholeWord,
       regexp: searchQuery.regexp,
     })
-    updateCodeBlockSearchQuery(cmSearchQuery)
 
     // 通过 plugin meta 触发高亮装饰
     const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
@@ -257,6 +256,14 @@ export class CrepeSearchService implements SearchService {
         this.ensureMatchVisible(view, firstMatch.from)
       }
     }
+
+    // 同步 active match 位置到代码块
+    const activeMatch = matches[currentMatchIndex]
+    updateCodeBlockSearchQuery(
+      cmSearchQuery,
+      activeMatch?.from ?? -1,
+      activeMatch?.to ?? -1,
+    )
 
     this.store.currentIndex = currentMatchIndex
     view.dispatch(tr)
@@ -320,6 +327,16 @@ export class CrepeSearchService implements SearchService {
 
     this.store.currentIndex = currentIndex
 
+    // 同步 active match 到代码块
+    if (this.store.currentQuery) {
+      const q = this.store.currentQuery
+      updateCodeBlockSearchQuery(
+        new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
+        nextMatch.from,
+        nextMatch.to,
+      )
+    }
+
     return {
       current: currentIndex,
       total: matches.length,
@@ -359,6 +376,16 @@ export class CrepeSearchService implements SearchService {
     this.ensureMatchVisible(view, prevMatch.from)
 
     this.store.currentIndex = currentIndex
+
+    // 同步 active match 到代码块
+    if (this.store.currentQuery) {
+      const q = this.store.currentQuery
+      updateCodeBlockSearchQuery(
+        new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
+        prevMatch.from,
+        prevMatch.to,
+      )
+    }
 
     return {
       current: currentIndex,
