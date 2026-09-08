@@ -13,6 +13,7 @@ import { useCapture } from '@/services/capture'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import { useSelectDialog } from '@/composables/useSelectDialog'
 
 // 模块级响应式状态：useApp() 调用方共享同一份 ref
 const isFullscreen = ref(false)
@@ -28,6 +29,7 @@ export function useApp() {
   const editorManager = useCrepeEditorManager()
   const { confirm } = useConfirmDialog()
   const toast = useToast()
+  const selectDialog = useSelectDialog()
 
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
@@ -59,7 +61,13 @@ export function useApp() {
       eventBus.on(AppEvents.CAPTURE_SCREEN, async () => {
         const result = await captureEditor()
         if (result) {
-          const action = prompt('截图完成！选择操作：\n1. 复制到剪贴板\n2. 下载到本地\n3. 取消', '1')
+          const action = await selectDialog.select({
+            title: '截图完成！选择操作',
+            options: [
+              { label: '复制到剪贴板', value: '1' },
+              { label: '下载到本地', value: '2' },
+            ],
+          })
           if (action === '1') {
             await copyCaptureToClipboard(result)
             toast.success('已复制到剪贴板')

@@ -1,9 +1,11 @@
 import { useTabsStore } from '@/stores/tabs'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { useSelectDialog } from '@/composables/useSelectDialog'
 
 export function useExport() {
   const tabsStore = useTabsStore()
   const editorManager = useCrepeEditorManager()
+  const selectDialog = useSelectDialog()
 
   function escapeHtml(text: string): string {
     return text
@@ -74,7 +76,7 @@ ${content}
     URL.revokeObjectURL(url)
   }
 
-  function showExportDialog() {
+  async function showExportDialog() {
     const activeTab = tabsStore.activeTab
     if (!activeTab) return
 
@@ -84,17 +86,13 @@ ${content}
       { label: 'Plain Text (.txt)', value: 'txt' }
     ]
 
-    const selectedOption = prompt(
-      '选择导出格式：\n' + exportOptions.map((opt, i) => `${i + 1}. ${opt.label}`).join('\n'),
-      '1'
-    )
+    const selectedValue = await selectDialog.select({
+      title: '选择导出格式',
+      options: exportOptions,
+    })
 
-    if (!selectedOption) return
-
-    const optionIndex = parseInt(selectedOption) - 1
-    if (optionIndex >= 0 && optionIndex < exportOptions.length) {
-      const option = exportOptions[optionIndex]
-      exportFile(activeTab.content, activeTab.title, option.value as 'md' | 'html' | 'txt')
+    if (selectedValue) {
+      exportFile(activeTab.content, activeTab.title, selectedValue as 'md' | 'html' | 'txt')
     }
   }
 

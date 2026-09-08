@@ -2,30 +2,42 @@
   <div class="settings-window-root">
     <SettingsPanel />
     <ConfirmDialog />
+    <InputDialog
+      :visible="inputDialog.state.visible"
+      :title="inputDialog.state.title"
+      :default-value="inputDialog.state.defaultValue"
+      :placeholder="inputDialog.state.placeholder"
+      :confirm-text="inputDialog.state.confirmText"
+      :cancel-text="inputDialog.state.cancelText"
+      @confirm="inputDialog.confirm"
+      @cancel="inputDialog.cancel"
+    />
+    <SelectDialog
+      :visible="selectDialog.state.visible"
+      :title="selectDialog.state.title"
+      :options="selectDialog.state.options"
+      :cancel-text="selectDialog.state.cancelText"
+      @select="selectDialog.onSelect"
+      @cancel="selectDialog.cancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-/**
- * 设置窗根组件 —— 薄壳。
- *
- * 职责：
- *   1. mount 时调 prefsStore.loadPreferences()
- *      —— 同时订阅 onPreferencesChanged 广播；
- *      —— store 内 watch(theme, { immediate:true }) 自动应用主题；
- *   2. 调 setupEditorTypography()，让设置窗自己 :root 上也有 4 个 CSS 变量
- *      （未来如果设置面板里加"实时预览"块，预览块需要这套变量）。
- *
- * 关闭逻辑：SettingsPanel 内部的关闭按钮直接 window.close()，触发主进程
- * BrowserWindow 'close' 事件，PreferenceStore 持久化几何状态。
- */
-import { onMounted } from 'vue'
+import { onMounted, defineAsyncComponent } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import SettingsPanel from '@/components/Settings/SettingsPanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { useInputDialog } from '@/composables/useInputDialog'
+import { useSelectDialog } from '@/composables/useSelectDialog'
+
+const InputDialog = defineAsyncComponent(() => import('@/components/common/InputDialog.vue'))
+const SelectDialog = defineAsyncComponent(() => import('@/components/common/SelectDialog.vue'))
 
 const prefs = usePreferencesStore()
+const inputDialog = useInputDialog()
+const selectDialog = useSelectDialog()
 
 onMounted(async () => {
   await prefs.loadPreferences()

@@ -82,6 +82,17 @@
       </div>
     </div>
   </div>
+
+  <InputDialog
+    :visible="inputDialog.state.visible"
+    :title="inputDialog.state.title"
+    :default-value="inputDialog.state.defaultValue"
+    :placeholder="inputDialog.state.placeholder"
+    :confirm-text="inputDialog.state.confirmText"
+    :cancel-text="inputDialog.state.cancelText"
+    @confirm="inputDialog.confirm"
+    @cancel="inputDialog.cancel"
+  />
 </template>
 
 <script setup lang="ts">
@@ -95,11 +106,14 @@ import type { FileTreeNodeType } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useInputDialog } from '@/composables/useInputDialog'
 import ExplorerHeader from './ExplorerHeader.vue'
+import InputDialog from '@/components/common/InputDialog.vue'
 
 const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
 const { confirm } = useConfirmDialog()
+const inputDialog = useInputDialog()
 const newItemInput = ref<HTMLInputElement | null>(null)
 
 interface ContextMenu {
@@ -375,7 +389,10 @@ function handleNewFolder() {
 async function handleRename(node: FileTreeNodeType | null) {
   if (!node) return
 
-  const newName = prompt(t('common.rename') + ':', node.name)
+  const newName = await inputDialog.prompt({
+    title: t('common.rename'),
+    defaultValue: node.name,
+  })
   if (newName && newName !== node.name) {
     await fileStore.renameFile(node.path, newName)
   }

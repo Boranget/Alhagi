@@ -36,6 +36,24 @@
       @close="showShortcuts = false"
     />
     <ConfirmDialog />
+    <InputDialog
+      :visible="inputDialog.state.visible"
+      :title="inputDialog.state.title"
+      :default-value="inputDialog.state.defaultValue"
+      :placeholder="inputDialog.state.placeholder"
+      :confirm-text="inputDialog.state.confirmText"
+      :cancel-text="inputDialog.state.cancelText"
+      @confirm="inputDialog.confirm"
+      @cancel="inputDialog.cancel"
+    />
+    <SelectDialog
+      :visible="selectDialog.state.visible"
+      :title="selectDialog.state.title"
+      :options="selectDialog.state.options"
+      :cancel-text="selectDialog.state.cancelText"
+      @select="selectDialog.onSelect"
+      @cancel="selectDialog.cancel"
+    />
     <Toast ref="toastRef" />
   </div>
 </template>
@@ -47,6 +65,8 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useLayoutStore } from '@/stores/layout'
 import { useApp } from '@/composables/useApp'
 import { useToast } from '@/composables/useToast'
+import { useInputDialog } from '@/composables/useInputDialog'
+import { useSelectDialog } from '@/composables/useSelectDialog'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import TabBar from '@/components/Tabs/TabBar.vue'
 import EnhancedSidebar from '@/components/Sidebar/EnhancedSidebar.vue'
@@ -57,6 +77,8 @@ import Welcome from '@/components/Welcome/Welcome.vue'
 const CommandPalette = defineAsyncComponent(() => import('@/components/CommandPalette/CommandPalette.vue'))
 const ShortcutsDialog = defineAsyncComponent(() => import('@/components/Shortcuts/ShortcutsDialog.vue'))
 const ConfirmDialog = defineAsyncComponent(() => import('@/components/ConfirmDialog.vue'))
+const InputDialog = defineAsyncComponent(() => import('@/components/common/InputDialog.vue'))
+const SelectDialog = defineAsyncComponent(() => import('@/components/common/SelectDialog.vue'))
 const Toast = defineAsyncComponent(() => import('@/components/Toast/Toast.vue'))
 // 编辑器异步加载（P2-9）：仅当有打开文件时拉取 milkdown/crepe + codemirror，
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
@@ -66,6 +88,8 @@ const tabsStore = useTabsStore()
 const prefsStore = usePreferencesStore()
 const layoutStore = useLayoutStore()
 const { isFullscreen, initializeApp } = useApp()
+const inputDialog = useInputDialog()
+const selectDialog = useSelectDialog()
 
 const showCommandPalette = ref(false)
 const showShortcuts = ref(false)
