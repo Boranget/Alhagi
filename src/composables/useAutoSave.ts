@@ -15,6 +15,7 @@ export function useAutoSave() {
 
   let debouncedSave: (() => void) | null = null
   const unsubscribers: (() => void)[] = []
+  const stopWatchers: (() => void)[] = []
 
   function setupAutoSave() {
     if (!prefsStore.autoSave) return
@@ -48,7 +49,6 @@ export function useAutoSave() {
     }
   }
 
-  // 通过事件总线监听内容变化而不是直接 watch
   function handleContentChanged() {
     if (prefsStore.autoSave && debouncedSave) {
       debouncedSave()
@@ -59,7 +59,15 @@ export function useAutoSave() {
     debouncedSave = null
   }
 
-  watch(
+  function cleanup() {
+    stopAutoSave()
+    unsubscribers.forEach(unsub => unsub())
+    unsubscribers.length = 0
+    stopWatchers.forEach(stop => stop())
+    stopWatchers.length = 0
+  }
+
+  const stopAutoSaveWatch = watch(
     () => prefsStore.autoSave,
     (enabled) => {
       if (enabled) {
@@ -69,8 +77,9 @@ export function useAutoSave() {
       }
     }
   )
+  stopWatchers.push(stopAutoSaveWatch)
 
-  watch(
+  const stopIntervalWatch = watch(
     () => prefsStore.autoSaveInterval,
     () => {
       if (prefsStore.autoSave) {
@@ -78,18 +87,19 @@ export function useAutoSave() {
       }
     }
   )
-
-  // 监听事件总线
-  onUnmounted(() => {
-    stopAutoSave()
-    unsubscribers.forEach(unsub => unsub())
-  })
+  stopWatchers.push(stopIntervalWatch)
 
   setupAutoSave()
 
-  // 订阅内容变化事件
   const unsubscribeContent = eventBus.on(AppEvents.CONTENT_CHANGED, handleContentChanged)
   unsubscribers.push(unsubscribeContent)
+
+  // 非组件上下文调用时，onUnmounted 不会触发，改用显式 cleanup
+  try {
+    onUnmounted(cleanup)
+  } catch {
+    // 非组件上下文，忽略
+  }
 
   return {
     isAutoSaving,
@@ -101,6 +111,7 @@ export function useAutoSave() {
         debouncedSave()
       }
     },
-    stopAutoSave
+    stopAutoSave,
+    cleanup,
   }
 }

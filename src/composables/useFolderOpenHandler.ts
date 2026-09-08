@@ -23,12 +23,18 @@ export function useFolderOpenHandler() {
     }
   }
 
-  onMounted(setup)
-  onUnmounted(cleanup)
+  // 非组件上下文调用时，onMounted/onUnmounted 不会触发
+  try {
+    onMounted(setup)
+    onUnmounted(cleanup)
+  } catch {
+    // 非组件上下文，直接 setup
+    setup()
+  }
 
   return {
     handleFolderOpened,
     setup,
-    cleanup
+    cleanup,
   }
 }
