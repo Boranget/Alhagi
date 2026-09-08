@@ -107,6 +107,11 @@ export const AppEvents = {
   TAB_MERGE_REQUESTED: 'app:tab-merge-requested' as const,
   TAB_DETACHED: 'app:tab-detached' as const,
   FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const,
+
+  // 编辑器空闲 / 内容渲染完成
+  EDITOR_SETTLED: 'editor:settled' as const,
+  CONTENT_RENDERED: 'editor:content-rendered' as const,
+  SEARCH_STATE_CHANGED: 'search:state-changed' as const,
 }
 
 export type { AppEventName, AppEventPayloads, EventCallback }

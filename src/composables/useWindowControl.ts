@@ -77,25 +77,26 @@ export function useWindowControl() {
       toggleAlwaysOnTop()
     }
   }
+
+  function handleResize() {
+    windowBounds.value = {
+      x: window.screenX,
+      y: window.screenY,
+      width: window.innerWidth,
+      height: window.innerHeight
+    }
+  }
   
   onMounted(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     document.addEventListener('keydown', handleKeydown)
-    
-    // 监听窗口大小变化
-    window.addEventListener('resize', () => {
-      windowBounds.value = {
-        x: window.screenX,
-        y: window.screenY,
-        width: window.innerWidth,
-        height: window.innerHeight
-      }
-    })
+    window.addEventListener('resize', handleResize)
   })
   
   onUnmounted(() => {
     document.removeEventListener('fullscreenchange', handleFullscreenChange)
     document.removeEventListener('keydown', handleKeydown)
+    window.removeEventListener('resize', handleResize)
   })
   
   return {

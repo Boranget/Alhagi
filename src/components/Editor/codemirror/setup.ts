@@ -37,6 +37,9 @@ import { codeMirrorSearchHighlight } from '@/services/search'
 
 export type ThemeType = 'dark' | 'light'
 
+/** CodeMirror 内容更新防抖延迟 */
+const CODEMIRROR_UPDATE_DEBOUNCE_MS = 200
+
 const themeCompartment = new Compartment()
 const typographyCompartment = new Compartment()
 
@@ -234,7 +237,7 @@ const onCodeMirrorUpdate = debounce(
     const getString = () => viewUpdate.state.doc.toString()
     onChange(getString)
   },
-  200
+  CODEMIRROR_UPDATE_DEBOUNCE_MS
 )
 
 interface ViewOptions extends StateOptions {

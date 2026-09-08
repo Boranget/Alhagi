@@ -8,6 +8,15 @@ import { useSearch } from './useSearch'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useToast } from './useToast'
 
+/** 导航锁超时：防止快速连续点击 */
+const NAVIGATE_LOCK_MS = 500
+/** 替换后等待 ProseMirror markdown 同步再刷新高亮的延迟 */
+const REPLACE_REFRESH_DELAY_MS = 300
+/** 全局搜索跳转后重置 linkedFromGlobalSearch 的延迟 */
+const LINK_RESET_DELAY_MS = 1000
+/** 搜索输入防抖延迟 */
+const SEARCH_DEBOUNCE_MS = 300
+
 export type SearchScope = 'file' | 'folder' | 'all'
 export type SearchMode = 'floating' | 'sidebar'
 
@@ -263,7 +272,7 @@ export function useWorkspaceSearch() {
   function acquireNavigateLock() {
     isNavigating = true
     if (navigateLockTimer) clearTimeout(navigateLockTimer)
-    navigateLockTimer = setTimeout(() => { isNavigating = false }, 500)
+    navigateLockTimer = setTimeout(() => { isNavigating = false }, NAVIGATE_LOCK_MS)
   }
 
   function navigateNext() {
@@ -361,7 +370,7 @@ export function useWorkspaceSearch() {
       if (searchQuery.value.trim() && searchScope.value === 'file') {
         updateEditorHighlight(false)
       }
-    }, 300)
+    }, REPLACE_REFRESH_DELAY_MS)
   }
 
   function replaceInActiveFile() {
@@ -426,7 +435,7 @@ export function useWorkspaceSearch() {
         searchScope.value = 'file'
         setTimeout(() => {
           linkedFromGlobalSearch.value = false
-        }, 1000)
+        }, LINK_RESET_DELAY_MS)
       }
     }
   }
@@ -439,7 +448,7 @@ export function useWorkspaceSearch() {
     updateEditorHighlight()
     setTimeout(() => {
       linkedFromGlobalSearch.value = false
-    }, 1000)
+    }, LINK_RESET_DELAY_MS)
   }
 
   function syncFromGlobalSearch(query: string, scope: SearchScope = 'folder') {
@@ -485,7 +494,7 @@ export function useWorkspaceSearch() {
     if (searchScope.value === 'file') {
       updateEditorHighlight(false)
     }
-  }, 300)
+  }, SEARCH_DEBOUNCE_MS)
 
   function handleSearchInput() {
     debouncedSearch()

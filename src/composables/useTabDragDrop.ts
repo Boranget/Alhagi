@@ -11,6 +11,9 @@ import type {
 import { useTabsStore } from '@/stores/tabs'
 import { electronService } from '@/services/electron/ElectronService'
 
+/** 拖拽离开防抖延迟：防止光标短暂离开时闪烁 */
+const DRAG_LEAVE_DEBOUNCE_MS = 100
+
 export type { DropTargetType }
 export type { DragDropState }
 export type { WindowInfo }
@@ -271,7 +274,7 @@ export function useTabDragDrop() {
         dragState.targetTabId = null
         dragState.targetType = 'none'
       }
-    }, 100)
+    }, DRAG_LEAVE_DEBOUNCE_MS)
   }
 
   function handleDrop(event: DragEvent, targetTabId: string): boolean {

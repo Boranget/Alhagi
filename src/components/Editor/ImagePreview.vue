@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
@@ -191,32 +191,32 @@ watch(() => props.filePath, () => {
   loadImage()
 }, { immediate: true })
 
-onMounted(() => {
-  const handleWheel = (e: WheelEvent) => {
-    if (!imageWrapper.value || hasError.value) return
+function handleWheel(e: WheelEvent) {
+  if (!imageWrapper.value || hasError.value) return
+  
+  const rect = imageWrapper.value.getBoundingClientRect()
+  if (
+    e.clientX >= rect.left &&
+    e.clientX <= rect.right &&
+    e.clientY >= rect.top &&
+    e.clientY <= rect.bottom
+  ) {
+    e.preventDefault()
     
-    const rect = imageWrapper.value.getBoundingClientRect()
-    if (
-      e.clientX >= rect.left &&
-      e.clientX <= rect.right &&
-      e.clientY >= rect.top &&
-      e.clientY <= rect.bottom
-    ) {
-      e.preventDefault()
-      
-      if (e.deltaY < 0) {
-        zoomIn()
-      } else {
-        zoomOut()
-      }
+    if (e.deltaY < 0) {
+      zoomIn()
+    } else {
+      zoomOut()
     }
   }
-  
+}
+
+onMounted(() => {
   window.addEventListener('wheel', handleWheel, { passive: false })
-  
-  return () => {
-    window.removeEventListener('wheel', handleWheel)
-  }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('wheel', handleWheel)
 })
 </script>
 

@@ -13,6 +13,11 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
+
+/** Markdown 更新防抖延迟 */
+const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
+/** 等待 ProseMirror 更新 DOM 后执行滚动的延迟 */
+const SCROLL_DOM_SYNC_DELAY_MS = 50
 import { generateSlug } from '@/utils/headings'
 import { searchPlugin } from '@/services/search'
 import { EditorCommands } from './EditorCommands'
@@ -99,7 +104,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           debounce((...args: unknown[]) => {
             const markdown = args[1] as string
             this.handleMarkdownUpdate(markdown)
-          }, 200)
+          }, MARKDOWN_UPDATE_DEBOUNCE_MS)
         )
 
         // 监听编辑器更新（包括光标/选区变化）

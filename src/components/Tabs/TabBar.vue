@@ -403,22 +403,31 @@ async function detachTab() {
   hideContextMenu()
 }
 
+let tabsContainerRef: HTMLElement | null = null
+function handleWheel(e: WheelEvent) {
+  e.preventDefault()
+  if (tabsContainerRef) {
+    tabsContainerRef.scrollLeft += e.deltaY
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
   document.addEventListener('keydown', handleGlobalKeydown)
   
   const tabsContainer = document.querySelector('.tabs-container') as HTMLElement
   if (tabsContainer) {
-    tabsContainer.addEventListener('wheel', (e: WheelEvent) => {
-      e.preventDefault()
-      tabsContainer.scrollLeft += e.deltaY
-    }, { passive: false })
+    tabsContainerRef = tabsContainer
+    tabsContainer.addEventListener('wheel', handleWheel, { passive: false })
   }
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleGlobalClick)
   document.removeEventListener('keydown', handleGlobalKeydown)
+  if (tabsContainerRef) {
+    tabsContainerRef.removeEventListener('wheel', handleWheel)
+  }
 })
 </script>
 

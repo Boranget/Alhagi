@@ -11,6 +11,12 @@ const SCROLL_THROTTLE_MS = 100
 const VIEWPORT_OFFSET_PX = 20
 const CACHE_REBUILD_DELAY_MS = 50
 const MANUAL_CLICK_COOLDOWN_MS = 500
+/** 事件回调后等待编辑器 DOM 就绪的延迟 */
+const EDITOR_SETTLE_DELAY_MS = 100
+/** 初始挂载后等待编辑器就绪的延迟 */
+const MOUNT_DELAY_MS = 200
+/** 滚动容器重试间隔 */
+const RETRY_INTERVAL_MS = 200
 
 export function useOutline() {
   const tabsStore = useTabsStore()
@@ -111,7 +117,7 @@ export function useOutline() {
       } else if (retries >= maxRetries) {
         clearInterval(retryInterval)
       }
-    }, 200)
+    }, RETRY_INTERVAL_MS)
   }
 
   function cleanupScrollListener() {
@@ -246,7 +252,7 @@ export function useOutline() {
     unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, () => {
       setTimeout(() => {
         ensureOutlineReady()
-      }, 100)
+      }, EDITOR_SETTLE_DELAY_MS)
     })
 
     unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
@@ -257,13 +263,13 @@ export function useOutline() {
     unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, () => {
       setTimeout(() => {
         ensureOutlineReady()
-      }, 100)
+      }, EDITOR_SETTLE_DELAY_MS)
     })
 
     unsubscribeActiveEditorChanged = eventBus.on(AppEvents.ACTIVE_EDITOR_CHANGED, () => {
       setTimeout(() => {
         ensureOutlineReady()
-      }, 100)
+      }, EDITOR_SETTLE_DELAY_MS)
     })
   }
 
@@ -292,7 +298,7 @@ export function useOutline() {
     setupEventListeners()
     setTimeout(() => {
       ensureOutlineReady()
-    }, 200)
+    }, MOUNT_DELAY_MS)
   })
 
   onUnmounted(() => {
