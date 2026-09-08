@@ -4,10 +4,12 @@ import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import type { Node } from '@milkdown/kit/prose/model'
 import { $prose } from '@milkdown/kit/utils'
+import { SearchQuery as CMSearchQuery } from '@codemirror/search'
 import type { SearchConfig } from '@/utils/search'
 import { expandRegexReplacement, isInvalidRegexQuery } from '@/utils/searchReplace'
 import type { SearchService, SearchResult, ReplaceResult } from './types'
 import { useSearchStore } from '@/stores/search'
+import { updateCodeBlockSearchQuery } from './codeBlockSearchHighlight'
 
 interface SearchQuery {
   search: string
@@ -231,6 +233,15 @@ export class CrepeSearchService implements SearchService {
     this.store.currentQuery = searchQuery
     this.store.currentMatches = matches
 
+    // 更新共享搜索状态，让代码块内的 CodeMirror 也能应用高亮
+    const cmSearchQuery = new CMSearchQuery({
+      search: searchQuery.search,
+      caseSensitive: searchQuery.caseSensitive,
+      wholeWord: searchQuery.wholeWord,
+      regexp: searchQuery.regexp,
+    })
+    updateCodeBlockSearchQuery(cmSearchQuery)
+
     // 通过 plugin meta 触发高亮装饰
     const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
 
@@ -261,6 +272,9 @@ export class CrepeSearchService implements SearchService {
     this.store.currentMatches = []
     this.store.currentIndex = -1
     searchCache.clear()
+
+    // 清除共享搜索状态
+    updateCodeBlockSearchQuery(null)
 
     // 通过 plugin meta 清除高亮装饰
     const view = this.getView()

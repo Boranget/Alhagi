@@ -13,6 +13,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
+import { codeBlockSearchHighlight } from '@/services/search/codeBlockSearchHighlight'
 
 /** Markdown 更新防抖延迟 */
 const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
@@ -93,6 +94,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       featureConfigs: {
         [Crepe.Feature.CodeMirror]: {
           theme: isDark ? undefined : eclipse,
+          extensions: [codeBlockSearchHighlight()],
         },
       },
     })
