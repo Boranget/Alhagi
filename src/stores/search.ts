@@ -12,7 +12,7 @@ interface SearchQuery {
 
 export const useSearchStore = defineStore('search', () => {
   const currentQuery = ref<SearchQuery | null>(null)
-  const currentMatches = ref<Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>>([])
+  const currentMatches = ref<Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number; codeBlockPmPos?: number }>>([])
   const currentIndex = ref(-1)
   const totalMatches = ref(0)
 

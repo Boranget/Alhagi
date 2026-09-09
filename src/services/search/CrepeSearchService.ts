@@ -9,7 +9,7 @@ import type { SearchConfig } from '@/utils/search'
 import { expandRegexReplacement, isInvalidRegexQuery } from '@/utils/searchReplace'
 import type { SearchService, SearchResult, ReplaceResult } from './types'
 import { useSearchStore } from '@/stores/search'
-import { updateCodeBlockSearchQuery } from './codeBlockSearchHighlight'
+import { updateCodeBlockSearchQuery, clearAllCodeBlockSearch, updateAllCodeBlockSearch } from './codeBlockSearchHighlight'
 
 interface SearchQuery {
   search: string
@@ -18,21 +18,30 @@ interface SearchQuery {
   regexp: boolean
 }
 
+interface MatchInfo {
+  from: number
+  to: number
+  match?: RegExpExecArray
+  matchStart?: number
+  /** ProseMirror position of the enclosing code_block node (for position conversion) */
+  codeBlockPmPos?: number
+}
+
 class SearchCache {
   private cache: {
-    [key: string]: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>
+    [key: string]: MatchInfo[]
   } = {}
 
   private getKey(query: SearchQuery): string {
     return `${query.search}|${query.caseSensitive}|${query.wholeWord}|${query.regexp}`
   }
 
-  get(query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> | null {
+  get(query: SearchQuery): MatchInfo[] | null {
     const key = this.getKey(query)
     return this.cache[key] || null
   }
 
-  set(query: SearchQuery, matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>): void {
+  set(query: SearchQuery, matches: MatchInfo[]): void {
     const key = this.getKey(query)
     this.cache[key] = matches
   }
@@ -50,13 +59,22 @@ interface SearchState {
   decorations: DecorationSet
   currentMatchIndex: number
   totalMatches: number
-  matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>
+  matches: MatchInfo[]
 }
 
-function findAllMatches(doc: Node, query: SearchQuery): Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> {
-  const matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }> = []
+function findAllMatches(doc: Node, query: SearchQuery): MatchInfo[] {
+  const matches: MatchInfo[] = []
+
+  // Track the current code_block position for position conversion
+  let currentCodeBlockPmPos: number | undefined
 
   doc.descendants((node: Node, pos: number) => {
+    // Track when entering/leaving code_block nodes
+    if (node.type.name === 'code_block') {
+      currentCodeBlockPmPos = pos
+      console.log('[CrepeSearch] Entered code_block at pos:', pos, 'nodeSize:', node.nodeSize)
+    }
+
     if (node.isText && node.text && query.search) {
       const text = node.text
       let regex: RegExp | null = null
@@ -81,11 +99,13 @@ function findAllMatches(doc: Node, query: SearchQuery): Array<{ from: number; to
 
       let match: RegExpExecArray | null
       while ((match = regex.exec(text)) !== null) {
+        console.log('[CrepeSearch] Found match:', match[0], 'at pos', pos + match.index, 'codeBlockPmPos:', currentCodeBlockPmPos)
         matches.push({
           from: pos + match.index,
           to: pos + match.index + match[0].length,
           match: query.regexp ? match : undefined,
           matchStart: pos,
+          codeBlockPmPos: currentCodeBlockPmPos,
         })
       }
     }
@@ -94,7 +114,7 @@ function findAllMatches(doc: Node, query: SearchQuery): Array<{ from: number; to
   return matches
 }
 
-function buildDecorationsFromMatches(doc: Node, matches: Array<{ from: number; to: number; match?: RegExpExecArray; matchStart?: number }>, sel: Selection): DecorationSet {
+function buildDecorationsFromMatches(doc: Node, matches: MatchInfo[], sel: Selection): DecorationSet {
   const decorations: Decoration[] = []
 
   matches.forEach((match) => {
@@ -131,6 +151,9 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
       if (tr.docChanged) {
         searchCache.clear()
 
+        // 同步 store 状态
+        const store = useSearchStore()
+
         if (value.query && value.query.search) {
           const matches = findAllMatches(state.doc, value.query)
           searchCache.set(value.query, matches)
@@ -139,11 +162,21 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
           newState.totalMatches = matches.length
           newState.currentMatchIndex = 0
           newState.decorations = buildDecorationsFromMatches(state.doc, matches, state.selection)
+
+          // 同步 store
+          store.currentMatches = matches
+          store.totalMatches = matches.length
+          store.currentIndex = 0
         } else {
           newState.decorations = DecorationSet.empty
           newState.matches = []
           newState.totalMatches = 0
           newState.currentMatchIndex = 0
+
+          // 同步 store
+          store.currentMatches = []
+          store.totalMatches = 0
+          store.currentIndex = -1
         }
 
         return newState
@@ -259,11 +292,18 @@ export class CrepeSearchService implements SearchService {
 
     // 同步 active match 位置到代码块
     const activeMatch = matches[currentMatchIndex]
-    updateCodeBlockSearchQuery(
-      cmSearchQuery,
-      activeMatch?.from ?? -1,
-      activeMatch?.to ?? -1,
-    )
+    console.log('[CrepeSearch] search activeMatch:', currentMatchIndex, 'codeBlockPmPos:', activeMatch?.codeBlockPmPos, 'from:', activeMatch?.from, 'to:', activeMatch?.to)
+    if (activeMatch && activeMatch.codeBlockPmPos !== undefined) {
+      updateCodeBlockSearchQuery(
+        cmSearchQuery,
+        activeMatch.codeBlockPmPos,
+        activeMatch.from,
+        activeMatch.to,
+      )
+    } else {
+      // Active match 不在代码块内，在所有代码块中显示黄色高亮（无橙色 active）
+      updateAllCodeBlockSearch(cmSearchQuery)
+    }
 
     this.store.currentIndex = currentMatchIndex
     view.dispatch(tr)
@@ -280,8 +320,8 @@ export class CrepeSearchService implements SearchService {
     this.store.currentIndex = -1
     searchCache.clear()
 
-    // 清除共享搜索状态
-    updateCodeBlockSearchQuery(null)
+    // 清除代码块搜索高亮
+    clearAllCodeBlockSearch()
 
     // 通过 plugin meta 清除高亮装饰
     const view = this.getView()
@@ -330,11 +370,17 @@ export class CrepeSearchService implements SearchService {
     // 同步 active match 到代码块
     if (this.store.currentQuery) {
       const q = this.store.currentQuery
-      updateCodeBlockSearchQuery(
-        new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
-        nextMatch.from,
-        nextMatch.to,
-      )
+      console.log('[CrepeSearch] findNext nextMatch:', currentIndex, 'codeBlockPmPos:', nextMatch.codeBlockPmPos, 'from:', nextMatch.from, 'to:', nextMatch.to)
+      if (nextMatch.codeBlockPmPos !== undefined) {
+        updateCodeBlockSearchQuery(
+          new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
+          nextMatch.codeBlockPmPos,
+          nextMatch.from,
+          nextMatch.to,
+        )
+      } else {
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }))
+      }
     }
 
     return {
@@ -380,11 +426,16 @@ export class CrepeSearchService implements SearchService {
     // 同步 active match 到代码块
     if (this.store.currentQuery) {
       const q = this.store.currentQuery
-      updateCodeBlockSearchQuery(
-        new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
-        prevMatch.from,
-        prevMatch.to,
-      )
+      if (prevMatch.codeBlockPmPos !== undefined) {
+        updateCodeBlockSearchQuery(
+          new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),
+          prevMatch.codeBlockPmPos,
+          prevMatch.from,
+          prevMatch.to,
+        )
+      } else {
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }))
+      }
     }
 
     return {
