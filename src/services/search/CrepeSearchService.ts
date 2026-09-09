@@ -549,10 +549,16 @@ export class CrepeSearchService implements SearchService {
       try {
         let scrollContainer: HTMLElement | null = null
 
-        scrollContainer = view.dom.closest('.editor-wysiwyg, .editor-split-preview, .milkdown') as HTMLElement
-
-        if (!scrollContainer) {
-          scrollContainer = view.dom.closest('[class*="editor"], .milkdown') as HTMLElement
+        // Find nearest scrollable ancestor by checking overflow, not just class names.
+        // (.milkdown has overflow:visible so it should never be the scroll target.)
+        let el = view.dom.parentElement as HTMLElement | null
+        while (el) {
+          const style = window.getComputedStyle(el)
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+            scrollContainer = el
+            break
+          }
+          el = el.parentElement
         }
 
         if (!scrollContainer) return
