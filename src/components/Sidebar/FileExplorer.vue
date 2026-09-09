@@ -1,4 +1,5 @@
 <template>
+  <div class="file-explorer-root">
   <div class="file-explorer">
     <ExplorerHeader
       @new-file="handleNewFile"
@@ -93,6 +94,7 @@
     @confirm="inputDialog.confirm"
     @cancel="inputDialog.cancel"
   />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -442,6 +444,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+.file-explorer-root {
+  display: contents;
+}
+
 .file-explorer {
   display: flex;
   flex-direction: column;
