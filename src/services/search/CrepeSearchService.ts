@@ -1,5 +1,4 @@
 import { Plugin, PluginKey, EditorState, Transaction, TextSelection } from '@milkdown/kit/prose/state'
-import type { Selection } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import type { Node } from '@milkdown/kit/prose/model'
@@ -57,7 +56,7 @@ const searchPluginKey = new PluginKey<SearchState>('search-highlight')
 interface SearchState {
   query: SearchQuery | null
   decorations: DecorationSet
-  currentMatchIndex: number
+  activeIndex: number
   totalMatches: number
   matches: MatchInfo[]
 }
@@ -112,14 +111,13 @@ function findAllMatches(doc: Node, query: SearchQuery): MatchInfo[] {
   return matches
 }
 
-function buildDecorationsFromMatches(doc: Node, matches: MatchInfo[], sel: Selection): DecorationSet {
+function buildDecorationsFromMatches(doc: Node, matches: MatchInfo[], activeIndex: number): DecorationSet {
   const decorations: Decoration[] = []
 
-  matches.forEach((match) => {
-    const isActive = match.from === sel.from && match.to === sel.to
+  matches.forEach((match, i) => {
     decorations.push(
       Decoration.inline(match.from, match.to, {
-        class: isActive ? 'ProseMirror-active-search-match' : 'ProseMirror-search-match',
+        class: i === activeIndex ? 'ProseMirror-active-search-match' : 'ProseMirror-search-match',
       }),
     )
   })
@@ -139,7 +137,7 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
     init: (): SearchState => ({
       query: null,
       decorations: DecorationSet.empty,
-      currentMatchIndex: 0,
+      activeIndex: 0,
       totalMatches: 0,
       matches: [],
     }),
@@ -149,19 +147,17 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
       if (tr.docChanged) {
         searchCache.clear()
 
-        // 同步 store 状态
-        const store = useSearchStore()
-
         if (value.query && value.query.search) {
           const matches = findAllMatches(state.doc, value.query)
           searchCache.set(value.query, matches)
 
           newState.matches = matches
           newState.totalMatches = matches.length
-          newState.currentMatchIndex = 0
-          newState.decorations = buildDecorationsFromMatches(state.doc, matches, state.selection)
+          newState.activeIndex = 0
+          newState.decorations = buildDecorationsFromMatches(state.doc, matches, 0)
 
-          // 同步 store
+          // 同步 store（只读镜像）
+          const store = useSearchStore()
           store.currentMatches = matches
           store.totalMatches = matches.length
           store.currentIndex = 0
@@ -169,9 +165,9 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
           newState.decorations = DecorationSet.empty
           newState.matches = []
           newState.totalMatches = 0
-          newState.currentMatchIndex = 0
+          newState.activeIndex = 0
 
-          // 同步 store
+          const store = useSearchStore()
           store.currentMatches = []
           store.totalMatches = 0
           store.currentIndex = -1
@@ -184,7 +180,7 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
 
       const searchMeta = tr.getMeta(searchPluginKey)
       if (searchMeta) {
-        const { type, query } = searchMeta as { type: string; query: SearchQuery }
+        const { type, query, activeIndex } = searchMeta as { type: string; query?: SearchQuery; activeIndex?: number }
         if (type === 'set' && query) {
           newState.query = query
 
@@ -192,25 +188,32 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
           if (matches) {
             newState.matches = matches
             newState.totalMatches = matches.length
-            newState.decorations = buildDecorationsFromMatches(state.doc, matches, state.selection)
           } else {
             const newMatches = findAllMatches(state.doc, query)
             searchCache.set(query, newMatches)
             newState.matches = newMatches
             newState.totalMatches = newMatches.length
-            newState.decorations = buildDecorationsFromMatches(state.doc, newMatches, state.selection)
           }
-          newState.currentMatchIndex = 0
+          newState.activeIndex = activeIndex ?? 0
+          newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
+        } else if (type === 'setActive') {
+          newState.activeIndex = activeIndex ?? 0
+          newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
         } else if (type === 'clear') {
           newState.query = null
           newState.decorations = DecorationSet.empty
-          newState.currentMatchIndex = 0
+          newState.activeIndex = 0
           newState.totalMatches = 0
           newState.matches = []
         }
       } else if (tr.selectionSet && newState.query && newState.matches.length > 0) {
-        newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, state.selection)
+        // 纯选区变化（鼠标点击等），保持当前 active index 不变
+        newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
       }
+
+      // 同步 store（只读镜像）
+      const store = useSearchStore()
+      store.currentIndex = newState.activeIndex
 
       return newState
     },
@@ -272,24 +275,29 @@ export class CrepeSearchService implements SearchService {
       regexp: searchQuery.regexp,
     })
 
-    // 通过 plugin meta 触发高亮装饰
-    const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery })
-
-    const sel = state.selection
-    let currentMatchIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-    if (currentMatchIndex === -1 && matches.length > 0) {
-      currentMatchIndex = 0
-      if (options?.select !== false) {
-        const firstMatch = matches[0]
-        tr.setSelection(
-          new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to)),
-        ).scrollIntoView()
-        this.ensureMatchVisible(view, firstMatch.from)
+    // 确定 active index
+    let activeIndex = 0
+    if (options?.select !== false && matches.length > 0) {
+      const sel = state.selection
+      const found = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
+      if (found !== -1) {
+        activeIndex = found
       }
     }
 
+    // 通过 plugin meta 触发高亮装饰
+    const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery, activeIndex })
+
+    if (activeIndex === 0 && matches.length > 0 && options?.select !== false) {
+      const firstMatch = matches[0]
+      tr.setSelection(
+        new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to)),
+      ).scrollIntoView()
+      this.ensureMatchVisible(view, firstMatch.from)
+    }
+
     // 同步 active match 位置到代码块
-    const activeMatch = matches[currentMatchIndex]
+    const activeMatch = matches[activeIndex]
     if (activeMatch && activeMatch.codeBlockPmPos !== undefined) {
       updateCodeBlockSearchQuery(
         cmSearchQuery,
@@ -302,11 +310,10 @@ export class CrepeSearchService implements SearchService {
       updateAllCodeBlockSearch(cmSearchQuery)
     }
 
-    this.store.currentIndex = currentMatchIndex
     view.dispatch(tr)
 
     return {
-      current: currentMatchIndex,
+      current: activeIndex,
       total: matches.length,
     }
   }
@@ -334,7 +341,6 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    // 使用模块级状态（即使创建新实例也能访问）
     if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
@@ -344,8 +350,6 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    // 使用 this.store.currentIndex 而非 view.state.selection
-    // 因为 ProseMirror dispatch 不是同步更新 view.state 的
     let currentIndex = this.store.currentIndex
     if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = 0
@@ -355,14 +359,12 @@ export class CrepeSearchService implements SearchService {
 
     const nextMatch = matches[currentIndex]
     const state = view.state
-    const tr = state.tr.setSelection(
+    const tr = state.tr.setMeta(searchPluginKey, { type: 'setActive', activeIndex: currentIndex }).setSelection(
       new TextSelection(state.doc.resolve(nextMatch.from), state.doc.resolve(nextMatch.to)),
     ).scrollIntoView()
     view.dispatch(tr)
 
     this.ensureMatchVisible(view, nextMatch.from)
-
-    this.store.currentIndex = currentIndex
 
     // 同步 active match 到代码块
     if (this.store.currentQuery) {
@@ -391,7 +393,6 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    // 使用模块级状态
     if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
@@ -410,14 +411,12 @@ export class CrepeSearchService implements SearchService {
 
     const prevMatch = matches[currentIndex]
     const state = view.state
-    const tr = state.tr.setSelection(
+    const tr = state.tr.setMeta(searchPluginKey, { type: 'setActive', activeIndex: currentIndex }).setSelection(
       new TextSelection(state.doc.resolve(prevMatch.from), state.doc.resolve(prevMatch.to)),
     ).scrollIntoView()
     view.dispatch(tr)
 
     this.ensureMatchVisible(view, prevMatch.from)
-
-    this.store.currentIndex = currentIndex
 
     // 同步 active match 到代码块
     if (this.store.currentQuery) {
