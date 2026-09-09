@@ -72,7 +72,6 @@ function findAllMatches(doc: Node, query: SearchQuery): MatchInfo[] {
     // Track when entering/leaving code_block nodes
     if (node.type.name === 'code_block') {
       currentCodeBlockPmPos = pos
-      console.log('[CrepeSearch] Entered code_block at pos:', pos, 'nodeSize:', node.nodeSize)
     }
 
     if (node.isText && node.text && query.search) {
@@ -99,7 +98,6 @@ function findAllMatches(doc: Node, query: SearchQuery): MatchInfo[] {
 
       let match: RegExpExecArray | null
       while ((match = regex.exec(text)) !== null) {
-        console.log('[CrepeSearch] Found match:', match[0], 'at pos', pos + match.index, 'codeBlockPmPos:', currentCodeBlockPmPos)
         matches.push({
           from: pos + match.index,
           to: pos + match.index + match[0].length,
@@ -292,7 +290,6 @@ export class CrepeSearchService implements SearchService {
 
     // 同步 active match 位置到代码块
     const activeMatch = matches[currentMatchIndex]
-    console.log('[CrepeSearch] search activeMatch:', currentMatchIndex, 'codeBlockPmPos:', activeMatch?.codeBlockPmPos, 'from:', activeMatch?.from, 'to:', activeMatch?.to)
     if (activeMatch && activeMatch.codeBlockPmPos !== undefined) {
       updateCodeBlockSearchQuery(
         cmSearchQuery,
@@ -370,7 +367,6 @@ export class CrepeSearchService implements SearchService {
     // 同步 active match 到代码块
     if (this.store.currentQuery) {
       const q = this.store.currentQuery
-      console.log('[CrepeSearch] findNext nextMatch:', currentIndex, 'codeBlockPmPos:', nextMatch.codeBlockPmPos, 'from:', nextMatch.from, 'to:', nextMatch.to)
       if (nextMatch.codeBlockPmPos !== undefined) {
         updateCodeBlockSearchQuery(
           new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }),

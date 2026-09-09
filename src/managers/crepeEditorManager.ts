@@ -94,10 +94,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       featureConfigs: {
         [Crepe.Feature.CodeMirror]: {
           theme: isDark ? undefined : eclipse,
-          extensions: (() => {
-            console.log('[CrepeEditorManager] CodeMirror extensions configured with codeBlockSearchHighlight')
-            return [codeBlockSearchHighlight()]
-          })(),
+          extensions: [codeBlockSearchHighlight()],
         },
       },
     })

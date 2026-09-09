@@ -31,39 +31,16 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery | null, a
   return builder.finish()
 }
 
-// --- Registry: CodeMirror EditorView → 注册的 PM position ---
-// 用 Map 存储，每个 view 注册一次
-const registeredViews = new Map<EditorView, number>()
+// --- Registry: CodeMirror EditorView → getPos function ---
+// 存 getPos 函数而非数字，文档编辑后位置自动更新
+const registeredViews = new Map<EditorView, () => number>()
 
-function registerCodeBlock(pmPos: number, view: EditorView): void {
-  registeredViews.set(view, pmPos)
+function registerCodeBlock(getPos: () => number, view: EditorView): void {
+  registeredViews.set(view, getPos)
 }
 
 /**
- * getPmPosForView — 实时从 CM view 的 DOM 获取当前 PM 位置
- * 比 WeakMap 缓存更可靠，因为 pmViewDesc 会随 DOM 更新
- */
-function getPmPosForView(view: EditorView): number {
-  let el: Element | null = view.dom
-  let depth = 0
-  while (el && depth < 20) {
-    const pmDesc = (el as any).pmViewDesc
-    if (pmDesc?.node?.type?.name === 'code_block') {
-      return (pmDesc.posAtStart ?? -1) - 1
-    }
-    el = el.parentElement
-    depth++
-  }
-  return -1
-}
-
-/**
- * updateCodeBlockSearchQuery — 从 CrepeSearchService 调用
- *
- * @param query        CodeMirror SearchQuery（包含搜索选项）
- * @param codeBlockPmPos 代码块在 ProseMirror 文档中的起始位置
- * @param activeFrom   活跃 match 在 ProseMirror 文档中的起始位置（-1 = 无活跃 match）
- * @param activeTo     活跃 match 在 ProseMirror 文档中的结束位置
+ * 向目标代码块设置 active match，其他代码块清除 active
  */
 export function updateCodeBlockSearchQuery(
   query: SearchQuery | null,
@@ -72,16 +49,15 @@ export function updateCodeBlockSearchQuery(
   activeTo: number,
 ): void {
   // 先清除所有代码块的 active 高亮（保留黄色搜索匹配）
-  registeredViews.forEach((_pos, view) => {
+  registeredViews.forEach((_getPos, view) => {
     view.dispatch({
       effects: [codeBlockSearchEffect.of({ query, activeFrom: -1, activeTo: -1 })],
     })
   })
 
   // 再向目标代码块设置 active match
-  let found = false
-  registeredViews.forEach((_registeredPos, view) => {
-    const currentPmPos = getPmPosForView(view)
+  registeredViews.forEach((getPos, view) => {
+    const currentPmPos = getPos()
     if (currentPmPos === codeBlockPmPos) {
       let cmActiveFrom = -1
       let cmActiveTo = -1
@@ -92,7 +68,6 @@ export function updateCodeBlockSearchQuery(
       view.dispatch({
         effects: [codeBlockSearchEffect.of({ query, activeFrom: cmActiveFrom, activeTo: cmActiveTo })],
       })
-      found = true
     }
   })
 }
@@ -141,34 +116,23 @@ export function codeBlockSearchHighlight(): Extension {
           nextQuery = effect.value.query
           nextActiveFrom = effect.value.activeFrom
           nextActiveTo = effect.value.activeTo
-          console.log('[CBSearch:StateField] Effect received', {
-            queryValid: effect.value.query?.valid,
-            querySearch: effect.value.query?.search,
-            activeFrom: effect.value.activeFrom,
-            activeTo: effect.value.activeTo,
-          })
         }
       }
 
       const decorations = buildSearchDecorations(tr.state, nextQuery, nextActiveFrom, nextActiveTo)
-      console.log('[CBSearch:StateField] Decorations built:', decorations.size)
       return { query: nextQuery, decorations }
     },
   })
 
   const searchHighlightPlugin = ViewPlugin.fromClass(class {
     decorations: DecorationSet
-    private pmPos = -1
     private rafId = -1
 
     constructor(private view: EditorView) {
-      console.log('[CBSearch:ViewPlugin] Constructor. view.dom.parentElement:', !!view.dom.parentElement)
-
       // CM view 创建时还没挂载到 DOM，需要延迟查找 PM 位置
       if (view.dom.parentElement) {
         this.registerFromDom()
       } else {
-        console.log('[CBSearch:ViewPlugin] DOM not attached yet, using MutationObserver')
         this.deferredRegistration()
       }
 
@@ -177,8 +141,6 @@ export function codeBlockSearchHighlight(): Extension {
     }
 
     private deferredRegistration() {
-      // CM view 创建时还没挂载到 DOM（CodeMirrorBlock 先 new EditorView 再 mount）
-      // 用 requestAnimationFrame 等待挂载完成
       this.rafId = requestAnimationFrame(() => {
         this.rafId = -1
         this.registerFromDom()
@@ -190,26 +152,16 @@ export function codeBlockSearchHighlight(): Extension {
       let depth = 0
       while (el && depth < 20) {
         const pmDesc = (el as any).pmViewDesc
-        if (pmDesc) {
-          console.log('[CBSearch:ViewPlugin] pmViewDesc at depth', depth, 'node:', pmDesc.node?.type?.name, 'posAtStart:', pmDesc.posAtStart)
-          if (pmDesc.node?.type?.name === 'code_block') {
-            // posAtStart 是 code_block 内容的起始位置（opening fence 之后）
-            // findAllMatches 用的是 code_block 节点本身的 pos（opening fence 之前）
-            // 所以用 posAtStart - 1 来对齐
-            this.pmPos = (pmDesc.posAtStart ?? -1) - 1
-            break
+        if (pmDesc?.node?.type?.name === 'code_block') {
+          // 存 getPos 函数而非数字，文档编辑后位置自动更新
+          const getPos = pmDesc.spec?.getPos
+          if (getPos) {
+            registerCodeBlock(getPos, this.view)
           }
+          break
         }
         el = el.parentElement
         depth++
-      }
-
-      console.log('[CBSearch:ViewPlugin] Final pmPos:', this.pmPos)
-      if (this.pmPos >= 0) {
-        registerCodeBlock(this.pmPos, this.view)
-        console.log('[CBSearch:ViewPlugin] Registered in WeakMap')
-      } else {
-        console.log('[CBSearch:ViewPlugin] FAILED to find code_block pmPos')
       }
     }
 
@@ -222,7 +174,6 @@ export function codeBlockSearchHighlight(): Extension {
 
     destroy() {
       if (this.rafId >= 0) cancelAnimationFrame(this.rafId)
-      // WeakMap 会在 view 被 GC 时自动清理
     }
   }, {
     decorations: plugin => plugin.decorations,
