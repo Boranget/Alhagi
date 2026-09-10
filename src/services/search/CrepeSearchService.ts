@@ -64,11 +64,9 @@ interface SearchState {
 function findAllMatches(doc: Node, query: SearchQuery): MatchInfo[] {
   const matches: MatchInfo[] = []
 
-  // Track the current code_block position for position conversion
   let currentCodeBlockPmPos: number | undefined
 
   doc.descendants((node: Node, pos: number) => {
-    // Track when entering/leaving code_block nodes
     if (node.type.name === 'code_block') {
       currentCodeBlockPmPos = pos
     }
@@ -125,6 +123,11 @@ function buildDecorationsFromMatches(doc: Node, matches: MatchInfo[], activeInde
   return DecorationSet.create(doc, decorations)
 }
 
+function findNextIndex(matches: MatchInfo[], from: number): number {
+  const idx = matches.findIndex(m => m.from >= from)
+  return idx !== -1 ? idx : 0
+}
+
 export const searchPlugin = $prose(() => new Plugin<SearchState>({
   key: searchPluginKey,
   props: {
@@ -142,86 +145,105 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
       matches: [],
     }),
     apply: (tr: Transaction, value: SearchState, _prevState: EditorState, state: EditorState): SearchState => {
+      const meta = tr.getMeta(searchPluginKey)
+
+      if (!meta && !tr.docChanged) {
+        return value
+      }
+
       const newState = { ...value }
 
-      if (tr.docChanged) {
+      // --- Path 1: Search query changed (set/clear) ---
+      if (meta && (meta as { type: string }).type === 'set' && (meta as { query?: SearchQuery }).query) {
+        const { query, activeIndex } = meta as { type: string; query: SearchQuery; activeIndex?: number }
         searchCache.clear()
 
-        if (value.query && value.query.search) {
-          const matches = findAllMatches(state.doc, value.query)
-          searchCache.set(value.query, matches)
+        const matches = findAllMatches(state.doc, query)
+        searchCache.set(query, matches)
 
-          newState.matches = matches
-          newState.totalMatches = matches.length
+        newState.query = query
+        newState.matches = matches
+        newState.totalMatches = matches.length
+        newState.activeIndex = activeIndex ?? 0
+        newState.decorations = buildDecorationsFromMatches(state.doc, matches, newState.activeIndex)
 
-          // Find next match after current active position (for replace-then-advance)
-          let activeIndex = 0
-          if (matches.length > 0 && value.activeIndex < value.matches.length) {
-            const prevMatch = value.matches[value.activeIndex]
-            if (prevMatch) {
-              const found = matches.findIndex(m => m.from >= prevMatch.from)
-              activeIndex = found !== -1 ? found : 0
-            }
-          }
-          newState.activeIndex = activeIndex
-          newState.decorations = buildDecorationsFromMatches(state.doc, matches, activeIndex)
-
-          // 同步 store（只读镜像）
-          const store = useSearchStore()
-          store.currentMatches = matches
-          store.totalMatches = matches.length
-          store.currentIndex = activeIndex
-        } else {
-          newState.decorations = DecorationSet.empty
-          newState.matches = []
-          newState.totalMatches = 0
-          newState.activeIndex = 0
-
-          const store = useSearchStore()
-          store.currentMatches = []
-          store.totalMatches = 0
-          store.currentIndex = -1
-        }
-
+        const store = useSearchStore()
+        store.currentMatches = matches
+        store.totalMatches = matches.length
+        store.currentIndex = newState.activeIndex
         return newState
       }
 
-      newState.decorations = newState.decorations.map(tr.mapping, tr.doc)
+      if (meta && (meta as { type: string }).type === 'clear') {
+        newState.query = null
+        newState.decorations = DecorationSet.empty
+        newState.activeIndex = 0
+        newState.totalMatches = 0
+        newState.matches = []
 
-      const searchMeta = tr.getMeta(searchPluginKey)
-      if (searchMeta) {
-        const { type, query, activeIndex } = searchMeta as { type: string; query?: SearchQuery; activeIndex?: number }
-        if (type === 'set' && query) {
-          newState.query = query
-
-          const matches = searchCache.get(query)
-          if (matches) {
-            newState.matches = matches
-            newState.totalMatches = matches.length
-          } else {
-            const newMatches = findAllMatches(state.doc, query)
-            searchCache.set(query, newMatches)
-            newState.matches = newMatches
-            newState.totalMatches = newMatches.length
-          }
-          newState.activeIndex = activeIndex ?? 0
-          newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
-        } else if (type === 'setActive') {
-          newState.activeIndex = activeIndex ?? 0
-          newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
-        } else if (type === 'clear') {
-          newState.query = null
-          newState.decorations = DecorationSet.empty
-          newState.activeIndex = 0
-          newState.totalMatches = 0
-          newState.matches = []
-        }
-      } else if (tr.selectionSet && newState.query && newState.matches.length > 0) {
-        // 纯选区变化（鼠标点击等），保持当前 active index 不变
-        newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
+        const store = useSearchStore()
+        store.currentMatches = []
+        store.totalMatches = 0
+        store.currentIndex = -1
+        return newState
       }
 
-      // 同步 store（只读镜像）
+      // --- Path 2: Document changed — tiptap-style mapping ---
+      if (tr.docChanged && value.query && value.query.search) {
+        searchCache.clear()
+
+        const matches = findAllMatches(state.doc, value.query)
+        searchCache.set(value.query, matches)
+
+        newState.matches = matches
+        newState.totalMatches = matches.length
+
+        // Map the previous active match's position through the transaction mapping
+        let activeIndex = 0
+        if (matches.length > 0 && value.activeIndex < value.matches.length) {
+          const prevMatch = value.matches[value.activeIndex]
+          if (prevMatch) {
+            const mappedFrom = tr.mapping.map(prevMatch.from, 1)
+            activeIndex = findNextIndex(matches, mappedFrom)
+          }
+        } else if (matches.length === 0) {
+          activeIndex = 0
+        }
+
+        newState.activeIndex = activeIndex
+        newState.decorations = buildDecorationsFromMatches(state.doc, matches, activeIndex)
+
+        const store = useSearchStore()
+        store.currentMatches = matches
+        store.totalMatches = matches.length
+        store.currentIndex = activeIndex
+        return newState
+      }
+
+      if (tr.docChanged) {
+        newState.decorations = DecorationSet.empty
+        newState.matches = []
+        newState.totalMatches = 0
+        newState.activeIndex = 0
+
+        const store = useSearchStore()
+        store.currentMatches = []
+        store.totalMatches = 0
+        store.currentIndex = -1
+        return newState
+      }
+
+      // --- Path 3: Non-doc-change transactions ---
+      newState.decorations = newState.decorations.map(tr.mapping, tr.doc)
+
+      if (meta) {
+        const { type, activeIndex } = meta as { type: string; activeIndex?: number }
+        if (type === 'setActive') {
+          newState.activeIndex = activeIndex ?? 0
+          newState.decorations = buildDecorationsFromMatches(state.doc, newState.matches, newState.activeIndex)
+        }
+      }
+
       const store = useSearchStore()
       store.currentIndex = newState.activeIndex
 
@@ -241,10 +263,11 @@ export function getSearchPluginKey() {
 /**
  * CrepeSearchService - ProseMirror 编辑器搜索服务
  *
- * 架构说明：
- * - 搜索状态（query、matches）存储在模块级变量中，而非实例属性
- * - 这样即使 computed 创建新实例，状态也能保持
- * - 解决了 Vue computed 每次访问可能创建新实例导致状态丢失的问题
+ * Architecture follows tiptap's find-and-replace plugin pattern:
+ * - activeIndex is managed by the StateField (single source of truth)
+ * - Document changes use tr.mapping.map() to track active match position
+ * - Navigation (findNext/findPrev) is pure index-based, independent of cursor
+ * - replaceNext uses a single dispatch with selection + meta
  */
 export class CrepeSearchService implements SearchService {
   private get store() {
@@ -277,11 +300,9 @@ export class CrepeSearchService implements SearchService {
       searchCache.set(searchQuery, matches)
     }
 
-    // 更新模块级状态（与实例解耦）
     this.store.currentQuery = searchQuery
     this.store.currentMatches = matches
 
-    // 更新共享搜索状态，让代码块内的 CodeMirror 也能应用高亮
     const cmSearchQuery = new CMSearchQuery({
       search: searchQuery.search,
       caseSensitive: searchQuery.caseSensitive,
@@ -289,28 +310,34 @@ export class CrepeSearchService implements SearchService {
       regexp: searchQuery.regexp,
     })
 
-    // 确定 active index
+    // Determine active index: preserve if query unchanged, else start from 0
+    const pluginState = searchPluginKey.getState(state)
     let activeIndex = 0
-    if (options?.select !== false && matches.length > 0) {
-      const sel = state.selection
-      const found = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
-      if (found !== -1) {
-        activeIndex = found
-      }
+    if (pluginState?.query
+      && pluginState.query.search === searchQuery.search
+      && pluginState.query.caseSensitive === searchQuery.caseSensitive
+      && pluginState.query.wholeWord === searchQuery.wholeWord
+      && pluginState.query.regexp === searchQuery.regexp
+      && pluginState.matches.length > 0
+      && pluginState.activeIndex < pluginState.matches.length) {
+      // Same query — preserve current active index
+      activeIndex = pluginState.activeIndex
+    } else if (options?.select !== false && matches.length > 0) {
+      // New search — start from first match
+      activeIndex = 0
     }
 
-    // 通过 plugin meta 触发高亮装饰
     const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery, activeIndex })
 
-    if (activeIndex === 0 && matches.length > 0 && options?.select !== false) {
-      const firstMatch = matches[0]
+    if (matches.length > 0 && options?.select !== false) {
+      const firstMatch = matches[activeIndex] ?? matches[0]
       tr.setSelection(
         new TextSelection(state.doc.resolve(firstMatch.from), state.doc.resolve(firstMatch.to)),
       ).scrollIntoView()
       this.ensureMatchVisible(view, firstMatch.from)
     }
 
-    // 同步 active match 位置到代码块
+    // Sync active match to code blocks
     const activeMatch = matches[activeIndex]
     if (activeMatch && activeMatch.codeBlockPmPos !== undefined) {
       updateCodeBlockSearchQuery(
@@ -320,7 +347,6 @@ export class CrepeSearchService implements SearchService {
         activeMatch.to,
       )
     } else {
-      // Active match 不在代码块内，在所有代码块中显示黄色高亮（无橙色 active）
       updateAllCodeBlockSearch(cmSearchQuery)
     }
 
@@ -338,10 +364,8 @@ export class CrepeSearchService implements SearchService {
     this.store.currentIndex = -1
     searchCache.clear()
 
-    // 清除代码块搜索高亮
     clearAllCodeBlockSearch()
 
-    // 通过 plugin meta 清除高亮装饰
     const view = this.getView()
     if (view) {
       const tr = view.state.tr.setMeta(searchPluginKey, { type: 'clear' })
@@ -364,7 +388,9 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    let currentIndex = this.store.currentIndex
+    // Pure index-based navigation (tiptap style)
+    const pluginState = searchPluginKey.getState(view.state)
+    let currentIndex = pluginState?.activeIndex ?? this.store.currentIndex
     if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = 0
     } else {
@@ -380,7 +406,7 @@ export class CrepeSearchService implements SearchService {
 
     this.ensureMatchVisible(view, nextMatch.from)
 
-    // 同步 active match 到代码块
+    // Sync to code blocks
     if (this.store.currentQuery) {
       const q = this.store.currentQuery
       if (nextMatch.codeBlockPmPos !== undefined) {
@@ -416,7 +442,9 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    let currentIndex = this.store.currentIndex
+    // Pure index-based navigation (tiptap style)
+    const pluginState = searchPluginKey.getState(view.state)
+    let currentIndex = pluginState?.activeIndex ?? this.store.currentIndex
     if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = matches.length - 1
     } else {
@@ -432,7 +460,7 @@ export class CrepeSearchService implements SearchService {
 
     this.ensureMatchVisible(view, prevMatch.from)
 
-    // 同步 active match 到代码块
+    // Sync to code blocks
     if (this.store.currentQuery) {
       const q = this.store.currentQuery
       if (prevMatch.codeBlockPmPos !== undefined) {
@@ -459,7 +487,6 @@ export class CrepeSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    // 使用模块级状态
     if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { current: 0, total: 0 }
     }
@@ -470,10 +497,11 @@ export class CrepeSearchService implements SearchService {
     }
 
     const state = view.state
-    const sel = state.selection
-    let currentIndex = matches.findIndex(m => m.from === sel.from && m.to === sel.to)
 
-    if (currentIndex === -1) {
+    // tiptap style: use activeIndex from plugin state, not cursor position
+    const pluginState = searchPluginKey.getState(state)
+    let currentIndex = pluginState?.activeIndex ?? this.store.currentIndex
+    if (currentIndex === -1 || currentIndex >= matches.length) {
       currentIndex = 0
     }
 
@@ -481,31 +509,33 @@ export class CrepeSearchService implements SearchService {
     const replacedText = this.store.currentQuery.regexp && match.match
       ? expandRegexReplacement(replacement, match.match)
       : replacement
-    const tr = replacedText === ''
-      ? state.tr.delete(match.from, match.to)
-      : state.tr.replaceWith(match.from, match.to, state.schema.text(replacedText))
 
-    view.dispatch(tr)
+    // Single dispatch: replacement + find next match + set selection (tiptap replaceResult pattern)
+    const tr = state.tr
+    tr.insertText(replacedText, match.from, match.to)
 
-    // 重新计算匹配
-    const newState = view.state
-    const newMatches = findAllMatches(newState.doc, this.store.currentQuery)
+    // Re-search the entire new document state
+    const newMatches = findAllMatches(tr.doc, this.store.currentQuery)
     searchCache.set(this.store.currentQuery, newMatches)
     this.store.currentMatches = newMatches
 
-    // Find next match after the replacement (tiptap approach)
+    // Find first match after the replacement text
     let newCurrentIndex = 0
     if (newMatches.length > 0) {
-      const afterPos = match.from + (replacedText?.length ?? 0)
-      const found = newMatches.findIndex(m => m.from >= afterPos)
-      newCurrentIndex = found !== -1 ? found : 0
+      const afterPos = match.from + replacedText.length
+      newCurrentIndex = findNextIndex(newMatches, afterPos)
 
-      const selectTr = newState.tr.setMeta(searchPluginKey, { type: 'set', query: this.store.currentQuery, activeIndex: newCurrentIndex }).setSelection(
-        new TextSelection(newState.doc.resolve(newMatches[newCurrentIndex].from), newState.doc.resolve(newMatches[newCurrentIndex].to)),
-      ).scrollIntoView()
-      view.dispatch(selectTr)
+      const nextMatch = newMatches[newCurrentIndex]
+      tr.setSelection(
+        new TextSelection(tr.doc.resolve(nextMatch.from), tr.doc.resolve(nextMatch.to)),
+      )
+      tr.scrollIntoView()
+    }
 
-      // 同步 active match 到代码块
+    tr.setMeta(searchPluginKey, { type: 'set', query: this.store.currentQuery, activeIndex: newCurrentIndex })
+
+    // Sync to code blocks
+    if (newMatches.length > 0) {
       const nextMatch = newMatches[newCurrentIndex]
       if (this.store.currentQuery && nextMatch.codeBlockPmPos !== undefined) {
         updateCodeBlockSearchQuery(
@@ -519,6 +549,8 @@ export class CrepeSearchService implements SearchService {
       }
     }
 
+    view.dispatch(tr)
+
     return {
       current: newCurrentIndex,
       total: newMatches.length,
@@ -531,7 +563,6 @@ export class CrepeSearchService implements SearchService {
       return { replaced: 0 }
     }
 
-    // 使用模块级状态
     if (!this.store.currentQuery || !this.store.currentQuery.search) {
       return { replaced: 0 }
     }
@@ -580,8 +611,6 @@ export class CrepeSearchService implements SearchService {
       try {
         let scrollContainer: HTMLElement | null = null
 
-        // Find nearest scrollable ancestor by checking overflow, not just class names.
-        // (.milkdown has overflow:visible so it should never be the scroll target.)
         let el = view.dom.parentElement as HTMLElement | null
         while (el) {
           const style = window.getComputedStyle(el)

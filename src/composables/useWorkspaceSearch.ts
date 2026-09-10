@@ -332,9 +332,8 @@ export function useWorkspaceSearch() {
         const result = searchService.value.replaceNext(replaceQuery.value)
         currentMatchIndex.value = result.current
         totalMatches.value = result.total
-        // Issue 2 fix: replaceNext 已更新 ProseMirror 状态，
-        // 等待 markdownUpdated 回调传播到 tab.content 后再刷新搜索
-        scheduleReplaceRefresh()
+        // replaceNext already recomputes matches and sets activeIndex correctly.
+        // scheduleReplaceRefresh removed — it would overwrite activeIndex with 0.
       }
     } else {
       if (totalMatches.value === 0) return
@@ -519,9 +518,6 @@ export function useWorkspaceSearch() {
     // CONTENT_CHANGED → updateEditorHighlight 重置 totalMatches
     unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
       if (isNavigating) {
-        return
-      }
-      if (searchService.value?.isReplacing) {
         return
       }
       if (searchQuery.value.trim() && searchScope.value === 'file') {
