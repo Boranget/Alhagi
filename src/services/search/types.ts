@@ -16,4 +16,5 @@ export interface SearchService {
   findPrev(): SearchResult
   replaceNext(replacement: string): SearchResult
   replaceAll(replacement: string): ReplaceResult
+  readonly isReplacing: boolean
 }

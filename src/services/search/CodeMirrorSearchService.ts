@@ -1,10 +1,9 @@
-import { RangeSetBuilder, StateEffect, StateField, type Extension } from '@codemirror/state'
+import { RangeSetBuilder, StateEffect, StateField, type Extension, type EditorState } from '@codemirror/state'
 import { Decoration, DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import {
   SearchQuery,
   getSearchQuery,
   replaceAll as cmReplaceAll,
-  replaceNext as cmReplaceNext,
   setSearchQuery,
 } from '@codemirror/search'
 import type { SearchConfig } from '@/utils/search'
@@ -17,7 +16,6 @@ interface SearchHighlightState {
   query: SearchQuery | null
   matches: Match[]
   activeIndex: number
-  decorations: DecorationSet
 }
 
 interface SearchHighlightPayload {
@@ -59,7 +57,7 @@ function buildSearchDecorations(
 }
 
 const searchHighlightField = StateField.define<SearchHighlightState>({
-  create: () => ({ query: null, matches: [], activeIndex: 0, decorations: Decoration.none }),
+  create: () => ({ query: null, matches: [], activeIndex: 0 }),
   update(value, tr) {
     let nextQuery = value.query
     let nextMatches = value.matches
@@ -75,7 +73,6 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
       query: nextQuery,
       matches: nextMatches,
       activeIndex: nextActiveIndex,
-      decorations: value.decorations.map(tr.changes),
     }
   },
 })
@@ -109,9 +106,9 @@ export const codeMirrorSearchHighlight = (): Extension => {
   return [searchHighlightField, searchHighlightPlugin, searchHighlightTheme]
 }
 
-function computeMatches(query: SearchQuery, view: EditorView): Match[] {
+function computeMatches(query: SearchQuery, state: EditorState): Match[] {
   const matches: Match[] = []
-  const cursor = query.getCursor(view.state)
+  const cursor = query.getCursor(state)
   for (let next = cursor.next(); !next.done; next = cursor.next()) {
     matches.push({ from: next.value.from, to: next.value.to })
     if (matches.length > 10000) break
@@ -119,8 +116,19 @@ function computeMatches(query: SearchQuery, view: EditorView): Match[] {
   return matches
 }
 
+function findNextMatchIndexAfter(matches: Match[], after: number): number {
+  const index = matches.findIndex(m => m.from >= after)
+  return index === -1 ? 0 : index
+}
+
 export class CodeMirrorSearchService implements SearchService {
+  private _isReplacing = false
+
   constructor(private getView: () => EditorView | null) {}
+
+  get isReplacing(): boolean {
+    return this._isReplacing
+  }
 
   search(config: SearchConfig, options?: { select?: boolean }): SearchResult {
     const view = this.getView()
@@ -130,17 +138,14 @@ export class CodeMirrorSearchService implements SearchService {
       return { current: 0, total: 0 }
     }
 
-    const matches = computeMatches(query, view)
+    const matches = computeMatches(query, view.state)
     if (matches.length === 0) {
       view.dispatch({ effects: [setSearchQuery.of(query), searchHighlightEffect.of({ query, matches: [], activeIndex: 0 })] })
       return { current: 0, total: 0 }
     }
 
-    // Find active match: if cursor is on a match, use that; otherwise use 0
-    let activeIndex = 0
-    const mainSel = view.state.selection.main
-    const found = matches.findIndex(m => m.from === mainSel.from && m.to === mainSel.to)
-    if (found !== -1) activeIndex = found
+    // Always start from first match (tiptap approach: currentIndex independent of cursor)
+    const activeIndex = 0
 
     const dispatch: Parameters<EditorView['dispatch']>[0] = {
       effects: [setSearchQuery.of(query), searchHighlightEffect.of({ query, matches, activeIndex })],
@@ -177,7 +182,14 @@ export class CodeMirrorSearchService implements SearchService {
 
     const mainSel = view.state.selection.main
     const currentIndex = matches.findIndex(m => m.from === mainSel.from && m.to === mainSel.to)
-    const nextIndex = currentIndex + 1 >= matches.length ? 0 : currentIndex + 1
+
+    let nextIndex: number
+    if (currentIndex !== -1) {
+      nextIndex = currentIndex + 1 >= matches.length ? 0 : currentIndex + 1
+    } else {
+      nextIndex = field.activeIndex + 1 >= matches.length ? 0 : field.activeIndex + 1
+    }
+
     const target = matches[nextIndex]
 
     view.dispatch({
@@ -199,7 +211,14 @@ export class CodeMirrorSearchService implements SearchService {
 
     const mainSel = view.state.selection.main
     const currentIndex = matches.findIndex(m => m.from === mainSel.from && m.to === mainSel.to)
-    const prevIndex = currentIndex <= 0 ? matches.length - 1 : currentIndex - 1
+
+    let prevIndex: number
+    if (currentIndex !== -1) {
+      prevIndex = currentIndex <= 0 ? matches.length - 1 : currentIndex - 1
+    } else {
+      prevIndex = field.activeIndex <= 0 ? matches.length - 1 : field.activeIndex - 1
+    }
+
     const target = matches[prevIndex]
 
     view.dispatch({
@@ -218,20 +237,49 @@ export class CodeMirrorSearchService implements SearchService {
     const query = this.withReplacement(view, replacement)
     if (!query) return { current: 0, total: 0 }
 
-    cmReplaceNext(view)
+    const { from } = view.state.selection.main
+    const cursor = query.getCursor(view.state, from)
+    const next = cursor.next()
+    if (next.done) return this.getCurrentResult(view, query)
 
-    // Compute matches AFTER replace (document changed)
-    const newMatches = computeMatches(query, view)
+    const match = next.value
+    const replacementText = view.state.toText(query.replace)
 
-    // cmReplaceNext already moved cursor — find active match
-    const mainSel = view.state.selection.main
-    const activeIdx = newMatches.findIndex(m => m.from === mainSel.from && m.to === mainSel.to)
-    const activeIndex = activeIdx !== -1 ? activeIdx : 0
+    // Compute post-replacement state locally (no dispatch yet)
+    const postState = view.state.update({
+      changes: { from: match.from, to: match.to, insert: replacementText },
+    })
 
-    view.dispatch({ effects: searchHighlightEffect.of({ query, matches: newMatches, activeIndex }) })
+    // Compute matches on the post-replacement state
+    const newQuery = new SearchQuery({
+      search: query.search,
+      caseSensitive: query.caseSensitive,
+      wholeWord: query.wholeWord,
+      regexp: query.regexp,
+      replace: replacement,
+    })
 
-    // cmReplaceNext already moved cursor to next match — just read current position
-    return this.getCurrentResult(view, query)
+    const newMatches = computeMatches(newQuery, postState.state)
+    const nextIndex = findNextMatchIndexAfter(newMatches, match.from + replacementText.length)
+    const target = newMatches[nextIndex]
+
+    // Suppress CONTENT_CHANGED during replace to prevent double decoration rebuild
+    this._isReplacing = true
+    try {
+      view.dispatch({
+        changes: postState.changes,
+        selection: target ? { anchor: target.from, head: target.to } : { anchor: match.from + replacementText.length },
+        effects: [
+          setSearchQuery.of(newQuery),
+          searchHighlightEffect.of({ query: newQuery, matches: newMatches, activeIndex: nextIndex }),
+        ],
+        scrollIntoView: true,
+      })
+    } finally {
+      this._isReplacing = false
+    }
+
+    return { current: nextIndex, total: newMatches.length }
   }
 
   replaceAll(replacement: string): ReplaceResult {
@@ -241,11 +289,17 @@ export class CodeMirrorSearchService implements SearchService {
     const query = this.withReplacement(view, replacement)
     if (!query) return { replaced: 0 }
 
-    const replaced = computeMatches(query, view).length
-    if (replaced === 0) return { replaced: 0 }
+    const matches = computeMatches(query, view.state)
+    if (matches.length === 0) return { replaced: 0 }
 
+    // Update CM internal state so cmReplaceAll uses the correct replacement
+    view.dispatch({ effects: setSearchQuery.of(query) })
     cmReplaceAll(view)
-    return { replaced }
+
+    // Clear our highlight state (all matches replaced)
+    view.dispatch({ effects: searchHighlightEffect.of({ query, matches: [], activeIndex: 0 }) })
+
+    return { replaced: matches.length }
   }
 
   private createQuery(config: SearchConfig, replacement = ''): SearchQuery | null {
@@ -267,7 +321,7 @@ export class CodeMirrorSearchService implements SearchService {
     const currentQuery = this.getCurrentQuery(view)
     if (!currentQuery || !currentQuery.valid) return null
 
-    const nextQuery = new SearchQuery({
+    return new SearchQuery({
       search: currentQuery.search,
       caseSensitive: currentQuery.caseSensitive,
       wholeWord: currentQuery.wholeWord,
@@ -275,10 +329,6 @@ export class CodeMirrorSearchService implements SearchService {
       literal: currentQuery.literal,
       replace: replacement,
     })
-
-    const matches = computeMatches(nextQuery, view)
-    view.dispatch({ effects: [setSearchQuery.of(nextQuery), searchHighlightEffect.of({ query: nextQuery, matches, activeIndex: 0 })] })
-    return nextQuery
   }
 
   private getCurrentQuery(view: EditorView): SearchQuery | null {
@@ -299,7 +349,7 @@ export class CodeMirrorSearchService implements SearchService {
     const mainSel = view.state.selection.main
     const current = matches.findIndex(m => m.from === mainSel.from && m.to === mainSel.to)
     return {
-      current: current === -1 ? 0 : current,
+      current: current === -1 ? findNextMatchIndexAfter(matches, mainSel.from) : current,
       total: matches.length,
     }
   }

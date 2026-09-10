@@ -195,6 +195,7 @@ defineExpose({
   findPrev: searchManager.findPrev.bind(searchManager),
   replaceNext: searchManager.replaceNext.bind(searchManager),
   replaceAll: searchManager.replaceAll.bind(searchManager),
+  get isReplacing() { return searchManager.isReplacing },
 })
 </script>
 

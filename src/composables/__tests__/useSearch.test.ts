@@ -33,6 +33,7 @@ describe('useSearch Composable', () => {
       findPrev: vi.fn().mockReturnValue({ current: 0, total: 2 }),
       replaceNext: vi.fn().mockReturnValue({ current: 0, total: 1 }),
       replaceAll: vi.fn().mockReturnValue({ replaced: 2 }),
+      isReplacing: false,
     }
 
     let injectedValue: ReturnType<typeof useSearch> | undefined

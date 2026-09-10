@@ -171,7 +171,7 @@ export function useWorkspaceSearch() {
     
     if (searchScope.value === 'file') {
       // Single search path: searchService is the source of truth
-      updateEditorHighlight(false)
+      updateEditorHighlight()
       // Also populate sidebar results from local regex
       searchInActiveFile(pattern)
     } else if (searchScope.value === 'all') {
@@ -476,6 +476,10 @@ export function useWorkspaceSearch() {
     if (mode === 'floating') {
       searchScope.value = 'file'
     }
+    // Clear previous search state to reset active highlight
+    if (searchQuery.value.trim()) {
+      searchService.value?.clear()
+    }
   }
 
   function hide() {
@@ -515,6 +519,9 @@ export function useWorkspaceSearch() {
     // CONTENT_CHANGED → updateEditorHighlight 重置 totalMatches
     unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
       if (isNavigating) {
+        return
+      }
+      if (searchService.value?.isReplacing) {
         return
       }
       if (searchQuery.value.trim() && searchScope.value === 'file') {

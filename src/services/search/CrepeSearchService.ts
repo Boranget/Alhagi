@@ -243,6 +243,10 @@ export class CrepeSearchService implements SearchService {
 
   constructor(private getView: () => EditorView | null) {}
 
+  get isReplacing(): boolean {
+    return false
+  }
+
   search(config: SearchConfig, options?: { select?: boolean }): SearchResult {
     const view = this.getView()
     if (!view) {
