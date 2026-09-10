@@ -126,3 +126,6 @@ Thumbs.db
 *.old
 *.orig
 *.tmp
+
+# Reference
+reference/
