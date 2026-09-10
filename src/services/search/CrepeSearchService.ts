@@ -153,14 +153,24 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
 
           newState.matches = matches
           newState.totalMatches = matches.length
-          newState.activeIndex = 0
-          newState.decorations = buildDecorationsFromMatches(state.doc, matches, 0)
+
+          // Find next match after current active position (for replace-then-advance)
+          let activeIndex = 0
+          if (matches.length > 0 && value.activeIndex < value.matches.length) {
+            const prevMatch = value.matches[value.activeIndex]
+            if (prevMatch) {
+              const found = matches.findIndex(m => m.from >= prevMatch.from)
+              activeIndex = found !== -1 ? found : 0
+            }
+          }
+          newState.activeIndex = activeIndex
+          newState.decorations = buildDecorationsFromMatches(state.doc, matches, activeIndex)
 
           // 同步 store（只读镜像）
           const store = useSearchStore()
           store.currentMatches = matches
           store.totalMatches = matches.length
-          store.currentIndex = 0
+          store.currentIndex = activeIndex
         } else {
           newState.decorations = DecorationSet.empty
           newState.matches = []
