@@ -483,12 +483,30 @@ export class CrepeSearchService implements SearchService {
     searchCache.set(this.store.currentQuery, newMatches)
     this.store.currentMatches = newMatches
 
-    const newCurrentIndex = 0
+    // Find next match after the replacement (tiptap approach)
+    let newCurrentIndex = 0
     if (newMatches.length > 0) {
-      const selectTr = newState.tr.setSelection(
-        new TextSelection(newState.doc.resolve(newMatches[0].from), newState.doc.resolve(newMatches[0].to)),
+      const afterPos = match.from + (replacedText?.length ?? 0)
+      const found = newMatches.findIndex(m => m.from >= afterPos)
+      newCurrentIndex = found !== -1 ? found : 0
+
+      const selectTr = newState.tr.setMeta(searchPluginKey, { type: 'set', query: this.store.currentQuery, activeIndex: newCurrentIndex }).setSelection(
+        new TextSelection(newState.doc.resolve(newMatches[newCurrentIndex].from), newState.doc.resolve(newMatches[newCurrentIndex].to)),
       ).scrollIntoView()
       view.dispatch(selectTr)
+
+      // 同步 active match 到代码块
+      const nextMatch = newMatches[newCurrentIndex]
+      if (this.store.currentQuery && nextMatch.codeBlockPmPos !== undefined) {
+        updateCodeBlockSearchQuery(
+          new CMSearchQuery({ search: this.store.currentQuery.search, caseSensitive: this.store.currentQuery.caseSensitive, wholeWord: this.store.currentQuery.wholeWord, regexp: this.store.currentQuery.regexp }),
+          nextMatch.codeBlockPmPos,
+          nextMatch.from,
+          nextMatch.to,
+        )
+      } else if (this.store.currentQuery) {
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: this.store.currentQuery.search, caseSensitive: this.store.currentQuery.caseSensitive, wholeWord: this.store.currentQuery.wholeWord, regexp: this.store.currentQuery.regexp }))
+      }
     }
 
     return {
