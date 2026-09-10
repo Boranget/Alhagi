@@ -14,7 +14,7 @@ import {
   indentOnInput,
   LanguageDescription,
 } from '@codemirror/language'
-import { highlightSelectionMatches, search } from '@codemirror/search'
+import { search } from '@codemirror/search'
 import { EditorState } from '@codemirror/state'
 import {
   Decoration,
@@ -113,7 +113,6 @@ const basicSetup: Extension = [
   highlightActiveLine(),
   search(),
   codeMirrorSearchHighlight(),
-  highlightSelectionMatches(),
   keymap.of([
     ...closeBracketsKeymap,
     ...defaultKeymap,

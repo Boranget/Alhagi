@@ -1,4 +1,4 @@
-import { ref, reactive, computed, onUnmounted, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
@@ -158,6 +158,9 @@ export function useWorkspaceSearch() {
       results.value = []
       totalMatches.value = 0
       currentMatchIndex.value = 0
+      if (searchScope.value === 'file') {
+        searchService.value?.clear()
+      }
       return
     }
     
@@ -167,9 +170,10 @@ export function useWorkspaceSearch() {
     currentMatchIndex.value = 0
     
     if (searchScope.value === 'file') {
-      searchInActiveFile(pattern)
+      // Single search path: searchService is the source of truth
       updateEditorHighlight(false)
-      isSearching.value = false
+      // Also populate sidebar results from local regex
+      searchInActiveFile(pattern)
     } else if (searchScope.value === 'all') {
       searchInAllTabs(pattern)
       isSearching.value = false
@@ -182,18 +186,15 @@ export function useWorkspaceSearch() {
     const activeTab = tabsStore.activeTab
     if (!activeTab) {
       results.value = []
-      totalMatches.value = 0
       isSearching.value = false
       return
     }
     const matches = searchInContent(activeTab.content, pattern)
     if (matches.length > 0) {
       results.value = [{ file: activeTab.id, fileName: activeTab.title, filePath: activeTab.filePath || undefined, matches }]
-      totalMatches.value = matches.length
       expandedFiles.value.add(activeTab.id)
     } else {
       results.value = []
-      totalMatches.value = 0
     }
     isSearching.value = false
   }
@@ -447,7 +448,6 @@ export function useWorkspaceSearch() {
     searchScope.value = 'file'
     linkedFromGlobalSearch.value = true
     performSearch()
-    updateEditorHighlight()
     if (linkResetTimer) clearTimeout(linkResetTimer)
     linkResetTimer = setTimeout(() => {
       linkedFromGlobalSearch.value = false
@@ -458,16 +458,13 @@ export function useWorkspaceSearch() {
     searchQuery.value = query
     searchScope.value = scope
     performSearch()
-    updateEditorHighlight()
   }
 
   function setSearchScope(scope: SearchScope) {
     searchScope.value = scope
     if (searchQuery.value) {
       performSearch()
-      if (scope === 'file') {
-        updateEditorHighlight(false)
-      } else {
+      if (scope !== 'file') {
         searchService.value?.clear()
       }
     }
@@ -494,9 +491,6 @@ export function useWorkspaceSearch() {
 
   const debouncedSearch = debounce(() => {
     performSearch()
-    if (searchScope.value === 'file') {
-      updateEditorHighlight(false)
-    }
   }, SEARCH_DEBOUNCE_MS)
 
   function handleSearchInput() {
@@ -509,9 +503,6 @@ export function useWorkspaceSearch() {
     () => {
       if (searchQuery.value.trim()) {
         performSearch()
-        if (searchScope.value === 'file') {
-          updateEditorHighlight(false)
-        }
       }
     }
   )

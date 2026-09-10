@@ -391,3 +391,9 @@ body.focus-mode {
 .milkdown-code-block .cm-panel {
   display: none !important;
 }
+
+// 隐藏源码/纯文本编辑器的 CodeMirror 原生搜索面板（使用自定义 FloatingSearch）
+.codemirror-editor .cm-panel,
+.plain-text-editor .cm-panel {
+  display: none !important;
+}

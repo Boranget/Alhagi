@@ -25,7 +25,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { search, highlightSelectionMatches } from '@codemirror/search'
+import { search } from '@codemirror/search'
 import {
   EditorView,
   drawSelection,
@@ -103,7 +103,6 @@ function buildExtensions(): Extension[] {
     highlightActiveLine(),
     search(),
     codeMirrorSearchHighlight(),
-    highlightSelectionMatches(),
     keymap.of([
       ...defaultKeymap,
       ...historyKeymap,

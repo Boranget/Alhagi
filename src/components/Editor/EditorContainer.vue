@@ -172,7 +172,7 @@ const handleViewModeChange = async (mode: ViewMode) => {
   }
 
   // 切换模式时自动关闭搜索框并清除高亮
-  searchService.value?.clear()
+  floatingSearchRef.value?.hide()
 
   // 如果切换到非 WYSIWYG 模式，同步 Crepe 的内容到 CodeMirror
   if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editor.isReady()) {

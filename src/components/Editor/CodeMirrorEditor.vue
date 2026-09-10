@@ -41,6 +41,7 @@ const isDarkMode = computed<ThemeType>(() => {
 const handleChange = (getString: () => string) => {
   const newValue = getString()
   emit('update:modelValue', newValue)
+  eventBus.emit(AppEvents.CONTENT_CHANGED)
 }
 
 const handleFocus = () => {
