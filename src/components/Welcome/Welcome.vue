@@ -55,13 +55,19 @@
             v-for="file in recentFiles" 
             :key="file.filePath"
             class="recent-file-item"
+            :class="{ 'file-missing': missingFiles.has(file.filePath) }"
+            :title="missingFiles.has(file.filePath) ? '文件已不存在' : ''"
             @click="openRecentFile(file)"
           >
             <Icon
-              name="file"
+              :name="missingFiles.has(file.filePath) ? 'alert-circle' : 'file'"
               size="sm"
             />
             <span class="file-name">{{ file.title }}</span>
+            <span
+              v-if="missingFiles.has(file.filePath)"
+              class="missing-badge"
+            >已失效</span>
           </div>
         </div>
         <div
@@ -80,8 +86,9 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useTabService } from '@/services/tabService'
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { Icon } from '@/components/Icons'
+import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
 const prefsStore = usePreferencesStore()
 const tabsStore = useTabsStore()
@@ -89,6 +96,15 @@ const fileStore = useFileExplorerStore()
 const tabService = useTabService()
 
 const recentFiles = computed(() => prefsStore.recentFiles)
+const { missingFiles, checkFiles } = useFileExistenceChecker()
+
+onMounted(() => {
+  checkFiles(recentFiles.value.map(f => f.filePath))
+})
+
+watch(recentFiles, (files) => {
+  checkFiles(files.map(f => f.filePath))
+})
 
 function createNewFile() {
   tabsStore.createTab({ title: '未命名' })
@@ -232,11 +248,33 @@ function openRecentFile(file: { filePath: string; title: string }) {
   &:hover {
     background: var(--sidebar-hover-bg);
   }
+
+  &.file-missing {
+    opacity: 0.55;
+
+    .file-name {
+      color: var(--text-secondary);
+      text-decoration: line-through;
+    }
+  }
 }
 
 .file-name {
   font-size: 14px;
   color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.missing-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .no-files {

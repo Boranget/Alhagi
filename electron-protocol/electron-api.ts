@@ -41,6 +41,7 @@ export interface ElectronAPI {
   searchInDirectory: (dirPath: string, query: string, options?: SearchOptions) => Promise<IPCResponse<SearchResult[]>>
   getDocumentsDirectory: () => Promise<IPCResponse<string>>
   ensureDirectory: (dirPath: string) => Promise<IPCResponse<boolean>>
+  fileExists: (filePath: string) => Promise<IPCResponse<boolean>>
 
   // ========== 窗口操作 ==========
   minimize: () => Promise<IPCResponse<void>>

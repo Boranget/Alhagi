@@ -52,10 +52,12 @@
             v-for="file in pinnedFiles"
             :key="file.filePath"
             class="recent-file-item"
+            :class="{ 'file-missing': missingFiles.has(file.filePath) }"
+            :title="missingFiles.has(file.filePath) ? '文件已不存在' : ''"
             @click="openFile(file)"
           >
             <Icon
-              name="file"
+              :name="missingFiles.has(file.filePath) ? 'alert-circle' : 'file'"
               size="sm"
               class="file-icon"
             />
@@ -75,10 +77,12 @@
             v-for="file in unpinnedFiles"
             :key="file.filePath"
             class="recent-file-item"
+            :class="{ 'file-missing': missingFiles.has(file.filePath) }"
+            :title="missingFiles.has(file.filePath) ? '文件已不存在' : ''"
             @click="openFile(file)"
           >
             <Icon
-              name="file"
+              :name="missingFiles.has(file.filePath) ? 'alert-circle' : 'file'"
               size="sm"
               class="file-icon"
             />
@@ -168,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useTabService } from '@/services/tabService'
@@ -176,6 +180,7 @@ import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
 const activeTab = ref<'files' | 'folders'>('files')
 
@@ -183,6 +188,7 @@ const prefs = usePreferencesStore()
 const fileStore = useFileExplorerStore()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
+const { missingFiles, checkFiles } = useFileExistenceChecker()
 
 const recentFiles = computed(() => prefs.recentFiles)
 const recentFolders = computed(() => prefs.recentFolders)
@@ -191,6 +197,14 @@ const pinnedFiles = computed(() => recentFiles.value.filter(f => f.pinned))
 const unpinnedFiles = computed(() => recentFiles.value.filter(f => !f.pinned))
 const pinnedFolders = computed(() => recentFolders.value.filter(f => f.pinned))
 const unpinnedFolders = computed(() => recentFolders.value.filter(f => !f.pinned))
+
+onMounted(() => {
+  checkFiles(recentFiles.value.map(f => f.filePath))
+})
+
+watch(recentFiles, (files) => {
+  checkFiles(files.map(f => f.filePath))
+})
 
 function openFile(file: RecentFile) {
   tabService.openRecentFile(file.filePath)
@@ -327,6 +341,15 @@ async function clearHistory() {
 
   &:hover {
     background: var(--sidebar-hover-bg);
+  }
+
+  &.file-missing {
+    opacity: 0.55;
+
+    .file-name {
+      color: var(--text-secondary);
+      text-decoration: line-through;
+    }
   }
 }
 

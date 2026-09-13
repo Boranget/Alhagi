@@ -28,6 +28,7 @@ export const IPC_CHANNELS = {
     SHOW_IN_FOLDER: 'file:show-in-folder',
     GET_DOCUMENTS_DIRECTORY: 'file:get-documents-directory',
     ENSURE_DIRECTORY: 'file:ensure-directory',
+    EXISTS: 'file:exists',
     /** main → renderer：打开的文件被外部修改 / 删除（P2-10） */
     EXTERNAL_CHANGED: 'file:external-changed',
   },

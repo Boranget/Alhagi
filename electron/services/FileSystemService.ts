@@ -45,6 +45,7 @@ export class FileSystemService {
     this.registerShowInFolder()
     this.registerGetDocumentsDirectory()
     this.registerEnsureDirectory()
+    this.registerExists()
   }
 
   // ---------- 内部 helper ----------
@@ -365,6 +366,20 @@ export class FileSystemService {
       }
       await fs.mkdir(dirPath, { recursive: true })
       return true
+    })
+  }
+
+  private registerExists(): void {
+    registerHandler(IPC_CHANNELS.FILE.EXISTS, IPCErrorCode.FILE_READ_ERROR, async (_, filePath: string) => {
+      if (!filePath || typeof filePath !== 'string') {
+        return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+      }
+      try {
+        await fs.access(filePath)
+        return true
+      } catch {
+        return false
+      }
     })
   }
 }
