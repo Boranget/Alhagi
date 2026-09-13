@@ -449,7 +449,7 @@ onUnmounted(() => {
   overflow-y: hidden;
 
   &::-webkit-scrollbar {
-    height: 4px;
+    height: calc(var(--scrollbar-size, 8px) / 2);
   }
 
   &::-webkit-scrollbar-thumb {

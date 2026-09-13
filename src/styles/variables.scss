@@ -37,9 +37,14 @@
   --preview-bg: #fafafa;
 
   --scrollbar-color: #c0c0c0;
+  --scrollbar-size: 8px;
   
   --panel-bg: #ffffff;
   --panel-hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+.hide-scrollbars {
+  --scrollbar-size: 0px;
 }
 
 [data-theme="dark"], .dark {

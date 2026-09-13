@@ -59,7 +59,7 @@ const { headings, activePos, handleHeadingClick } = useOutline()
   padding: 4px 0;
 
   &::-webkit-scrollbar {
-    width: 6px;
+    width: calc(var(--scrollbar-size, 8px) * 0.75);
   }
 
   &::-webkit-scrollbar-thumb {

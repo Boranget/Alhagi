@@ -111,6 +111,11 @@ function openSettingsWindow() {
 let cleanup: (() => void) | null = null
 const eventUnsubscribers: (() => void)[] = []
 
+// 应用隐藏滚动条设置
+function applyHideScrollBars(hide: boolean) {
+  document.documentElement.classList.toggle('hide-scrollbars', hide)
+}
+
 function exitImmersiveMode() {
   if (!layout.isImmersiveMode.value) return
   window.electronAPI?.setWindowMode('normal')
@@ -156,6 +161,14 @@ onMounted(async () => {
     layout.applyWindowMode(mode)
   })
   if (stopModeWatch) eventUnsubscribers.push(stopModeWatch)
+
+  // 应用 hideScrollBars 设置
+  applyHideScrollBars(prefs.hideScrollBars.value)
+})
+
+// 监听 hideScrollBars 变化并应用
+watch(() => prefs.hideScrollBars.value, (hide) => {
+  applyHideScrollBars(hide)
 })
 
 onUnmounted(() => {

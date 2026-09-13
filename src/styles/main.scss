@@ -31,8 +31,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: var(--scrollbar-size, 8px);
+  height: var(--scrollbar-size, 8px);
 }
 
 ::-webkit-scrollbar-track {

@@ -293,7 +293,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       min-height: 0;
 
       &::-webkit-scrollbar {
-        width: 12px;
+        width: calc(var(--scrollbar-size, 8px) * 1.5);
       }
 
       :deep(.crepe) {
@@ -338,7 +338,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
       :deep(.cm-scroller) {
         &::-webkit-scrollbar {
-          width: 12px;
+          width: calc(var(--scrollbar-size, 8px) * 1.5);
         }
       }
 
@@ -372,7 +372,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
       order: 3; /* 确保在最右边 */
 
       &::-webkit-scrollbar {
-        width: 12px;
+        width: calc(var(--scrollbar-size, 8px) * 1.5);
       }
 
       :deep(.crepe) {
@@ -419,7 +419,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
         :deep(.cm-scroller) {
           &::-webkit-scrollbar {
-            width: 12px;
+            width: calc(var(--scrollbar-size, 8px) * 1.5);
           }
         }
 
@@ -458,12 +458,6 @@ function handleEditorKeydown(e: KeyboardEvent) {
         background: var(--text-secondary);
         border-radius: 1px;
       }
-    }
-  }
-
-  &.typewriter-mode {
-    .editor-wysiwyg, .codemirror-editor, .editor-split-source, .editor-split-preview {
-      scroll-behavior: smooth;
     }
   }
 
