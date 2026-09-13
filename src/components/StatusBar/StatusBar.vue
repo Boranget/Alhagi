@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAppContext } from '@/composables/useAppContext'
+import { useAppContext } from '@adapters/composables/useAppContext'
 import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'

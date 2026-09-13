@@ -1,10 +1,10 @@
 <template>
   <div
     class="app-container"
-    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': layoutStore.isStickyNoteMode, 'is-immersive': layoutStore.isImmersiveMode }"
+    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': layout.isStickyNoteMode.value, 'is-immersive': layout.isImmersiveMode.value }"
   >
     <div
-      v-if="layoutStore.isImmersiveMode"
+      v-if="layout.isImmersiveMode.value"
       class="immersive-tip"
     >
       按 Esc 退出沉浸模式
@@ -12,20 +12,20 @@
     <div class="app-content">
       <Transition name="sidebar-slide">
         <EnhancedSidebar
-          v-if="layoutStore.showSidebar"
+          v-if="layout.showSidebar.value"
           @open-settings="openSettingsWindow"
         />
       </Transition>
       <div class="editor-wrapper">
-        <TabBar v-if="layoutStore.showTabBar && tabsStore.tabs.size > 0" />
+        <TabBar v-if="layout.showTabBar.value && tabs.tabCount.value > 0" />
         <div class="editor-area">
-          <EditorContainer v-if="tabsStore.tabs.size > 0" />
+          <EditorContainer v-if="tabs.tabCount.value > 0" />
           <Welcome v-else />
         </div>
       </div>
     </div>
     <Transition name="statusbar-slide">
-      <StatusBar v-if="layoutStore.showStatusBar" />
+      <StatusBar v-if="layout.showStatusBar.value" />
     </Transition>
     <CommandPalette
       :visible="showCommandPalette"
@@ -60,9 +60,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useLayoutStore } from '@/stores/layout'
+import { useAppContext } from '@adapters/composables/useAppContext'
 import { useApp } from '@/composables/useApp'
 import { useToast } from '@/composables/useToast'
 import { useInputDialog } from '@/composables/useInputDialog'
@@ -84,9 +82,7 @@ const Toast = defineAsyncComponent(() => import('@/components/Toast/Toast.vue'))
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
 const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))
 
-const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
-const layoutStore = useLayoutStore()
+const { tabs, layout, prefs } = useAppContext()
 const { isFullscreen, initializeApp } = useApp()
 const inputDialog = useInputDialog()
 const selectDialog = useSelectDialog()
@@ -116,7 +112,7 @@ let cleanup: (() => void) | null = null
 const eventUnsubscribers: (() => void)[] = []
 
 function exitImmersiveMode() {
-  if (!layoutStore.isImmersiveMode) return
+  if (!layout.isImmersiveMode.value) return
   window.electronAPI?.setWindowMode('normal')
 }
 
@@ -131,9 +127,9 @@ function handleWheel(e: WheelEvent) {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -1 : 1
     if (delta > 0) {
-      prefsStore.zoomIn()
+      prefs.zoomIn()
     } else {
-      prefsStore.zoomOut()
+      prefs.zoomOut()
     }
   }
 }
@@ -157,7 +153,7 @@ onMounted(async () => {
   )
 
   const stopModeWatch = window.electronAPI?.onWindowModeChanged((mode) => {
-    layoutStore.applyWindowMode(mode)
+    layout.applyWindowMode(mode)
   })
   if (stopModeWatch) eventUnsubscribers.push(stopModeWatch)
 })

@@ -24,7 +24,11 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      '@electron-protocol': resolve(__dirname, 'electron-protocol')
+      '@electron-protocol': resolve(__dirname, 'electron-protocol'),
+      '@core': resolve(__dirname, 'src/core'),
+      '@adapters': resolve(__dirname, 'src/adapters'),
+      '@infrastructure': resolve(__dirname, 'src/infrastructure'),
+      '@shared': resolve(__dirname, 'src/shared')
     }
   },
   css: {

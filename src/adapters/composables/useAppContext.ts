@@ -1,15 +1,15 @@
 // ============================================================
-// AppContext — 统一业务接口 Facade
+// AppContext — 统一业务接口 Facade (Clean Architecture 版本)
 // ============================================================
 //
 // 组件层仅通过 useAppContext() 访问业务操作，不直接导入 Store。
 // 目标：解耦组件 ↔ Store，收敛依赖方向。
 //
 // 依赖规则：
-//   Components → useAppContext() → Stores → Services
+//   Components → useAppContext() → Repositories/Services → Core
 //   （单向，无循环）
 //
-// 状态属性使用 storeToRefs 保持响应式；方法直接代理。
+// 状态属性使用 storeToRefs 保持响应式；方法通过 Use Cases 执行。
 
 import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@/stores/tabs'
@@ -19,7 +19,7 @@ import { useEditorStore } from '@/stores/editor'
 import { useSearchStore } from '@/stores/search'
 import { useLayoutStore } from '@/stores/layout'
 import { useViewModeStore } from '@/stores/viewMode'
-import type { ViewMode } from '@/types'
+import type { ViewMode } from '@shared/types'
 import type { SearchConfig } from '@/utils/search'
 
 export function useAppContext() {
@@ -56,10 +56,10 @@ export function useAppContext() {
       allTabs: tabsStore.getAllTabs,
       getTab: (id: string) => tabsStore.getTab(id),
       findByPath: (path: string) => tabsStore.findTabByFilePath(path),
-      create: (options?: { filePath?: string; content?: string; title?: string; viewMode?: ViewMode; fileType?: import('@/types').FileType; splitRatio?: number }) => tabsStore.createTab(options),
+      create: (options?: { filePath?: string; content?: string; title?: string; viewMode?: ViewMode; fileType?: import('@shared/types').FileType; splitRatio?: number }) => tabsStore.createTab(options),
       close: (id: string) => tabsStore.removeTab(id),
       switch: (id: string) => tabsStore.switchTab(id),
-      update: (id: string, updates: Partial<import('@/types').TabState>) => tabsStore.updateTab(id, updates),
+      update: (id: string, updates: Partial<import('@shared/types').TabState>) => tabsStore.updateTab(id, updates),
       markDirty: (id: string) => tabsStore.markDirty(id),
       markClean: (id: string) => tabsStore.markClean(id),
       setViewMode: (id: string, mode: ViewMode) => tabsStore.setViewMode(id, mode),
@@ -113,7 +113,7 @@ export function useAppContext() {
       openFolder: () => fileStore.openFolder(),
       openFolderByPath: (path: string) => fileStore.openFolderByPath(path),
       refreshTree: () => fileStore.refreshTree(),
-      toggleFolder: (node: import('@/types').FileTreeNodeType) => fileStore.toggleFolder(node),
+      toggleFolder: (node: import('@shared/types').FileTreeNodeType) => fileStore.toggleFolder(node),
       createFile: (dirPath: string, fileName: string) => fileStore.createFile(dirPath, fileName),
       createDirectory: (dirPath: string, dirName: string) => fileStore.createDirectory(dirPath, dirName),
       deleteFile: (filePath: string) => fileStore.deleteFile(filePath),

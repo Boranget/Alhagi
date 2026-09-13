@@ -63,7 +63,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useAppContext } from '@/composables/useAppContext'
+import { useAppContext } from '@adapters/composables/useAppContext'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
