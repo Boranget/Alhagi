@@ -45,7 +45,7 @@ export class FileSystemService {
     this.registerShowInFolder()
     this.registerGetDocumentsDirectory()
     this.registerEnsureDirectory()
-    this.registerExists()
+    this.registerExistsBatch()
   }
 
   // ---------- 内部 helper ----------
@@ -369,17 +369,27 @@ export class FileSystemService {
     })
   }
 
-  private registerExists(): void {
-    registerHandler(IPC_CHANNELS.FILE.EXISTS, IPCErrorCode.FILE_READ_ERROR, async (_, filePath: string) => {
-      if (!filePath || typeof filePath !== 'string') {
-        return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid file path')
+  private registerExistsBatch(): void {
+    registerHandler(IPC_CHANNELS.FILE.EXISTS_BATCH, IPCErrorCode.FILE_READ_ERROR, async (_, filePaths: string[]) => {
+      if (!Array.isArray(filePaths)) {
+        return createErrorResponse(IPCErrorCode.INVALID_PATH, 'Invalid arguments')
       }
-      try {
-        await fs.access(filePath)
-        return true
-      } catch {
-        return false
-      }
+      const results: Record<string, boolean> = {}
+      await Promise.all(
+        filePaths.map(async (fp) => {
+          if (!fp || typeof fp !== 'string') {
+            results[fp] = false
+            return
+          }
+          try {
+            await fs.access(fp)
+            results[fp] = true
+          } catch {
+            results[fp] = false
+          }
+        }),
+      )
+      return results
     })
   }
 }

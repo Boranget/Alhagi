@@ -79,8 +79,8 @@ const api: ElectronAPI = {
   ensureDirectory: (dirPath) =>
     createIpcHandler(IPC_CHANNELS.FILE.ENSURE_DIRECTORY, dirPath),
 
-  fileExists: (filePath: string) =>
-    createIpcHandler<boolean>(IPC_CHANNELS.FILE.EXISTS, filePath),
+  fileExistsBatch: (filePaths: string[]) =>
+    createIpcHandler<Record<string, boolean>>(IPC_CHANNELS.FILE.EXISTS_BATCH, filePaths),
 
   selectDirectory: () =>
     createIpcHandler(IPC_CHANNELS.DIALOG.SELECT_DIRECTORY),
