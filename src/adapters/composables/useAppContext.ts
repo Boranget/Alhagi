@@ -11,6 +11,7 @@
 //
 // 状态属性使用 storeToRefs 保持响应式；方法通过 Use Cases 执行。
 
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -19,6 +20,7 @@ import { useEditorStore } from '@/stores/editor'
 import { useSearchStore } from '@/stores/search'
 import { useLayoutStore } from '@/stores/layout'
 import { useViewModeStore } from '@/stores/viewMode'
+import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
 import type { ViewMode } from '@shared/types'
 import type { SearchConfig } from '@/utils/search'
 
@@ -44,6 +46,7 @@ export function useAppContext() {
     showSidebar, showTabBar, showStatusBar,
     isStickyNoteMode, isImmersiveMode,
   } = storeToRefs(layoutStore)
+
   const { typewriterMode, focusMode } = storeToRefs(viewModeStore)
 
   return {
@@ -161,11 +164,18 @@ export function useAppContext() {
     },
 
     // ── View Mode (typewriter / focus) ────────────────
+    // 委托给 useWritingEnhancement 单例（Clean Architecture 依赖链统一）
     viewMode: {
       typewriterMode,
       focusMode,
-      toggleTypewriterMode: viewModeStore.toggleTypewriterMode,
-      toggleFocusMode: viewModeStore.toggleFocusMode,
+      toggleTypewriterMode: () => {
+        const { toggleTypewriterMode } = useWritingEnhancement()
+        toggleTypewriterMode()
+      },
+      toggleFocusMode: () => {
+        const { toggleFocusMode } = useWritingEnhancement()
+        toggleFocusMode()
+      },
       setTypewriterMode: viewModeStore.setTypewriterMode,
       setFocusMode: viewModeStore.setFocusMode,
     },

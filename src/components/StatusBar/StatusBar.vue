@@ -58,9 +58,9 @@
       <button
         v-if="isEditorFile"
         class="status-btn"
-        :class="{ active: viewMode.typewriterMode }"
+        :class="{ active: typewriterMode }"
         :title="t('editor.typewriterMode')"
-        @click="toggleTypewriterMode"
+        @click="handleToggleTypewriterMode"
       >
         <Icon
           name="typewriter"
@@ -70,9 +70,9 @@
       <button
         v-if="isEditorFile"
         class="status-btn"
-        :class="{ active: viewMode.focusMode }"
+        :class="{ active: focusMode }"
         :title="t('editor.focusMode')"
-        @click="toggleFocusMode"
+        @click="handleToggleFocusMode"
       >
         <Icon
           name="target"
@@ -108,16 +108,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppContext } from '@adapters/composables/useAppContext'
-import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { executeCommand } from '@/commands'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
 const { tabs, prefs, layout, viewMode } = useAppContext()
-const { toggleFocusMode, toggleTypewriterMode } = useWritingEnhancement()
+const { typewriterMode, focusMode } = viewMode
 
 const activeTab = tabs.activeTab
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
+
+async function handleToggleFocusMode() {
+  await executeCommand('view.focusMode')
+}
+
+async function handleToggleTypewriterMode() {
+  await executeCommand('view.typewriterMode')
+}
 
 // 仅显示文件名，不显示完整路径
 const fileName = computed(() => {
@@ -158,6 +166,8 @@ const isDarkMode = computed(() => {
   }
   return false
 })
+
+
 
 function toggleSidebar() {
   layout.toggleSidebar()
