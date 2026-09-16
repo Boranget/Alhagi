@@ -117,4 +117,35 @@ describe('ImageInsertService', () => {
     expect(result.imageUrl).toBe('custom')
     expect(customStrategy.execute).toHaveBeenCalled()
   })
+
+  it('should fallback clipboard image to copy mode when keep-original is requested', async () => {
+    const source = new ImageSource({
+      type: 'clipboard',
+      data: 'data:image/png;base64,iVBORw0KGgo',
+      fileName: 'screenshot.png',
+      mimeType: 'image/png',
+    })
+    const options = new ImageInsertOptions({ mode: 'keep-original' })
+
+    const result = await service.insertWith(source, options, mockContext)
+
+    expect(result.success).toBe(true)
+    expect(mockImageStorage.saveImage).toHaveBeenCalled()
+    expect(mockContext.editorInsertImage).toHaveBeenCalled()
+  })
+
+  it('should not fallback file source to copy mode when keep-original is requested', async () => {
+    const source = new ImageSource({
+      type: 'file',
+      data: '/images/photo.png',
+      fileName: 'photo.png',
+    })
+    const options = new ImageInsertOptions({ mode: 'keep-original' })
+
+    const result = await service.insertWith(source, options, mockContext)
+
+    expect(result.success).toBe(true)
+    expect(result.imageUrl).toBe('/images/photo.png')
+    expect(mockImageStorage.saveImage).not.toHaveBeenCalled()
+  })
 })

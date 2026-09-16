@@ -6,6 +6,8 @@ import type { IImageStorage } from '@core/interfaces/services/image/IImageStorag
 import { PathResolver } from './PathResolver'
 import { ImageFetcher } from './ImageFetcher'
 import { computeRelative } from './localImageProtocol'
+import { computeSHA1 } from './hashUtils'
+import { extname } from './pathUtils'
 
 export class CopyStrategy implements IImageInsertStrategy {
   private pathResolver: PathResolver
@@ -22,7 +24,7 @@ export class CopyStrategy implements IImageInsertStrategy {
     context: ImageInsertContext
   ): Promise<ImageInsertResult> {
     try {
-      const { targetDir, imageFileName } = await this.pathResolver.resolve(options, {
+      const { targetDir } = await this.pathResolver.resolve(options, {
         ...context,
         fileName: source.fileName,
       })
@@ -45,7 +47,12 @@ export class CopyStrategy implements IImageInsertStrategy {
         mimeType = fetched.mimeType
       }
 
-      const saveResult = await this.imageStorage.saveImage(imageData, imageFileName, mimeType, targetDir)
+      const rawBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0))
+      const hash = await computeSHA1(rawBytes)
+      const ext = extname(source.fileName) || '.png'
+      const hashFileName = `${hash}${ext}`
+
+      const saveResult = await this.imageStorage.saveImage(imageData, hashFileName, mimeType, targetDir)
       if (!saveResult.success) {
         return ImageInsertResult.failure(saveResult.error || 'Failed to save image')
       }
@@ -56,6 +63,7 @@ export class CopyStrategy implements IImageInsertStrategy {
         : imageUrl.replace(/\\/g, '/')
 
       if (context.editorInsertImage) {
+        console.log('[CopyStrategy] inserting:', { editorUrl, fileName: source.fileName })
         context.editorInsertImage(editorUrl, source.fileName)
       }
 

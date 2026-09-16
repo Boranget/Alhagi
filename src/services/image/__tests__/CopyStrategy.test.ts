@@ -48,7 +48,7 @@ describe('CopyStrategy', () => {
     expect(mockImageStorage.ensureDirectory).toHaveBeenCalled()
     expect(mockImageStorage.saveImage).toHaveBeenCalledWith(
       'base64data',
-      'clipboard-image.png',
+      expect.stringMatching(/^[a-f0-9]{40}\.png$/),
       'image/png',
       expect.stringContaining('images')
     )

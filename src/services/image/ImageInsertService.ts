@@ -20,7 +20,19 @@ export class ImageInsertService {
   }
 
   async insertWith(source: ImageSource, options: ImageInsertOptions, context: ImageInsertContext): Promise<ImageInsertResult> {
-    const strategy = this.strategies.get(options.mode)
+    const isClipboard = source.isClipboardImage()
+    const effectiveMode = (isClipboard && options.mode === 'keep-original')
+      ? 'copy'
+      : options.mode
+
+    console.log('[ImageInsertService] insertWith:', {
+      sourceType: source.type,
+      isClipboard,
+      requestedMode: options.mode,
+      effectiveMode,
+    })
+
+    const strategy = this.strategies.get(effectiveMode)
     if (!strategy) {
       return ImageInsertResult.failure(`Unknown insert mode: ${options.mode}`)
     }

@@ -21,9 +21,16 @@ export function createImagePastePlugin(
           const clipboardData = event.clipboardData
           if (!clipboardData) return false
 
+          console.log('[imagePaste] paste event', {
+            fileCount: clipboardData.files?.length,
+            itemCount: clipboardData.items?.length,
+            hasHtml: !!clipboardData.getData('text/html'),
+          })
+
           if (clipboardData.files && clipboardData.files.length > 0) {
             for (const file of clipboardData.files) {
               if (file.type.startsWith('image/')) {
+                console.log('[imagePaste] file paste:', { name: file.name, type: file.type, size: file.size })
                 event.preventDefault()
                 event.stopPropagation()
                 handleFilePaste(file, imageInsertService, getOptions(), getContext())
@@ -35,6 +42,7 @@ export function createImagePastePlugin(
           if (clipboardData.items && clipboardData.items.length > 0) {
             for (const item of clipboardData.items) {
               if (item.type.startsWith('image/')) {
+                console.log('[imagePaste] item paste:', { kind: item.kind, type: item.type })
                 event.preventDefault()
                 event.stopPropagation()
                 handleItemPaste(item, imageInsertService, getOptions(), getContext())
@@ -48,6 +56,7 @@ export function createImagePastePlugin(
             const imgMatch = html.match(/<img[^>]+src="([^"]+)"/i)
             if (imgMatch && imgMatch[1]) {
               const imgUrl = imgMatch[1]
+              console.log('[imagePaste] html img paste:', imgUrl.substring(0, 80))
               if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:')) {
                 event.preventDefault()
                 event.stopPropagation()
@@ -70,7 +79,13 @@ async function handleFilePaste(
   options: ImageInsertOptions,
   context: ImageInsertContext
 ) {
-  const source = await fileToImageSource(file)
+  const hasPath = !!(file as any).path
+  console.log('[imagePaste] handleFilePaste:', { hasPath, name: file.name, type: file.type, path: (file as any).path })
+  const source = hasPath
+    ? await fileToImageSource(file)
+    : await blobToImageSource(file)
+  console.log('[imagePaste] source created:', { type: source.type, dataPrefix: source.data.substring(0, 40) })
+  console.log('[imagePaste] options.mode:', options.mode)
   await service.insertWith(source, options, context)
 }
 
