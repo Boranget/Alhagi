@@ -29,7 +29,7 @@ export function computeRelative(from: string, to: string): string {
   const downParts = toParts.slice(i)
 
   if (upsArray.length === 0) {
-    return downParts.join('/') || '.'
+    return downParts.length > 0 ? `./${downParts.join('/')}` : '.'
   }
   return [...upsArray, ...downParts].join('/')
 }
