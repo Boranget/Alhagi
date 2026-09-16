@@ -17,9 +17,7 @@ describe('CopyStrategy', () => {
         filePath: '/docs/images/clipboard-image.png',
         relativePath: 'clipboard-image.png',
       }),
-      getImagePath: vi.fn().mockResolvedValue('/docs/images/clipboard-image.png'),
       ensureDirectory: vi.fn().mockResolvedValue(undefined),
-      getRelativePath: vi.fn().mockResolvedValue('./images/clipboard-image.png'),
       getDocumentsDirectory: vi.fn().mockResolvedValue('/Users/user/Documents'),
     }
 

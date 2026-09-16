@@ -39,8 +39,6 @@ describe('ImageInsertService Integration', () => {
       currentFileDir: '/docs/projects',
       editorInsertImage: vi.fn(),
     }
-
-    service.setContextProvider(() => mockContext)
   })
 
   describe('Keep Original Mode', () => {
@@ -52,7 +50,7 @@ describe('ImageInsertService Integration', () => {
       })
       const options = new ImageInsertOptions({ mode: 'keep-original' })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('/images/local-photo.png')
@@ -71,7 +69,7 @@ describe('ImageInsertService Integration', () => {
       })
       const options = new ImageInsertOptions({ mode: 'keep-original' })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('https://example.com/image.png')
@@ -92,7 +90,7 @@ describe('ImageInsertService Integration', () => {
         escapeUrl: true,
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('/images/photo%20%281%29.png')
@@ -113,7 +111,7 @@ describe('ImageInsertService Integration', () => {
         preferRelativePath: true,
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(mockFileSystem.ensureDirectory).toHaveBeenCalled()
@@ -133,7 +131,7 @@ describe('ImageInsertService Integration', () => {
         copyPath: './{filename}.assets/',
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(mockFileSystem.ensureDirectory).toHaveBeenCalled()
@@ -153,7 +151,7 @@ describe('ImageInsertService Integration', () => {
         copyPath: './images/{date}/',
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       const date = new Date()
@@ -175,7 +173,7 @@ describe('ImageInsertService Integration', () => {
         copyPath: 'D:/custom/images',
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(mockFileSystem.ensureDirectory).toHaveBeenCalledWith('D:/custom/images')
@@ -185,7 +183,6 @@ describe('ImageInsertService Integration', () => {
       const contextWithoutFile: ImageInsertContext = {
         editorInsertImage: vi.fn(),
       }
-      service.setContextProvider(() => contextWithoutFile)
 
       const source = new ImageSource({
         type: 'clipboard',
@@ -198,7 +195,7 @@ describe('ImageInsertService Integration', () => {
         copyPath: './images/',
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, contextWithoutFile)
 
       expect(result.success).toBe(true)
       expect(mockFileSystem.getDocumentsDirectory).toHaveBeenCalled()
@@ -221,7 +218,7 @@ describe('ImageInsertService Integration', () => {
         applyToLocal: false,
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('/images/photo.png')
@@ -239,7 +236,7 @@ describe('ImageInsertService Integration', () => {
         applyToRemote: false,
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('https://example.com/image.png')
@@ -256,7 +253,7 @@ describe('ImageInsertService Integration', () => {
       })
       const options = new ImageInsertOptions({ mode: 'unknown' as any })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Unknown insert mode')
@@ -276,7 +273,7 @@ describe('ImageInsertService Integration', () => {
         copyPath: './images/',
       })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Disk full')
@@ -300,7 +297,7 @@ describe('ImageInsertService Integration', () => {
       })
       const options = new ImageInsertOptions({ mode: 'custom' as any })
 
-      const result = await service.insert(source, options)
+      const result = await service.insertWith(source, options, mockContext)
 
       expect(result.success).toBe(true)
       expect(result.imageUrl).toBe('custom://image.png')

@@ -84,16 +84,4 @@ describe('PathTemplate', () => {
       expect(result).toBe('./images/photo.jpg')
     })
   })
-
-  describe('toRelativePath', () => {
-    it('should convert to relative path', () => {
-      const result = PathTemplate.toRelativePath('/docs/images/photo.png', '/docs')
-      expect(result).toBe('./images/photo.png')
-    })
-
-    it('should handle Windows paths', () => {
-      const result = PathTemplate.toRelativePath('D:\\docs\\images\\photo.png', 'D:\\docs')
-      expect(result).toBe('./images/photo.png')
-    })
-  })
 })

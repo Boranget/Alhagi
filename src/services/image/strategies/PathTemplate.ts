@@ -73,16 +73,4 @@ export class PathTemplate {
 
     return expanded
   }
-
-  static toRelativePath(fullPath: string, basePath: string): string {
-    const normalizedBase = basePath.replace(/\\/g, '/').replace(/\/$/, '')
-    const normalizedFull = fullPath.replace(/\\/g, '/')
-
-    if (normalizedFull.startsWith(normalizedBase)) {
-      const relative = normalizedFull.substring(normalizedBase.length)
-      return relative.startsWith('/') ? `.${relative}` : `./${relative}`
-    }
-
-    return fullPath
-  }
 }

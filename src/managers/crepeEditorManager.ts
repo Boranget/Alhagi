@@ -119,15 +119,11 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         },
         [Crepe.Feature.ImageBlock]: {
           proxyDomURL: (url: string) => {
-            console.log('[proxyDomURL] called with:', url)
             if (/^(https?|data|file):/.test(url)) return url
             const dir = this.getCurrentFileDir()
-            console.log('[proxyDomURL] currentFileDir:', dir)
             if (dir && !isAbsolute(url)) {
               const absolute = normalizePath(join(dir, url))
-              const result = 'file:///' + absolute.replace(/\\/g, '/')
-              console.log('[proxyDomURL] resolved:', result)
-              return result
+              return 'file:///' + absolute.replace(/\\/g, '/')
             }
             return url
           },
@@ -142,7 +138,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       currentFilePath: this.getCurrentFilePath(),
       currentFileDir: this.getCurrentFileDir(),
       editorInsertImage: (url: string, alt?: string) => {
-        console.log('[CrepeEditorManager] editorInsertImage called with url:', url)
         this.commands.insertImage(url, alt || '')
       },
     })
@@ -225,7 +220,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
 
     const editorContent = content
-    console.log('[CrepeEditorManager] setMarkdown content (first 200):', editorContent.substring(0, 200))
 
     if (this.content === editorContent) {
       return

@@ -1,8 +1,6 @@
 import { ImageSource } from '@core/entities/image/ImageSource'
-import type { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
 
-function extractFileNameFromUrl(url: string): string {
+export function extractFileNameFromUrl(url: string): string {
   try {
     const urlObj = new URL(url)
     const pathname = urlObj.pathname
@@ -13,7 +11,7 @@ function extractFileNameFromUrl(url: string): string {
   }
 }
 
-function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+export function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   let binary = ''
   const chunkSize = 8192
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
@@ -23,4 +21,32 @@ function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   return btoa(binary)
 }
 
-export { extractFileNameFromUrl, uint8ArrayToBase64 }
+export async function fileToImageSource(file: File): Promise<ImageSource> {
+  const arrayBuffer = await file.arrayBuffer()
+  const base64 = uint8ArrayToBase64(new Uint8Array(arrayBuffer))
+  return new ImageSource({
+    type: 'file',
+    data: `data:${file.type};base64,${base64}`,
+    fileName: file.name,
+    mimeType: file.type,
+  })
+}
+
+export async function blobToImageSource(blob: Blob, fallbackName?: string): Promise<ImageSource> {
+  const arrayBuffer = await blob.arrayBuffer()
+  const base64 = uint8ArrayToBase64(new Uint8Array(arrayBuffer))
+  return new ImageSource({
+    type: 'clipboard',
+    data: `data:${blob.type};base64,${base64}`,
+    fileName: fallbackName || blob.name || `image-${Date.now()}.png`,
+    mimeType: blob.type,
+  })
+}
+
+export function urlToImageSource(url: string): ImageSource {
+  return new ImageSource({
+    type: 'url',
+    data: url,
+    fileName: extractFileNameFromUrl(url),
+  })
+}

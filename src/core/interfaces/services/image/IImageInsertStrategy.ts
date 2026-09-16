@@ -9,5 +9,6 @@ export interface IImageInsertStrategy {
 export interface ImageInsertContext {
   currentFilePath?: string
   currentFileDir?: string
+  fileName?: string
   editorInsertImage: (imageUrl: string, altText?: string) => void
 }

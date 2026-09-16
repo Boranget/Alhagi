@@ -1,8 +1,7 @@
 import type { ImageSource } from '@core/entities/image/ImageSource'
 import type { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import { ImageInsertResult } from '@core/entities/image/ImageInsertResult'
-import type { IImageInsertStrategy } from '@core/interfaces/services/image/IImageInsertStrategy'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { IImageInsertStrategy, ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
 import { escapeImageUrl } from './escapeImageUrl'
 
 export class KeepOriginalStrategy implements IImageInsertStrategy {

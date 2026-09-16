@@ -13,9 +13,7 @@ describe('ImageInsertService', () => {
   beforeEach(() => {
     mockImageStorage = {
       saveImage: vi.fn().mockResolvedValue({ success: true, filePath: '/docs/images/photo.png' }),
-      getImagePath: vi.fn().mockResolvedValue('/docs/images/photo.png'),
       ensureDirectory: vi.fn().mockResolvedValue(undefined),
-      getRelativePath: vi.fn().mockResolvedValue('./images/photo.png'),
       getDocumentsDirectory: vi.fn().mockResolvedValue('/Users/user/Documents'),
     }
 
@@ -25,7 +23,7 @@ describe('ImageInsertService', () => {
       editorInsertImage: vi.fn(),
     }
 
-    service = new ImageInsertService(mockImageStorage, () => mockContext)
+    service = new ImageInsertService(mockImageStorage)
   })
 
   it('should have default strategies', () => {
@@ -42,7 +40,7 @@ describe('ImageInsertService', () => {
     })
     const options = new ImageInsertOptions({ mode: 'keep-original' })
 
-    const result = await service.insert(source, options)
+    const result = await service.insertWith(source, options, mockContext)
 
     expect(result.success).toBe(true)
     expect(result.imageUrl).toBe('/images/photo.png')
@@ -61,7 +59,7 @@ describe('ImageInsertService', () => {
       copyPath: './images/',
     })
 
-    const result = await service.insert(source, options)
+    const result = await service.insertWith(source, options, mockContext)
 
     expect(result.success).toBe(true)
     expect(mockImageStorage.saveImage).toHaveBeenCalled()
@@ -76,7 +74,7 @@ describe('ImageInsertService', () => {
     })
     const options = new ImageInsertOptions({ mode: 'unknown' as any })
 
-    const result = await service.insert(source, options)
+    const result = await service.insertWith(source, options, mockContext)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Unknown insert mode')
@@ -93,7 +91,7 @@ describe('ImageInsertService', () => {
       applyToLocal: false,
     })
 
-    const result = await service.insert(source, options)
+    const result = await service.insertWith(source, options, mockContext)
 
     expect(result.success).toBe(true)
     expect(result.imageUrl).toBe('/images/photo.png')
@@ -113,7 +111,7 @@ describe('ImageInsertService', () => {
     })
     const options = new ImageInsertOptions({ mode: 'custom' as any })
 
-    const result = await service.insert(source, options)
+    const result = await service.insertWith(source, options, mockContext)
 
     expect(result.success).toBe(true)
     expect(result.imageUrl).toBe('custom')
