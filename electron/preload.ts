@@ -186,7 +186,7 @@ const api: ElectronAPI = {
     createIpcHandler<{ base64: string; width: number; height: number } | null>(IPC_CHANNELS.CLIPBOARD.READ_IMAGE),
 
   // ========== 窗口运行期布局 ==========
-  layoutChanged: (payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean; isStickyNoteMode?: boolean; isImmersiveMode?: boolean }) =>
+  layoutChanged: (payload: { showSidebar?: boolean; showTabBar?: boolean; showStatusBar?: boolean; isStickyNoteMode?: boolean; isImmersiveMode?: boolean; typewriterMode?: boolean; focusMode?: boolean }) =>
     createIpcHandler<boolean>(IPC_CHANNELS.LAYOUT.CHANGED, payload),
 
   // ========== 文件外部修改检测（P2-10） ==========

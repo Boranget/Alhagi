@@ -116,6 +116,8 @@ export class AppContext {
         showStatusBar: 'view.toggleStatusBar',
         isStickyNoteMode: 'view.stickyNoteMode',
         isImmersiveMode: 'view.immersiveMode',
+        typewriterMode: 'view.typewriterMode',
+        focusMode: 'view.focusMode',
       } as const
 
       for (const k of Object.keys(map) as Array<keyof typeof map>) {

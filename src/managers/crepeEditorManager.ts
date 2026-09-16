@@ -8,12 +8,20 @@ import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import { nord } from '@uiw/codemirror-theme-nord'
 import type { ViewMode } from '@/types'
 import type { HeadingItem } from '@/utils/headings'
+import { convertFileUrlsToRelative } from '@/services/image/strategies/localImageProtocol'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { LRUCache } from '@/utils/performance'
 import { debounce } from '@/utils/helpers'
 import { codeBlockSearchHighlight } from '@/services/search/codeBlockSearchHighlight'
+import { createImagePastePlugin } from '@/plugins/imagePastePlugin'
+import { ImageInsertService } from '@/services/image/ImageInsertService'
+import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
+import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
+import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
+import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 
 /** Markdown 更新防抖延迟 */
 const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
@@ -38,6 +46,19 @@ export class CrepeEditorManager {
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
+  }
+
+  private getCurrentFilePath(): string | undefined {
+    if (!this.currentTabId) return undefined
+    const tabsStore = useTabsStore()
+    const tab = tabsStore.tabs.get(this.currentTabId)
+    return tab?.filePath ?? undefined
+  }
+
+  private getCurrentFileDir(): string | undefined {
+    const filePath = this.getCurrentFilePath()
+    if (!filePath) return undefined
+    return filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
   }
 
 setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
@@ -96,9 +117,46 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           theme: isDark ? undefined : eclipse,
           extensions: [codeBlockSearchHighlight()],
         },
+        [Crepe.Feature.ImageBlock]: {
+          proxyDomURL: (url: string) => {
+            console.log('[proxyDomURL] called with:', url)
+            if (/^(https?|data|file):/.test(url)) return url
+            const dir = this.getCurrentFileDir()
+            console.log('[proxyDomURL] currentFileDir:', dir)
+            if (dir && !isAbsolute(url)) {
+              const absolute = normalizePath(join(dir, url))
+              const result = 'file:///' + absolute.replace(/\\/g, '/')
+              console.log('[proxyDomURL] resolved:', result)
+              return result
+            }
+            return url
+          },
+        },
       },
     })
     this.commands.setCrepe(this.crepe)
+
+    const imageStorage = new ImageStorageGateway(useFileSystemGateway())
+    const imageInsertService = new ImageInsertService(imageStorage)
+    const getContext = (): ImageInsertContext => ({
+      currentFilePath: this.getCurrentFilePath(),
+      currentFileDir: this.getCurrentFileDir(),
+      editorInsertImage: (url: string, alt?: string) => {
+        console.log('[CrepeEditorManager] editorInsertImage called with url:', url)
+        this.commands.insertImage(url, alt || '')
+      },
+    })
+    const getOptions = () => {
+      const prefsStore = usePreferencesStore()
+      return new ImageInsertOptions({
+        mode: prefsStore.imageInsertMode,
+        copyPath: prefsStore.imageCopyPath,
+        preferRelativePath: prefsStore.imagePreferRelativePath,
+        applyToLocal: prefsStore.imageApplyToLocal,
+        applyToRemote: prefsStore.imageApplyToRemote,
+        escapeUrl: prefsStore.imageEscapeUrl,
+      })
+    }
 
     this.crepe.editor
       .config((ctx) => {
@@ -122,6 +180,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       })
       .use(listener)
       .use(searchPlugin)
+      .use(createImagePastePlugin(imageInsertService, getOptions, getContext))
 
     try {
       await this.crepe.create()
@@ -161,16 +220,19 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
       return
     }
 
-    if (this.content === content) {
-      return
-    }
-
     if (this.isUpdatingContent) {
       return
     }
 
+    const editorContent = content
+    console.log('[CrepeEditorManager] setMarkdown content (first 200):', editorContent.substring(0, 200))
+
+    if (this.content === editorContent) {
+      return
+    }
+
     this.isUpdatingContent = true
-    this.content = content
+    this.content = editorContent
 
     const startTime = performance.now()
 
@@ -179,7 +241,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         try {
           const view = ctx.get(editorViewCtx)
           const parser = ctx.get(parserCtx)
-          const doc = parser(content)
+          const doc = parser(editorContent)
 
           if (!doc) {
             console.error('[CrepeEditorManager] Failed to parse markdown')
@@ -197,7 +259,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
           )
 
           const docSize = doc.content.size
-          const safeFrom = Math.min(from, docSize - 2)
+          const safeFrom = docSize > 0 ? Math.min(from, docSize - 1) : 0
           tr = tr.setSelection(Selection.near(tr.doc.resolve(safeFrom)))
           view.dispatch(tr)
         } catch (innerError) {
@@ -521,14 +583,19 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.content = markdown
 
     if (this.currentTabId) {
+      const fileDir = this.getCurrentFileDir()
+      const savedMarkdown = fileDir
+        ? convertFileUrlsToRelative(markdown, fileDir)
+        : markdown
+
       const tabsStore = useTabsStore()
       tabsStore.updateTab(this.currentTabId, {
-        content: markdown,
+        content: savedMarkdown,
         isDirty: true,
         lastModified: Date.now(),
       })
 
-      this.contentCache.set(this.currentTabId, markdown)
+      this.contentCache.set(this.currentTabId, savedMarkdown)
     }
 
     eventBus.emit(AppEvents.CONTENT_CHANGED, {

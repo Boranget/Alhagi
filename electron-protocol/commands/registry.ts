@@ -587,6 +587,7 @@ export const COMMANDS: CommandEntry[] = [
     description: '切换专注模式',
     executionContext: 'global',
     menuGroup: 6,
+    checkbox: true,
   },
   {
     id: 'view.typewriterMode',
@@ -596,6 +597,7 @@ export const COMMANDS: CommandEntry[] = [
     keybinding: { key: 't', modifiers: { ctrl: true, shift: true } },
     executionContext: 'global',
     menuGroup: 6,
+    checkbox: true,
   },
   {
     id: 'view.nextTab',

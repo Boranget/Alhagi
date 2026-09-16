@@ -78,13 +78,13 @@ export class Preferences {
   }
 
   update<K extends keyof PreferencesProps>(key: K, value: PreferencesProps[K]): void {
-    ;(this as any)[key] = value
+    (this as any)[key] = value
   }
 
   updateMany(prefs: Partial<PreferencesProps>): void {
     Object.entries(prefs).forEach(([key, value]) => {
       if (value !== undefined) {
-        ;(this as any)[key] = value
+        (this as any)[key] = value
       }
     })
   }

@@ -218,9 +218,13 @@ function buildItem(cmd: CommandEntry, ctx: SubmenuCtx): MenuItemConstructorOptio
   //   - click 用 Electron 提供的 focusedWindow 实参，保证多窗口下点哪个
   //     窗口的菜单就发给哪个窗口。
   if (cmd.checkbox) {
-    const checked = cmd.id === 'view.stickyNoteMode' || cmd.id === 'view.immersiveMode'
-      ? false
-      : true
+    // 默认关闭的模式：sticky / immersive / typewriter / focus
+    const checked = cmd.id === 'view.stickyNoteMode'
+      || cmd.id === 'view.immersiveMode'
+      || cmd.id === 'view.typewriterMode'
+      || cmd.id === 'view.focusMode'
+        ? false
+        : true
 
     return {
       label,

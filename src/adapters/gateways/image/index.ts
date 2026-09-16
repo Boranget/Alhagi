@@ -1,0 +1,1 @@
+export { ImageStorageGateway } from './ImageStorageGateway'

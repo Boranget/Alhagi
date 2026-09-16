@@ -42,8 +42,12 @@ export interface Preferences {
   sourceLineHeight: number
   zoom: number
   wordWrap: boolean
-  imageInsertMode: 'keep-original' | 'copy-absolute' | 'copy-relative'
-  imageStoragePath: string
+  imageInsertMode: 'keep-original' | 'copy'
+  imageCopyPath: string
+  imagePreferRelativePath: boolean
+  imageApplyToLocal: boolean
+  imageApplyToRemote: boolean
+  imageEscapeUrl: boolean
   language: 'zh-CN' | 'en'
   devToolsOnStartup: boolean
   openFileInNewWindow: boolean
@@ -107,7 +111,11 @@ const DEFAULT_PREFERENCES: Preferences = {
   zoom: 100,
   wordWrap: true,
   imageInsertMode: IMAGE.INSERT_MODES.KEEP_ORIGINAL,
-  imageStoragePath: '',
+  imageCopyPath: './',
+  imagePreferRelativePath: true,
+  imageApplyToLocal: true,
+  imageApplyToRemote: true,
+  imageEscapeUrl: false,
   language: I18N.DEFAULT_LANGUAGE,
   devToolsOnStartup: false,
   openFileInNewWindow: false,
@@ -161,7 +169,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const openFileInNewWindow = ref<boolean>(DEFAULT_PREFERENCES.openFileInNewWindow)
   const openFolderInNewWindow = ref<boolean>(DEFAULT_PREFERENCES.openFolderInNewWindow)
   const imageInsertMode = ref<Preferences['imageInsertMode']>(DEFAULT_PREFERENCES.imageInsertMode)
-  const imageStoragePath = ref<string>(DEFAULT_PREFERENCES.imageStoragePath)
+  const imageCopyPath = ref<string>(DEFAULT_PREFERENCES.imageCopyPath)
+  const imagePreferRelativePath = ref<boolean>(DEFAULT_PREFERENCES.imagePreferRelativePath)
+  const imageApplyToLocal = ref<boolean>(DEFAULT_PREFERENCES.imageApplyToLocal)
+  const imageApplyToRemote = ref<boolean>(DEFAULT_PREFERENCES.imageApplyToRemote)
+  const imageEscapeUrl = ref<boolean>(DEFAULT_PREFERENCES.imageEscapeUrl)
 
   // —————— 最近文件 & 会话 ——————
   const recentFiles = ref<RecentFile[]>(DEFAULT_PREFERENCES.recentFiles)
@@ -176,7 +188,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     theme, showMenuBar, hideScrollBars, isStickyNoteMode, isImmersiveMode,
     fontSize, lineHeight, sourceFontSize, sourceLineHeight,
     zoom, wordWrap, wordCountDisplayType,
-    imageInsertMode, imageStoragePath,
+    imageInsertMode, imageCopyPath, imagePreferRelativePath, imageApplyToLocal, imageApplyToRemote, imageEscapeUrl,
     language, devToolsOnStartup, lineEnding,
     openFileInNewWindow, openFolderInNewWindow,
     recentFiles, maxRecentFiles, recentFolders, maxRecentFolders,
@@ -376,7 +388,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     theme, showMenuBar, hideScrollBars,
     fontSize, lineHeight, sourceFontSize, sourceLineHeight,
     zoom, wordWrap, wordCountDisplayType,
-    imageInsertMode, imageStoragePath,
+    imageInsertMode, imageCopyPath, imagePreferRelativePath, imageApplyToLocal, imageApplyToRemote, imageEscapeUrl,
     language, devToolsOnStartup, lineEnding,
     openFileInNewWindow, openFolderInNewWindow,
     recentFiles, maxRecentFiles, recentFolders, maxRecentFolders,

@@ -132,6 +132,8 @@ export interface ElectronAPI {
     showStatusBar?: boolean
     isStickyNoteMode?: boolean
     isImmersiveMode?: boolean
+    typewriterMode?: boolean
+    focusMode?: boolean
   }) => Promise<IPCResponse<boolean>>
 
   // ========== 文件外部修改检测（P2-10） ==========

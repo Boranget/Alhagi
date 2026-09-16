@@ -10,7 +10,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
-import { useWritingEnhancement } from '@/composables/useWritingEnhancement'
+import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { eventBus, AppEvents } from '@/events/eventBus'
 

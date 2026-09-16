@@ -78,6 +78,7 @@ import type { SearchService, SearchResult, ReplaceResult } from '@/services/sear
 import type { SearchConfig } from '@/utils/search'
 import { useSplitResizer } from '@/composables/useSplitResizer'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
+import { usePreferencesStore } from '@/stores/preferences'
 
 const { tabs, editor, viewMode } = useAppContext()
 const { splitRatio, handleResizerMouseDown } = useSplitResizer()

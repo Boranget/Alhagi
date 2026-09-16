@@ -21,8 +21,12 @@ export const useGeneralPreferencesStore = defineStore('preferences-general', () 
   // 文件 & 窗口行为
   const openFileInNewWindow = ref<boolean>(false)
   const openFolderInNewWindow = ref<boolean>(false)
-  const imageInsertMode = ref<'keep-original' | 'copy-absolute' | 'copy-relative'>('keep-original')
-  const imageStoragePath = ref<string>('')
+  const imageInsertMode = ref<'keep-original' | 'copy'>('keep-original')
+  const imageCopyPath = ref<string>('./')
+  const imagePreferRelativePath = ref<boolean>(true)
+  const imageApplyToLocal = ref<boolean>(true)
+  const imageApplyToRemote = ref<boolean>(true)
+  const imageEscapeUrl = ref<boolean>(false)
 
   // 窗口模式（仅持久化，运行时状态由 layout store 管理）
   const isStickyNoteMode = ref<boolean>(false)
@@ -40,8 +44,12 @@ export const useGeneralPreferencesStore = defineStore('preferences-general', () 
     lineEnding: 'lf' | 'crlf'
     openFileInNewWindow: boolean
     openFolderInNewWindow: boolean
-    imageInsertMode: 'keep-original' | 'copy-absolute' | 'copy-relative'
-    imageStoragePath: string
+    imageInsertMode: 'keep-original' | 'copy'
+    imageCopyPath: string
+    imagePreferRelativePath: boolean
+    imageApplyToLocal: boolean
+    imageApplyToRemote: boolean
+    imageEscapeUrl: boolean
     isStickyNoteMode: boolean
     isImmersiveMode: boolean
   }>): void {
@@ -53,7 +61,11 @@ export const useGeneralPreferencesStore = defineStore('preferences-general', () 
     if (patch.openFileInNewWindow !== undefined) openFileInNewWindow.value = patch.openFileInNewWindow
     if (patch.openFolderInNewWindow !== undefined) openFolderInNewWindow.value = patch.openFolderInNewWindow
     if (patch.imageInsertMode !== undefined) imageInsertMode.value = patch.imageInsertMode
-    if (patch.imageStoragePath !== undefined) imageStoragePath.value = patch.imageStoragePath
+    if (patch.imageCopyPath !== undefined) imageCopyPath.value = patch.imageCopyPath
+    if (patch.imagePreferRelativePath !== undefined) imagePreferRelativePath.value = patch.imagePreferRelativePath
+    if (patch.imageApplyToLocal !== undefined) imageApplyToLocal.value = patch.imageApplyToLocal
+    if (patch.imageApplyToRemote !== undefined) imageApplyToRemote.value = patch.imageApplyToRemote
+    if (patch.imageEscapeUrl !== undefined) imageEscapeUrl.value = patch.imageEscapeUrl
     if (patch.isStickyNoteMode !== undefined) isStickyNoteMode.value = patch.isStickyNoteMode
     if (patch.isImmersiveMode !== undefined) isImmersiveMode.value = patch.isImmersiveMode
   }
@@ -67,7 +79,11 @@ export const useGeneralPreferencesStore = defineStore('preferences-general', () 
     openFileInNewWindow,
     openFolderInNewWindow,
     imageInsertMode,
-    imageStoragePath,
+    imageCopyPath,
+    imagePreferRelativePath,
+    imageApplyToLocal,
+    imageApplyToRemote,
+    imageEscapeUrl,
     isStickyNoteMode,
     isImmersiveMode,
     applyPatch,

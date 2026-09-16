@@ -184,8 +184,7 @@ export const I18N = {
 export const IMAGE = {
   INSERT_MODES: {
     KEEP_ORIGINAL: 'keep-original',
-    COPY_ABSOLUTE: 'copy-absolute',
-    COPY_RELATIVE: 'copy-relative'
+    COPY: 'copy'
   } as const
 } as const
 

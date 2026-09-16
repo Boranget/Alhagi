@@ -26,7 +26,7 @@ export class IPCGateway implements IIPC {
       const handler = (...args: unknown[]) => callback(...args)
       ;(api as any).on(channel, handler)
       return () => {
-        ;(api as any).off?.(channel, handler)
+        (api as any).off?.(channel, handler)
       }
     }
     return () => {}
@@ -38,7 +38,7 @@ export class IPCGateway implements IIPC {
       const handler = (...args: unknown[]) => callback(...args)
       ;(api as any).once(channel, handler)
       return () => {
-        ;(api as any).off?.(channel, handler)
+        (api as any).off?.(channel, handler)
       }
     }
     return () => {}
@@ -47,7 +47,7 @@ export class IPCGateway implements IIPC {
   off(channel: string, callback: (...args: unknown[]) => void): void {
     const api = this.electronService.getAPI()
     if (api && (api as any).off) {
-      ;(api as any).off(channel, callback)
+      (api as any).off(channel, callback)
     }
   }
 }

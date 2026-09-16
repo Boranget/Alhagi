@@ -241,86 +241,96 @@
                 <option value="keep-original">
                   {{ t('settings.keepOriginal') }}
                 </option>
-                <option value="copy-absolute">
-                  {{ t('settings.copyAbsolute') }}
-                </option>
-                <option value="copy-relative">
-                  {{ t('settings.copyRelative') }}
+                <option value="copy">
+                  {{ t('settings.copyToSpecified') }}
                 </option>
               </select>
             </div>
 
-            <!-- 复制到全局目录设置 -->
+            <!-- 复制到指定位置设置 -->
             <div
-              v-show="prefsStore.imageInsertMode === 'copy-absolute'"
+              v-show="prefsStore.imageInsertMode === 'copy'"
               class="setting-item vertical"
             >
-              <label>全局图片目录</label>
+              <label>目标路径</label>
               <div class="path-help">
                 <p class="help-text">
-                  设置全局图片保存位置，所有文档粘贴的图片都将保存到此目录。留空则使用默认路径（文档目录/alhagi/images）。
-                </p>
-                <input
-                  type="text"
-                  placeholder="留空使用默认路径"
-                  :value="prefsStore.imageStoragePath"
-                  @change="onString('imageStoragePath', $event)"
-                >
-                <div class="path-actions">
-                  <button
-                    type="button"
-                    class="btn-small"
-                    @click="pickImageStorageDir"
-                  >
-                    选择目录...
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-small"
-                    :disabled="!prefsStore.imageStoragePath"
-                    @click="showImageStorageInFolder"
-                  >
-                    在文件夹中打开
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 复制到相对目录设置 -->
-            <div
-              v-show="prefsStore.imageInsertMode === 'copy-relative'"
-              class="setting-item vertical"
-            >
-              <label>相对图片目录</label>
-              <div class="path-help">
-                <p class="help-text">
-                  设置相对于当前文档的图片保存位置。留空则使用默认路径（assets）。
+                  设置图片保存位置。支持路径变量，留空则使用默认路径（./）。
                 </p>
                 <p class="help-label">
                   可用变量：
                 </p>
                 <div class="path-variables">
-                  <code>{filename}</code> - 原文件名（不含扩展名）
-                  <code>{filedir}</code> - 当前文档所在目录
-                  <code>{date}</code> - 当前日期（格式：2024-01-15）
-                  <code>{time}</code> - 当前时间（格式：14-30-00）
+                  <code>{filename}</code> - 当前文档名（无扩展名）
+                  <code>{filedir}</code> - 当前文档目录名
+                  <code>{date}</code> - 当前日期（格式：20260913）
+                  <code>{time}</code> - 当前时间（格式：143025）
                   <code>{datetime}</code> - 日期时间组合
                 </div>
                 <p class="help-label">
                   示例：
                 </p>
                 <div class="path-examples">
-                  <p><code>assets</code> - 保存到文档同目录的 assets 文件夹</p>
-                  <p><code>images/{date}</code> - 按日期分组的图片文件夹</p>
-                  <p><code>assets/{filename}_{datetime}</code> - 带时间戳的文件名</p>
+                  <p><code>./</code> - 保存到文档同级目录</p>
+                  <p><code>./{filename}.assets/</code> - 文档专属assets文件夹</p>
+                  <p><code>./images/{date}/</code> - 按日期分组的图片文件夹</p>
                 </div>
                 <input
                   type="text"
-                  placeholder="assets"
-                  :value="prefsStore.imageStoragePath"
-                  @change="onString('imageStoragePath', $event)"
+                  placeholder="./"
+                  :value="prefsStore.imageCopyPath"
+                  @change="onString('imageCopyPath', $event)"
                 >
               </div>
+            </div>
+
+            <!-- 可选增强设置 -->
+            <div
+              v-show="prefsStore.imageInsertMode === 'copy'"
+              class="setting-item"
+            >
+              <label>优先使用相对路径</label>
+              <input
+                type="checkbox"
+                :checked="prefsStore.imagePreferRelativePath"
+                @change="onBoolean('imagePreferRelativePath', $event)"
+              >
+            </div>
+
+            <div
+              v-show="prefsStore.imageInsertMode === 'copy'"
+              class="setting-item"
+            >
+              <label>对本地图片应用规则</label>
+              <input
+                type="checkbox"
+                :checked="prefsStore.imageApplyToLocal"
+                @change="onBoolean('imageApplyToLocal', $event)"
+              >
+            </div>
+
+            <div
+              v-show="prefsStore.imageInsertMode === 'copy'"
+              class="setting-item"
+            >
+              <label>对网络图片应用规则</label>
+              <input
+                type="checkbox"
+                :checked="prefsStore.imageApplyToRemote"
+                @change="onBoolean('imageApplyToRemote', $event)"
+              >
+            </div>
+
+            <div
+              v-show="prefsStore.imageInsertMode === 'copy'"
+              class="setting-item"
+            >
+              <label>插入时自动转义图片URL</label>
+              <input
+                type="checkbox"
+                :checked="prefsStore.imageEscapeUrl"
+                @change="onBoolean('imageEscapeUrl', $event)"
+              >
             </div>
           </div>
 
@@ -455,6 +465,11 @@ function onSelect<K extends keyof Preferences>(key: K, event: Event): void {
   prefsStore.setOne(key, target.value as Preferences[K])
 }
 
+function onBoolean<K extends keyof Preferences>(key: K, event: Event): void {
+  const target = event.target as HTMLInputElement
+  prefsStore.setOne(key, target.checked as Preferences[K])
+}
+
 /**
  * 关闭设置窗 —— 现在 SettingsPanel 是独立 BrowserWindow 的根组件。
  * 直接 window.close() 触发 BrowserWindow 'close'，由 SettingsWindowManager 持久化几何状态后销毁。
@@ -467,16 +482,6 @@ function openKeyboardSettings() {
   showKeyboardSettings.value = true
 }
 
-/** 调用主进程 dialog.showOpenDialog 让用户选目录，回写到 imageStoragePath */
-async function pickImageStorageDir() {
-  const api = electronService.getAPI()
-  if (!api) return
-  const resp = await api.selectDirectory()
-  if (resp.success && resp.data) {
-    prefsStore.setOne('imageStoragePath', resp.data)
-  }
-}
-
 function resetWysiwygTypography(): void {
   prefsStore.setOne('fontSize', EDITOR.DEFAULT_FONT_SIZE)
   prefsStore.setOne('lineHeight', EDITOR.DEFAULT_LINE_HEIGHT)
@@ -485,13 +490,6 @@ function resetWysiwygTypography(): void {
 function resetSourceTypography(): void {
   prefsStore.setOne('sourceFontSize', EDITOR.DEFAULT_SOURCE_FONT_SIZE)
   prefsStore.setOne('sourceLineHeight', EDITOR.DEFAULT_SOURCE_LINE_HEIGHT)
-}
-
-async function showImageStorageInFolder() {
-  if (!prefsStore.imageStoragePath) return
-  const api = electronService.getAPI()
-  if (!api) return
-  await api.showInFolder(prefsStore.imageStoragePath)
 }
 </script>
 

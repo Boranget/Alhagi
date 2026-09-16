@@ -9,8 +9,7 @@
 // 与 preferencesStore 解耦：偏好系统是"持久化 + 跨窗口同步"，这两个开关
 // 不需要任何一个特性，硬塞进 preferences 反而带来不必要的 IPC + 持久化。
 //
-// 与 layoutStore 同款：临时窗口状态 + 简单 setter；仅区别在 layoutStore 还要
-// 通知主进程改菜单 checkbox，本 store 没有菜单项要同步。
+// 与 layoutStore 同款：临时窗口状态 + 简单 setter + 通知主进程同步菜单 checkbox。
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -19,20 +18,23 @@ export const useViewModeStore = defineStore('viewMode', () => {
   const typewriterMode = ref(false)
   const focusMode = ref(false)
 
+  /** 通知主进程 in-place 更新当前窗口菜单的 checkbox */
+  function notify(payload: { typewriterMode?: boolean; focusMode?: boolean }): void {
+    window.electronAPI?.layoutChanged(payload).catch(() => {
+      /* 静默失败：菜单 checkbox 短暂错位用户可重新点一次 */
+    })
+  }
+
   function setTypewriterMode(v: boolean): void {
+    if (typewriterMode.value === v) return
     typewriterMode.value = v
+    notify({ typewriterMode: v })
   }
 
   function setFocusMode(v: boolean): void {
+    if (focusMode.value === v) return
     focusMode.value = v
-  }
-
-  function toggleTypewriterMode(): void {
-    typewriterMode.value = !typewriterMode.value
-  }
-
-  function toggleFocusMode(): void {
-    focusMode.value = !focusMode.value
+    notify({ focusMode: v })
   }
 
   return {
@@ -40,7 +42,5 @@ export const useViewModeStore = defineStore('viewMode', () => {
     focusMode,
     setTypewriterMode,
     setFocusMode,
-    toggleTypewriterMode,
-    toggleFocusMode,
   }
 })

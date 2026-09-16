@@ -1,99 +1,99 @@
 <template>
   <div class="file-explorer-root">
-  <div class="file-explorer">
-    <ExplorerHeader
-      @new-file="handleNewFile"
-      @new-folder="handleNewFolder"
-      @refresh="handleRefresh"
-      @open-folder="openFolder"
-    />
-    <div
-      v-if="fileStore.currentFolder"
-      class="file-tree"
-    >
-      <FileTreeNode
-        v-for="node in fileStore.fileTree"
-        :key="node.path"
-        :node="node"
-        :depth="0"
-        @select="handleSelect"
-        @contextmenu="handleContextMenu"
-        @toggle="handleToggle"
+    <div class="file-explorer">
+      <ExplorerHeader
+        @new-file="handleNewFile"
+        @new-folder="handleNewFolder"
+        @refresh="handleRefresh"
+        @open-folder="openFolder"
       />
-    </div>
-    <div
-      v-else
-      class="empty-state"
-    >
-      <p>{{ t('sidebar.clickToStart') }}</p>
-    </div>
-
-    <div
-      v-if="contextMenu.show"
-      class="context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-    >
       <div
-        v-for="item in contextMenuItems"
-        :key="item.id"
-        class="context-menu-item"
-        @click="handleContextMenuAction(item.id)"
+        v-if="fileStore.currentFolder"
+        class="file-tree"
       >
-        <Icon
-          :name="item.icon"
-          size="sm"
+        <FileTreeNode
+          v-for="node in fileStore.fileTree"
+          :key="node.path"
+          :node="node"
+          :depth="0"
+          @select="handleSelect"
+          @contextmenu="handleContextMenu"
+          @toggle="handleToggle"
         />
-        <span>{{ item.label }}</span>
+      </div>
+      <div
+        v-else
+        class="empty-state"
+      >
+        <p>{{ t('sidebar.clickToStart') }}</p>
+      </div>
+
+      <div
+        v-if="contextMenu.show"
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      >
+        <div
+          v-for="item in contextMenuItems"
+          :key="item.id"
+          class="context-menu-item"
+          @click="handleContextMenuAction(item.id)"
+        >
+          <Icon
+            :name="item.icon"
+            size="sm"
+          />
+          <span>{{ item.label }}</span>
+        </div>
+      </div>
+
+      <div
+        v-if="newItemDialog.show"
+        class="dialog-overlay"
+        @click.self="closeNewItemDialog"
+      >
+        <div class="dialog">
+          <div class="dialog-header">
+            {{ newItemDialog.isFolder ? t('common.newFolder') : t('common.newFile') }}
+          </div>
+          <div class="dialog-body">
+            <input
+              ref="newItemInput"
+              v-model="newItemDialog.name"
+              type="text"
+              placeholder="输入名称..."
+              @keydown.enter="confirmNewItem"
+              @keydown.escape="closeNewItemDialog"
+            >
+          </div>
+          <div class="dialog-footer">
+            <button
+              class="btn btn-secondary"
+              @click="closeNewItemDialog"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              class="btn btn-primary"
+              @click="confirmNewItem"
+            >
+              {{ t('common.confirm') }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div
-      v-if="newItemDialog.show"
-      class="dialog-overlay"
-      @click.self="closeNewItemDialog"
-    >
-      <div class="dialog">
-        <div class="dialog-header">
-          {{ newItemDialog.isFolder ? t('common.newFolder') : t('common.newFile') }}
-        </div>
-        <div class="dialog-body">
-          <input
-            ref="newItemInput"
-            v-model="newItemDialog.name"
-            type="text"
-            placeholder="输入名称..."
-            @keydown.enter="confirmNewItem"
-            @keydown.escape="closeNewItemDialog"
-          >
-        </div>
-        <div class="dialog-footer">
-          <button
-            class="btn btn-secondary"
-            @click="closeNewItemDialog"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="btn btn-primary"
-            @click="confirmNewItem"
-          >
-            {{ t('common.confirm') }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <InputDialog
-    :visible="inputDialog.state.visible"
-    :title="inputDialog.state.title"
-    :default-value="inputDialog.state.defaultValue"
-    :placeholder="inputDialog.state.placeholder"
-    :confirm-text="inputDialog.state.confirmText"
-    :cancel-text="inputDialog.state.cancelText"
-    @confirm="inputDialog.confirm"
-    @cancel="inputDialog.cancel"
-  />
+    <InputDialog
+      :visible="inputDialog.state.visible"
+      :title="inputDialog.state.title"
+      :default-value="inputDialog.state.defaultValue"
+      :placeholder="inputDialog.state.placeholder"
+      :confirm-text="inputDialog.state.confirmText"
+      :cancel-text="inputDialog.state.cancelText"
+      @confirm="inputDialog.confirm"
+      @cancel="inputDialog.cancel"
+    />
   </div>
 </template>
 

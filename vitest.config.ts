@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '@core': resolve(__dirname, 'src/core'),
+      '@adapters': resolve(__dirname, 'src/adapters'),
+      '@shared': resolve(__dirname, 'src/shared'),
     },
   },
   test: {
