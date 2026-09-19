@@ -72,7 +72,7 @@ export function useAppContext() {
 
     // ── Editor ────────────────────────────────────────
     editor: {
-      init: (container: HTMLElement, content?: string, tabId?: string) => editor.init(container, content, tabId),
+      init: (container: HTMLElement, content: string = '', tabId: string = '') => editor.init(container, content, tabId),
       destroy: () => editor.destroy(),
       isReady: () => editor.isReady(),
       getMarkdown: () => editor.getMarkdown(),
@@ -80,18 +80,14 @@ export function useAppContext() {
       getHTML: () => editor.getHTML(),
       setViewMode: (mode: ViewMode) => editor.setViewMode(mode),
       getViewMode: () => editor.getViewMode(),
-      switchToTab: (tabId: string) => editorStore.switchToTab(tabId),
-      setActiveEditor: (editorType: 'crepe' | 'codemirror' | null) => editorStore.setActiveEditor(editorType),
       getActiveEditor: () => editor.getActiveEditor(),
       onCursorChange: (handler: (from: number, to: number) => void) => editor.onCursorChange(handler),
       onContentChange: (handler: (markdown: string) => void) => editor.onContentChange(handler),
-      getCurrentCursorLine: () => editorStore.getCurrentCursorLine(),
       getHeadingsWithPos: () => editorStore.getHeadingsWithPos(),
-      scrollToHeading: (text: string, line: number, pos?: number) => editorStore.scrollToHeading(text, line, pos),
+      scrollToHeading: (pos: number) => editorStore.scrollToHeading(pos),
       getCachedContent: (tabId: string) => editor.getCachedContent(tabId),
       setCachedContent: (tabId: string, content: string) => editor.setCachedContent(tabId, content),
       clearCache: () => editor.clearCache(),
-      updateTheme: () => editorStore.updateTheme(),
       getView: () => editor.getView(),
     },
 

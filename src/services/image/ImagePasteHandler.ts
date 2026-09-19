@@ -35,10 +35,12 @@ export async function fileToImageSource(file: File): Promise<ImageSource> {
 export async function blobToImageSource(blob: Blob, fallbackName?: string): Promise<ImageSource> {
   const arrayBuffer = await blob.arrayBuffer()
   const base64 = uint8ArrayToBase64(new Uint8Array(arrayBuffer))
+  // Blob doesn't have name property, only File does
+  const fileName = fallbackName || `image-${Date.now()}.png`
   return new ImageSource({
     type: 'clipboard',
     data: `data:${blob.type};base64,${base64}`,
-    fileName: fallbackName || blob.name || `image-${Date.now()}.png`,
+    fileName,
     mimeType: blob.type,
   })
 }

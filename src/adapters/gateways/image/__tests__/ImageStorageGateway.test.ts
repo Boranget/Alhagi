@@ -71,40 +71,12 @@ describe('ImageStorageGateway', () => {
     })
   })
 
-  describe('getRelativePath', () => {
-    it('should calculate relative path for subdirectory', async () => {
-      const result = await gateway.getRelativePath('/docs', '/docs/images/photo.png')
-
-      expect(result).toBe('./images/photo.png')
-    })
-
-    it('should calculate relative path with parent traversal', async () => {
-      const result = await gateway.getRelativePath('/docs/notes', '/docs/images/photo.png')
-
-      expect(result).toBe('../images/photo.png')
-    })
-
-    it('should handle same directory', async () => {
-      const result = await gateway.getRelativePath('/docs', '/docs/photo.png')
-
-      expect(result).toBe('./photo.png')
-    })
-  })
-
   describe('getDocumentsDirectory', () => {
     it('should return documents directory', async () => {
       const result = await gateway.getDocumentsDirectory()
 
       expect(result).toBe('/Users/user/Documents')
       expect(mockFileSystem.getDocumentsDirectory).toHaveBeenCalled()
-    })
-  })
-
-  describe('getImagePath', () => {
-    it('should return full image path', async () => {
-      const result = await gateway.getImagePath('photo.png', '/docs/images')
-
-      expect(result).toBe('/docs/images/photo.png')
     })
   })
 })

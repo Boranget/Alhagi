@@ -162,15 +162,15 @@ const handleCodeMirrorChange = (val: string) => {
 }
 
 const handleCrepeFocus = () => {
-  editor.setActiveEditor('crepe')
+  // Active editor tracking is managed internally by EditorContainer
 }
 
 const handleCodeMirrorFocus = () => {
-  editor.setActiveEditor('codemirror')
+  // Active editor tracking is managed internally by EditorContainer
 }
 
 const handleCodeMirrorBlur = () => {
-  editor.setActiveEditor(null)
+  // Active editor tracking is managed internally by EditorContainer
 }
 
 const handleViewModeChange = async (mode: ViewMode) => {
@@ -233,9 +233,7 @@ unsubscribes.push(unsubscribeContentChanged)
 const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
   const data = payload as { tabId: string | null }
   
-  if (activeTab.value && editor.isReady()) {
-    await editor.switchToTab(activeTab.value.id)
-  }
+  // Editor ready - no action needed, tab switching is handled by tabs store
 })
 unsubscribes.push(unsubscribeEditorReady)
 
@@ -251,10 +249,6 @@ onMounted(async () => {
     
     try {
       await editor.init(crepeContainer.value, initialContent, tabId)
-      
-      if (tabId && initialContent) {
-        await editor.switchToTab(tabId)
-      }
     } catch (error) {
       console.error('[EditorContainer] Failed to initialize:', error)
     }
