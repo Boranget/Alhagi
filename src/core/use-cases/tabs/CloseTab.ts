@@ -1,5 +1,5 @@
-import type { ITabRepository } from '@core/interfaces/repositories/ITabRepository'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { Tab } from '@core/entities/Tab'
 
 export class CloseTab {

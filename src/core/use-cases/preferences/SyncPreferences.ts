@@ -1,4 +1,4 @@
-import type { IPreferencesRepository } from '@core/interfaces/repositories/IPreferencesRepository'
+﻿import type { IPreferencesRepository } from '@core/domain/ports/repositories/IPreferencesRepository'
 import type { PreferencesProps } from '@core/entities/Preferences'
 
 export class SyncPreferences {

@@ -1,4 +1,4 @@
-import type { IFileWatcherService } from '@core/interfaces/services/IFileWatcherService'
+﻿import type { IFileWatcherService } from '@core/domain/ports/services/IFileWatcherService'
 import { ElectronService } from '@/services/electron/ElectronService'
 
 export class FileWatcherServiceGateway implements IFileWatcherService {

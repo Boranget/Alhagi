@@ -1,4 +1,4 @@
-import type { IIPC, IPCResponse } from '@core/interfaces/gateways/IIPC'
+﻿import type { IIPC, IPCResponse } from '@core/domain/ports/gateways/IIPC'
 import { ElectronService } from '@/services/electron/ElectronService'
 
 export class IPCGateway implements IIPC {

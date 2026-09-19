@@ -1,4 +1,4 @@
-import type { IEventBus, EventCallback } from '@core/interfaces/gateways/IEventBus'
+﻿import type { IEventBus, EventCallback } from '@core/domain/ports/gateways/IEventBus'
 import type { AppEventPayloads, AppEventName } from '@shared/types'
 import { eventBus } from '@/events/eventBus'
 

@@ -1,6 +1,6 @@
-import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
-import type { ITabRepository } from '@core/interfaces/repositories/ITabRepository'
+﻿import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
+import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 
 export class InitEditor {
   constructor(

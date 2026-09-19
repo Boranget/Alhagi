@@ -1,4 +1,4 @@
-import type { ISearchRepository } from '@core/interfaces/repositories/ISearchRepository'
+﻿import type { ISearchRepository } from '@core/domain/ports/repositories/ISearchRepository'
 import type { SearchQuery, SearchMatch } from '@core/entities/Search'
 import { defineStore } from 'pinia'
 import { useSearchStore } from '@/stores/search'

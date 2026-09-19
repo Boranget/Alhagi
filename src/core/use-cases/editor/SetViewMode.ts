@@ -1,5 +1,5 @@
-import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { ViewMode } from '@shared/types'
 
 export class SetViewMode {

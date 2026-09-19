@@ -22,6 +22,9 @@ function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEd
     scrollToHeading: vi.fn(),
     onContentChange: vi.fn(() => () => {}),
     onCursorChange: vi.fn(() => () => {}),
+    getCachedContent: vi.fn(() => undefined),
+    setCachedContent: vi.fn(),
+    clearCache: vi.fn(),
     ...overrides,
   }
 }

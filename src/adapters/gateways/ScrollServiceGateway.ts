@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // ScrollServiceGateway — 滚动服务适配器（Adapters Layer）
 // ============================================================
 //
@@ -11,7 +11,7 @@
 //   - 执行带缓动的动画滚动
 //   - 管理打字机模式的事件监听生命周期
 
-import type { IScrollService, ScrollResult } from '@core/interfaces/services/IScrollService'
+import type { IScrollService, ScrollResult } from '@core/domain/ports/services/IScrollService'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import { eventBus, AppEvents } from '@/events/eventBus'
 

@@ -1,5 +1,5 @@
-import type { IImageStorage, ImageStorageResult } from '@core/interfaces/services/image/IImageStorage'
-import type { IFileSystem } from '@core/interfaces/gateways/IFileSystem'
+﻿import type { IImageStorage, ImageStorageResult } from '@core/domain/ports/services/image/IImageStorage'
+import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
 
 export class ImageStorageGateway implements IImageStorage {
   constructor(private fileSystem: IFileSystem) {}

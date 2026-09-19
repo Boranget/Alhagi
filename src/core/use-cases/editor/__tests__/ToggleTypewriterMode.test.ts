@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+﻿import { describe, it, expect, vi } from 'vitest'
 import { ToggleTypewriterMode } from '../ToggleTypewriterMode'
-import type { IScrollService } from '@core/interfaces/services/IScrollService'
-import type { IViewModeGateway } from '@core/interfaces/gateways/IViewModeGateway'
+import type { IScrollService } from '@core/domain/ports/services/IScrollService'
+import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 
 function createMockScrollService(): IScrollService {
   return {

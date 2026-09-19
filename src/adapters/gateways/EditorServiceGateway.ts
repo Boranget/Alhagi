@@ -1,69 +1,20 @@
-// ============================================================
+﻿// ============================================================
 // EditorServiceGateway — 编辑器服务网关（薄代理）
 // ============================================================
 //
 // 委托给 MilkdownAdapter，不包含任何 Milkdown 特定逻辑。
 // 实现 IEditorProvider 接口（不再实现旧的 IEditorService）。
-
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
-import { MilkdownAdapter } from '@infrastructure/adapters/editors/MilkdownAdapter'
-import { ImageInsertService } from '@/services/image/ImageInsertService'
-import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
-import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useTabsStore } from '@/stores/tabs'
-import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+
+export interface EditorServiceGatewayDeps {
+  adapter: IEditorProvider
+}
 
 export class EditorServiceGateway implements IEditorProvider {
-  private adapter: MilkdownAdapter
+  private adapter: IEditorProvider
 
-  constructor() {
-    // Initialize dependencies for MilkdownAdapter
-    const tabsStore = useTabsStore()
-    const prefsStore = usePreferencesStore()
-    const fileSystemGateway = useFileSystemGateway()
-    const imageStorageGateway = new ImageStorageGateway(fileSystemGateway)
-    const imageInsertService = new ImageInsertService(imageStorageGateway)
-
-    const getCurrentFilePath = () => tabsStore.activeTab?.filePath ?? undefined
-    const getCurrentFileDir = () => {
-      const path = tabsStore.activeTab?.filePath
-      if (!path) return undefined
-      const lastSlash = path.lastIndexOf('/')
-      const lastBackslash = path.lastIndexOf('\\')
-      const lastSep = Math.max(lastSlash, lastBackslash)
-      return lastSep > 0 ? path.substring(0, lastSep) : undefined
-    }
-    const getImageOptions = (): ImageInsertOptions => {
-      const baseOptions = ImageInsertOptions.createDefault()
-      // Override with user preferences
-      return new ImageInsertOptions({
-        ...baseOptions.toProps(),
-        mode: prefsStore.imageInsertMode,
-        copyPath: prefsStore.imageCopyPath,
-        preferRelativePath: prefsStore.imagePreferRelativePath,
-        applyToLocal: prefsStore.imageApplyToLocal,
-        applyToRemote: prefsStore.imageApplyToRemote,
-        escapeUrl: prefsStore.imageEscapeUrl,
-      })
-    }
-    const getImageContext = (): ImageInsertContext => ({
-      currentFilePath: tabsStore.activeTab?.filePath ?? undefined,
-      currentFileDir: getCurrentFileDir(),
-      fileName: undefined,
-      editorInsertImage: (url: string, alt?: string) => {
-        this.adapter.insertImage(url, alt || '')
-      },
-    })
-
-    this.adapter = new MilkdownAdapter(
-      getCurrentFilePath,
-      getCurrentFileDir,
-      imageInsertService,
-      getImageOptions,
-      getImageContext
-    )
+  constructor(deps: EditorServiceGatewayDeps) {
+    this.adapter = deps.adapter
   }
 
   // 生命周期
@@ -150,9 +101,9 @@ export class EditorServiceGateway implements IEditorProvider {
 // 单例工厂（由 DI 容器管理实例）
 let gatewayInstance: EditorServiceGateway | null = null
 
-export function initializeEditorGateway(): void {
+export function initializeEditorGateway(deps: EditorServiceGatewayDeps): void {
   if (gatewayInstance) return
-  gatewayInstance = new EditorServiceGateway()
+  gatewayInstance = new EditorServiceGateway(deps)
 }
 
 export function setEditorServiceGateway(instance: EditorServiceGateway): void {

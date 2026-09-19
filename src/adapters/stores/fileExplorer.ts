@@ -1,4 +1,4 @@
-import type { IFileRepository } from '@core/interfaces/repositories/IFileRepository'
+﻿import type { IFileRepository } from '@core/domain/ports/repositories/IFileRepository'
 import type { FileTreeNodeType } from '@shared/types'
 import { FileNode } from '@core/entities/FileNode'
 import { defineStore } from 'pinia'

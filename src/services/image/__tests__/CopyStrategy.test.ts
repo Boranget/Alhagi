@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CopyStrategy } from '../strategies/CopyStrategy'
 import { ImageSource } from '@core/entities/image/ImageSource'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { IImageStorage } from '@core/interfaces/services/image/IImageStorage'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { IImageStorage } from '@core/domain/ports/services/image/IImageStorage'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 
 describe('CopyStrategy', () => {
   let strategy: CopyStrategy

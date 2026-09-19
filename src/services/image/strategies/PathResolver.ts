@@ -1,6 +1,6 @@
-import type { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
-import type { IImageStorage } from '@core/interfaces/services/image/IImageStorage'
+﻿import type { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
+import type { IImageStorage } from '@core/domain/ports/services/image/IImageStorage'
 import { PathTemplate } from './PathTemplate'
 import { isAbsolute, basename, extname, join, normalizePath } from './pathUtils'
 

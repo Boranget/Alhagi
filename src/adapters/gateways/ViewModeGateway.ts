@@ -1,8 +1,8 @@
-// ============================================================
+﻿// ============================================================
 // ViewModeGateway — 视图模式副作用适配器（Adapters Layer）
 // ============================================================
 
-import type { IViewModeGateway } from '@core/interfaces/gateways/IViewModeGateway'
+import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import { focusModePluginKey } from '@/plugins/focusModePlugin'
 

@@ -1,16 +1,13 @@
 // ============================================================
-// useWritingEnhancement — 写作增强模式 Composable（Adapters Layer）
-// ============================================================
+// useWritingEnhancement �?写作增强模式 Composable（Adapters Layer�?// ============================================================
 //
-// 职责：协调打字机模式 / 专注模式的 Vue 生命周期管理。
-//   - 监听 ViewModeStore 状态变化
-//   - 委托 Use Cases 执行业务逻辑
-//   - 仅处理 Vue 特定的 watcher 注册/注销
+// 职责：协调打字机模式 / 专注模式�?Vue 生命周期管理�?//   - 监听 ViewModeStore 状态变�?//   - 委托 Use Cases 执行业务逻辑
+//   - 仅处�?Vue 特定�?watcher 注册/注销
 //
 // 依赖方向（Clean Architecture）：
-//   Components → useWritingEnhancement → Use Cases → Interfaces
-//                                         → ScrollServiceGateway → IEditorProvider
-//                                         → ViewModeGateway → (DOM)
+//   Components �?useWritingEnhancement �?Use Cases �?Interfaces
+//                                         �?ScrollServiceGateway �?IEditorProvider
+//                                         �?ViewModeGateway �?(DOM)
 
 import { watch } from 'vue'
 import { useViewModeStore } from '@/stores/viewMode'
@@ -27,20 +24,17 @@ let instance: {
   toggleFocusMode: () => void
   initialize: () => void
   cleanup: () => void
-  scrollCursorToCenter: () => import('@core/interfaces/services/IScrollService').ScrollResult
+  scrollCursorToCenter: () => import('@core/domain/ports/services/IScrollService').ScrollResult
 } | null = null
 
-/** 重置单例（仅用于测试） */
+/** 重置单例（仅用于测试�?*/
 export function resetWritingEnhancementInstance(): void {
   instance = null
 }
 
 /**
- * 公共 API — 导出给组件使用
- *
- * 使用工厂函数单例模式：首次调用创建实例并缓存，
- * 后续调用返回同一实例。
- */
+ * 公共 API �?导出给组件使�? *
+ * 使用工厂函数单例模式：首次调用创建实例并缓存�? * 后续调用返回同一实例�? */
 export function useWritingEnhancement() {
   if (instance) return instance
 
@@ -53,7 +47,7 @@ export function useWritingEnhancement() {
   const scrollService = new ScrollServiceGateway(editorProvider)
   const viewModeGateway = new ViewModeGateway(editorProvider)
 
-  // Use Cases（Core Layer）— 通过构造函数注入接口
+  // Use Cases（Core Layer）- 通过构造函数注入接口
   const typewriterUseCase = new ToggleTypewriterMode(scrollService, viewModeGateway)
   const focusUseCase = new ToggleFocusMode(viewModeGateway)
 
@@ -69,7 +63,7 @@ export function useWritingEnhancement() {
     viewMode.setFocusMode(newState)
   }
 
-  // Watcher: 当 store 状态变化时重新应用视觉效果
+  // Watcher: �?store 状态变化时重新应用视觉效果
   function applyTypewriterMode() {
     typewriterUseCase.applyState(viewMode.typewriterMode)
   }

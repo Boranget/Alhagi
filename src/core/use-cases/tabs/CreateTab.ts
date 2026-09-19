@@ -1,7 +1,7 @@
-import type { ITabRepository } from '@core/interfaces/repositories/ITabRepository'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { Tab } from '@core/entities/Tab'
-import type { CreateTabOptions } from '@core/interfaces/repositories/ITabRepository'
+import type { CreateTabOptions } from '@core/domain/ports/repositories/ITabRepository'
 
 export class CreateTab {
   constructor(

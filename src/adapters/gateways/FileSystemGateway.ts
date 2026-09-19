@@ -1,4 +1,4 @@
-import type { IFileSystem, DirectoryEntry, FileStats } from '@core/interfaces/gateways/IFileSystem'
+﻿import type { IFileSystem, DirectoryEntry, FileStats } from '@core/domain/ports/gateways/IFileSystem'
 import { ElectronService } from '@/services/electron/ElectronService'
 
 export class FileSystemGateway implements IFileSystem {

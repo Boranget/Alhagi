@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // ToggleTypewriterMode — 打字机模式切换用例（Core Layer）
 // ============================================================
 //
@@ -8,8 +8,8 @@
 //   - IScrollService: 控制打字机滚动行为的启停
 //   - IViewModeGateway: 管理视图模式的视觉效果
 
-import type { IScrollService } from '@core/interfaces/services/IScrollService'
-import type { IViewModeGateway } from '@core/interfaces/gateways/IViewModeGateway'
+import type { IScrollService } from '@core/domain/ports/services/IScrollService'
+import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 
 export class ToggleTypewriterMode {
   constructor(

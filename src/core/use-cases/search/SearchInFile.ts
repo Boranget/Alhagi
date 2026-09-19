@@ -1,6 +1,6 @@
-import type { ISearchRepository } from '@core/interfaces/repositories/ISearchRepository'
-import type { ITabRepository } from '@core/interfaces/repositories/ITabRepository'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { ISearchRepository } from '@core/domain/ports/repositories/ISearchRepository'
+import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { SearchQuery, SearchMatch } from '@core/entities/Search'
 
 export class SearchInFile {

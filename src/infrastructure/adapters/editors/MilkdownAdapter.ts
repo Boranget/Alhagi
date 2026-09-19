@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // MilkdownAdapter — Milkdown/Crepe 编辑器适配器
 // ============================================================
 //
@@ -22,7 +22,7 @@ import { focusModePlugin } from '@/plugins/focusModePlugin'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
 import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 import type { IEditorProvider, Selection, Heading } from '@core/domain/ports/IEditorProvider'

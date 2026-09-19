@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+﻿import { describe, it, expect, vi } from 'vitest'
 import { ToggleFocusMode } from '../ToggleFocusMode'
-import type { IViewModeGateway } from '@core/interfaces/gateways/IViewModeGateway'
+import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 
 function createMockViewModeGateway(): IViewModeGateway {
   return {

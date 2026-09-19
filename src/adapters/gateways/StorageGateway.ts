@@ -1,4 +1,4 @@
-import type { IStorage } from '@core/interfaces/gateways/IStorage'
+﻿import type { IStorage } from '@core/domain/ports/gateways/IStorage'
 
 export class StorageGateway implements IStorage {
   private storage: Map<string, unknown> = new Map()

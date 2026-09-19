@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
-import type { IFileSystem } from '@core/interfaces/gateways/IFileSystem'
+import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
 
 describe('ImageStorageGateway', () => {
   let gateway: ImageStorageGateway

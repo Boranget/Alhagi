@@ -12,33 +12,30 @@
 src/
 ├── core/                          # Domain Layer (纯业务逻辑，零框架依赖)
 │   ├── domain/
-│   │   ├── entities/              # 聚合根实体
-│   │   ├── value-objects/         # 值对象
-│   │   ├── events/                # 领域事件
-│   │   └── ports/                 # 接口端口
-│   ├── application/
-│   │   ├── commands/              # 写操作
-│   │   ├── queries/               # 读操作
-│   │   └── use-cases/             # 组合用例
-│   └── shared/                    # 共享内核
+│   │   ├── ports/                 # 接口端口（ITabRepository, IFileSystem 等）
+│   │   └── entities/              # 聚合根实体
+│   ├── use-cases/                 # 业务用例（已有，保持）
+│   │   ├── editor/
+│   │   ├── tabs/
+│   │   ├── file/
+│   │   ├── search/
+│   │   └── preferences/
+│   └── shared/                    # 共享类型和常量
 │
 ├── infrastructure/                # Infrastructure Layer (框架适配)
 │   ├── adapters/
-│   │   ├── editors/               # 编辑器适配器
-│   │   ├── repositories/          # 仓库适配器
-│   │   └── gateways/              # 网关适配器
-│   ├── di/                        # 依赖注入容器
-│   └── config/                    # 配置
+│   │   ├── editors/               # 编辑器适配器（MilkdownAdapter）
+│   │   ├── gateways/              # 网关适配器（EventBus, FileSystem 等）
+│   │   └── repositories/          # 仓库适配器（TabRepository 等）
+│   └── di/                        # 依赖注入容器
 │
-├── presentation/                  # Presentation Layer (UI)
-│   ├── components/                # Vue 组件
-│   ├── stores/                    # Pinia Store (薄代理)
-│   └── composables/               # Vue Composables
+├── adapters/                      # Vue 适配层
+│   ├── composables/               # Vue Composables（useEditor, useAppContext 等）
+│   └── stores/                    # Pinia Store（薄代理）
 │
 └── shared/                        # 共享层
-    ├── constants/
-    ├── utils/
-    └── types/
+    ├── types/
+    └── utils/
 ```
 
 ---
@@ -100,155 +97,65 @@ src/
 
 ---
 
-### Phase 2: Application Layer (应用层)
+### Phase 2: 补齐缺失的 Ports 和 Adapters
 
-#### 2.1 Commands (写操作)
-| 文件 | 内容 |
-|------|------|
-| `core/application/commands/editor/SetContentCommand.ts` | 设置内容 |
-| `core/application/commands/editor/SetViewModeCommand.ts` | 设置视图模式 |
-| `core/application/commands/editor/ToggleFocusModeCommand.ts` | 切换专注模式 |
-| `core/application/commands/editor/ToggleTypewriterModeCommand.ts` | 切换打字机模式 |
-| `core/application/commands/editor/ScrollToHeadingCommand.ts` | 滚动到标题 |
-| `core/application/commands/tab/CreateTabCommand.ts` | 创建标签 |
-| `core/application/commands/tab/CloseTabCommand.ts` | 关闭标签 |
-| `core/application/commands/tab/SwitchTabCommand.ts` | 切换标签 |
-| `core/application/commands/tab/UpdateTabCommand.ts` | 更新标签 |
-| `core/application/commands/file/OpenFileCommand.ts` | 打开文件 |
-| `core/application/commands/file/SaveFileCommand.ts` | 保存文件 |
-| `core/application/commands/file/CreateFileCommand.ts` | 创建文件 |
-| `core/application/commands/file/DeleteFileCommand.ts` | 删除文件 |
-| `core/application/commands/file/RenameFileCommand.ts` | 重命名文件 |
-| `core/application/commands/search/SearchInFileCommand.ts` | 文件内搜索 |
-| `core/application/commands/search/ReplaceInFileCommand.ts` | 文件内替换 |
-| `core/application/commands/preferences/UpdatePreferenceCommand.ts` | 更新偏好 |
+> **目标：在现有目录结构上补齐缺失的接口和实现，不新建 `core/application/` 目录。**
 
-#### 2.2 Queries (读操作)
-| 文件 | 内容 |
-|------|------|
-| `core/application/queries/editor/GetContentQuery.ts` | 获取内容 |
-| `core/application/queries/editor/GetHTMLQuery.ts` | 获取 HTML |
-| `core/application/queries/editor/GetHeadingsQuery.ts` | 获取标题 |
-| `core/application/queries/editor/GetSelectionQuery.ts` | 获取选区 |
-| `core/application/queries/editor/IsReadyQuery.ts` | 检查就绪 |
-| `core/application/queries/tab/GetActiveTabQuery.ts` | 获取活动标签 |
-| `core/application/queries/tab/GetAllTabsQuery.ts` | 获取所有标签 |
-| `core/application/queries/file/GetFileTreeQuery.ts` | 获取文件树 |
-| `core/application/queries/search/GetSearchResultsQuery.ts` | 获取搜索结果 |
-| `core/application/queries/preferences/GetPreferenceQuery.ts` | 获取偏好 |
+#### 2.1 补齐 Domain Ports（在 `core/domain/ports/`）
 
-#### 2.3 Use Cases (组合用例)
-| 文件 | 内容 |
-|------|------|
-| `core/application/use-cases/editor/InitEditor.ts` | 初始化编辑器 |
-| `core/application/use-cases/editor/SwitchViewMode.ts` | 切换视图模式 |
-| `core/application/use-cases/tab/CreateTab.ts` | 创建标签用例 |
-| `core/application/use-cases/tab/CloseTab.ts` | 关闭标签用例 |
-| `core/application/use-cases/tab/SwitchTab.ts` | 切换标签用例 |
-| `core/application/use-cases/file/OpenFile.ts` | 打开文件用例 |
-| `core/application/use-cases/file/SaveFile.ts` | 保存文件用例 |
-| `core/application/use-cases/search/SearchInFile.ts` | 文件内搜索用例 |
-| `core/application/use-cases/search/ReplaceInFile.ts` | 文件内替换用例 |
+| 文件 | 内容 | 状态 |
+|------|------|------|
+| `IEditorProvider.ts` | 编辑器提供者接口 | ✅ 已有 |
+| `ITabRepository.ts` | 标签仓库接口 | ⚠️ 需补齐 |
+| `IFileSystem.ts` | 文件系统接口 | ⚠️ 需补齐 |
+| `IEventBus.ts` | 事件总线接口 | ⚠️ 需补齐 |
+| `IPreferencesRepository.ts` | 偏好仓库接口 | ⚠️ 需补齐 |
+| `IScrollService.ts` | 滚动服务接口 | ⚠️ 需补齐 |
+| `IViewModeGateway.ts` | 视图模式网关接口 | ⚠️ 需补齐 |
 
----
+#### 2.2 补齐 Infrastructure Adapters（在 `infrastructure/adapters/`）
 
-### Phase 3: Infrastructure Layer (基础设施层)
+| 文件 | 内容 | 状态 |
+|------|------|------|
+| `editors/MilkdownAdapter.ts` | Milkdown/Crepe 适配器 | ✅ 已有 |
+| `repositories/PiniaTabRepository.ts` | Tab 仓库适配器 | ⚠️ 需补齐 |
+| `gateways/EventBusGateway.ts` | EventBus 适配器 | ⚠️ 需补齐 |
+| `gateways/FileSystemGateway.ts` | FileSystem 适配器 | ⚠️ 需补齐 |
+| `gateways/PreferencesRepository.ts` | Preferences 适配器 | ⚠️ 需补齐 |
+| `gateways/ScrollServiceGateway.ts` | Scroll 适配器 | ✅ 已有 |
+| `gateways/ViewModeGateway.ts` | ViewMode 适配器 | ✅ 已有 |
 
-#### 3.1 Editor Adapters (编辑器适配器)
-| 文件 | 内容 |
-|------|------|
-| `infrastructure/adapters/editors/MilkdownAdapter.ts` | Milkdown/Crepe 适配器 |
-| `infrastructure/adapters/editors/CodeMirrorAdapter.ts` | CodeMirror 适配器 |
-| `infrastructure/adapters/editors/EditorAdapterFactory.ts` | 编辑器工厂 |
+#### 2.3 替换 Command Handlers 的直接 Store 调用
 
-#### 3.2 Repository Adapters (仓库适配器)
-| 文件 | 内容 |
-|------|------|
-| `infrastructure/adapters/repositories/PiniaTabRepository.ts` | Tab 仓库 |
-| `infrastructure/adapters/repositories/PiniaFileRepository.ts` | 文件仓库 |
-| `infrastructure/adapters/repositories/PiniaSearchRepository.ts` | 搜索仓库 |
-| `infrastructure/adapters/repositories/PiniaPreferencesRepository.ts` | 偏好仓库 |
+> **目标：让 `commands/handlers/index.ts` 调 Use Cases 而非直接调 Store。**
 
-#### 3.3 Gateway Adapters (网关适配器)
-| 文件 | 内容 |
-|------|------|
-| `infrastructure/adapters/gateways/NativeEventBus.ts` | 原生事件总线 |
-| `infrastructure/adapters/gateways/ElectronFileSystem.ts` | Electron 文件系统 |
-| `infrastructure/adapters/gateways/ElectronIPC.ts` | Electron IPC |
-| `infrastructure/adapters/gateways/MemoryStorage.ts` | 内存存储 |
-| `infrastructure/adapters/gateways/DOMThemeService.ts` | DOM 主题服务 |
-| `infrastructure/adapters/gateways/DOMScrollService.ts` | DOM 滚动服务 |
-| `infrastructure/adapters/gateways/FileSystemImageStorage.ts` | 文件系统图片存储 |
-| `infrastructure/adapters/gateways/ClipboardImageInsertStrategy.ts` | 剪贴板图片策略 |
-| `infrastructure/adapters/gateways/FileImageInsertStrategy.ts` | 文件图片策略 |
-| `infrastructure/adapters/gateways/URLImageInsertStrategy.ts` | URL 图片策略 |
-
-#### 3.4 DI Container (依赖注入)
-| 文件 | 内容 |
-|------|------|
-| `infrastructure/di/Container.ts` | 核心容器 |
-| `infrastructure/di/tokens.ts` | 注入令牌 |
-| `infrastructure/di/providers.ts` | 提供者配置 |
-
----
-
-### Phase 4: Presentation Layer (表现层)
-
-#### 4.1 Stores (Pinia 状态薄代理)
-| 文件 | 内容 |
-|------|------|
-| `presentation/stores/editor.ts` | 编辑器 Store |
-| `presentation/stores/tabs.ts` | 标签 Store |
-| `presentation/stores/files.ts` | 文件 Store |
-| `presentation/stores/search.ts` | 搜索 Store |
-| `presentation/stores/preferences.ts` | 偏好 Store |
-| `presentation/stores/layout.ts` | 布局 Store |
-| `presentation/stores/viewMode.ts` | 视图模式 Store |
-
-#### 4.2 Composables (Vue 组合式函数)
-| 文件 | 内容 |
-|------|------|
-| `presentation/composables/useEditor.ts` | 编辑器业务逻辑 |
-| `presentation/composables/useTabs.ts` | 标签业务逻辑 |
-| `presentation/composables/useFiles.ts` | 文件业务逻辑 |
-| `presentation/composables/useSearch.ts` | 搜索业务逻辑 |
-| `presentation/composables/usePreferences.ts` | 偏好业务逻辑 |
-| `presentation/composables/useWritingEnhancement.ts` | 写作增强 |
-
-#### 4.3 Components (Vue 组件)
-- 保持现有组件结构，仅修改导入路径和依赖方式
-
----
-
-### Phase 5: Shared Layer (共享层)
-
-| 文件 | 内容 |
-|------|------|
-| `shared/constants/app.ts` | 应用常量 |
-| `shared/constants/editor.ts` | 编辑器常量 |
-| `shared/constants/events.ts` | 事件常量 |
-| `shared/utils/date.ts` | 日期工具 |
-| `shared/utils/string.ts` | 字符串工具 |
-| `shared/utils/id.ts` | ID 生成 |
-| `shared/types/index.ts` | 类型重导出 |
+| Handler | 当前调用 | 改为调用 |
+|---------|----------|----------|
+| `file.open` | `useAppContext().file.openFile()` | `OpenFile.execute()` |
+| `file.save` | `useAppContext().editor.save()` | `SaveFile.execute()` |
+| `view.toggleTypewriterMode` | `useWritingEnhancement().toggleTypewriterMode()` | `ToggleTypewriterMode.applyState()` |
+| `view.toggleFocusMode` | `useWritingEnhancement().toggleFocusMode()` | `ToggleFocusMode.applyState()` |
+| `paragraph.*` | 直接调 `editorManager.commands` | 保持（纯 UI 操作，无需 Use Case） |
 
 ---
 
 ## 迁移策略
 
-### 策略：绞杀者模式
+### 策略：原地迁移（禁止遗留旧架构）
 
-1. **新旧并存**：新架构代码放在新目录，旧代码保持运行
-2. **逐步切换**：一个 Use Case 一个 Use Case 迁移
-3. **验证后删除**：验证无误后删除旧代码
+> **核心原则：每完成一步，旧代码必须被替换，不允许新旧并存。**
+
+1. **补齐缺失的 Port 接口**：在 `core/domain/ports/` 补齐 ITabRepository、IFileSystem、IEventBus 等
+2. **补齐缺失的 Adapter 实现**：在 `infrastructure/adapters/` 补齐 TabRepositoryAdapter、FileSystemAdapter 等
+3. **替换 Command Handlers 的直接 Store 调用**：让 handlers 调 Use Cases 而非 Store
+4. **清理 Dead Code**：删除不再使用的 Store 方法、旧目录
 
 ### 优先级顺序
 
-1. Domain Layer (无依赖，最先完成)
-2. Infrastructure Adapters (依赖 Domain)
-3. Application Use Cases (依赖 Domain + Infrastructure)
-4. DI Container (串联所有层)
-5. Presentation Layer (最后迁移 UI)
+1. Domain Layer (补齐缺失的 Ports)
+2. Infrastructure Adapters (补齐缺失的 Adapters)
+3. Command Handlers 迁移 (调 Use Cases 而非 Store)
+4. 清理 Dead Code (删除 stub 方法、旧目录)
 
 ---
 
@@ -282,14 +189,13 @@ src/
 
 ## 文件清单统计
 
-| 层级 | 预估文件数 | 预估行数 |
-|------|------------|----------|
-| Domain | 35 | ~2500 |
-| Application | 40 | ~3000 |
-| Infrastructure | 25 | ~3500 |
-| Presentation | 20 | ~2000 |
-| Shared | 10 | ~500 |
-| **总计** | **130** | **~11500** |
+| 层级 | 预估文件数 | 预估行数 | 说明 |
+|------|------------|----------|------|
+| Domain (ports) | 7 | ~200 | 补齐缺失的 Port 接口 |
+| Infrastructure (adapters) | 5 | ~400 | 补齐缺失的 Adapter 实现 |
+| Command Handlers 改造 | 1 | ~100 | 替换直接 Store 调用 |
+| 清理 Dead Code | -20 | ~-500 | 删除 stub 方法、旧目录 |
+| **净增** | **-7** | **~200** | |
 
 ---
 
@@ -301,6 +207,7 @@ src/
 | 迁移中功能回归 | 每个 Use Case 迁移后立即 E2E 测试 |
 | 依赖注入复杂度 | 使用简单的手动 DI Container，无框架 |
 | 团队不熟悉架构 | 编写架构决策记录 (ADR) |
+| 遗留旧架构代码 | **禁止新旧并存，原地迁移** |
 
 ---
 
@@ -308,13 +215,11 @@ src/
 
 | 阶段 | 预估工时 |
 |------|----------|
-| Phase 1: Domain | 8h |
-| Phase 2: Application | 12h |
-| Phase 3: Infrastructure | 16h |
-| Phase 4: Presentation | 8h |
-| Phase 5: Shared + 清理 | 4h |
-| 测试验证 | 8h |
-| **总计** | **56h** |
+| Phase 2: 补齐 Ports + Adapters | 4h |
+| Phase 2: Command Handlers 改造 | 2h |
+| Phase 2: 清理 Dead Code | 2h |
+| 测试验证 | 4h |
+| **总计** | **12h** |
 
 ---
 
@@ -350,6 +255,12 @@ src/
 | 聚合内状态同步 | Use Case → Repository.update() | 同步命令、有副作用、必须成功 |
 | 跨聚合通知 | EventBus.emit() | 异步事件、无副作用、可丢失 |
 
+### 6. 绞杀者模式导致遗留代码 —— 最大的技术债
+| 问题 | 根因 | 预防 |
+|------|------|------|
+| 新旧目录并存，旧代码永远不删 | 绞杀者模式鼓励「先建新的，再删旧的」，但实际 never gets deleted | **规则：禁止新旧并存，原地迁移** |
+| 三套代码做同一件事 | 新目录 + 旧目录 + command handlers 各自实现 | **规则：每完成一步，旧代码必须被替换** |
+
 ---
 
 ## 工程化预防清单 (Checklist)
@@ -376,7 +287,7 @@ src/
 | ADR | 标题 | 状态 |
 |-----|------|------|
 | ADR-001 | 采用 Clean Architecture + Hexagonal Architecture | ✅ 已接受 |
-| ADR-002 | 使用绞杀者模式迁移 | ✅ 已接受 |
+| ADR-002 | 原地迁移，禁止新旧并存 | ✅ 已接受 |
 | ADR-003 | 事件总线仅用于跨聚合通知 | ✅ 已接受 |
 | ADR-004 | Use Case 必须注入完整 Repository 依赖 | ✅ 已接受 |
 | ADR-005 | Facade 必须 1:1 暴露 Port 能力 | ✅ 已接受 |

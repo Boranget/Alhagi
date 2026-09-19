@@ -1,6 +1,6 @@
-import type { IFileSystem } from '@core/interfaces/gateways/IFileSystem'
-import type { ITabRepository } from '@core/interfaces/repositories/ITabRepository'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
+import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { Tab } from '@core/entities/Tab'
 
 export interface OpenFileOptions {

@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // ToggleFocusMode — 专注模式切换用例（Core Layer）
 // ============================================================
 //
@@ -7,7 +7,7 @@
 // 依赖注入：
 //   - IViewModeGateway: 管理视图模式的视觉效果
 
-import type { IViewModeGateway } from '@core/interfaces/gateways/IViewModeGateway'
+import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 
 export class ToggleFocusMode {
   constructor(

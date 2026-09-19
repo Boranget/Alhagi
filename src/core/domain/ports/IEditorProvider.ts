@@ -98,4 +98,17 @@ export interface IEditorProvider {
 
   /** 获取编辑器视图实例（用于搜索、打字机模式等需要底层视图访问的场景） */
   getView(): any | null
+
+  // ------------------------------------------------------------------
+  // 缓存管理
+  // ------------------------------------------------------------------
+
+  /** 获取指定 tab 的缓存内容 */
+  getCachedContent(tabId: string): string | undefined
+
+  /** 设置指定 tab 的缓存内容 */
+  setCachedContent(tabId: string, content: string): void
+
+  /** 清空所有缓存 */
+  clearCache(): void
 }

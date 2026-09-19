@@ -1,5 +1,5 @@
-import type { IFileSystem } from '@core/interfaces/gateways/IFileSystem'
-import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
+﻿import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 
 export class CreateFile {
   constructor(

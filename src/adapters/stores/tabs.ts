@@ -1,4 +1,4 @@
-import type { ITabRepository, CreateTabOptions, TabUpdates } from '@core/interfaces/repositories/ITabRepository'
+﻿import type { ITabRepository, CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
 import type { ViewMode, FileType, TabState } from '@shared/types'
 import { Tab } from '@core/entities/Tab'
 import { defineStore } from 'pinia'

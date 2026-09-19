@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ImageInsertService } from '../ImageInsertService'
 import { ImageSource } from '@core/entities/image/ImageSource'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
-import type { IFileSystem } from '@core/interfaces/gateways/IFileSystem'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 
 describe('ImageInsertService Integration', () => {
   let service: ImageInsertService

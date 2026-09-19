@@ -4,7 +4,7 @@ import { SwitchTab } from '@core/use-cases/tabs/SwitchTab'
 import { UpdateTab } from '@core/use-cases/tabs/UpdateTab'
 import { useTabRepository } from '@adapters/stores/tabs'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
-import type { CreateTabOptions, TabUpdates } from '@core/interfaces/repositories/ITabRepository'
+import type { CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
 import type { ViewMode } from '@shared/types'
 
 export function useTabs() {

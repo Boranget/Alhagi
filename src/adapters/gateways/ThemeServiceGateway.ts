@@ -1,4 +1,4 @@
-import type { IThemeService } from '@core/interfaces/services/IThemeService'
+﻿import type { IThemeService } from '@core/domain/ports/services/IThemeService'
 import type { Theme } from '@shared/types'
 import { ref } from 'vue'
 import { UI } from '@/constants'

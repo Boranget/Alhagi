@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+﻿import { describe, it, expect, vi } from 'vitest'
 import { KeepOriginalStrategy } from '../strategies/KeepOriginalStrategy'
 import { ImageSource } from '@core/entities/image/ImageSource'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 
 describe('KeepOriginalStrategy', () => {
   const createMockContext = (): ImageInsertContext => ({

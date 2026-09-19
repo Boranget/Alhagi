@@ -1,8 +1,8 @@
-import { Plugin, PluginKey } from '@milkdown/kit/prose/state'
+﻿import { Plugin, PluginKey } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
 import type { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
-import type { ImageInsertContext } from '@core/interfaces/services/image/IImageInsertStrategy'
+import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 import { fileToImageSource, blobToImageSource, urlToImageSource } from '@/services/image/ImagePasteHandler'
 import { $prose } from '@milkdown/utils'
 
