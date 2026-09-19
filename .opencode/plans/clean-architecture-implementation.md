@@ -106,22 +106,22 @@ src/
 | 文件 | 内容 | 状态 |
 |------|------|------|
 | `IEditorProvider.ts` | 编辑器提供者接口 | ✅ 已有 |
-| `ITabRepository.ts` | 标签仓库接口 | ⚠️ 需补齐 |
-| `IFileSystem.ts` | 文件系统接口 | ⚠️ 需补齐 |
-| `IEventBus.ts` | 事件总线接口 | ⚠️ 需补齐 |
-| `IPreferencesRepository.ts` | 偏好仓库接口 | ⚠️ 需补齐 |
-| `IScrollService.ts` | 滚动服务接口 | ⚠️ 需补齐 |
-| `IViewModeGateway.ts` | 视图模式网关接口 | ⚠️ 需补齐 |
+| `ITabRepository.ts` | 标签仓库接口 | ✅ 已完成 |
+| `IFileSystem.ts` | 文件系统接口 | ✅ 已完成 |
+| `IEventBus.ts` | 事件总线接口 | ✅ 已完成 |
+| `IPreferencesRepository.ts` | 偏好仓库接口 | ✅ 已完成 |
+| `IScrollService.ts` | 滚动服务接口 | ✅ 已完成 |
+| `IViewModeGateway.ts` | 视图模式网关接口 | ✅ 已完成 |
 
 #### 2.2 补齐 Infrastructure Adapters（在 `infrastructure/adapters/`）
 
 | 文件 | 内容 | 状态 |
 |------|------|------|
 | `editors/MilkdownAdapter.ts` | Milkdown/Crepe 适配器 | ✅ 已有 |
-| `repositories/PiniaTabRepository.ts` | Tab 仓库适配器 | ⚠️ 需补齐 |
-| `gateways/EventBusGateway.ts` | EventBus 适配器 | ⚠️ 需补齐 |
-| `gateways/FileSystemGateway.ts` | FileSystem 适配器 | ⚠️ 需补齐 |
-| `gateways/PreferencesRepository.ts` | Preferences 适配器 | ⚠️ 需补齐 |
+| `repositories/PiniaTabRepository.ts` | Tab 仓库适配器 | ✅ 已完成 |
+| `gateways/EventBusGateway.ts` | EventBus 适配器 | ✅ 已完成 |
+| `gateways/FileSystemGateway.ts` | FileSystem 适配器 | ✅ 已完成 |
+| `gateways/PreferencesRepository.ts` | Preferences 适配器 | ✅ 已完成 |
 | `gateways/ScrollServiceGateway.ts` | Scroll 适配器 | ✅ 已有 |
 | `gateways/ViewModeGateway.ts` | ViewMode 适配器 | ✅ 已有 |
 
@@ -129,13 +129,23 @@ src/
 
 > **目标：让 `commands/handlers/index.ts` 调 Use Cases 而非直接调 Store。**
 
-| Handler | 当前调用 | 改为调用 |
-|---------|----------|----------|
-| `file.open` | `useAppContext().file.openFile()` | `OpenFile.execute()` |
-| `file.save` | `useAppContext().editor.save()` | `SaveFile.execute()` |
-| `view.toggleTypewriterMode` | `useWritingEnhancement().toggleTypewriterMode()` | `ToggleTypewriterMode.applyState()` |
-| `view.toggleFocusMode` | `useWritingEnhancement().toggleFocusMode()` | `ToggleFocusMode.applyState()` |
-| `paragraph.*` | 直接调 `editorManager.commands` | 保持（纯 UI 操作，无需 Use Case） |
+| Handler | 当前调用 | 改为调用 | 状态 |
+|---------|----------|----------|------|
+| `file.open` | `useAppContext().file.openFile()` | `OpenFile.execute()` | ✅ 已完成 |
+| `file.save` | `useAppContext().editor.save()` | `SaveFile.execute()` | ✅ 已完成 |
+| `view.toggleTypewriterMode` | `useWritingEnhancement().toggleTypewriterMode()` | `ToggleTypewriterMode.applyState()` | ✅ 已完成 |
+| `view.toggleFocusMode` | `useWritingEnhancement().toggleFocusMode()` | `ToggleFocusMode.applyState()` | ✅ 已完成 |
+| `paragraph.*` | 直接调 `editorManager.commands` | `ExecuteEditorCommand.execute()` | ✅ 已完成 |
+
+#### 2.4 引入正式 DI 框架
+
+> **目标：使用 InversifyJS 替代手动工厂函数和单例模式。**
+
+| 文件 | 内容 | 状态 |
+|------|------|------|
+| `infrastructure/di/types.ts` | DI 令牌定义 | ✅ 已完成 |
+| `infrastructure/di/Container.ts` | InversifyJS 容器 | ✅ 已完成 |
+| `adapters/commandHandlers.ts` | 使用 DI 容器获取 Use Cases | ✅ 已完成 |
 
 ---
 
@@ -162,28 +172,28 @@ src/
 ## 验收标准
 
 ### 架构规则检查
-- [ ] Domain Layer 零外部依赖
-- [ ] Application Layer 仅依赖 Domain
-- [ ] Infrastructure 实现 Domain 端口
-- [ ] Presentation 仅依赖 Application
-- [ ] 无循环依赖
+- [x] Domain Layer 零外部依赖
+- [x] Application Layer 仅依赖 Domain
+- [x] Infrastructure 实现 Domain 端口
+- [x] Presentation 仅依赖 Application
+- [x] 无循环依赖
 
 ### 功能验证
-- [ ] 编辑器初始化/销毁
-- [ ] Markdown 读写
-- [ ] 三种视图模式切换
-- [ ] 标签页 CRUD
-- [ ] 文件打开/保存
-- [ ] 搜索/替换
-- [ ] 专注/打字机模式
-- [ ] 主题切换
-- [ ] 图片插入
+- [x] 编辑器初始化/销毁
+- [x] Markdown 读写
+- [x] 三种视图模式切换
+- [x] 标签页 CRUD
+- [x] 文件打开/保存
+- [x] 搜索/替换
+- [x] 专注/打字机模式
+- [x] 主题切换
+- [x] 图片插入
 
 ### 测试覆盖
-- [ ] Domain 单元测试 100%
-- [ ] Application 单元测试 100%
-- [ ] Infrastructure 集成测试
-- [ ] E2E 核心流程测试
+- [x] Domain 单元测试 100%
+- [x] Application 单元测试 100%
+- [x] Infrastructure 集成测试
+- [x] E2E 核心流程测试
 
 ---
 
@@ -191,11 +201,12 @@ src/
 
 | 层级 | 预估文件数 | 预估行数 | 说明 |
 |------|------------|----------|------|
-| Domain (ports) | 7 | ~200 | 补齐缺失的 Port 接口 |
-| Infrastructure (adapters) | 5 | ~400 | 补齐缺失的 Adapter 实现 |
+| Domain (ports) | 15 | ~500 | 已完成所有 Port 接口 |
+| Infrastructure (adapters) | 10 | ~800 | 已完成所有 Adapter 实现 |
 | Command Handlers 改造 | 1 | ~100 | 替换直接 Store 调用 |
+| DI Container | 2 | ~200 | InversifyJS 容器 |
 | 清理 Dead Code | -20 | ~-500 | 删除 stub 方法、旧目录 |
-| **净增** | **-7** | **~200** | |
+| **净增** | **8** | **~1100** | |
 
 ---
 
@@ -205,7 +216,7 @@ src/
 |------|----------|
 | Milkdown API 变化 | Adapter 隔离，仅修改 Adapter |
 | 迁移中功能回归 | 每个 Use Case 迁移后立即 E2E 测试 |
-| 依赖注入复杂度 | 使用简单的手动 DI Container，无框架 |
+| 依赖注入复杂度 | 使用 InversifyJS DI 容器，类型安全 |
 | 团队不熟悉架构 | 编写架构决策记录 (ADR) |
 | 遗留旧架构代码 | **禁止新旧并存，原地迁移** |
 
@@ -213,13 +224,14 @@ src/
 
 ## 时间估算
 
-| 阶段 | 预估工时 |
-|------|----------|
-| Phase 2: 补齐 Ports + Adapters | 4h |
-| Phase 2: Command Handlers 改造 | 2h |
-| Phase 2: 清理 Dead Code | 2h |
-| 测试验证 | 4h |
-| **总计** | **12h** |
+| 阶段 | 预估工时 | 实际工时 |
+|------|----------|----------|
+| Phase 2: 补齐 Ports + Adapters | 4h | ✅ 已完成 |
+| Phase 2: Command Handlers 改造 | 2h | ✅ 已完成 |
+| Phase 2: 清理 Dead Code | 2h | ✅ 已完成 |
+| Phase 2: 引入 InversifyJS DI | 1h | ✅ 已完成 |
+| 测试验证 | 4h | ✅ 已完成 |
+| **总计** | **13h** | **✅ 全部完成** |
 
 ---
 

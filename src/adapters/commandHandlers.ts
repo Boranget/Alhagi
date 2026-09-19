@@ -3,71 +3,42 @@
 // ============================================================
 //
 // 将 Command Handlers 与 Use Cases 连接。
-// 提供工厂函数创建 Use Cases 实例，供命令处理器使用。
+// 使用 InversifyJS DI 容器获取 Use Cases 实例。
 
+import { container } from '@infrastructure/di/Container'
+import { TYPES } from '@infrastructure/di/types'
 import { CreateTab } from '@core/use-cases/tabs/CreateTab'
 import { CloseTab } from '@core/use-cases/tabs/CloseTab'
+import { SwitchTab } from '@core/use-cases/tabs/SwitchTab'
+import { UpdateTab } from '@core/use-cases/tabs/UpdateTab'
 import { SaveFile } from '@core/use-cases/file/SaveFile'
+import { ExecuteEditorCommand } from '@core/use-cases/editor/ExecuteEditorCommand'
 import { EventBusGateway } from '@adapters/gateways/EventBusGateway'
 import { useTabRepository } from '@adapters/stores/tabs'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
-import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 
-// 单例实例
-let createTabUseCase: CreateTab | null = null
-let closeTabUseCase: CloseTab | null = null
-let saveFileUseCase: SaveFile | null = null
-
-function getOrCreateTabRepository() {
-  return useTabRepository()
-}
-
-function getOrCreateEventBus() {
-  return new EventBusGateway()
-}
-
-function getOrCreateFileSystem() {
-  return useFileSystemGateway()
-}
-
-function getOrCreateEditorProvider() {
-  return getEditorServiceGateway()
-}
-
+// 获取 Use Cases（从 DI 容器）
 export function getCreateTabUseCase(): CreateTab {
-  if (!createTabUseCase) {
-    createTabUseCase = new CreateTab(
-      getOrCreateTabRepository(),
-      getOrCreateEventBus()
-    )
-  }
-  return createTabUseCase
+  return container.get<CreateTab>(TYPES.CreateTabUseCase)
 }
 
 export function getCloseTabUseCase(): CloseTab {
-  if (!closeTabUseCase) {
-    closeTabUseCase = new CloseTab(
-      getOrCreateTabRepository(),
-      getOrCreateEventBus()
-    )
-  }
-  return closeTabUseCase
+  return container.get<CloseTab>(TYPES.CloseTabUseCase)
 }
 
-export function getSaveFileUseCase(): SaveFile {
-  if (!saveFileUseCase) {
-    saveFileUseCase = new SaveFile(
-      getOrCreateFileSystem(),
-      getOrCreateTabRepository(),
-      getOrCreateEventBus()
-    )
-  }
-  return saveFileUseCase
+export function getSwitchTabUseCase(): SwitchTab {
+  return container.get<SwitchTab>(TYPES.SwitchTabUseCase)
 }
 
-// 重置单例（用于测试）
+export function getUpdateTabUseCase(): UpdateTab {
+  return container.get<UpdateTab>(TYPES.UpdateTabUseCase)
+}
+
+export function getExecuteEditorCommandUseCase(): ExecuteEditorCommand {
+  return container.get<ExecuteEditorCommand>(TYPES.ExecuteEditorCommandUseCase)
+}
+
+// 保持兼容性（用于测试）
 export function resetCommandHandlerAdapters(): void {
-  createTabUseCase = null
-  closeTabUseCase = null
-  saveFileUseCase = null
+  // InversifyJS 容器不需要重置
 }

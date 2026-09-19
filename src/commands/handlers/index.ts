@@ -13,7 +13,7 @@ import { useTabService } from '@/services/tabService'
 import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { getCreateTabUseCase, getCloseTabUseCase } from '@adapters/commandHandlers'
+import { getCreateTabUseCase, getCloseTabUseCase, getExecuteEditorCommandUseCase } from '@adapters/commandHandlers'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -29,6 +29,7 @@ export function initCommandHandlers(): void {
   // Use Cases（Core Layer）
   const createTabUseCase = getCreateTabUseCase()
   const closeTabUseCase = getCloseTabUseCase()
+  const executeEditorCommand = getExecuteEditorCommandUseCase()
 
   // ========================================
   // 文件操作命令
@@ -139,23 +140,23 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('format.bold', () => {
-    editorManager.commands.toggleBold()
+    executeEditorCommand.execute('toggleBold')
   })
 
   dispatcher.register('format.italic', () => {
-    editorManager.commands.toggleItalic()
+    executeEditorCommand.execute('toggleItalic')
   })
 
   dispatcher.register('format.strikethrough', () => {
-    editorManager.commands.toggleStrikethrough()
+    executeEditorCommand.execute('toggleStrikethrough')
   })
 
   dispatcher.register('format.code', () => {
-    editorManager.commands.toggleInlineCode()
+    executeEditorCommand.execute('toggleInlineCode')
   })
 
   dispatcher.register('format.link', () => {
-    editorManager.commands.toggleLink()
+    executeEditorCommand.execute('toggleLink')
   })
 
   dispatcher.register('format.image', () => {
@@ -164,7 +165,7 @@ export function initCommandHandlers(): void {
   })
 
   dispatcher.register('format.highlight', () => {
-    editorManager.commands.toggleHighlight()
+    executeEditorCommand.execute('toggleHighlight')
   })
 
   // ========================================
@@ -172,59 +173,59 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('paragraph.heading1', () => {
-    editorManager.commands.toggleHeading(1)
+    executeEditorCommand.execute('toggleHeading1')
   })
 
   dispatcher.register('paragraph.heading2', () => {
-    editorManager.commands.toggleHeading(2)
+    executeEditorCommand.execute('toggleHeading2')
   })
 
   dispatcher.register('paragraph.heading3', () => {
-    editorManager.commands.toggleHeading(3)
+    executeEditorCommand.execute('toggleHeading3')
   })
 
   dispatcher.register('paragraph.heading4', () => {
-    editorManager.commands.toggleHeading(4)
+    executeEditorCommand.execute('toggleHeading4')
   })
 
   dispatcher.register('paragraph.heading5', () => {
-    editorManager.commands.toggleHeading(5)
+    executeEditorCommand.execute('toggleHeading5')
   })
 
   dispatcher.register('paragraph.heading6', () => {
-    editorManager.commands.toggleHeading(6)
+    executeEditorCommand.execute('toggleHeading6')
   })
 
   dispatcher.register('paragraph.paragraph', () => {
-    editorManager.commands.toggleParagraph()
+    executeEditorCommand.execute('toggleParagraph')
   })
 
   dispatcher.register('paragraph.quote', () => {
-    editorManager.commands.toggleBlockQuote()
+    executeEditorCommand.execute('toggleBlockQuote')
   })
 
   dispatcher.register('paragraph.bulletList', () => {
-    editorManager.commands.toggleBulletList()
+    executeEditorCommand.execute('toggleBulletList')
   })
 
   dispatcher.register('paragraph.orderedList', () => {
-    editorManager.commands.toggleOrderedList()
+    executeEditorCommand.execute('toggleOrderedList')
   })
 
   dispatcher.register('paragraph.taskList', () => {
-    editorManager.commands.toggleTaskList()
+    executeEditorCommand.execute('toggleTaskList')
   })
 
   dispatcher.register('paragraph.codeBlock', () => {
-    editorManager.commands.toggleCodeFence()
+    executeEditorCommand.execute('toggleCodeFence')
   })
 
   dispatcher.register('paragraph.mathBlock', () => {
-    editorManager.commands.insertMathBlock()
+    executeEditorCommand.execute('insertMathBlock')
   })
 
   dispatcher.register('paragraph.horizontalRule', () => {
-    editorManager.commands.insertHorizontalRule()
+    executeEditorCommand.execute('insertHorizontalRule')
   })
 
   // ========================================
@@ -232,31 +233,31 @@ export function initCommandHandlers(): void {
   // ========================================
 
   dispatcher.register('table.insert', () => {
-    editorManager.commands.insertTable()
+    executeEditorCommand.execute('insertTable')
   })
 
   dispatcher.register('table.insertRowAbove', () => {
-    editorManager.commands.insertTableRowAbove()
+    executeEditorCommand.execute('insertTableRowAbove')
   })
 
   dispatcher.register('table.insertRowBelow', () => {
-    editorManager.commands.insertTableRowBelow()
+    executeEditorCommand.execute('insertTableRowBelow')
   })
 
   dispatcher.register('table.insertColumnLeft', () => {
-    editorManager.commands.insertTableColumnLeft()
+    executeEditorCommand.execute('insertTableColumnLeft')
   })
 
   dispatcher.register('table.insertColumnRight', () => {
-    editorManager.commands.insertTableColumnRight()
+    executeEditorCommand.execute('insertTableColumnRight')
   })
 
   dispatcher.register('table.deleteRow', () => {
-    editorManager.commands.deleteTableRow()
+    executeEditorCommand.execute('deleteTableRow')
   })
 
   dispatcher.register('table.deleteColumn', () => {
-    editorManager.commands.deleteTableColumn()
+    executeEditorCommand.execute('deleteTableColumn')
   })
 
   // ========================================

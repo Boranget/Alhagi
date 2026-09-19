@@ -10,7 +10,6 @@ const pinia = createPinia()
 
 app.use(pinia)
 
-// Initialize all dependencies after Pinia is installed
 initializeContainer()
 
 app.mount('#app')

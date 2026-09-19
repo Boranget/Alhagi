@@ -22,6 +22,7 @@ import { useLayoutStore } from '@/stores/layout'
 import { useViewModeStore } from '@/stores/viewMode'
 import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
 import { useEditor } from '@/adapters/composables/useEditor'
+import { getCreateTabUseCase, getCloseTabUseCase, getSwitchTabUseCase, getUpdateTabUseCase } from '@adapters/commandHandlers'
 import type { ViewMode } from '@shared/types'
 import type { SearchConfig } from '@/utils/search'
 
@@ -34,6 +35,12 @@ export function useAppContext() {
   const layoutStore = useLayoutStore()
   const viewModeStore = useViewModeStore()
   const editor = useEditor()
+
+  // Use Cases
+  const createTabUseCase = getCreateTabUseCase()
+  const closeTabUseCase = getCloseTabUseCase()
+  const switchTabUseCase = getSwitchTabUseCase()
+  const updateTabUseCase = getUpdateTabUseCase()
 
   // storeToRefs 保持 computed getters 的响应式
   const { activeTab, activeTabId, tabCount, dirtyTabs } = storeToRefs(tabsStore)
@@ -61,10 +68,19 @@ export function useAppContext() {
       allTabs: tabsStore.getAllTabs,
       getTab: (id: string) => tabsStore.getTab(id),
       findByPath: (path: string) => tabsStore.findTabByFilePath(path),
-      create: (options?: { filePath?: string; content?: string; title?: string; viewMode?: ViewMode; fileType?: import('@shared/types').FileType; splitRatio?: number }) => tabsStore.createTab(options),
-      close: (id: string) => tabsStore.removeTab(id),
-      switch: (id: string) => tabsStore.switchTab(id),
-      update: (id: string, updates: Partial<import('@shared/types').TabState>) => tabsStore.updateTab(id, updates),
+      create: async (options?: { filePath?: string; content?: string; title?: string; viewMode?: ViewMode; fileType?: import('@shared/types').FileType; splitRatio?: number }) => {
+        const tab = await createTabUseCase.execute(options)
+        return tab
+      },
+      close: async (id: string) => {
+        await closeTabUseCase.execute(id)
+      },
+      switch: async (id: string) => {
+        await switchTabUseCase.execute(id)
+      },
+      update: async (id: string, updates: Partial<import('@shared/types').TabState>) => {
+        await updateTabUseCase.execute(id, updates)
+      },
       markDirty: (id: string) => tabsStore.markDirty(id),
       markClean: (id: string) => tabsStore.markClean(id),
       setViewMode: (id: string, mode: ViewMode) => tabsStore.setViewMode(id, mode),

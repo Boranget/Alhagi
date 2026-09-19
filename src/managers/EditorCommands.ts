@@ -43,8 +43,9 @@ import {
 import { editorStateCtx, editorViewCtx } from '@milkdown/kit/core'
 import type { CmdKey } from '@milkdown/core'
 import type { Ctx } from '@milkdown/ctx'
+import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 
-export class EditorCommands {
+export class EditorCommands implements IEditorCommands {
   private crepe: Crepe | null = null
 
   setCrepe(crepe: Crepe): void {
