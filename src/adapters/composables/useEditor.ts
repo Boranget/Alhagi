@@ -5,17 +5,40 @@ import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 import { useTabRepository } from '@adapters/stores/tabs'
 import type { ViewMode } from '@shared/types'
+import type { SearchService } from '@/services/search/types'
+
+// 单例实例，防止多次创建 InitEditor 导致 handler 累积
+let initEditorSingleton: InitEditor | null = null
 
 export function useEditor() {
   const editorProvider = getEditorServiceGateway()
   const eventBus = useEventBusGateway()
   const tabRepository = useTabRepository()
 
-  const initEditor = new InitEditor(editorProvider, eventBus, tabRepository)
+  if (!initEditorSingleton) {
+    initEditorSingleton = new InitEditor(editorProvider, eventBus, tabRepository)
+  }
+  const initEditor = initEditorSingleton
+
   const getMarkdown = new GetMarkdown(editorProvider)
   const setViewMode = new SetViewMode(editorProvider, eventBus)
 
   return {
+    // 新的多实例 API
+    initWrapper: (wrapper: HTMLElement) => editorProvider.initWrapper(wrapper),
+    detach: () => editorProvider.detach(),
+    createTab: (tabId: string, content: string, viewMode?: ViewMode) => editorProvider.createTab(tabId, content, viewMode),
+    destroyTab: (tabId: string) => editorProvider.destroyTab(tabId),
+    switchTab: (tabId: string) => editorProvider.switchTab(tabId),
+    hasTab: (tabId: string) => editorProvider.hasTab(tabId),
+
+    // 搜索
+    getCMSearchService: (tabId?: string): SearchService | null => editorProvider.getCMSearchService(tabId),
+
+    // 主题
+    updateTheme: (isDark: boolean) => editorProvider.updateTheme(isDark),
+
+    // 向后兼容的旧 API
     init: (container: HTMLElement, content: string = '', tabId: string) => initEditor.execute(container, content, tabId),
     destroy: () => editorProvider.destroy(),
     isReady: () => editorProvider.isReady(),
@@ -23,6 +46,7 @@ export function useEditor() {
     setMarkdown: (content: string) => editorProvider.setMarkdown(content),
     getHTML: () => editorProvider.getHTML(),
     setViewMode: (mode: ViewMode) => editorProvider.setViewMode(mode),
+    setTabViewMode: (tabId: string, mode: ViewMode) => editorProvider.setTabViewMode(tabId, mode),
     getViewMode: () => editorProvider.getViewMode(),
     onCursorChange: (handler: (from: number, to: number) => void) => editorProvider.onCursorChange(handler),
     onContentChange: (handler: (markdown: string) => void) => editorProvider.onContentChange(handler),
@@ -34,5 +58,6 @@ export function useEditor() {
     getActiveEditor: () => editorProvider.getActiveEditor(),
     getSelection: () => editorProvider.getSelection(),
     getView: () => editorProvider.getView(),
+    setCurrentTabId: (tabId: string) => editorProvider.setCurrentTabId(tabId),
   }
 }

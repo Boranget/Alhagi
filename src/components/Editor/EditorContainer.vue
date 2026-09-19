@@ -14,49 +14,8 @@
         :file-path="activeTab.filePath || ''"
       />
 
-      <!-- Crepe 编辑器 - WYSIWYG 和分屏预览共用 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.WYSIWYG || currentMode === EDITOR.VIEW_MODES.SPLIT"
-        ref="crepeContainer"
-        class="crepe"
-        :class="{
-          'editor-wysiwyg': currentMode === EDITOR.VIEW_MODES.WYSIWYG,
-          'editor-split-preview': currentMode === EDITOR.VIEW_MODES.SPLIT
-        }"
-        @focus="handleCrepeFocus"
-      />
-
-      <!-- CodeMirror 编辑器 - 源码模式 -->
-      <CodeMirrorEditor
-        v-show="currentMode === EDITOR.VIEW_MODES.SOURCE"
-        ref="sourceEditorRef"
-        :model-value="sourceContent"
-        @update:model-value="handleCodeMirrorChange"
-        @focus="handleCodeMirrorFocus"
-        @blur="handleCodeMirrorBlur"
-      />
-
-      <!-- CodeMirror 编辑器 - 分屏源码模式 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="editor-split-source"
-      >
-        <CodeMirrorEditor
-          :model-value="sourceContent"
-          @update:model-value="handleCodeMirrorChange"
-          @focus="handleCodeMirrorFocus"
-          @blur="handleCodeMirrorBlur"
-        />
-      </div>
-
-      <!-- 分屏分割线 -->
-      <div
-        v-show="currentMode === EDITOR.VIEW_MODES.SPLIT"
-        class="split-resizer"
-        @mousedown="handleResizerMouseDown"
-      >
-        <div class="split-resizer-handle" />
-      </div>
+      <!-- 多实例编辑器容器 — EditorPool 管理内部的 Crepe + CodeMirror -->
+      <div ref="editorWrapper" class="editor-wrapper" />
     </div>
   </div>
 </template>
@@ -65,48 +24,33 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppContext } from '@adapters/composables/useAppContext'
 import { eventBus, AppEvents } from '@/events/eventBus'
-import { debounce } from '@/utils/helpers'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
-import { t } from '@/services/i18n'
 import FloatingSearch from './FloatingSearch.vue'
 import UnsupportedFileMessage from './UnsupportedFileMessage.vue'
-import CodeMirrorEditor from './CodeMirrorEditor.vue'
 import { provideSearchService } from '@/composables/useSearch'
 import { CrepeSearchService } from '@/services/search'
 import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
 import type { SearchConfig } from '@/utils/search'
-import { useSplitResizer } from '@/composables/useSplitResizer'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
 
 const { tabs, editor, viewMode } = useAppContext()
-const { splitRatio, handleResizerMouseDown } = useSplitResizer()
 const { windowWidth, isSmallScreen, editorScale } = useResponsiveEditor()
 
-const crepeContainer = ref<HTMLElement | null>(null)
+const editorWrapper = ref<HTMLElement | null>(null)
 const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
-const sourceEditorRef = ref<InstanceType<typeof CodeMirrorEditor> | null>(null)
 
-const sourceContent = ref('')
 const currentMode = ref<ViewMode>('wysiwyg')
 const unsubscribes: (() => void)[] = []
 
 const searchService = computed(() => {
+  // 多实例架构下，搜索服务基于当前活动编辑器
   if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
     return new CrepeSearchService(() => editor.getView())
   }
-  // Issue 3 fix: 源码模式返回 CodeMirrorSearchService 代理，
-  // 委托给 CodeMirrorEditor 暴露的搜索方法
-  if (currentMode.value === 'source' && sourceEditorRef.value) {
-    const ref = sourceEditorRef.value
-    return {
-      search: (config: SearchConfig, options?: { select?: boolean }) => ref.search(config, options),
-      clear: () => ref.clearSearch(),
-      findNext: (): SearchResult => ref.findNext(),
-      findPrev: (): SearchResult => ref.findPrev(),
-      replaceNext: (replacement: string): SearchResult => ref.replaceNext(replacement),
-      replaceAll: (replacement: string): ReplaceResult => ref.replaceAll(replacement),
-    } as SearchService
+  // 源码模式：使用 CM 搜索服务
+  if (currentMode.value === 'source') {
+    return editor.getCMSearchService()
   }
   return null
 })
@@ -133,133 +77,86 @@ const contentClasses = computed(() => ({
   'small-screen': isSmallScreen.value
 }))
 
+// ============================================================
+// Tab 切换逻辑（多实例）
+// ============================================================
+
 watch(activeTab, async (tab, oldTab) => {
-  console.log('[EditorContainer] activeTab watch triggered', { 
-    oldTabId: oldTab?.id, 
-    newTabId: tab?.id, 
-    isReady: editor.isReady(),
-    hasContent: !!tab?.content,
-    hasCrepeContainer: !!crepeContainer.value
-  })
-  if (tab && crepeContainer.value) {
-    // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
-    if (editor.isReady()) {
-      if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-        // 重新初始化编辑器以加载新标签页的内容
-        console.log('[EditorContainer] re-initializing editor for tab', { tabId: tab.id, contentLength: tab.content.length })
-        await editor.init(crepeContainer.value, tab.content, tab.id)
-      }
-    }
-    
-    // 更新源码内容
-    sourceContent.value = tab.content
-  }
-}, { immediate: true })
+  const oldId = oldTab?.id ?? 'null'
+  const newId = tab?.id ?? 'null'
+  console.log(`[EditorContainer] watch: ${oldId} → ${newId}`)
 
-const handleCodeMirrorChange = (val: string) => {
-  sourceContent.value = val
-  handleSourceContentChange(val)
-}
-
-const handleCrepeFocus = () => {
-  // Active editor tracking is managed internally by EditorContainer
-}
-
-const handleCodeMirrorFocus = () => {
-  // Active editor tracking is managed internally by EditorContainer
-}
-
-const handleCodeMirrorBlur = () => {
-  // Active editor tracking is managed internally by EditorContainer
-}
-
-const handleViewModeChange = async (mode: ViewMode) => {
-  const prevMode = currentMode.value
-  
-  if (mode === prevMode) {
+  if (!tab) {
+    console.log('[EditorContainer] activeTab is null')
     return
   }
 
-  // 切换模式时自动关闭搜索框并清除高亮
+  // 确保目标 tab 有编辑器实例
+  if (!editor.hasTab(tab.id)) {
+    console.log(`[EditorContainer] createTab: ${tab.id}, content=${tab.content.length}chars`)
+    await editor.createTab(tab.id, tab.content, tab.viewMode)
+  }
+
+  // 切换 tab（显示/隐藏）
+  console.log(`[EditorContainer] switchTab: ${tab.id}`)
+  editor.switchTab(tab.id)
+
+  // 同步视图模式
+  currentMode.value = tab.viewMode
+  editor.setTabViewMode(tab.id, tab.viewMode)
+}, { immediate: true })
+
+// ============================================================
+// 视图模式切换
+// ============================================================
+
+const handleViewModeChange = async (mode: ViewMode) => {
+  if (mode === currentMode.value) return
+  if (!activeTab.value) return
+
+  // 切换模式时自动关闭搜索框
   floatingSearchRef.value?.hide()
-
-  // 如果切换到非 WYSIWYG 模式，同步 Crepe 的内容到 CodeMirror
-  if (mode !== EDITOR.VIEW_MODES.WYSIWYG && editor.isReady()) {
-    sourceContent.value = editor.getMarkdown()
-  }
-
-  // 如果切换到 WYSIWYG 模式，同步 CodeMirror 的内容到 Crepe
-  if (mode === EDITOR.VIEW_MODES.WYSIWYG && prevMode !== EDITOR.VIEW_MODES.WYSIWYG) {
-    if (editor.isReady()) {
-      await editor.setMarkdown(sourceContent.value)
-    }
-  }
 
   // 更新模式
   currentMode.value = mode
-  editor.setViewMode(mode)
-  
-  // 等待 DOM 更新，让 v-show 生效
+  editor.setTabViewMode(activeTab.value.id, mode)
+  tabs.update(activeTab.value.id, { viewMode: mode })
+
+  // 等待 DOM 更新
   await nextTick()
 }
 
-const handleSourceContentChange = debounce((newContent: unknown) => {
-  const content = newContent as string
-  console.log('[EditorContainer] handleSourceContentChange', { 
-    activeTabId: activeTab.value?.id, 
-    contentLength: content.length 
-  })
-  if (activeTab.value && editor.isReady()) {
-    tabs.update(activeTab.value.id, {
-      content: content,
-      isDirty: true,
-    })
-    editor.setMarkdown(content)
-  }
-}, 100)
-
-const unsubscribeContentChanged = editor.onContentChange((markdown) => {
-  console.log('[EditorContainer] onContentChange callback', { 
-    activeTabId: activeTab.value?.id, 
-    activeEditor: editor.getActiveEditor(),
-    markdownLength: markdown.length 
-  })
-  if (activeTab.value && editor.getActiveEditor() !== 'codemirror') {
-    sourceContent.value = markdown
-  }
-})
-unsubscribes.push(unsubscribeContentChanged)
-
-const unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, async (payload) => {
-  const data = payload as { tabId: string | null }
-  
-  // Editor ready - no action needed, tab switching is handled by tabs store
-})
-unsubscribes.push(unsubscribeEditorReady)
+// ============================================================
+// 事件监听
+// ============================================================
 
 const unsubscribeViewModeChanged = eventBus.on(AppEvents.VIEW_MODE_CHANGED, async (mode) => {
   await handleViewModeChange(mode as 'wysiwyg' | 'source' | 'split')
 })
 unsubscribes.push(unsubscribeViewModeChanged)
 
+// ============================================================
+// 生命周期
+// ============================================================
+
 onMounted(async () => {
-  if (crepeContainer.value) {
-    const initialContent = activeTab.value?.content || ''
-    const tabId = activeTab.value?.id
-    
+  if (editorWrapper.value) {
     try {
-      await editor.init(crepeContainer.value, initialContent, tabId)
+      await editor.initWrapper(editorWrapper.value)
     } catch (error) {
-      console.error('[EditorContainer] Failed to initialize:', error)
+      console.error('[EditorContainer] Failed to initialize wrapper:', error)
     }
   } else {
-    console.error('[EditorContainer] crepeContainer is null!')
+    console.error('[EditorContainer] editorWrapper is null!')
   }
-  
+
   window.addEventListener('keydown', handleEditorKeydown)
 })
 
 onUnmounted(async () => {
+  // 解绑 EditorPool：销毁所有编辑器实例，清除 wrapper 引用
+  // 与 onMounted 中的 initWrapper 形成对称生命周期
+  await editor.detach()
   unsubscribes.forEach(unsubscribe => unsubscribe())
   window.removeEventListener('keydown', handleEditorKeydown)
 })
@@ -279,7 +176,7 @@ function handleEditorKeydown(e: KeyboardEvent) {
   flex-direction: column;
   overflow: hidden;
   background: var(--editor-bg);
-  min-height: 0; /* 关键：让 flex 子元素能正确计算高度 */
+  min-height: 0;
 }
 
 .editor-content {
@@ -292,185 +189,35 @@ function handleEditorKeydown(e: KeyboardEvent) {
 
   // WYSIWYG 模式样式
   &.mode-wysiwyg {
-    .editor-wysiwyg {
+    .editor-wrapper {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      transition: all 0.3s ease;
-      display: block;
-      min-height: 0;
-
-      &::-webkit-scrollbar {
-        width: calc(var(--scrollbar-size, 8px) * 1.5);
-      }
-
-      :deep(.crepe) {
-        display: block;
-        width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-        transform-origin: top center;
-        transform: scale(var(--editor-scale, 1));
-      }
-
-      :deep(.milkdown) {
-        display: block;
-        height: auto;
-      }
-
-      :deep(.ProseMirror) {
-        outline: none;
-        padding: 16px 16px !important;
-
-        @media (min-width: 768px) {
-          padding: 20px 32px !important;
-        }
-
-        @media (min-width: 1024px) {
-          padding: 20px 64px !important;
-        }
-      }
-
-      :deep(.milkdown-block-handle) {
-        display: none !important;
-      }
+      display: flex;
+      flex-direction: column;
     }
   }
 
   // 源码模式样式
   &.mode-source {
-    .codemirror-editor {
+    .editor-wrapper {
       flex: 1;
       overflow: hidden;
-      min-height: 0;
-
-      :deep(.cm-scroller) {
-        &::-webkit-scrollbar {
-          width: calc(var(--scrollbar-size, 8px) * 1.5);
-        }
-      }
-
-      :deep(.cm-content) {
-        padding: 16px 16px !important;
-
-        @media (min-width: 768px) {
-          padding: 20px 32px !important;
-        }
-
-        @media (min-width: 1024px) {
-          padding: 20px 64px !important;
-        }
-      }
     }
   }
 
   // 分屏模式样式
   &.mode-split {
-    flex-direction: row;
-
-    .crepe.editor-split-preview {
-      height: 100%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      flex-shrink: 0;
-      transition: all 0.3s ease;
-      display: block;
-      min-height: 0;
-      width: v-bind('`calc(${100 - splitRatio}% - 3px)`');
-      order: 3; /* 确保在最右边 */
-
-      &::-webkit-scrollbar {
-        width: calc(var(--scrollbar-size, 8px) * 1.5);
-      }
-
-      :deep(.crepe) {
-        display: block;
-        width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-        transform-origin: top center;
-        transform: scale(var(--editor-scale, 1));
-      }
-
-      :deep(.milkdown) {
-        display: block;
-        height: auto;
-      }
-
-      :deep(.ProseMirror) {
-        outline: none;
-        padding: 16px 16px 16px 12px !important;
-
-        @media (min-width: 768px) {
-          padding: 20px 32px 20px 12px !important;
-        }
-
-        @media (min-width: 1024px) {
-          padding: 20px 64px 20px 12px !important;
-        }
-      }
-
-      :deep(.milkdown-block-handle) {
-        display: none !important;
-      }
-    }
-
-    .editor-split-source {
-      height: 100%;
-      flex-shrink: 0;
+    .editor-wrapper {
+      flex: 1;
       overflow: hidden;
-      width: v-bind('`calc(${splitRatio}% - 3px)`');
-      order: 1; /* 确保在最左边 */
-
-      :deep(.codemirror-editor) {
-        height: 100%;
-
-        :deep(.cm-scroller) {
-          &::-webkit-scrollbar {
-            width: calc(var(--scrollbar-size, 8px) * 1.5);
-          }
-        }
-
-        :deep(.cm-content) {
-          padding: 16px 12px 16px 16px !important;
-
-          @media (min-width: 768px) {
-            padding: 20px 12px 20px 32px !important;
-          }
-
-          @media (min-width: 1024px) {
-            padding: 20px 12px 20px 64px !important;
-          }
-        }
-      }
-    }
-
-    .split-resizer {
-      width: 6px;
-      background: var(--border-color);
-      cursor: col-resize;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.15s;
-      flex-shrink: 0;
-      order: 2; /* 确保在中间 */
-
-      &:hover {
-        background: var(--primary-color);
-      }
-
-      .split-resizer-handle {
-        width: 2px;
-        height: 30px;
-        background: var(--text-secondary);
-        border-radius: 1px;
-      }
+      flex-direction: row;
     }
   }
 
   &.focus-mode {
-    .editor-wysiwyg, .codemirror-editor {
+    .editor-wrapper {
       background: var(--bg-primary);
     }
   }
@@ -478,6 +225,140 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.small-screen {
     :deep(.milkdown-block-handle) {
       display: none !important;
+    }
+  }
+}
+
+// ============================================================
+// 多实例编辑器容器样式
+// ============================================================
+
+.editor-wrapper {
+  :deep(.tab-editor-container) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+
+    // WYSIWYG 模式
+    &.mode-wysiwyg {
+      flex-direction: column;
+    }
+
+    // 分屏模式
+    &.mode-split {
+      flex-direction: row;
+
+      .tab-editor-crepe {
+        order: 3;
+      }
+
+      .tab-editor-splitter {
+        order: 2;
+      }
+
+      .tab-editor-cm {
+        order: 1;
+      }
+    }
+  }
+
+  :deep(.tab-editor-crepe) {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+
+    &::-webkit-scrollbar {
+      width: calc(var(--scrollbar-size, 8px) * 1.5);
+    }
+
+    .crepe {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      transform-origin: top center;
+      transform: scale(var(--editor-scale, 1));
+    }
+
+    .milkdown {
+      display: block;
+      height: auto;
+    }
+
+    .ProseMirror {
+      outline: none;
+      padding: 16px 16px !important;
+
+      @media (min-width: 768px) {
+        padding: 20px 32px !important;
+      }
+
+      @media (min-width: 1024px) {
+        padding: 20px 64px !important;
+      }
+    }
+
+    .milkdown-block-handle {
+      display: none !important;
+    }
+  }
+
+  :deep(.tab-editor-cm) {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+
+    .codemirror-editor {
+      height: 100%;
+      width: 100%;
+    }
+
+    .cm-editor {
+      height: 100%;
+    }
+
+    .cm-scroller {
+      overflow: auto;
+
+      &::-webkit-scrollbar {
+        width: calc(var(--scrollbar-size, 8px) * 1.5);
+      }
+    }
+
+    .cm-content {
+      padding: 16px 16px !important;
+
+      @media (min-width: 768px) {
+        padding: 20px 32px !important;
+      }
+
+      @media (min-width: 1024px) {
+        padding: 20px 64px !important;
+      }
+    }
+  }
+
+  :deep(.tab-editor-splitter) {
+    width: 6px;
+    background: var(--border-color);
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--primary-color);
+    }
+
+    .tab-editor-splitter-handle {
+      width: 2px;
+      height: 30px;
+      background: var(--text-secondary);
+      border-radius: 1px;
     }
   }
 }

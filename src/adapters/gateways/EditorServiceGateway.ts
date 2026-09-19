@@ -3,8 +3,10 @@
 // ============================================================
 //
 // 委托给 MilkdownAdapter，不包含任何 Milkdown 特定逻辑。
-// 实现 IEditorProvider 接口（不再实现旧的 IEditorService）。
+// 实现 IEditorProvider 接口。
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import type { ViewMode } from '@shared/types'
+import type { SearchService } from '@/services/search/types'
 
 export interface EditorServiceGatewayDeps {
   adapter: IEditorProvider
@@ -18,38 +20,58 @@ export class EditorServiceGateway implements IEditorProvider {
   }
 
   // 生命周期
-  async init(container: HTMLElement, content: string, tabId: string): Promise<void> {
-    console.log('[EditorServiceGateway] init called', { tabId, contentLength: content.length })
-    return this.adapter.init(container, content, tabId)
+  async initWrapper(wrapper: HTMLElement): Promise<void> {
+    return this.adapter.initWrapper(wrapper)
+  }
+
+  async detach(): Promise<void> {
+    return this.adapter.detach()
   }
 
   async destroy(): Promise<void> {
     return this.adapter.destroy()
   }
 
-  isReady(): boolean {
-    return this.adapter.isReady()
+  isReady(tabId?: string): boolean {
+    return this.adapter.isReady(tabId)
+  }
+
+  // Tab 管理（多实例）
+  async createTab(tabId: string, content: string, viewMode?: ViewMode): Promise<void> {
+    return this.adapter.createTab(tabId, content, viewMode)
+  }
+
+  async destroyTab(tabId: string): Promise<void> {
+    return this.adapter.destroyTab(tabId)
+  }
+
+  switchTab(tabId: string): void {
+    return this.adapter.switchTab(tabId)
+  }
+
+  hasTab(tabId: string): boolean {
+    return this.adapter.hasTab(tabId)
   }
 
   // 内容操作
-  getMarkdown(): string {
-    return this.adapter.getMarkdown()
+  getMarkdown(tabId?: string): string {
+    return this.adapter.getMarkdown(tabId)
   }
 
-  async setMarkdown(content: string): Promise<void> {
-    return this.adapter.setMarkdown(content)
-  }
-
-  getHTML(): string {
-    return this.adapter.getHTML()
+  getHTML(tabId?: string): string {
+    return this.adapter.getHTML(tabId)
   }
 
   // 视图模式
-  setViewMode(mode: 'wysiwyg' | 'source' | 'split'): void {
+  setViewMode(mode: ViewMode): void {
     return this.adapter.setViewMode(mode)
   }
 
-  getViewMode(): 'wysiwyg' | 'source' | 'split' {
+  setTabViewMode(tabId: string, mode: ViewMode): void {
+    return this.adapter.setTabViewMode(tabId, mode)
+  }
+
+  getViewMode(): ViewMode {
     return this.adapter.getViewMode()
   }
 
@@ -82,6 +104,30 @@ export class EditorServiceGateway implements IEditorProvider {
 
   getHeadings(): Array<{ text: string; level: number; line: number; pos: number }> {
     return this.adapter.getHeadings()
+  }
+
+  // 搜索服务
+  getCMSearchService(tabId?: string): SearchService | null {
+    return this.adapter.getCMSearchService(tabId)
+  }
+
+  // 主题
+  async updateTheme(isDark: boolean): Promise<void> {
+    return this.adapter.updateTheme(isDark)
+  }
+
+  // 向后兼容
+  async init(container: HTMLElement, content: string, tabId: string): Promise<void> {
+    console.log('[EditorServiceGateway] init called (deprecated)', { tabId, contentLength: content.length })
+    return this.adapter.init(container, content, tabId)
+  }
+
+  setCurrentTabId(tabId: string): void {
+    this.adapter.setCurrentTabId(tabId)
+  }
+
+  async setMarkdown(content: string): Promise<void> {
+    return this.adapter.setMarkdown(content)
   }
 
   // 缓存管理

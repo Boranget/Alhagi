@@ -25,6 +25,17 @@ function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEd
     getCachedContent: vi.fn(() => undefined),
     setCachedContent: vi.fn(),
     clearCache: vi.fn(),
+    setCurrentTabId: vi.fn(),
+    // 新增多实例方法
+    initWrapper: vi.fn(() => Promise.resolve()),
+    detach: vi.fn(() => Promise.resolve()),
+    createTab: vi.fn(() => Promise.resolve()),
+    destroyTab: vi.fn(() => Promise.resolve()),
+    switchTab: vi.fn(),
+    hasTab: vi.fn(() => false),
+    setTabViewMode: vi.fn(),
+    getCMSearchService: vi.fn(() => null),
+    updateTheme: vi.fn(() => Promise.resolve()),
     ...overrides,
   }
 }
