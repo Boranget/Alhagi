@@ -13,6 +13,7 @@ import { useTabService } from '@/services/tabService'
 import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { eventBus, AppEvents } from '@/events/eventBus'
+import { getCreateTabUseCase, getCloseTabUseCase } from '@adapters/commandHandlers'
 
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
@@ -25,12 +26,16 @@ export function initCommandHandlers(): void {
   const tabService = useTabService()
   const { confirm } = useConfirmDialog()
 
+  // Use Cases（Core Layer）
+  const createTabUseCase = getCreateTabUseCase()
+  const closeTabUseCase = getCloseTabUseCase()
+
   // ========================================
   // 文件操作命令
   // ========================================
 
-  dispatcher.register('file.new', () => {
-    tabsStore.createTab({ title: '未命名' })
+  dispatcher.register('file.new', async () => {
+    await createTabUseCase.execute({ title: '未命名' })
   })
 
   dispatcher.register('file.newWindow', () => {
@@ -79,7 +84,7 @@ export function initCommandHandlers(): void {
       if (!ok) return
     }
 
-    tabsStore.removeTab(tabId)
+    await closeTabUseCase.execute(tabId)
   })
 
   // ========================================
