@@ -354,7 +354,12 @@ export class EditorPool {
   }
 
   private applyViewMode(instance: TabEditorInstance): void {
-    const { viewMode, crepeContainer, cmContainer, splitterEl } = instance
+    const { viewMode, container, crepeContainer, cmContainer, splitterEl } = instance
+
+    // 同步 container 的 mode class，让 CSS 布局选择器生效
+    // CSS 中 .tab-editor-container.mode-split { flex-direction: row } 等规则依赖此 class
+    container.classList.remove('mode-wysiwyg', 'mode-source', 'mode-split')
+    container.classList.add(`mode-${viewMode}`)
 
     switch (viewMode) {
       case 'wysiwyg':
