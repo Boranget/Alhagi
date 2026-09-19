@@ -20,7 +20,7 @@ import type { ImageInsertContext } from '@core/domain/ports/services/image/IImag
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 import { debounce } from '@/utils/helpers'
-import { createCodeMirrorView, updateEditorTheme, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
+import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { CodeMirrorSearchService } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 
@@ -681,6 +681,18 @@ export class EditorPool {
 
     instance.content = markdown
 
+    // 分屏模式下，Crepe 内容变更需同步到 CodeMirror
+    if (instance.viewMode === 'split' && instance.cmView) {
+      try {
+        instance.cmView.dispatch({
+          changes: { from: 0, to: instance.cmView.state.doc.length, insert: markdown },
+          annotations: ExternalChange.of(true),
+        })
+      } catch {
+        // ignore
+      }
+    }
+
     // 仅活动 tab 触发回调
     if (tabId === this.activeTabId) {
       this.emitContentChange(markdown)
@@ -693,8 +705,10 @@ export class EditorPool {
 
     instance.content = content
 
-    // 同步到 Crepe
-    if (instance.crepe && instance.viewMode !== 'source') {
+    // CM 内容变更始终同步到 Crepe（包括源码模式），
+    // 确保切换到分屏/所见即所得模式时 Crepe 内容是最新的。
+    // ExternalChange 标注阻止 Crepe → CM 的回弹循环。
+    if (instance.crepe) {
       try {
         const { replaceAll } = require('@milkdown/kit/utils')
         instance.crepe.editor.action(replaceAll(content))
