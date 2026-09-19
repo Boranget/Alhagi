@@ -142,6 +142,7 @@ export const useTabsStore = defineStore('tabs', () => {
   }
 
   function updateTab(tabId: string, updates: Partial<TabState>): void {
+    console.log('[TabsStore] updateTab called', { tabId, updates: Object.keys(updates), isDirty: updates.isDirty })
     const tab = tabs.value.get(tabId)
     if (tab) {
       Object.assign(tab, updates)

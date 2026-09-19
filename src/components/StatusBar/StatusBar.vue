@@ -206,7 +206,7 @@ function toggleViewMode() {
     nextMode = _splitExitTarget
   }
 
-  eventBus.emit(AppEvents.VIEW_MODE_CHANGED, nextMode)
+  eventBus.emit(AppEvents.VIEW_MODE_CHANGE, { mode: nextMode })
 }
 </script>
 

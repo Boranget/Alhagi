@@ -57,6 +57,7 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
   }
 
   const update = (id: string, updates: Partial<TabUpdates>): void => {
+    console.log('[TabRepository] update called', { id, updates: Object.keys(updates) })
     originalStore.updateTab(id, updates as Partial<TabState>)
   }
 

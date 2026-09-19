@@ -1,13 +1,13 @@
-import type { IEditorService } from '@core/interfaces/services/IEditorService'
+import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 
 export class GetMarkdown {
-  constructor(private editorService: IEditorService) {}
+  constructor(private editorProvider: IEditorProvider) {}
 
   execute(): string {
-    if (!this.editorService.isReady()) {
+    if (!this.editorProvider.isReady()) {
       return ''
     }
 
-    return this.editorService.getMarkdown()
+    return this.editorProvider.getMarkdown()
   }
 }

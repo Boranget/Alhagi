@@ -7,13 +7,13 @@ import { useAutoSave } from '@/composables/useAutoSave'
 import { useFolderOpenHandler } from '@/composables/useFolderOpenHandler'
 import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { useCapture } from '@/services/capture'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 
 // 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
 let _isFullscreen: ReturnType<typeof ref<boolean>> | null = null
@@ -29,7 +29,7 @@ export function useApp() {
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const fileStore = useFileExplorerStore()
-  const editorManager = useCrepeEditorManager()
+  const editorGateway = getEditorServiceGateway()
   const { confirm } = useConfirmDialog()
   const toast = useToast()
   const selectDialog = useSelectDialog()
@@ -85,6 +85,7 @@ export function useApp() {
         const activeTab = tabsStore.activeTabId ? tabsStore.getTab(tabsStore.activeTabId) : null
         if (activeTab) {
           await tabsStore.updateTab(activeTab.id, { viewMode: mode })
+          eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode)
         }
       })
     )
@@ -107,7 +108,8 @@ export function useApp() {
     const stopThemeWatch = watch(
       () => prefsStore.theme,
       async () => {
-        await editorManager.updateTheme()
+        // Theme updates are now handled by EditorContainer via updateTheme call
+        // No-op here - MilkdownAdapter handles theme internally
       }
     )
 
@@ -125,7 +127,7 @@ export function useApp() {
       systemThemeListener = async (_e: MediaQueryListEvent) => {
         if (prefsStore.theme === 'system') {
           prefsStore.applyTheme()
-          await editorManager.updateTheme()
+          // Theme updates are now handled by EditorContainer via updateTheme call
         }
       }
 
@@ -283,7 +285,7 @@ export function useApp() {
     return bootCleanup
   }
 
-  provide('editorManager', editorManager)
+  provide('editorGateway', editorGateway)
 
   return {
     isFullscreen,

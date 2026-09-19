@@ -21,6 +21,7 @@ import { useSearchStore } from '@/stores/search'
 import { useLayoutStore } from '@/stores/layout'
 import { useViewModeStore } from '@/stores/viewMode'
 import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
+import { useEditor } from '@/adapters/composables/useEditor'
 import type { ViewMode } from '@shared/types'
 import type { SearchConfig } from '@/utils/search'
 
@@ -32,6 +33,7 @@ export function useAppContext() {
   const searchStore = useSearchStore()
   const layoutStore = useLayoutStore()
   const viewModeStore = useViewModeStore()
+  const editor = useEditor()
 
   // storeToRefs 保持 computed getters 的响应式
   const { activeTab, activeTabId, tabCount, dirtyTabs } = storeToRefs(tabsStore)
@@ -70,28 +72,27 @@ export function useAppContext() {
 
     // ── Editor ────────────────────────────────────────
     editor: {
-      init: (container: HTMLElement, content?: string, tabId?: string) => editorStore.init(container, content, tabId),
-      destroy: () => editorStore.destroy(),
-      isReady: () => editorStore.isReady(),
-      getMarkdown: () => editorStore.getMarkdown(),
-      setMarkdown: (content: string) => editorStore.setMarkdown(content),
-      getHTML: () => editorStore.getHTML(),
-      getView: () => editorStore.getView(),
-      getCrepe: () => editorStore.getCrepe(),
-      getCommands: () => editorStore.getCommands(),
-      setViewMode: (mode: ViewMode) => editorStore.setViewMode(mode),
-      getViewMode: () => editorStore.getViewMode(),
+      init: (container: HTMLElement, content?: string, tabId?: string) => editor.init(container, content, tabId),
+      destroy: () => editor.destroy(),
+      isReady: () => editor.isReady(),
+      getMarkdown: () => editor.getMarkdown(),
+      setMarkdown: (content: string) => editor.setMarkdown(content),
+      getHTML: () => editor.getHTML(),
+      setViewMode: (mode: ViewMode) => editor.setViewMode(mode),
+      getViewMode: () => editor.getViewMode(),
       switchToTab: (tabId: string) => editorStore.switchToTab(tabId),
-      setActiveEditor: (editor: 'crepe' | 'codemirror' | null) => editorStore.setActiveEditor(editor),
-      getActiveEditor: () => editorStore.getActiveEditor(),
-      onCursorChange: (handler: (from: number, to: number) => void) => editorStore.onCursorChange(handler),
+      setActiveEditor: (editorType: 'crepe' | 'codemirror' | null) => editorStore.setActiveEditor(editorType),
+      getActiveEditor: () => editor.getActiveEditor(),
+      onCursorChange: (handler: (from: number, to: number) => void) => editor.onCursorChange(handler),
+      onContentChange: (handler: (markdown: string) => void) => editor.onContentChange(handler),
       getCurrentCursorLine: () => editorStore.getCurrentCursorLine(),
       getHeadingsWithPos: () => editorStore.getHeadingsWithPos(),
       scrollToHeading: (text: string, line: number, pos?: number) => editorStore.scrollToHeading(text, line, pos),
-      getCachedContent: (tabId: string) => editorStore.getCachedContent(tabId),
-      setCachedContent: (tabId: string, content: string) => editorStore.setCachedContent(tabId, content),
-      clearCache: () => editorStore.clearCache(),
+      getCachedContent: (tabId: string) => editor.getCachedContent(tabId),
+      setCachedContent: (tabId: string, content: string) => editor.setCachedContent(tabId, content),
+      clearCache: () => editor.clearCache(),
       updateTheme: () => editorStore.updateTheme(),
+      getView: () => editor.getView(),
     },
 
     // ── Search ────────────────────────────────────────

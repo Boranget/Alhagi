@@ -78,7 +78,6 @@ import type { SearchService, SearchResult, ReplaceResult } from '@/services/sear
 import type { SearchConfig } from '@/utils/search'
 import { useSplitResizer } from '@/composables/useSplitResizer'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
-import { usePreferencesStore } from '@/stores/preferences'
 
 const { tabs, editor, viewMode } = useAppContext()
 const { splitRatio, handleResizerMouseDown } = useSplitResizer()
@@ -135,11 +134,20 @@ const contentClasses = computed(() => ({
 }))
 
 watch(activeTab, async (tab, oldTab) => {
-  if (tab) {
+  console.log('[EditorContainer] activeTab watch triggered', { 
+    oldTabId: oldTab?.id, 
+    newTabId: tab?.id, 
+    isReady: editor.isReady(),
+    hasContent: !!tab?.content,
+    hasCrepeContainer: !!crepeContainer.value
+  })
+  if (tab && crepeContainer.value) {
     // 如果是标签页切换，或者是从欢迎页首次打开文件（oldTab 为 null 但 tab 有内容）
     if (editor.isReady()) {
       if ((oldTab && tab.id !== oldTab.id) || (!oldTab && tab.content)) {
-        await editor.switchToTab(tab.id)
+        // 重新初始化编辑器以加载新标签页的内容
+        console.log('[EditorContainer] re-initializing editor for tab', { tabId: tab.id, contentLength: tab.content.length })
+        await editor.init(crepeContainer.value, tab.content, tab.id)
       }
     }
     
@@ -197,6 +205,10 @@ const handleViewModeChange = async (mode: ViewMode) => {
 
 const handleSourceContentChange = debounce((newContent: unknown) => {
   const content = newContent as string
+  console.log('[EditorContainer] handleSourceContentChange', { 
+    activeTabId: activeTab.value?.id, 
+    contentLength: content.length 
+  })
   if (activeTab.value && editor.isReady()) {
     tabs.update(activeTab.value.id, {
       content: content,
@@ -206,13 +218,14 @@ const handleSourceContentChange = debounce((newContent: unknown) => {
   }
 }, 100)
 
-const unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, (payload) => {
-  const data = payload as { tabId: string; content: string }
-  if (data && data.tabId === activeTab.value?.id) {
-    const activeEditor = editor.getActiveEditor()
-    if (activeEditor !== 'codemirror') {
-      sourceContent.value = data.content
-    }
+const unsubscribeContentChanged = editor.onContentChange((markdown) => {
+  console.log('[EditorContainer] onContentChange callback', { 
+    activeTabId: activeTab.value?.id, 
+    activeEditor: editor.getActiveEditor(),
+    markdownLength: markdown.length 
+  })
+  if (activeTab.value && editor.getActiveEditor() !== 'codemirror') {
+    sourceContent.value = markdown
   }
 })
 unsubscribes.push(unsubscribeContentChanged)

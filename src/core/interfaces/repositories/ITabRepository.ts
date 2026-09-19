@@ -39,4 +39,5 @@ export interface TabUpdates {
   fileType: FileType
   cursor: { from: number; to: number }
   scrollTop: number
+  lastModified: number
 }

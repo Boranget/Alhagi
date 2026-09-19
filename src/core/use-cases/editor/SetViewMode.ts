@@ -1,15 +1,15 @@
-import type { IEditorService } from '@core/interfaces/services/IEditorService'
+import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import type { IEventBus } from '@core/interfaces/gateways/IEventBus'
 import type { ViewMode } from '@shared/types'
 
 export class SetViewMode {
   constructor(
-    private editorService: IEditorService,
+    private editorProvider: IEditorProvider,
     private eventBus: IEventBus
   ) {}
 
   execute(mode: ViewMode): void {
-    this.editorService.setViewMode(mode)
+    this.editorProvider.setViewMode(mode)
 
     this.eventBus.emit('app:view-mode-changed', mode)
   }

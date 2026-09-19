@@ -12,7 +12,8 @@
 //   - 管理打字机模式的事件监听生命周期
 
 import type { IScrollService, ScrollResult } from '@core/interfaces/services/IScrollService'
-import type { IEditorProvider } from '@core/interfaces/services/IEditorProvider'
+import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 /** 打字机模式默认目标 Y 坐标（距滚动容器顶部，px） */
 const TYPEWRITER_TARGET_Y = 320
@@ -20,7 +21,7 @@ const TYPEWRITER_TARGET_Y = 320
 export class ScrollServiceGateway implements IScrollService {
   private animationFrameId: number | null = null
   private typewriterListenerActive = false
-  private boundHandleSelectionChange: (() => void) | null = null
+  private unsubscribeCursorChange: (() => void) | null = null
 
   constructor(
     private editorProvider: IEditorProvider
@@ -80,17 +81,18 @@ export class ScrollServiceGateway implements IScrollService {
   startTypewriterMode(): void {
     if (this.typewriterListenerActive) return
 
-    this.boundHandleSelectionChange = () => this.throttledScrollToCenter()
-    document.addEventListener('selectionchange', this.boundHandleSelectionChange)
     this.typewriterListenerActive = true
+    this.unsubscribeCursorChange = eventBus.on(AppEvents.CURSOR_CHANGED, () => {
+      this.throttledScrollToCenter()
+    })
   }
 
   stopTypewriterMode(): void {
     if (!this.typewriterListenerActive) return
 
-    if (this.boundHandleSelectionChange) {
-      document.removeEventListener('selectionchange', this.boundHandleSelectionChange)
-      this.boundHandleSelectionChange = null
+    if (this.unsubscribeCursorChange) {
+      this.unsubscribeCursorChange()
+      this.unsubscribeCursorChange = null
     }
 
     if (this.animationFrameId) {

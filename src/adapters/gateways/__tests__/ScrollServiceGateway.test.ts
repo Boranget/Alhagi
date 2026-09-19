@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ScrollServiceGateway } from '../ScrollServiceGateway'
-import type { IEditorProvider } from '@core/interfaces/services/IEditorProvider'
+import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import type { ViewMode } from '@shared/types'
 
 // ── Mock Helpers ──────────────────────────────────────
 
@@ -8,6 +9,19 @@ function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEd
   return {
     getActiveEditor: vi.fn(() => 'crepe') as IEditorProvider['getActiveEditor'],
     getView: vi.fn(() => null),
+    getSelection: vi.fn(() => null),
+    getHeadings: vi.fn(() => []),
+    getMarkdown: vi.fn(() => ''),
+    setMarkdown: vi.fn(() => Promise.resolve()),
+    getHTML: vi.fn(() => ''),
+    init: vi.fn(() => Promise.resolve()),
+    destroy: vi.fn(() => Promise.resolve()),
+    isReady: vi.fn(() => true),
+    setViewMode: vi.fn(),
+    getViewMode: vi.fn(() => 'wysiwyg' as ViewMode),
+    scrollToHeading: vi.fn(),
+    onContentChange: vi.fn(() => () => {}),
+    onCursorChange: vi.fn(() => () => {}),
     ...overrides,
   }
 }
@@ -82,7 +96,8 @@ describe('ScrollServiceGateway', () => {
         getActiveEditor: () => 'crepe',
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
-          state: { selection: { from: 10, to: 10 } },
+          state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
+          dispatch: vi.fn(),
         }),
       })
       gateway = new ScrollServiceGateway(mockProvider)
@@ -97,11 +112,12 @@ describe('ScrollServiceGateway', () => {
       const editorWysiwyg = createMockHTMLElement('editor-wysiwyg', 0)
       document.body.appendChild(editorWysiwyg)
 
-      mockProvider = createMockEditorProvider({
+mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
         getView: () => ({
-          coordsAtPos: vi.fn(() => ({ top: 421, bottom: 441, left: 100, right: 100 })),
-          state: { selection: { from: 10, to: 10 } },
+          coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
+          state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
+          dispatch: vi.fn(),
         }),
       })
       gateway = new ScrollServiceGateway(mockProvider)
@@ -119,7 +135,8 @@ describe('ScrollServiceGateway', () => {
         getActiveEditor: () => 'crepe',
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
-          state: { selection: { from: 10, to: 10 } },
+          state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
+          dispatch: vi.fn(),
         }),
       })
       gateway = new ScrollServiceGateway(mockProvider)
@@ -205,7 +222,8 @@ describe('ScrollServiceGateway', () => {
         getActiveEditor: () => 'crepe',
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
-          state: { selection: { from: 10, to: 10 } },
+          state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
+          dispatch: vi.fn(),
         }),
       })
       gateway = new ScrollServiceGateway(mockProvider)

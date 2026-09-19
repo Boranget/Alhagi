@@ -318,4 +318,70 @@ src/
 
 ---
 
+## 重构实战经验总结 (Lessons Learned)
+
+### 1. 事件系统不一致 —— 最常见的跨层 Bug
+| 问题 | 根因 | 预防 |
+|------|------|------|
+| 事件名不匹配 (`VIEW_MODE_CHANGED` vs `VIEW_MODE_CHANGE`) | 常量定义冗余、语义重复 | 统一事件契约：共享 TypeScript 类型定义 `EventMap`，emit/on 双方共享 |
+| 状态更新后未发事件 | 只想到「更新状态」，没想到「通知订阅者」 | 规定：聚合根状态变更后，必须发领域事件 |
+| 载荷格式不统一 | 缺乏事件契约文档 | 定义 `interface EventPayloadMap { VIEW_MODE_CHANGE: { mode: ViewMode } }` |
+
+### 2. Use Case 依赖注入缺失 —— 核心业务逻辑失效
+| 问题 | 根因 | 预防 |
+|------|------|------|
+| `InitEditor` 缺少 `ITabRepository` | 重构提取 Use Case 时只注入了 Port，漏了 Repository | **检查清单**：每个 Use Case 构造函数 = 它需要的所有 Repository + Port |
+| `useEditor` Facade 缺少 Port 方法 | Facade 只暴露「读」没暴露「写/订阅」 | **规则**：Facade 方法数 = Port 方法数 |
+
+### 3. 多层调用参数丢失 —— 透传断层
+| 问题 | 根因 | 预防 |
+|------|------|------|
+| `init` 丢失 `content` 参数 | 4 层调用 (`EditorContainer → useAppContext → useEditor → InitExecutor`) 中间层未透传 | **类型系统保护**：强制签名 `execute(container, content, tabId)`，中间层不得省略参数 |
+| `editor.init` 签名不匹配 | Port 定义有 `content` 但实现未用、调用方未传 | Port 定义即契约，实现必须完整实现 |
+
+### 4. 回调链路断裂 —— 聚合内同步失效
+| 问题 | 根因 | 预防 |
+|------|------|------|
+| `onContentChange` 链路中断 | `InitEditor` 缺失 Repository 注入，无法同步聚合根 | **架构原则**：聚合内同步 = Use Case 直接调用 Repository.update() (同步命令) |
+
+### 5. 事件 vs 直接回调 —— 边界不清
+| 场景 | 机制 | 说明 |
+|------|------|------|
+| 聚合内状态同步 | Use Case → Repository.update() | 同步命令、有副作用、必须成功 |
+| 跨聚合通知 | EventBus.emit() | 异步事件、无副作用、可丢失 |
+
+---
+
+## 工程化预防清单 (Checklist)
+
+### 架构设计阶段
+- [ ] 事件契约先行：定义 `EventMap` 共享类型，emit/on 双方共享
+- [ ] Port 定义完整：每个 Port 方法都要有明确的输入输出类型
+- [ ] Use Case 依赖清单：构造函数参数 = 所有需要的 Repository + Port
+
+### 编码实现阶段
+- [ ] Facade 1:1 暴露 Port 方法 (`useEditor` 方法数 = `IEditorProvider` 方法数)
+- [ ] 多层调用参数强制透传：中间层不得省略/修改参数签名
+- [ ] 聚合内同步用 Repository.update()，跨聚合用 EventBus.emit()
+
+### 重构验证阶段
+- [ ] **全链路手动测试**：打开文件 → 编辑 → 保存 → 切模式 → 切 Tab → 关闭
+- [ ] 关键日志链路完整：`Adapter → UseCase → Repository → Store → UI`
+- [ ] 事件名/载荷类型检查：emit/on 双方共享同一 TypeScript 接口
+
+---
+
+## 架构决策记录 (ADR) 索引
+
+| ADR | 标题 | 状态 |
+|-----|------|------|
+| ADR-001 | 采用 Clean Architecture + Hexagonal Architecture | ✅ 已接受 |
+| ADR-002 | 使用绞杀者模式迁移 | ✅ 已接受 |
+| ADR-003 | 事件总线仅用于跨聚合通知 | ✅ 已接受 |
+| ADR-004 | Use Case 必须注入完整 Repository 依赖 | ✅ 已接受 |
+| ADR-005 | Facade 必须 1:1 暴露 Port 能力 | ✅ 已接受 |
+| ADR-006 | 聚合内同步用 Repository 命令，跨聚合用 EventBus 事件 | ✅ 已接受 |
+
+---
+
 *本计划基于对现有代码库的完整分析，遵循 Clean Architecture、Hexagonal Architecture、DDD 和 SOLID 原则设计。*

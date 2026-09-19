@@ -241,7 +241,7 @@ textarea {
 // 打字机模式 & 专注模式 —— 全局 body 级样式
 // ──────────────────────────────────────────
 
-// 打字机模式：全局平滑滚动
+// 打字机模式：光标始终居中 + 编辑区顶部留白
 body.typewriter-mode {
   .editor-wysiwyg,
   .editor-split-preview,
@@ -249,29 +249,32 @@ body.typewriter-mode {
   .editor-split-source {
     scroll-behavior: auto; // JS 控制 instant 滚动，CSS 不需要 smooth
   }
+
+  // ProseMirror 编辑器（WYSIWYG 模式）顶部留白
+  .ProseMirror {
+    padding-top: 40vh !important;
+    padding-bottom: 40vh !important;
+  }
+
+  // CodeMirror 源码模式顶部留白（排除代码块内的 CodeMirror）
+  .editor-split-source .cm-content,
+  .codemirror-editor .cm-content {
+    padding-top: 40vh !important;
+    padding-bottom: 40vh !important;
+  }
 }
 
-// 专注模式：暗色遮罩背景，强化编辑器区域焦点
-body.focus-mode {
-  // 编辑器区域外的元素进一步弱化（需要时可通过深层选择器覆盖）
-  .app-content {
-    // 侧边栏、状态栏等保持原样（不需要额外处理）
-  }
+// 专注模式：弱化编辑器内非活跃段落，强化当前段落焦点
+// 参考 MarkText 实现：非活跃块 opacity 0.25，活跃块 opacity 1
+// focusModePlugin 会通过 Decoration 给光标所在块添加 .focus-highlight class
+.focus-mode .ProseMirror > * {
+  opacity: 0.25;
+  transition: opacity 0.2s ease-in-out;
+}
 
-  // 编辑器背景微调
-  .editor-container {
-    background: var(--editor-bg);
-  }
-
-  // CodeMirror 源码模式的活跃行加亮
-  .cm-activeLine {
-    background-color: color-mix(in srgb, var(--primary-color) 8%, transparent) !important;
-  }
-
-  // 暗色主题下 CodeMirror 活跃行
-  [data-theme="dark"] & .cm-activeLine {
-    background-color: color-mix(in srgb, var(--primary-color) 12%, transparent) !important;
-  }
+// 活跃段落（包含光标的块）恢复全透明
+.focus-mode .ProseMirror > *.focus-highlight {
+  opacity: 1;
 }
 
 // ──────────────────────────────────────────

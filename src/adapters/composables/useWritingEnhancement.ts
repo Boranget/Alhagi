@@ -14,9 +14,9 @@
 
 import { watch } from 'vue'
 import { useViewModeStore } from '@/stores/viewMode'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
-import { ScrollServiceGateway } from '@/adapters/gateways/ScrollServiceGateway'
-import { ViewModeGateway } from '@/adapters/gateways/ViewModeGateway'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
+import { ScrollServiceGateway } from '@adapters/gateways/ScrollServiceGateway'
+import { ViewModeGateway } from '@adapters/gateways/ViewModeGateway'
 import { ToggleTypewriterMode } from '@core/use-cases/editor/ToggleTypewriterMode'
 import { ToggleFocusMode } from '@core/use-cases/editor/ToggleFocusMode'
 
@@ -49,8 +49,9 @@ export function useWritingEnhancement() {
   let storeWatchers: (() => void)[] | null = null
 
   // Gateway 依赖（Adapters Layer）
-  const scrollService = new ScrollServiceGateway(useCrepeEditorManager())
-  const viewModeGateway = new ViewModeGateway()
+  const editorProvider = getEditorServiceGateway()
+  const scrollService = new ScrollServiceGateway(editorProvider)
+  const viewModeGateway = new ViewModeGateway(editorProvider)
 
   // Use Cases（Core Layer）— 通过构造函数注入接口
   const typewriterUseCase = new ToggleTypewriterMode(scrollService, viewModeGateway)
