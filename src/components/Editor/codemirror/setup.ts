@@ -230,7 +230,9 @@ const onCodeMirrorUpdate = debounce(
   (...args: unknown[]) => {
     const onChange = args[0] as (getString: () => string) => void
     const viewUpdate = args[1] as ViewUpdate
+    console.log(`[CM] onCodeMirrorUpdate: hasFocus=${viewUpdate.view.hasFocus}, docChanged=${viewUpdate.docChanged}`)
     if (!viewUpdate.view.hasFocus) {
+      console.log(`[CM] onCodeMirrorUpdate: SKIPPED (no focus)`)
       return
     }
     const getString = () => viewUpdate.state.doc.toString()

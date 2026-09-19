@@ -111,6 +111,7 @@ watch(activeTab, async (tab, oldTab) => {
 // ============================================================
 
 const handleViewModeChange = async (mode: ViewMode) => {
+  console.log(`[EditorContainer] handleViewModeChange: ${currentMode.value} → ${mode}, activeTab=${activeTab.value?.id}`)
   if (mode === currentMode.value) return
   if (!activeTab.value) return
 

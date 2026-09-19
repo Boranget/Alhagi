@@ -6,6 +6,7 @@
 // 使用 EditorPool 管理每个 Tab 独立的 Crepe + CodeMirror 实例。
 
 import { EditorPool } from './EditorPool'
+import { replaceAll, insert } from '@milkdown/kit/utils'
 import type { ViewMode } from '@shared/types'
 import type { HeadingItem } from '@/utils/headings'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
@@ -125,7 +126,6 @@ export class MilkdownAdapter implements IEditorProvider {
     if (!instance?.crepe) return
 
     try {
-      const { replaceAll } = require('@milkdown/kit/utils')
       instance.crepe.editor.action(replaceAll(content))
       instance.content = content
     } catch (error) {
@@ -252,7 +252,6 @@ export class MilkdownAdapter implements IEditorProvider {
     if (!instance?.crepe) return
 
     try {
-      const { insert } = require('@milkdown/kit/utils')
       const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
       instance.crepe.editor.action(insert(imageMarkdown, true))
     } catch (error) {

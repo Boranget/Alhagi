@@ -8,6 +8,8 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx } from '@milkdown/kit/core'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
+import { replaceAll, insert, getHTML as getHTMLUtil } from '@milkdown/kit/utils'
+import { Selection } from '@milkdown/kit/prose/state'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import type { ViewMode } from '@shared/types'
 import { codeBlockSearchHighlight } from '@/services/search/codeBlockSearchHighlight'
@@ -20,7 +22,7 @@ import type { ImageInsertContext } from '@core/domain/ports/services/image/IImag
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 import { debounce } from '@/utils/helpers'
-import { createCodeMirrorView, updateEditorTheme, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
+import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { CodeMirrorSearchService } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 
@@ -203,6 +205,7 @@ export class EditorPool {
         ctx.get(listenerCtx).markdownUpdated(
           debounce((...args: unknown[]) => {
             const markdown = args[1] as string
+            console.log(`[EditorPool] Crepe markdownUpdated: tabId=${tabId}, len=${markdown.length}, preview="${markdown.substring(0, 50)}"`)
             this.handleMarkdownUpdate(tabId, markdown)
           }, MARKDOWN_UPDATE_DEBOUNCE_MS)
         )
@@ -239,6 +242,7 @@ export class EditorPool {
       content,
       onChange: (getString: () => string) => {
         const markdown = getString()
+        console.log(`[EditorPool] CM onChange: tabId=${tabId}, len=${markdown.length}, preview="${markdown.substring(0, 50)}"`)
         this.handleCMUpdate(tabId, markdown)
       },
       onFocus: () => {},
@@ -356,8 +360,9 @@ export class EditorPool {
   private applyViewMode(instance: TabEditorInstance): void {
     const { viewMode, container, crepeContainer, cmContainer, splitterEl } = instance
 
+    console.log(`[EditorPool] applyViewMode: tabId=${instance.tabId}, viewMode=${viewMode}`)
+
     // 同步 container 的 mode class，让 CSS 布局选择器生效
-    // CSS 中 .tab-editor-container.mode-split { flex-direction: row } 等规则依赖此 class
     container.classList.remove('mode-wysiwyg', 'mode-source', 'mode-split')
     container.classList.add(`mode-${viewMode}`)
 
@@ -418,8 +423,7 @@ export class EditorPool {
     if (!instance?.crepe) return ''
 
     try {
-      const { getHTML } = require('@milkdown/kit/utils')
-      return instance.crepe.editor.action(getHTML())
+      return instance.crepe.editor.action(getHTMLUtil())
     } catch {
       return ''
     }
@@ -531,7 +535,7 @@ export class EditorPool {
         const view = ctx.get(editorViewCtx)
         const resolvedPos = view.state.doc.resolve(pos)
         const tr = view.state.tr
-          .setSelection(require('@milkdown/kit/prose/state').Selection.near(resolvedPos, 1))
+          .setSelection(Selection.near(resolvedPos, 1))
           .scrollIntoView()
 
         view.dispatch(tr)
@@ -553,7 +557,6 @@ export class EditorPool {
     const instance = this.instances.get(id)
     if (!instance?.crepe) return
 
-    const { insert } = require('@milkdown/kit/utils')
     const imageMarkdown = `![${altText || 'image'}](${imageUrl})`
     instance.crepe.editor.action(insert(imageMarkdown, true))
   }
@@ -677,9 +680,26 @@ export class EditorPool {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
-    if (instance.content === markdown) return
+    if (instance.content === markdown) {
+      console.log(`[EditorPool] handleMarkdownUpdate: SKIPPED (same content) tabId=${tabId}`)
+      return
+    }
 
+    console.log(`[EditorPool] handleMarkdownUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${markdown.length}`)
     instance.content = markdown
+
+    // 分屏模式下，Crepe 内容变更需同步到 CodeMirror
+    if (instance.viewMode === 'split' && instance.cmView) {
+      try {
+        console.log(`[EditorPool] handleMarkdownUpdate: syncing to CM`)
+        instance.cmView.dispatch({
+          changes: { from: 0, to: instance.cmView.state.doc.length, insert: markdown },
+          annotations: ExternalChange.of(true),
+        })
+      } catch (e) {
+        console.error(`[EditorPool] handleMarkdownUpdate: CM sync failed`, e)
+      }
+    }
 
     // 仅活动 tab 触发回调
     if (tabId === this.activeTabId) {
@@ -691,16 +711,20 @@ export class EditorPool {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
+    console.log(`[EditorPool] handleCMUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${content.length}, hasCrepe=${!!instance.crepe}`)
+
     instance.content = content
 
     // 同步到 Crepe
     if (instance.crepe && instance.viewMode !== 'source') {
       try {
-        const { replaceAll } = require('@milkdown/kit/utils')
+        console.log(`[EditorPool] handleCMUpdate: syncing to Crepe via replaceAll`)
         instance.crepe.editor.action(replaceAll(content))
-      } catch {
-        // ignore
+      } catch (e) {
+        console.error(`[EditorPool] handleCMUpdate: replaceAll failed`, e)
       }
+    } else {
+      console.log(`[EditorPool] handleCMUpdate: NOT syncing to Crepe (crepe=${!!instance.crepe}, viewMode=${instance.viewMode})`)
     }
 
     // 仅活动 tab 触发回调
