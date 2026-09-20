@@ -7,7 +7,7 @@ import { detectDescriptor } from '@/fileTypes'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
 import { electronService } from './electron/ElectronService'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 
 export class TabService {
   private tabsStore = useTabsStore()
@@ -43,9 +43,6 @@ export class TabService {
       title,
       fileType: descriptor.id,
     })
-    this.tabsStore.switchTab(tab.id)
-
-    eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
 
     return tab
   }
@@ -77,9 +74,7 @@ export class TabService {
       }
       const title = extractTitleFromPath(filePath)
       const tab = this.tabsStore.createTab({ filePath, content, title, fileType: descriptor.id })
-      this.tabsStore.switchTab(tab.id)
 
-      eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
       return tab
     } catch (error) {
       console.error('Failed to open recent file:', error)
@@ -192,11 +187,10 @@ export class TabService {
     // 2. 若 reload 的是当前活动 tab，强制 Crepe 重新解析文档；
     //    其他 tab 内容也已更新，将来切换过去时 switchToTab 会自然 setMarkdown。
     if (this.tabsStore.activeTabId === tab.id) {
-      const editorManager = useCrepeEditorManager()
-      await editorManager.setMarkdown(content)
+      const gateway = getEditorServiceGateway()
+      await gateway.setMarkdown(content)
     }
 
-    eventBus.emit(AppEvents.FILE_OPENED, { filePath, tabId: tab.id })
     return true
   }
 }

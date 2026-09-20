@@ -11,13 +11,7 @@ export class CreateTab {
 
   async execute(options?: CreateTabOptions): Promise<Tab> {
     const tab = this.tabRepository.create(options)
-
-    this.eventBus.emit('app:tab:created', { tabId: tab.id, tab: tab.toProps() as any })
-
-    if (options?.filePath) {
-      this.eventBus.emit('app:file:opened', { filePath: options.filePath, tabId: tab.id })
-    }
-
+    // 事件由 Store 层的 createTab 负责 emit（TAB_CREATED, FILE_OPENED）
     return tab
   }
 }

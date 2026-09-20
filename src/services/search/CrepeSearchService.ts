@@ -294,11 +294,8 @@ export class CrepeSearchService implements SearchService {
       regexp: config.regexp ?? false,
     }
 
-    let matches = searchCache.get(searchQuery)
-    if (!matches) {
-      matches = findAllMatches(state.doc, searchQuery)
-      searchCache.set(searchQuery, matches)
-    }
+    // 始终从当前文档重新计算，避免跨 tab 缓存污染
+    const matches = findAllMatches(state.doc, searchQuery)
 
     this.store.currentQuery = searchQuery
     this.store.currentMatches = matches

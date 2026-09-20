@@ -45,7 +45,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 
 // Managers
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { EditorCommands } from '@/managers/EditorCommands'
 
 // 创建容器
 const container = new Container()
@@ -61,7 +61,8 @@ container.bind<IEditorProvider>(TYPES.EditorProvider).toDynamicValue(() => {
 })
 
 container.bind<IEditorCommands>(TYPES.EditorCommands).toDynamicValue(() => {
-  return useCrepeEditorManager().commands
+  const gateway = getEditorServiceGateway()
+  return new EditorCommands(() => gateway.getActiveCrepe())
 })
 
 container.bind<IScrollService>(TYPES.ScrollService).toDynamicValue(() => {

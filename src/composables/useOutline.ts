@@ -3,7 +3,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { parseHeadings } from '@/utils/headings'
 import { listToTree } from '@/utils/listToTree'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { EDITOR } from '@/constants'
 import type { HeadingItem, HeadingTreeNode } from '@/utils/headings'
 
@@ -20,7 +20,7 @@ const RETRY_INTERVAL_MS = 200
 
 export function useOutline() {
   const tabsStore = useTabsStore()
-  const editorManager = useCrepeEditorManager()
+  const gateway = getEditorServiceGateway()
 
   const flatHeadings = ref<HeadingItem[]>([])
   const activePos = ref<number | null>(null)
@@ -57,13 +57,8 @@ export function useOutline() {
     if (!tab) return false
 
     const mode = tab.viewMode
-    const activeEditor = editorManager.getActiveEditor()
 
     if (mode === EDITOR.VIEW_MODES.SOURCE) return false
-
-    if (mode === EDITOR.VIEW_MODES.SPLIT) {
-      return activeEditor === 'crepe'
-    }
 
     return true
   }
@@ -75,8 +70,8 @@ export function useOutline() {
       return
     }
 
-    if (editorManager.isReady()) {
-      flatHeadings.value = editorManager.getHeadingsWithPos()
+    if (gateway.isReady()) {
+      flatHeadings.value = gateway.getHeadings()
     } else {
       flatHeadings.value = parseHeadings(tab.content)
     }
@@ -164,7 +159,7 @@ export function useOutline() {
   function buildDomPosCache() {
     domPosCache.clear()
 
-    if (!scrollContainer || !editorManager.isReady()) return
+    if (!scrollContainer || !gateway.isReady()) return
 
     const allHeadings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6')
 
@@ -220,7 +215,7 @@ export function useOutline() {
     const mode = tab.viewMode
 
     if (mode === EDITOR.VIEW_MODES.WYSIWYG || mode === EDITOR.VIEW_MODES.SPLIT) {
-      editorManager.scrollToHeading(node.label, node.line, node.pos)
+      gateway.scrollToHeading(node.pos ?? 0)
     }
 
     trackTimer(setTimeout(() => {

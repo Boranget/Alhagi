@@ -46,10 +46,14 @@ import type { Ctx } from '@milkdown/ctx'
 import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 
 export class EditorCommands implements IEditorCommands {
-  private crepe: Crepe | null = null
+  private getCrepeFn: () => Crepe | null
 
-  setCrepe(crepe: Crepe): void {
-    this.crepe = crepe
+  constructor(getCrepe: () => Crepe | null) {
+    this.getCrepeFn = getCrepe
+  }
+
+  private get crepe(): Crepe | null {
+    return this.getCrepeFn()
   }
 
   /**

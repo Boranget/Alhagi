@@ -13,6 +13,7 @@ out/
 # Testing
 coverage/
 *.lcov
+test-results/
 
 # IDE
 .vscode/
@@ -126,6 +127,7 @@ Thumbs.db
 *.old
 *.orig
 *.tmp
+.mcp.json
 
 # Reference
 reference/

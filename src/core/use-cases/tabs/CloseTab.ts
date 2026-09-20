@@ -15,15 +15,6 @@ export class CloseTab {
     }
 
     this.tabRepository.delete(tabId)
-
-    this.eventBus.emit('app:tab:closed', { tabId, tab: tab.toProps() as any })
-
-    const activeTab = this.tabRepository.getActiveTab()
-    if (activeTab) {
-      this.eventBus.emit('app:tab:switched', {
-        tabId: activeTab.id,
-        previousTabId: tabId,
-      })
-    }
+    // 事件由 Store 层的 removeTab 负责 emit（TAB_CLOSED, TAB_SWITCHED）
   }
 }

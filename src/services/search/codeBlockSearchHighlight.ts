@@ -174,6 +174,7 @@ export function codeBlockSearchHighlight(): Extension {
 
     destroy() {
       if (this.rafId >= 0) cancelAnimationFrame(this.rafId)
+      registeredViews.delete(this.view)
     }
   }, {
     decorations: plugin => plugin.decorations,

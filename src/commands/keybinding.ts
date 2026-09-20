@@ -66,6 +66,7 @@ class KeybindingManager {
         const tabsStore = useTabsStore()
         const index = num - 1
         if (index < tabsStore.tabOrder.length) {
+          console.log(`[Keybinding] Ctrl+${num}: switch to tab ${tabsStore.tabOrder[index]}`)
           tabsStore.switchTab(tabsStore.tabOrder[index])
         }
         return

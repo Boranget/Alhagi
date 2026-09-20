@@ -1,17 +1,16 @@
 import { useTabsStore } from '@/stores/tabs'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 import { xssSanitizer } from '@/services/xssSanitizer'
 
 export function useExport() {
   const tabsStore = useTabsStore()
-  const editorManager = useCrepeEditorManager()
   const selectDialog = useSelectDialog()
 
   function getFullHtml(title: string): string {
     let content = ''
     try {
-      content = editorManager.getHTML()
+      content = getEditorServiceGateway().getHTML()
     } catch (error) {
       content = ''
     }

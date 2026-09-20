@@ -79,6 +79,10 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getActiveEditor()
   }
 
+  getActiveCrepe(tabId?: string): any | null {
+    return (this.adapter as any).getActiveCrepe?.(tabId) ?? null
+  }
+
   getView(): any | null {
     return this.adapter.getView()
   }
@@ -102,7 +106,7 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getSelection()
   }
 
-  getHeadings(): Array<{ text: string; level: number; line: number; pos: number }> {
+  getHeadings(): Array<{ text: string; level: number; slug: string; line: number; pos: number }> {
     return this.adapter.getHeadings()
   }
 

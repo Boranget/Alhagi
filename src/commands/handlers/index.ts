@@ -7,7 +7,6 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useLayoutStore } from '@/stores/layout'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
 import { electronService } from '@/services/electron/ElectronService'
 import { useTabService } from '@/services/tabService'
 import { useWritingEnhancement } from '@/adapters/composables/useWritingEnhancement'
@@ -18,7 +17,6 @@ import { getCreateTabUseCase, getCloseTabUseCase, getExecuteEditorCommandUseCase
 // 初始化所有命令处理器
 export function initCommandHandlers(): void {
   const dispatcher = getDispatcher()
-  const editorManager = useCrepeEditorManager()
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const layoutStore = useLayoutStore()
@@ -358,6 +356,7 @@ export function initCommandHandlers(): void {
     if (tabOrder.length > 0 && tabsStore.activeTabId) {
       const currentIndex = tabOrder.indexOf(tabsStore.activeTabId)
       const nextIndex = (currentIndex + 1) % tabOrder.length
+      console.log(`[Commands] nextTab: idx ${currentIndex}→${nextIndex}, active=${tabsStore.activeTabId}`)
       tabsStore.switchTab(tabOrder[nextIndex])
     }
   })
@@ -367,6 +366,7 @@ export function initCommandHandlers(): void {
     if (tabOrder.length > 0 && tabsStore.activeTabId) {
       const currentIndex = tabOrder.indexOf(tabsStore.activeTabId)
       const prevIndex = (currentIndex - 1 + tabOrder.length) % tabOrder.length
+      console.log(`[Commands] prevTab: idx ${currentIndex}→${prevIndex}, active=${tabsStore.activeTabId}`)
       tabsStore.switchTab(tabOrder[prevIndex])
     }
   })

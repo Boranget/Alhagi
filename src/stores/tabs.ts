@@ -95,9 +95,16 @@ export const useTabsStore = defineStore('tabs', () => {
       eventBus.emit(AppEvents.FILE_OPENED, { filePath: options.filePath, tabId: id })
     }
 
+    const previousTabId = activeTabId.value
     activeTabId.value = id
 
+    console.log(`[TabsStore] createTab: id=${id}, title="${tab.title}", filePath=${tab.filePath}, prevActive=${previousTabId}, order=[${tabOrder.value.join(',')}]`)
+
     eventBus.emit(AppEvents.TAB_CREATED, { tabId: id, tab })
+
+    if (previousTabId && previousTabId !== id) {
+      eventBus.emit(AppEvents.TAB_SWITCHED, { tabId: id, previousTabId })
+    }
 
     syncOpenedFiles()
 
@@ -106,6 +113,19 @@ export const useTabsStore = defineStore('tabs', () => {
 
   function removeTab(tabId: string): boolean {
     const tab = tabs.value.get(tabId)
+    if (!tab) {
+      console.warn('[TabsStore] removeTab aborted: tab not found', { tabId })
+      return false
+    }
+
+    const currentIndex = tabOrder.value.indexOf(tabId)
+    if (currentIndex === -1) {
+      console.warn('[TabsStore] removeTab aborted: tabId not in tabOrder', { tabId })
+      return false
+    }
+
+    console.log(`[TabsStore] removeTab: id=${tabId}, title="${tab.title}", idx=${currentIndex}, wasActive=${activeTabId.value === tabId}, order=[${tabOrder.value.join(',')}]`)
+
     tabs.value.delete(tabId)
     tabOrder.value = tabOrder.value.filter(id => id !== tabId)
 
@@ -113,12 +133,30 @@ export const useTabsStore = defineStore('tabs', () => {
 
     if (activeTabId.value === tabId) {
       if (tabOrder.value.length > 0) {
-        const index = Math.max(0, tabOrder.value.length - 1)
-        switchTab(tabOrder.value[index])
+        const rightIndex = currentIndex
+        const leftIndex = currentIndex - 1
+
+        let nextTabId: string | null = null
+        if (rightIndex < tabOrder.value.length) {
+          nextTabId = tabOrder.value[rightIndex]
+        } else if (leftIndex >= 0) {
+          nextTabId = tabOrder.value[leftIndex]
+        }
+
+        if (nextTabId) {
+          console.log(`[TabsStore] removeTab: switch to neighbor ${nextTabId} (right=${rightIndex}, left=${leftIndex})`)
+          switchTab(nextTabId)
+        } else {
+          activeTabId.value = null
+          console.log(`[TabsStore] removeTab: no tabs left, activeTabId=null`)
+        }
       } else {
         activeTabId.value = null
+        console.log(`[TabsStore] removeTab: last tab closed, activeTabId=null`)
       }
     }
+
+    console.log(`[TabsStore] removeTab done: order=[${tabOrder.value.join(',')}], active=${activeTabId.value}`)
 
     syncOpenedFiles()
 
@@ -126,7 +164,14 @@ export const useTabsStore = defineStore('tabs', () => {
   }
 
   function switchTab(tabId: string): void {
-    if (!tabs.value.has(tabId) || tabId === activeTabId.value) {
+    console.log(`[TabsStore] switchTab called: tabId=${tabId}, currentActiveTabId=${activeTabId.value}`)
+
+    if (!tabs.value.has(tabId)) {
+      console.warn(`[TabsStore] switchTab aborted: tab not found: ${tabId}`)
+      return
+    }
+    if (tabId === activeTabId.value) {
+      console.log(`[TabsStore] switchTab aborted: already active: ${tabId}`)
       return
     }
 
@@ -134,9 +179,9 @@ export const useTabsStore = defineStore('tabs', () => {
     activeTabId.value = tabId
 
     const tab = tabs.value.get(tabId)
-    if (tab && tab.filePath) {
-      eventBus.emit(AppEvents.FILE_OPENED, { filePath: tab.filePath, tabId })
-    }
+    const contentLen = tab?.content?.length ?? 0
+    const preview = tab?.content?.substring(0, 50)?.replace(/\n/g, '\\n') ?? ''
+    console.log(`[TabsStore] switchTab done: ${previousTabId} → ${tabId}, content=${contentLen}chars "${preview}", order=[${tabOrder.value.join(',')}]`)
 
     eventBus.emit(AppEvents.TAB_SWITCHED, { tabId, previousTabId: previousTabId || undefined })
   }
@@ -189,6 +234,11 @@ export const useTabsStore = defineStore('tabs', () => {
     return tabOrder.value.map(id => tabs.value.get(id)!).filter(Boolean)
   }
 
+  function setTabOrder(newOrder: string[]): void {
+    console.log('[TabsStore] setTabOrder', { before: [...tabOrder.value], after: newOrder })
+    tabOrder.value = newOrder
+  }
+
   return {
     tabs,
     activeTabId,
@@ -205,6 +255,7 @@ export const useTabsStore = defineStore('tabs', () => {
     markDirty,
     markClean,
     setViewMode,
-    getAllTabs
+    getAllTabs,
+    setTabOrder
   }
 })

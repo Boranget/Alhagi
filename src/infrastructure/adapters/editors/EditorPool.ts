@@ -442,6 +442,13 @@ export class EditorPool {
     return this.activeTabId
   }
 
+  getActiveCrepe(tabId?: string): Crepe | null {
+    const id = tabId || this.activeTabId
+    if (!id) return null
+    const instance = this.instances.get(id)
+    return instance?.crepe ?? null
+  }
+
   getInstance(tabId: string): TabEditorInstance | undefined {
     return this.instances.get(tabId)
   }
@@ -495,14 +502,14 @@ export class EditorPool {
     return selection
   }
 
-  getHeadings(tabId?: string): Array<{ text: string; level: number; line: number; pos: number }> {
+  getHeadings(tabId?: string): Array<{ text: string; level: number; slug: string; line: number; pos: number }> {
     const id = tabId || this.activeTabId
     if (!id) return []
 
     const instance = this.instances.get(id)
     if (!instance?.crepe) return []
 
-    const headings: Array<{ text: string; level: number; line: number; pos: number }> = []
+    const headings: Array<{ text: string; level: number; slug: string; line: number; pos: number }> = []
     instance.crepe.editor.action((ctx) => {
       try {
         const view = ctx.get(editorViewCtx)
@@ -512,9 +519,10 @@ export class EditorPool {
           if (node.type.name === 'heading') {
             const text = node.textContent.trim()
             const level = node.attrs.level || 1
+            const slug = text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
             const textBefore = doc.textBetween(0, pos)
             const line = textBefore.split('\n').length
-            headings.push({ text, level, line, pos })
+            headings.push({ text, level, slug, line, pos })
           }
         })
       } catch {

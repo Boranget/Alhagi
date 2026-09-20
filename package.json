@@ -45,6 +45,7 @@
     "vue": "^3.4.21"
   },
   "devDependencies": {
+    "@laststance/electron-mcp-server": "^2.0.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.3.1",

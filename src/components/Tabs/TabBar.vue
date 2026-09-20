@@ -236,11 +236,13 @@ function getCurrentTab(): TabState | undefined {
 }
 
 function handleTabClick(tabId: string) {
+  console.log(`[TabBar] click: ${tabId}`)
   tabsStore.switchTab(tabId)
   hideContextMenu()
 }
 
 function showContextMenu(event: MouseEvent, tabId: string) {
+  console.log('[TabBar] showContextMenu', { tabId })
   tabsStore.switchTab(tabId)
 
   contextMenu.value = {
@@ -309,11 +311,10 @@ async function closeCurrentTab() {
 }
 
 async function closeOtherTabs() {
-  const activeTabId = tabsStore.activeTabId
   const allTabIds = Array.from(tabsStore.tabs.keys())
 
   for (const tabId of allTabIds) {
-    if (tabId !== activeTabId) {
+    if (tabId !== tabsStore.activeTabId) {
       const tab = getTab(tabId)
       if (tab?.isDirty) {
         const ok = await confirmCloseDirtyTab(tab)
@@ -327,12 +328,16 @@ async function closeOtherTabs() {
 
 function closeSavedTabs() {
   const allTabIds = Array.from(tabsStore.tabs.keys())
-
-  for (const tabId of allTabIds) {
+  const tabsToClose = allTabIds.filter(tabId => {
     const tab = getTab(tabId)
-    if (!tab?.isDirty && tabsStore.tabCount > 1) {
-      tabsStore.removeTab(tabId)
-    }
+    return !tab?.isDirty
+  })
+
+  const keepAtLeastOne = tabsToClose.length === allTabIds.length
+  const toClose = keepAtLeastOne ? tabsToClose.slice(0, -1) : tabsToClose
+
+  for (const tabId of toClose) {
+    tabsStore.removeTab(tabId)
   }
   hideContextMenu()
 }

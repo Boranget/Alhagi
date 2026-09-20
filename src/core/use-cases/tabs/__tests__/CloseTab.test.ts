@@ -71,50 +71,19 @@ describe('CloseTab', () => {
   it('should delete the tab', async () => {
     const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
     vi.mocked(mockTabRepository.getById).mockReturnValue(mockTab)
-    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(undefined)
 
     await closeTab.execute('tab-1')
 
     expect(mockTabRepository.delete).toHaveBeenCalledWith('tab-1')
   })
 
-  it('should emit tab:closed event', async () => {
+  it('should not emit events (events are handled by Store layer)', async () => {
     const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
     vi.mocked(mockTabRepository.getById).mockReturnValue(mockTab)
-    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(undefined)
 
     await closeTab.execute('tab-1')
 
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:closed', {
-      tabId: 'tab-1',
-      tab: mockTab.toProps(),
-    })
-  })
-
-  it('should emit tab:switched event when there is an active tab', async () => {
-    const closedTab = createMockTab({ id: 'tab-1', title: 'Closed Tab' })
-    const activeTab = createMockTab({ id: 'tab-2', title: 'Active Tab' })
-    
-    vi.mocked(mockTabRepository.getById).mockReturnValue(closedTab)
-    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(activeTab)
-
-    await closeTab.execute('tab-1')
-
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:switched', {
-      tabId: 'tab-2',
-      previousTabId: 'tab-1',
-    })
-  })
-
-  it('should not emit tab:switched event when no active tab', async () => {
-    const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
-    vi.mocked(mockTabRepository.getById).mockReturnValue(mockTab)
-    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(undefined)
-
-    await closeTab.execute('tab-1')
-
-    expect(mockEventBus.emit).toHaveBeenCalledTimes(1)
-    expect(mockEventBus.emit).not.toHaveBeenCalledWith('app:tab:switched', expect.anything())
+    expect(mockEventBus.emit).not.toHaveBeenCalled()
   })
 
   it('should do nothing when tab does not exist', async () => {

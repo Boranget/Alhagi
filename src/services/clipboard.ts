@@ -1,18 +1,15 @@
 import { useTabsStore } from '@/stores/tabs'
-import { useCrepeEditorManager } from '@/managers/crepeEditorManager'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { xssSanitizer } from '@/services/xssSanitizer'
 
 export function useClipboard() {
-  const editorManager = useCrepeEditorManager()
-  const { getMarkdown, getHTML } = editorManager
-
   function copyAsMarkdown(): boolean {
     const tabs = useTabsStore()
     const activeTab = tabs.activeTab
     
     if (!activeTab) return false
     
-    const text = getMarkdown()
+    const text = getEditorServiceGateway().getMarkdown()
     navigator.clipboard.writeText(text).catch(() => {})
     return true
   }
@@ -23,7 +20,7 @@ export function useClipboard() {
     
     if (!activeTab) return false
     
-    const htmlContent = getHTML()
+    const htmlContent = getEditorServiceGateway().getHTML()
     const fullHtml = wrapWithHtmlTemplate(htmlContent, activeTab.title)
     
     const blob = new Blob([fullHtml], { type: 'text/html' })

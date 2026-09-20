@@ -42,7 +42,7 @@ export class CrepeEditorManager {
   private activeEditor: 'crepe' | 'codemirror' | null = null
   private container: HTMLElement | null = null
   private cursorChangeHandler: ((from: number, to: number) => void) | null = null
-  readonly commands = new EditorCommands()
+  readonly commands = new EditorCommands(() => this.crepe)
 
   constructor() {
     this.contentCache = new LRUCache<string>(20)
@@ -130,7 +130,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
         },
       },
     })
-    this.commands.setCrepe(this.crepe)
 
     const imageStorage = new ImageStorageGateway(useFileSystemGateway())
     const imageInsertService = new ImageInsertService(imageStorage)
@@ -321,6 +320,7 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
     
     if (this.currentTabId === tabId) {
+      console.log('[CrepeEditorManager] switchToTab: already on this tab', { tabId })
       return
     }
 
@@ -336,6 +336,8 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     this.currentTabId = tabId
     this.currentMode = tab.viewMode
 
+    console.log(`[CrepeEditorManager] switchToTab: ${previousTabId} → ${tabId}, content=${tab.content.length}chars, changed=${tab.content !== this.content}`)
+
     if (tab.content !== this.content) {
       await this.setMarkdown(tab.content)
     } else {
@@ -349,7 +351,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     if (this.crepe) {
       this.crepe.destroy()
       this.crepe = null
-      this.commands.setCrepe(null as unknown as Crepe)
     }
 
     this.content = ''

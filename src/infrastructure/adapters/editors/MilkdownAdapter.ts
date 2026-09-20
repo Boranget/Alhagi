@@ -17,8 +17,6 @@ import type { SearchService } from '@/services/search/types'
 
 export class MilkdownAdapter implements IEditorProvider {
   private pool: EditorPool
-  private currentMode: ViewMode = 'wysiwyg'
-  private activeEditor: 'crepe' | 'codemirror' | null = null
 
   // 图片插入相关
   private imageInsertService: ImageInsertService
@@ -69,15 +67,14 @@ export class MilkdownAdapter implements IEditorProvider {
   async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
     // 向后兼容：将旧的 init 调用转换为新架构
     if (tabId && !this.pool.hasTab(tabId)) {
-      await this.pool.createTab(tabId, initialContent, this.currentMode)
+      const viewMode = this.getViewMode()
+      await this.pool.createTab(tabId, initialContent, viewMode)
       this.pool.showTab(tabId)
     }
   }
 
   async destroy(): Promise<void> {
     await this.pool.destroyAll()
-    this.currentMode = 'wysiwyg'
-    this.activeEditor = null
   }
 
   isReady(tabId?: string): boolean {
@@ -138,7 +135,6 @@ export class MilkdownAdapter implements IEditorProvider {
   // ============================================================
 
   setViewMode(mode: ViewMode): void {
-    this.currentMode = mode
     const activeTabId = this.pool.getActiveTabId()
     if (activeTabId) {
       this.pool.setViewMode(activeTabId, mode)
@@ -150,11 +146,20 @@ export class MilkdownAdapter implements IEditorProvider {
   }
 
   getViewMode(): ViewMode {
-    return this.currentMode
+    const activeTabId = this.pool.getActiveTabId()
+    if (!activeTabId) return 'wysiwyg'
+    const instance = this.pool.getInstance(activeTabId)
+    return instance?.viewMode ?? 'wysiwyg'
   }
 
   getActiveEditor(): 'crepe' | 'codemirror' | null {
-    return this.activeEditor
+    const mode = this.getViewMode()
+    if (mode === 'source') return 'codemirror'
+    return 'crepe'
+  }
+
+  getActiveCrepe(tabId?: string): any | null {
+    return this.pool.getActiveCrepe(tabId)
   }
 
   getView(): any | null {

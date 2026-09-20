@@ -307,11 +307,11 @@ export function useTabDragDrop() {
       adjustedTargetIdx + 1 :
       adjustedTargetIdx
 
-    tabsStore.tabOrder = [
+    tabsStore.setTabOrder([
       ...currentOrder.slice(0, insertAt),
       dragState.sourceTabId,
       ...currentOrder.slice(insertAt)
-    ]
+    ])
 
     return true
   }

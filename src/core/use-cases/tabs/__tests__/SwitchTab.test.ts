@@ -76,26 +76,20 @@ describe('SwitchTab', () => {
     expect(mockTabRepository.setActiveTab).toHaveBeenCalledWith('tab-1')
   })
 
-  it('should emit tab:switched event', async () => {
+  it('should not switch to the same tab', async () => {
+    const currentTab = createMockTab({ id: 'tab-1', title: 'Current Tab' })
+    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(currentTab)
+
+    await switchTab.execute('tab-1')
+
+    expect(mockTabRepository.setActiveTab).not.toHaveBeenCalled()
+  })
+
+  it('should not emit events (events are handled by Store layer)', async () => {
     vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(undefined)
 
     await switchTab.execute('tab-1')
 
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:switched', {
-      tabId: 'tab-1',
-      previousTabId: undefined,
-    })
-  })
-
-  it('should include previous tab id when switching', async () => {
-    const previousTab = createMockTab({ id: 'tab-0', title: 'Previous Tab' })
-    vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(previousTab)
-
-    await switchTab.execute('tab-1')
-
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:switched', {
-      tabId: 'tab-1',
-      previousTabId: 'tab-0',
-    })
+    expect(mockEventBus.emit).not.toHaveBeenCalled()
   })
 })

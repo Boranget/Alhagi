@@ -78,37 +78,12 @@ describe('CreateTab', () => {
     expect(result).toBe(mockTab)
   })
 
-  it('should emit tab:created event', async () => {
+  it('should not emit events (events are handled by Store layer)', async () => {
     const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
     vi.mocked(mockTabRepository.create).mockReturnValue(mockTab)
 
     await createTab.execute({ title: 'Test Tab' })
 
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:created', {
-      tabId: 'tab-1',
-      tab: mockTab.toProps(),
-    })
-  })
-
-  it('should emit file:opened event when filePath is provided', async () => {
-    const mockTab = createMockTab({ id: 'tab-1', filePath: '/path/to/file.md' })
-    vi.mocked(mockTabRepository.create).mockReturnValue(mockTab)
-
-    await createTab.execute({ filePath: '/path/to/file.md' })
-
-    expect(mockEventBus.emit).toHaveBeenCalledWith('app:file:opened', {
-      filePath: '/path/to/file.md',
-      tabId: 'tab-1',
-    })
-  })
-
-  it('should not emit file:opened event when no filePath', async () => {
-    const mockTab = createMockTab({ id: 'tab-1', title: 'Untitled' })
-    vi.mocked(mockTabRepository.create).mockReturnValue(mockTab)
-
-    await createTab.execute({ title: 'Untitled' })
-
-    expect(mockEventBus.emit).toHaveBeenCalledTimes(1)
-    expect(mockEventBus.emit).not.toHaveBeenCalledWith('app:file:opened', expect.anything())
+    expect(mockEventBus.emit).not.toHaveBeenCalled()
   })
 })

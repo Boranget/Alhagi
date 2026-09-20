@@ -22,6 +22,7 @@ export interface Selection {
 export interface Heading {
   text: string
   level: number
+  slug: string
   line: number
   pos: number
 }

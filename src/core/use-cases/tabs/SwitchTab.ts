@@ -9,13 +9,10 @@ export class SwitchTab {
 
   async execute(tabId: string): Promise<void> {
     const currentTab = this.tabRepository.getActiveTab()
+    if (currentTab?.id === tabId) return
+
     const previousTabId = currentTab?.id
-
     this.tabRepository.setActiveTab(tabId)
-
-    this.eventBus.emit('app:tab:switched', {
-      tabId,
-      previousTabId,
-    })
+    // 事件由 Store 层的 switchTab 负责 emit，此处不再重复
   }
 }
