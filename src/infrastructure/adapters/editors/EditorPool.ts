@@ -23,7 +23,7 @@ import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 import { debounce } from '@/utils/helpers'
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
-import { CodeMirrorSearchService } from '@/services/search'
+import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 
 /** Markdown 更新防抖延迟 */
@@ -232,6 +232,7 @@ export class EditorPool {
       .use(listener)
       .use(createImagePastePlugin(this.imageInsertService, this.getImageOptions, this.getImageContext))
       .use(focusModePlugin)
+      .use(searchPlugin)
 
     // 创建 Crepe 编辑器
     await crepe.create()

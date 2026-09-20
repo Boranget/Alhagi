@@ -151,6 +151,17 @@ onMounted(async () => {
     console.error('[EditorContainer] editorWrapper is null!')
   }
 
+  // 多实例架构下，InitEditor.execute() 未被调用，需在此注册 CONTENT_CHANGED 事件
+  // 使 useWorkspaceSearch 的搜索高亮在编辑时动态更新
+  unsubscribes.push(
+    editor.onContentChange((markdown) => {
+      const tabId = tabs.activeTabId.value
+      if (tabId) {
+        eventBus.emit(AppEvents.CONTENT_CHANGED, { content: markdown, tabId })
+      }
+    })
+  )
+
   window.addEventListener('keydown', handleEditorKeydown)
 })
 
