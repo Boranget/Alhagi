@@ -14,7 +14,7 @@ import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import type { ViewMode } from '@shared/types'
 import { codeBlockSearchHighlight } from '@/services/search/codeBlockSearchHighlight'
 import { createImagePastePlugin } from '@/plugins/imagePastePlugin'
-import { focusModePlugin } from '@/plugins/focusModePlugin'
+import { focusModePlugin, focusModePluginKey } from '@/plugins/focusModePlugin'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
 import { ImageStorageGateway } from '@adapters/gateways/image/ImageStorageGateway'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
@@ -25,6 +25,7 @@ import { debounce } from '@/utils/helpers'
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
+import { useViewModeStore } from '@/stores/viewMode'
 
 /** Markdown 更新防抖延迟 */
 const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
@@ -335,6 +336,7 @@ export class EditorPool {
       } catch {
         // ignore
       }
+      this.syncFocusModeToActiveEditor(instance)
     } else if (instance.cmView && instance.viewMode === 'source') {
       instance.cmView.focus()
     }
@@ -344,6 +346,21 @@ export class EditorPool {
     const instance = this.instances.get(tabId)
     if (!instance) return
     instance.container.style.display = 'none'
+  }
+
+  private syncFocusModeToActiveEditor(instance: { crepe: Crepe | null }): void {
+    if (!instance.crepe) return
+    try {
+      const viewModeStore = useViewModeStore()
+      instance.crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        if (view) {
+          view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled: viewModeStore.focusMode }))
+        }
+      })
+    } catch {
+      // ignore
+    }
   }
 
   // ============================================================

@@ -5,6 +5,7 @@
 import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import { focusModePluginKey } from '@/plugins/focusModePlugin'
+import { useViewModeStore } from '@/stores/viewMode'
 
 const TYPEWRITER_CLASS = 'typewriter-mode'
 const FOCUS_CLASS = 'focus-mode'
@@ -38,6 +39,11 @@ export class ViewModeGateway implements IViewModeGateway {
     document.body.classList.remove(TYPEWRITER_CLASS, FOCUS_CLASS)
     this.findEditorRoot()?.classList.remove(FOCUS_CLASS)
     this.dispatchFocusModeMeta(false)
+  }
+
+  syncToActiveEditor(): void {
+    const viewModeStore = useViewModeStore()
+    this.dispatchFocusModeMeta(viewModeStore.focusMode)
   }
 
   private dispatchFocusModeMeta(enabled: boolean): void {

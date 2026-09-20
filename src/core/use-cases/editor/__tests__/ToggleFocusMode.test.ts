@@ -9,6 +9,7 @@ function createMockViewModeGateway(): IViewModeGateway {
     enableFocusMode: vi.fn(),
     disableFocusMode: vi.fn(),
     disableAll: vi.fn(),
+    syncToActiveEditor: vi.fn(),
   }
 }
 

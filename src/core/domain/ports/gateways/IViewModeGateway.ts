@@ -20,4 +20,6 @@ export interface IViewModeGateway {
   disableFocusMode(): void
   /** 禁用所有视图模式的视觉效果 */
   disableAll(): void
+  /** 将当前专注模式状态重新 dispatch 到新激活的编辑器（tab 切换后调用） */
+  syncToActiveEditor(): void
 }
