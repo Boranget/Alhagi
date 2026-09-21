@@ -13,7 +13,8 @@
 // 主进程发送方——菜单点击全部走 COMMAND.EXECUTE，由命令系统 dispatcher 派发。
 
 import { useTabsStore } from '@/stores/tabs'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { useTabService } from '@/services/tabService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { toast } from '@/composables/useToast'
@@ -26,12 +27,14 @@ export class ElectronEventHandler {
   private tabsStore: ReturnType<typeof useTabsStore>
   private tabService: ReturnType<typeof useTabService>
   private confirm: ReturnType<typeof useConfirmDialog>['confirm']
+  private eventBus: IEventBus
 
-  constructor(api: ElectronAPI | undefined) {
+  constructor(api: ElectronAPI | undefined, bus?: IEventBus) {
     this.api = api
     this.tabsStore = useTabsStore()
     this.tabService = useTabService()
     this.confirm = useConfirmDialog().confirm
+    this.eventBus = bus ?? defaultEventBus
   }
 
   initialize(): void {
@@ -131,7 +134,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onTabMerge((tabData) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.TAB_MERGE_REQUESTED, { tabData })
+          this.eventBus.emit(AppEvents.TAB_MERGE_REQUESTED, { tabData })
         }, 'onTabMerge')
       })
     )
@@ -139,7 +142,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onTabDetached((tabData) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.TAB_DETACHED, { tabData })
+          this.eventBus.emit(AppEvents.TAB_DETACHED, { tabData })
         }, 'onTabDetached')
       })
     )
@@ -147,7 +150,7 @@ export class ElectronEventHandler {
     this.disposables.push(
       this.api!.onFocusTabForFile((filePath) => {
         this.safeExecute(() => {
-          eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, { filePath })
+          this.eventBus.emit(AppEvents.FOCUS_TAB_FOR_FILE, { filePath })
         }, 'onFocusTabForFile')
       })
     )

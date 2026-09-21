@@ -13,10 +13,13 @@ import { TYPES } from './types'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
+import type { ILayoutRepository } from '@core/domain/ports/repositories/ILayoutRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { IFileSystem } from '@core/domain/ports/gateways/IFileSystem'
 import type { IScrollService } from '@core/domain/ports/services/IScrollService'
 import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
+import type { IElectronSync } from '@core/domain/ports/gateways/IElectronSync'
+import type { ILayoutSync } from '@core/domain/ports/gateways/ILayoutSync'
 
 // Use Cases
 import { CreateTab } from '@core/use-cases/tabs/CreateTab'
@@ -32,6 +35,8 @@ import { EventBusGateway } from '@adapters/gateways/EventBusGateway'
 import { FileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { ScrollServiceGateway } from '@adapters/gateways/ScrollServiceGateway'
 import { ViewModeGateway } from '@adapters/gateways/ViewModeGateway'
+import { ElectronSyncGateway } from '@adapters/gateways/ElectronSyncGateway'
+import { LayoutSyncGateway } from '@adapters/gateways/LayoutSyncGateway'
 import { initializeEditorGateway, getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { MilkdownAdapter } from '@infrastructure/adapters/editors/MilkdownAdapter'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
@@ -41,8 +46,10 @@ import type { ImageInsertContext } from '@core/domain/ports/services/image/IImag
 
 // Adapter Stores
 import { useTabRepository } from '@adapters/stores/tabs'
+import { useLayoutRepository } from '@adapters/stores/layout'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
 
 // Managers
 import { EditorCommands } from '@/managers/EditorCommands'
@@ -50,78 +57,83 @@ import { EditorCommands } from '@/managers/EditorCommands'
 // 创建容器
 const container = new Container()
 
-// 绑定 ports 到 adapters
-container.bind<IEventBus>(TYPES.EventBus).toDynamicValue(() => new EventBusGateway())
-container.bind<IFileSystem>(TYPES.FileSystem).toDynamicValue(() => new FileSystemGateway())
-container.bind<ITabRepository>(TYPES.TabRepository).toDynamicValue(() => useTabRepository())
+// 绑定 ports 到 adapters — 保持 toDynamicValue + inSingletonScope 以避免装饰器兼容问题
+container.bind<IEventBus>(TYPES.EventBus).toDynamicValue(() => new EventBusGateway()).inSingletonScope()
+container.bind<IFileSystem>(TYPES.FileSystem).toDynamicValue(() => new FileSystemGateway()).inSingletonScope()
+container.bind<IElectronSync>(TYPES.ElectronSync).toDynamicValue(() => new ElectronSyncGateway()).inSingletonScope()
+container.bind<ILayoutSync>(TYPES.LayoutSync).toDynamicValue(() => new LayoutSyncGateway()).inSingletonScope()
+container.bind<ITabRepository>(TYPES.TabRepository).toDynamicValue(() => useTabRepository()).inSingletonScope()
+container.bind<ILayoutRepository>(TYPES.LayoutRepository).toDynamicValue(() => useLayoutRepository()).inSingletonScope()
 
 // 动态绑定（需要运行时获取实例）
 container.bind<IEditorProvider>(TYPES.EditorProvider).toDynamicValue(() => {
   return getEditorServiceGateway()
-})
+}).inSingletonScope()
 
 container.bind<IEditorCommands>(TYPES.EditorCommands).toDynamicValue(() => {
   const gateway = getEditorServiceGateway()
   return new EditorCommands(() => gateway.getActiveCrepe())
-})
+}).inSingletonScope()
 
 container.bind<IScrollService>(TYPES.ScrollService).toDynamicValue(() => {
   const editorProvider = container.get<IEditorProvider>(TYPES.EditorProvider)
   return new ScrollServiceGateway(editorProvider)
-})
+}).inSingletonScope()
 
 container.bind<IViewModeGateway>(TYPES.ViewModeGateway).toDynamicValue(() => {
   const editorProvider = container.get<IEditorProvider>(TYPES.EditorProvider)
   return new ViewModeGateway(editorProvider)
-})
+}).inSingletonScope()
 
 // 绑定 Use Cases
 container.bind<CreateTab>(TYPES.CreateTabUseCase).toDynamicValue(() => {
   return new CreateTab(
     container.get<ITabRepository>(TYPES.TabRepository),
-    container.get<IEventBus>(TYPES.EventBus)
+    container.get<IEventBus>(TYPES.EventBus),
+    container.get<IElectronSync>(TYPES.ElectronSync)
   )
-})
+}).inSingletonScope()
 
 container.bind<CloseTab>(TYPES.CloseTabUseCase).toDynamicValue(() => {
   return new CloseTab(
     container.get<ITabRepository>(TYPES.TabRepository),
-    container.get<IEventBus>(TYPES.EventBus)
+    container.get<IEventBus>(TYPES.EventBus),
+    container.get<IElectronSync>(TYPES.ElectronSync)
   )
-})
+}).inSingletonScope()
 
 container.bind<SwitchTab>(TYPES.SwitchTabUseCase).toDynamicValue(() => {
   return new SwitchTab(
     container.get<ITabRepository>(TYPES.TabRepository),
     container.get<IEventBus>(TYPES.EventBus)
   )
-})
+}).inSingletonScope()
 
 container.bind<UpdateTab>(TYPES.UpdateTabUseCase).toDynamicValue(() => {
   return new UpdateTab(
     container.get<ITabRepository>(TYPES.TabRepository),
     container.get<IEventBus>(TYPES.EventBus)
   )
-})
+}).inSingletonScope()
 
 container.bind<ExecuteEditorCommand>(TYPES.ExecuteEditorCommandUseCase).toDynamicValue(() => {
   return new ExecuteEditorCommand(
     container.get<IEditorCommands>(TYPES.EditorCommands)
   )
-})
+}).inSingletonScope()
 
 container.bind<ToggleTypewriterMode>(TYPES.ToggleTypewriterModeUseCase).toDynamicValue(() => {
   return new ToggleTypewriterMode(
     container.get<IScrollService>(TYPES.ScrollService),
     container.get<IViewModeGateway>(TYPES.ViewModeGateway)
   )
-})
+}).inSingletonScope()
 
 container.bind<ToggleFocusMode>(TYPES.ToggleFocusModeUseCase).toDynamicValue(() => {
   return new ToggleFocusMode(
     container.get<IViewModeGateway>(TYPES.ViewModeGateway)
   )
-})
+}).inSingletonScope()
 
 // 初始化函数 - 在 Composition Root 调用
 export function initializeContainer(): void {
@@ -167,7 +179,9 @@ export function initializeContainer(): void {
     getCurrentFileDir,
     imageInsertService,
     getImageOptions,
-    getImageContext
+    getImageContext,
+    () => useViewModeStore().focusMode,
+    container.get<ITabRepository>(TYPES.TabRepository)
   )
 
   initializeEditorGateway({ adapter })

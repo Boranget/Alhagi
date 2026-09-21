@@ -5,7 +5,8 @@ import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
 import { useSearch } from './useSearch'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { useToast } from './useToast'
 
 /** 导航锁超时：防止快速连续点击 */
@@ -36,7 +37,8 @@ export interface SearchResult {
   matches: SearchMatch[]
 }
 
-export function useWorkspaceSearch() {
+export function useWorkspaceSearch(bus?: IEventBus) {
+  const eventBus = bus ?? defaultEventBus
   const tabsStore = useTabsStore()
   const fileStore = useFileExplorerStore()
   const searchService = useSearch()

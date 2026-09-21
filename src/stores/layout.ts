@@ -7,22 +7,19 @@
 //   - per-window：A 窗专注写作只显示编辑区，B 窗保留侧栏作为参考；互不干扰
 //   - 新窗口默认 true/true/true
 //
-// 对比 preferences store：偏好走 IPC 全量同步 + electron-store；
-// 这里走独立 LAYOUT.CHANGED 通道，让主进程 in-place 改对应窗口菜单
-// 的 MenuItem.checked，不重建菜单（参考 MarkText viewLayoutChanged 模式）。
-//
-// sticky / immersive 模式下 prefs store 调 setAll/restoreDefaults 批量切，
-// 一次 IPC 把三键都带上，避免连发三条。
+// 业务逻辑（IPC 通知）已迁移到 ILayoutSync Gateway，
+// 此 store 仅管理纯状态数据。
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { ILayoutSync } from '@core/domain/ports/gateways/ILayoutSync'
+import { LayoutSyncGateway } from '@adapters/gateways/LayoutSyncGateway'
 
-interface LayoutPayload {
-  showSidebar?: boolean
-  showTabBar?: boolean
-  showStatusBar?: boolean
-  isStickyNoteMode?: boolean
-  isImmersiveMode?: boolean
+let _layoutSync: ILayoutSync | null = null
+
+function getLayoutSync(): ILayoutSync {
+  if (!_layoutSync) _layoutSync = new LayoutSyncGateway()
+  return _layoutSync
 }
 
 export const useLayoutStore = defineStore('layout', () => {
@@ -32,9 +29,14 @@ export const useLayoutStore = defineStore('layout', () => {
   const isStickyNoteMode = ref(false)
   const isImmersiveMode = ref(false)
 
-  /** 通知主进程 in-place 更新当前窗口菜单的 checkbox。失败静默——菜单项错位远比 IPC 异常容忍 */
-  function notify(payload: LayoutPayload): void {
-    window.electronAPI?.layoutChanged(payload).catch(() => {
+  function notify(payload: {
+    showSidebar?: boolean
+    showTabBar?: boolean
+    showStatusBar?: boolean
+    isStickyNoteMode?: boolean
+    isImmersiveMode?: boolean
+  }): void {
+    getLayoutSync().notifyLayoutChanged(payload).catch(() => {
       /* 静默失败：菜单 checkbox 短暂错位用户可重新点一次 */
     })
   }
@@ -61,10 +63,6 @@ export const useLayoutStore = defineStore('layout', () => {
   function toggleTabBar(): void { setTabBar(!showTabBar.value) }
   function toggleStatusBar(): void { setStatusBar(!showStatusBar.value) }
 
-  /**
-   * 批量设三键（sticky/immersive 模式进/出场景）。
-   * 合并成单条 IPC 通知主进程，避免单 setter 连发三条。
-   */
   function setAll(sidebar: boolean, tabBar: boolean, statusBar: boolean): void {
     showSidebar.value = sidebar
     showTabBar.value = tabBar
@@ -87,7 +85,6 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
-  /** 恢复到新窗口的默认布局（全显示） */
   function restoreDefaults(): void {
     setAll(true, true, true)
   }

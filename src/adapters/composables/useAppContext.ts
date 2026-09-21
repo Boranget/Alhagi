@@ -103,12 +103,11 @@ export function useAppContext() {
       // 主题
       updateTheme: (isDark: boolean) => editor.updateTheme(isDark),
 
-      // 向后兼容的旧 API
+      // 初始化（通过 Use Case）
       init: (container: HTMLElement, content: string = '', tabId: string = '') => editor.init(container, content, tabId),
       destroy: () => editor.destroy(),
       isReady: () => editor.isReady(),
       getMarkdown: () => editor.getMarkdown(),
-      setMarkdown: (content: string) => editor.setMarkdown(content),
       getHTML: () => editor.getHTML(),
       setViewMode: (mode: ViewMode) => editor.setViewMode(mode),
       setTabViewMode: (tabId: string, mode: ViewMode) => editor.setTabViewMode(tabId, mode),
@@ -122,7 +121,6 @@ export function useAppContext() {
       setCachedContent: (tabId: string, content: string) => editor.setCachedContent(tabId, content),
       clearCache: () => editor.clearCache(),
       getView: () => editor.getView(),
-      setCurrentTabId: (tabId: string) => editor.setCurrentTabId(tabId),
     },
 
     // ── Search ────────────────────────────────────────

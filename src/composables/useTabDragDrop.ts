@@ -401,7 +401,7 @@ export function useTabDragDrop() {
     if (shouldMerge && targetWindow) {
       const merged = await mergeTabToWindow(tabData, targetWindow.id)
       if (merged) {
-        tabsStore.removeTab(tab.id)
+        tabsStore.removeTabById(tab.id)
       }
     }
     else if (
@@ -410,7 +410,7 @@ export function useTabDragDrop() {
     ) {
       const newWindowId = await createNewWindow(tabData)
       if (newWindowId) {
-        tabsStore.removeTab(tab.id)
+        tabsStore.removeTabById(tab.id)
       }
     }
   }

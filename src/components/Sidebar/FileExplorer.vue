@@ -111,11 +111,13 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useInputDialog } from '@/composables/useInputDialog'
 import ExplorerHeader from './ExplorerHeader.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
+import { useTabActions } from '@/composables/useTabActions'
 
 const fileStore = useFileExplorerStore()
 const tabsStore = useTabsStore()
 const { confirm } = useConfirmDialog()
 const inputDialog = useInputDialog()
+const { createTab } = useTabActions()
 const newItemInput = ref<HTMLInputElement | null>(null)
 
 interface ContextMenu {
@@ -224,7 +226,7 @@ async function handleSelect(node: FileTreeNodeType) {
     }
   }
 
-  tabsStore.createTab({
+  await createTab({
     filePath: node.path,
     content,
     title: extractTitleFromPath(node.path),

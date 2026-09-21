@@ -86,6 +86,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useTabService } from '@/services/tabService'
+import { useTabActions } from '@/composables/useTabActions'
 import { computed, onMounted, watch } from 'vue'
 import { Icon } from '@/components/Icons'
 import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
@@ -94,6 +95,7 @@ const prefsStore = usePreferencesStore()
 const tabsStore = useTabsStore()
 const fileStore = useFileExplorerStore()
 const tabService = useTabService()
+const { createTab } = useTabActions()
 
 const recentFiles = computed(() => prefsStore.recentFiles)
 const { missingFiles, checkFiles } = useFileExistenceChecker()
@@ -106,8 +108,8 @@ watch(recentFiles, (files) => {
   checkFiles(files.map(f => f.filePath))
 })
 
-function createNewFile() {
-  tabsStore.createTab({ title: '未命名' })
+async function createNewFile() {
+  await createTab({ title: '未命名' })
 }
 
 async function openExistingFile() {

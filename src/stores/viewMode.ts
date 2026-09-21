@@ -10,18 +10,27 @@
 // 不需要任何一个特性，硬塞进 preferences 反而带来不必要的 IPC + 持久化。
 //
 // 与 layoutStore 同款：临时窗口状态 + 简单 setter + 通知主进程同步菜单 checkbox。
+// IPC 通知已迁移到 ILayoutSync Gateway。
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { ILayoutSync } from '@core/domain/ports/gateways/ILayoutSync'
+import { LayoutSyncGateway } from '@adapters/gateways/LayoutSyncGateway'
+
+let _layoutSync: ILayoutSync | null = null
+
+function getLayoutSync(): ILayoutSync {
+  if (!_layoutSync) _layoutSync = new LayoutSyncGateway()
+  return _layoutSync
+}
 
 export const useViewModeStore = defineStore('viewMode', () => {
   const typewriterMode = ref(false)
   const focusMode = ref(false)
 
-  /** 通知主进程 in-place 更新当前窗口菜单的 checkbox */
   function notify(payload: { typewriterMode?: boolean; focusMode?: boolean }): void {
-    window.electronAPI?.layoutChanged(payload).catch(() => {
-      /* 静默失败：菜单 checkbox 短暂错位用户可重新点一次 */
+    getLayoutSync().notifyLayoutChanged(payload).catch(() => {
+      /* 静默失败 */
     })
   }
 

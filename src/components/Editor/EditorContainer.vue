@@ -15,7 +15,10 @@
       />
 
       <!-- 多实例编辑器容器 — EditorPool 管理内部的 Crepe + CodeMirror -->
-      <div ref="editorWrapper" class="editor-wrapper" />
+      <div
+        ref="editorWrapper"
+        class="editor-wrapper"
+      />
     </div>
   </div>
 </template>

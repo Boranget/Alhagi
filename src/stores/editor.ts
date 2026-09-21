@@ -12,10 +12,6 @@ export const useEditorStore = defineStore('editor', () => {
   const gateway = getEditorServiceGateway()
 
   // 生命周期
-  function init(container: HTMLElement, initialContent: string = '', tabId: string = ''): Promise<void> {
-    return gateway.init(container, initialContent, tabId)
-  }
-
   function destroy(): Promise<void> {
     return gateway.destroy()
   }
@@ -27,10 +23,6 @@ export const useEditorStore = defineStore('editor', () => {
   // 内容操作
   function getMarkdown(): string {
     return gateway.getMarkdown()
-  }
-
-  function setMarkdown(content: string): Promise<void> {
-    return gateway.setMarkdown(content)
   }
 
   function getHTML(): string {
@@ -87,11 +79,9 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   return {
-    init,
     destroy,
     isReady,
     getMarkdown,
-    setMarkdown,
     getHTML,
     setViewMode,
     getViewMode,

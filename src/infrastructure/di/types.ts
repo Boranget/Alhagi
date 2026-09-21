@@ -9,10 +9,13 @@ export const TYPES = {
   EditorProvider: Symbol.for('EditorProvider'),
   EditorCommands: Symbol.for('EditorCommands'),
   TabRepository: Symbol.for('TabRepository'),
+  LayoutRepository: Symbol.for('LayoutRepository'),
   EventBus: Symbol.for('EventBus'),
   FileSystem: Symbol.for('FileSystem'),
   ScrollService: Symbol.for('ScrollService'),
   ViewModeGateway: Symbol.for('ViewModeGateway'),
+  ElectronSync: Symbol.for('ElectronSync'),
+  LayoutSync: Symbol.for('LayoutSync'),
 
   // Use Cases
   CreateTabUseCase: Symbol.for('CreateTabUseCase'),

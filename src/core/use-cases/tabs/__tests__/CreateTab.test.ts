@@ -2,47 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CreateTab } from '../CreateTab'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
-import { Tab } from '@core/entities/Tab'
-
-const defaultEditorState = {
-  cursor: { from: 0, to: 0 },
-  scrollTop: 0,
-  undoStack: [],
-  redoStack: [],
-}
-
-function createMockTab(overrides: Partial<{ id: string; title: string; filePath: string | null }> = {}): Tab {
-  return new Tab({
-    id: overrides.id || 'tab-1',
-    title: overrides.title || 'Test Tab',
-    filePath: overrides.filePath ?? null,
-    content: '',
-    isDirty: false,
-    viewMode: 'wysiwyg',
-    splitRatio: 50,
-    fileType: 'editor',
-    createdAt: Date.now(),
-    lastModified: Date.now(),
-    lastSaved: null,
-    crepe: { ...defaultEditorState },
-    codeMirror: { ...defaultEditorState },
-  })
-}
+import type { IElectronSync } from '@core/domain/ports/gateways/IElectronSync'
 
 describe('CreateTab', () => {
   let createTab: CreateTab
   let mockTabRepository: ITabRepository
   let mockEventBus: IEventBus
+  let mockElectronSync: IElectronSync
 
   beforeEach(() => {
     mockTabRepository = {
-      getAll: vi.fn(),
+      getAll: vi.fn().mockReturnValue([]),
       getById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
       getActiveTab: vi.fn(),
-      getActiveTabId: vi.fn(),
+      getActiveTabId: vi.fn().mockReturnValue(null),
       setActiveTab: vi.fn(),
       getDirtyTabs: vi.fn(),
       markDirty: vi.fn(),
@@ -51,7 +27,9 @@ describe('CreateTab', () => {
       setSplitRatio: vi.fn(),
       findTabByFilePath: vi.fn(),
       getTabCount: vi.fn(),
+      getTabOrder: vi.fn(),
       hasOpenFiles: vi.fn(),
+      insert: vi.fn(),
     }
 
     mockEventBus = {
@@ -65,25 +43,31 @@ describe('CreateTab', () => {
       getListenerCount: vi.fn(),
     }
 
-    createTab = new CreateTab(mockTabRepository, mockEventBus)
+    mockElectronSync = { syncOpenedFiles: vi.fn().mockResolvedValue(undefined) } as unknown as IElectronSync
+
+    createTab = new CreateTab(mockTabRepository, mockEventBus, mockElectronSync)
   })
 
-  it('should create a new tab', async () => {
-    const mockTab = createMockTab({ title: 'Test Tab' })
-    vi.mocked(mockTabRepository.create).mockReturnValue(mockTab)
-
+  it('should insert tab into repository and emit events', async () => {
     const result = await createTab.execute({ title: 'Test Tab' })
 
-    expect(mockTabRepository.create).toHaveBeenCalledWith({ title: 'Test Tab' })
-    expect(result).toBe(mockTab)
+    expect(mockTabRepository.insert).toHaveBeenCalled()
+    expect(mockTabRepository.setActiveTab).toHaveBeenCalled()
+    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:created', expect.anything())
+    expect(result.title).toBe('Test Tab')
   })
 
-  it('should not emit events (events are handled by Store layer)', async () => {
-    const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
-    vi.mocked(mockTabRepository.create).mockReturnValue(mockTab)
+  it('should emit FILE_OPENED when filePath is provided', async () => {
+    await createTab.execute({ filePath: '/path/to/file.md' })
 
-    await createTab.execute({ title: 'Test Tab' })
+    expect(mockEventBus.emit).toHaveBeenCalledWith('app:file:opened', expect.objectContaining({ filePath: '/path/to/file.md' }))
+  })
 
-    expect(mockEventBus.emit).not.toHaveBeenCalled()
+  it('should sync opened files with Electron', async () => {
+    vi.mocked(mockTabRepository.getAll).mockReturnValue([])
+
+    await createTab.execute({ title: 'Tab' })
+
+    expect(mockElectronSync.syncOpenedFiles).toHaveBeenCalled()
   })
 })

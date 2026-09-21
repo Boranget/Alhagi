@@ -1,17 +1,25 @@
 import type { TabState } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { detectDescriptor } from '@/fileTypes'
 import { copyTempImagesToTarget, deleteTempImageDir } from '@/utils/tempImageManager'
 import type { LineEnding } from '@electron-protocol/index'
 import { electronService } from './electron/ElectronService'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
+import { useTabActions } from '@/composables/useTabActions'
 
 export class TabService {
   private tabsStore = useTabsStore()
   private preferencesStore = usePreferencesStore()
+  private eventBus: IEventBus
+
+  constructor(bus?: IEventBus) {
+    this.eventBus = bus ?? defaultEventBus
+  }
+  private tabActions = useTabActions()
 
   async openFile(): Promise<TabState | null> {
     if (!electronService.isAvailable()) return null
@@ -34,17 +42,15 @@ export class TabService {
     }
 
     const title = extractTitleFromPath(filePath)
-    // 按 descriptor.loadStrategy 决定是否把 content 塞进 tab：
-    //   utf8 → 用 dialog 给的 content；none → 留空（图片自取 binary 等）
     const descriptor = detectDescriptor(filePath)
-    const tab = this.tabsStore.createTab({
+    const tab = await this.tabActions.createTab({
       filePath,
       content: descriptor.loadStrategy === 'utf8' ? content : '',
       title,
       fileType: descriptor.id,
     })
 
-    return tab
+    return this.tabsStore.getTab(tab.id) ?? null
   }
 
   async openRecentFile(filePath: string): Promise<TabState | null> {
@@ -73,9 +79,9 @@ export class TabService {
         content = contentResp.data
       }
       const title = extractTitleFromPath(filePath)
-      const tab = this.tabsStore.createTab({ filePath, content, title, fileType: descriptor.id })
+      const tab = await this.tabActions.createTab({ filePath, content, title, fileType: descriptor.id })
 
-      return tab
+      return this.tabsStore.getTab(tab.id) ?? null
     } catch (error) {
       console.error('Failed to open recent file:', error)
       return null
@@ -95,7 +101,7 @@ export class TabService {
 
       this.tabsStore.markClean(tabId)
 
-      eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
+      this.eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
       return true
     } else {
       return await this.saveFileAs(tabId)
@@ -137,7 +143,7 @@ export class TabService {
 
       this.preferencesStore.addRecentFile(filePath, tab.title)
 
-      eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })
+      this.eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })
       return true
     }
 
@@ -185,10 +191,10 @@ export class TabService {
     this.tabsStore.markClean(tab.id)
 
     // 2. 若 reload 的是当前活动 tab，强制 Crepe 重新解析文档；
-    //    其他 tab 内容也已更新，将来切换过去时 switchToTab 会自然 setMarkdown。
+    //    其他 tab 内容也已更新，将来切换过去时 switchToTab 会自然 setTabContent。
     if (this.tabsStore.activeTabId === tab.id) {
       const gateway = getEditorServiceGateway()
-      await gateway.setMarkdown(content)
+      await gateway.setTabContent(tab.id, content)
     }
 
     return true

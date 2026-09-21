@@ -10,6 +10,8 @@ export default defineConfig({
       '@core': resolve(__dirname, 'src/core'),
       '@adapters': resolve(__dirname, 'src/adapters'),
       '@shared': resolve(__dirname, 'src/shared'),
+      '@electron-protocol': resolve(__dirname, 'electron-protocol'),
+      '@infrastructure': resolve(__dirname, 'src/infrastructure'),
     },
   },
   test: {

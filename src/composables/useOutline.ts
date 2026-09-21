@@ -1,6 +1,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { parseHeadings } from '@/utils/headings'
 import { listToTree } from '@/utils/listToTree'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
@@ -18,7 +19,8 @@ const MOUNT_DELAY_MS = 200
 /** 滚动容器重试间隔 */
 const RETRY_INTERVAL_MS = 200
 
-export function useOutline() {
+export function useOutline(bus?: IEventBus) {
+  const eventBus = bus ?? defaultEventBus
   const tabsStore = useTabsStore()
   const gateway = getEditorServiceGateway()
 

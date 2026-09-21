@@ -51,7 +51,9 @@ describe('UpdateTab', () => {
       setSplitRatio: vi.fn(),
       findTabByFilePath: vi.fn(),
       getTabCount: vi.fn(),
+      getTabOrder: vi.fn(),
       hasOpenFiles: vi.fn(),
+      insert: vi.fn(),
     }
 
     mockEventBus = {

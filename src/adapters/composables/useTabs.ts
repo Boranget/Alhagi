@@ -4,15 +4,17 @@ import { SwitchTab } from '@core/use-cases/tabs/SwitchTab'
 import { UpdateTab } from '@core/use-cases/tabs/UpdateTab'
 import { useTabRepository } from '@adapters/stores/tabs'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
+import { ElectronSyncGateway } from '@adapters/gateways/ElectronSyncGateway'
 import type { CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
 import type { ViewMode } from '@shared/types'
 
 export function useTabs() {
   const tabRepository = useTabRepository()
   const eventBus = useEventBusGateway()
+  const electronSync = new ElectronSyncGateway()
 
-  const createTab = new CreateTab(tabRepository, eventBus)
-  const closeTab = new CloseTab(tabRepository, eventBus)
+  const createTab = new CreateTab(tabRepository, eventBus, electronSync)
+  const closeTab = new CloseTab(tabRepository, eventBus, electronSync)
   const switchTab = new SwitchTab(tabRepository, eventBus)
   const updateTab = new UpdateTab(tabRepository, eventBus)
 

@@ -5,6 +5,7 @@ export interface ITabRepository {
   getAll(): Tab[]
   getById(id: string): Tab | undefined
   create(options?: CreateTabOptions): Tab
+  insert(tab: Tab): void
   update(id: string, updates: Partial<TabUpdates>): void
   delete(id: string): void
   getActiveTab(): Tab | undefined
@@ -17,6 +18,7 @@ export interface ITabRepository {
   setSplitRatio(id: string, ratio: number): void
   findTabByFilePath(filePath: string): Tab | undefined
   getTabCount(): number
+  getTabOrder(): string[]
   hasOpenFiles(): boolean
 }
 

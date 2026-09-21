@@ -1,11 +1,13 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { debounce } from '@/utils/helpers'
 import { useTabService } from '@/services/tabService'
 
-export function useAutoSave() {
+export function useAutoSave(bus?: IEventBus) {
+  const eventBus = bus ?? defaultEventBus
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
   const tabService = useTabService()

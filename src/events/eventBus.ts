@@ -112,6 +112,17 @@ export const AppEvents = {
   EDITOR_SETTLED: 'editor:settled' as const,
   CONTENT_RENDERED: 'editor:content-rendered' as const,
   SEARCH_STATE_CHANGED: 'search:state-changed' as const,
+
+  // UI 操作事件（替代 CustomEvent）
+  SHOW_SEARCH: 'app:show-search' as const,
+  INSERT_IMAGE: 'app:insert-image' as const,
+  EXPORT: 'app:export' as const,
+
+  // 编辑器命令事件（替代 document.execCommand）
+  EDITOR_CUT: 'editor:cut' as const,
+  EDITOR_COPY: 'editor:copy' as const,
+  EDITOR_PASTE: 'editor:paste' as const,
+  EDITOR_SELECT_ALL: 'editor:select-all' as const,
 }
 
 export type { AppEventName, AppEventPayloads, EventCallback }
@@ -126,4 +137,10 @@ export function useEventBus() {
     hasListeners: eventBus.hasListeners.bind(eventBus),
     getListenerCount: eventBus.getListenerCount.bind(eventBus),
   }
+}
+
+// Expose for e2e tests (tests run in browser context, can't import modules)
+if (typeof window !== 'undefined') {
+  (window as any).__eventBus = eventBus
+  ;(window as any).__AppEvents = AppEvents
 }

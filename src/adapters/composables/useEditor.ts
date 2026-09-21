@@ -38,12 +38,13 @@ export function useEditor() {
     // 主题
     updateTheme: (isDark: boolean) => editorProvider.updateTheme(isDark),
 
-    // 向后兼容的旧 API
+    // 初始化（通过 Use Case）
     init: (container: HTMLElement, content: string = '', tabId: string) => initEditor.execute(container, content, tabId),
+
+    // 通用操作
     destroy: () => editorProvider.destroy(),
     isReady: () => editorProvider.isReady(),
     getMarkdown: () => editorProvider.getMarkdown(),
-    setMarkdown: (content: string) => editorProvider.setMarkdown(content),
     getHTML: () => editorProvider.getHTML(),
     setViewMode: (mode: ViewMode) => editorProvider.setViewMode(mode),
     setTabViewMode: (tabId: string, mode: ViewMode) => editorProvider.setTabViewMode(tabId, mode),
@@ -58,6 +59,5 @@ export function useEditor() {
     getActiveEditor: () => editorProvider.getActiveEditor(),
     getSelection: () => editorProvider.getSelection(),
     getView: () => editorProvider.getView(),
-    setCurrentTabId: (tabId: string) => editorProvider.setCurrentTabId(tabId),
   }
 }

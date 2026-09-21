@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CloseTab } from '../CloseTab'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
+import type { IElectronSync } from '@core/domain/ports/gateways/IElectronSync'
 import { Tab } from '@core/entities/Tab'
 
 const defaultEditorState = {
@@ -33,6 +34,7 @@ describe('CloseTab', () => {
   let closeTab: CloseTab
   let mockTabRepository: ITabRepository
   let mockEventBus: IEventBus
+  let mockElectronSync: IElectronSync
 
   beforeEach(() => {
     mockTabRepository = {
@@ -51,7 +53,9 @@ describe('CloseTab', () => {
       setSplitRatio: vi.fn(),
       findTabByFilePath: vi.fn(),
       getTabCount: vi.fn(),
+      getTabOrder: vi.fn(),
       hasOpenFiles: vi.fn(),
+      insert: vi.fn(),
     }
 
     mockEventBus = {
@@ -65,25 +69,22 @@ describe('CloseTab', () => {
       getListenerCount: vi.fn(),
     }
 
-    closeTab = new CloseTab(mockTabRepository, mockEventBus)
+    mockElectronSync = { syncOpenedFiles: vi.fn().mockResolvedValue(undefined) } as unknown as IElectronSync
+
+    closeTab = new CloseTab(mockTabRepository, mockEventBus, mockElectronSync)
   })
 
-  it('should delete the tab', async () => {
+  it('should delete the tab and emit TAB_CLOSED', async () => {
     const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
     vi.mocked(mockTabRepository.getById).mockReturnValue(mockTab)
+    vi.mocked(mockTabRepository.getTabOrder).mockReturnValue(['tab-1'])
+    vi.mocked(mockTabRepository.getActiveTabId).mockReturnValue(null)
+    vi.mocked(mockTabRepository.getAll).mockReturnValue([])
 
     await closeTab.execute('tab-1')
 
     expect(mockTabRepository.delete).toHaveBeenCalledWith('tab-1')
-  })
-
-  it('should not emit events (events are handled by Store layer)', async () => {
-    const mockTab = createMockTab({ id: 'tab-1', title: 'Test Tab' })
-    vi.mocked(mockTabRepository.getById).mockReturnValue(mockTab)
-
-    await closeTab.execute('tab-1')
-
-    expect(mockEventBus.emit).not.toHaveBeenCalled()
+    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:closed', expect.objectContaining({ tabId: 'tab-1' }))
   })
 
   it('should do nothing when tab does not exist', async () => {
@@ -92,6 +93,20 @@ describe('CloseTab', () => {
     await closeTab.execute('non-existent')
 
     expect(mockTabRepository.delete).not.toHaveBeenCalled()
-    expect(mockEventBus.emit).not.toHaveBeenCalled()
+  })
+
+  it('should switch to neighbor tab when closing the active tab', async () => {
+    const tab1 = createMockTab({ id: 'tab-1' })
+    const tab2 = createMockTab({ id: 'tab-2' })
+    vi.mocked(mockTabRepository.getById).mockReturnValue(tab1)
+    vi.mocked(mockTabRepository.getTabOrder)
+      .mockReturnValueOnce(['tab-1', 'tab-2'])
+      .mockReturnValueOnce(['tab-2'])
+    vi.mocked(mockTabRepository.getActiveTabId).mockReturnValue('tab-1')
+    vi.mocked(mockTabRepository.getAll).mockReturnValue([tab2])
+
+    await closeTab.execute('tab-1')
+
+    expect(mockTabRepository.setActiveTab).toHaveBeenCalledWith('tab-2')
   })
 })

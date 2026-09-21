@@ -25,7 +25,7 @@ import { debounce } from '@/utils/helpers'
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
-import { useViewModeStore } from '@/stores/viewMode'
+import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 
 /** Markdown 更新防抖延迟 */
 const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
@@ -70,6 +70,8 @@ export class EditorPool {
   private getImageOptions: () => ImageInsertOptions
   private getImageContext: () => ImageInsertContext
   private isDarkModeFn: () => boolean
+  private isFocusModeFn: () => boolean
+  private tabRepository: ITabRepository
 
   constructor(
     getCurrentFilePath: () => string | undefined,
@@ -77,7 +79,9 @@ export class EditorPool {
     imageInsertService: ImageInsertService,
     getImageOptions: () => ImageInsertOptions,
     getImageContext: () => ImageInsertContext,
-    isDarkMode: () => boolean
+    isDarkMode: () => boolean,
+    isFocusMode: () => boolean,
+    tabRepository: ITabRepository
   ) {
     this.getCurrentFilePathFn = getCurrentFilePath
     this.getCurrentFileDirFn = getCurrentFileDir
@@ -85,6 +89,8 @@ export class EditorPool {
     this.getImageOptions = getImageOptions
     this.getImageContext = getImageContext
     this.isDarkModeFn = isDarkMode
+    this.isFocusModeFn = isFocusMode
+    this.tabRepository = tabRepository
   }
 
   // ============================================================
@@ -351,11 +357,10 @@ export class EditorPool {
   private syncFocusModeToActiveEditor(instance: { crepe: Crepe | null }): void {
     if (!instance.crepe) return
     try {
-      const viewModeStore = useViewModeStore()
       instance.crepe.editor.action((ctx) => {
         const view = ctx.get(editorViewCtx)
         if (view) {
-          view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled: viewModeStore.focusMode }))
+          view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled: this.isFocusModeFn() }))
         }
       })
     } catch {
@@ -714,6 +719,12 @@ export class EditorPool {
     console.log(`[EditorPool] handleMarkdownUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${markdown.length}`)
     instance.content = markdown
 
+    this.tabRepository.update(tabId, {
+      content: markdown,
+      isDirty: true,
+      lastModified: Date.now(),
+    })
+
     // 分屏模式下，Crepe 内容变更需同步到 CodeMirror
     if (instance.viewMode === 'split' && instance.cmView) {
       try {
@@ -740,6 +751,12 @@ export class EditorPool {
     console.log(`[EditorPool] handleCMUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${content.length}, hasCrepe=${!!instance.crepe}`)
 
     instance.content = content
+
+    this.tabRepository.update(tabId, {
+      content,
+      isDirty: true,
+      lastModified: Date.now(),
+    })
 
     // 同步到 Crepe
     if (instance.crepe && instance.viewMode !== 'source') {

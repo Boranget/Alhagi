@@ -1,8 +1,10 @@
 import { onMounted, onUnmounted } from 'vue'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { useLayoutStore } from '@/stores/layout'
 
-export function useFolderOpenHandler() {
+export function useFolderOpenHandler(bus?: IEventBus) {
+  const eventBus = bus ?? defaultEventBus
   const layoutStore = useLayoutStore()
 
   let unsubscribeFolderOpened: (() => void) | null = null

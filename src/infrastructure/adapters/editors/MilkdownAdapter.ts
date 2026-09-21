@@ -13,6 +13,7 @@ import { ImageInsertService } from '@/services/image/ImageInsertService'
 import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 import type { IEditorProvider, Selection, Heading } from '@core/domain/ports/IEditorProvider'
+import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { SearchService } from '@/services/search/types'
 
 export class MilkdownAdapter implements IEditorProvider {
@@ -32,7 +33,9 @@ export class MilkdownAdapter implements IEditorProvider {
     getCurrentFileDir: () => string | undefined,
     imageInsertService: ImageInsertService,
     getImageOptions: () => ImageInsertOptions,
-    getImageContext: () => ImageInsertContext
+    getImageContext: () => ImageInsertContext,
+    isFocusMode: () => boolean,
+    tabRepository: ITabRepository
   ) {
     this.getCurrentFilePathFn = getCurrentFilePath
     this.getCurrentFileDirFn = getCurrentFileDir
@@ -47,7 +50,9 @@ export class MilkdownAdapter implements IEditorProvider {
       imageInsertService,
       getImageOptions,
       getImageContext,
-      () => this.isDarkMode()
+      () => this.isDarkMode(),
+      isFocusMode,
+      tabRepository
     )
   }
 
@@ -61,16 +66,6 @@ export class MilkdownAdapter implements IEditorProvider {
 
   async detach(): Promise<void> {
     await this.pool.detach()
-  }
-
-  /** @deprecated 使用 createTab + switchTab 替代 */
-  async init(container: HTMLElement, initialContent: string = '', tabId?: string): Promise<void> {
-    // 向后兼容：将旧的 init 调用转换为新架构
-    if (tabId && !this.pool.hasTab(tabId)) {
-      const viewMode = this.getViewMode()
-      await this.pool.createTab(tabId, initialContent, viewMode)
-      this.pool.showTab(tabId)
-    }
   }
 
   async destroy(): Promise<void> {
@@ -113,20 +108,15 @@ export class MilkdownAdapter implements IEditorProvider {
     return this.pool.getHTML(tabId)
   }
 
-  /** @deprecated 每个 tab 独立管理内容，无需全局设置 */
-  async setMarkdown(content: string): Promise<void> {
-    // 向后兼容：更新当前活动 tab 的内容
-    const activeTabId = this.pool.getActiveTabId()
-    if (!activeTabId) return
-
-    const instance = this.pool.getInstance(activeTabId)
+  async setTabContent(tabId: string, content: string): Promise<void> {
+    const instance = this.pool.getInstance(tabId)
     if (!instance?.crepe) return
 
     try {
       instance.crepe.editor.action(replaceAll(content))
       instance.content = content
     } catch (error) {
-      console.error('[MilkdownAdapter] Failed to set markdown:', error)
+      console.error('[MilkdownAdapter] Failed to set tab content:', error)
     }
   }
 
@@ -196,15 +186,6 @@ export class MilkdownAdapter implements IEditorProvider {
 
   getHeadings(): Heading[] {
     return this.pool.getHeadings()
-  }
-
-  // ============================================================
-  // Tab 管理（向后兼容）
-  // ============================================================
-
-  /** @deprecated 使用 switchTab 替代 */
-  setCurrentTabId(tabId: string): void {
-    this.switchTab(tabId)
   }
 
   // ============================================================

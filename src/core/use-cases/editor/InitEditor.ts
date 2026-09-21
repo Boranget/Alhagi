@@ -11,7 +11,7 @@ export class InitEditor {
     private tabRepository: ITabRepository
   ) {}
 
-  async execute(container: HTMLElement, content: string = '', tabId: string): Promise<void> {
+  async execute(_container: HTMLElement, content: string = '', tabId: string): Promise<void> {
     console.log('[InitEditor] execute called', { tabId, contentLength: content.length })
 
     // 先取消旧的订阅，防止 handler 累积
@@ -21,14 +21,17 @@ export class InitEditor {
       console.log('[InitEditor] unsubscribed old contentChange handler')
     }
 
-    // 初始化编辑器，传入内容
-    await this.editorProvider.init(container, content, tabId)
+    // 使用多实例 API：创建 tab 编辑器实例并切换
+    if (!this.editorProvider.hasTab(tabId)) {
+      await this.editorProvider.createTab(tabId, content)
+    }
+    this.editorProvider.switchTab(tabId)
 
     // 订阅内容变更 — 使用当前活动 tab 而非闭包捕获的初始 tabId
     this.unsubscribeContentChange = this.editorProvider.onContentChange((markdown) => {
       const activeTabId = this.tabRepository.getActiveTabId()
       console.log('[InitEditor] onContentChange: activeTabId=' + activeTabId + ', length=' + markdown.length)
-      
+
       if (!activeTabId) return
 
       this.tabRepository.update(activeTabId, {

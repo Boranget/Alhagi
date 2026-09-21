@@ -199,11 +199,13 @@ import { Icon } from '@/components/Icons'
 import { useTabService } from '@/services/tabService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import { useTabActions } from '@/composables/useTabActions'
 
 const tabsStore = useTabsStore()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
 const toast = useToast()
+const { createTab, closeTab } = useTabActions()
 
 const {
   dragState,
@@ -282,11 +284,11 @@ async function handleTabClose(tabId: string) {
     const ok = await confirmCloseDirtyTab(tab)
     if (!ok) return
   }
-  tabsStore.removeTab(tabId)
+  await closeTab(tabId)
 }
 
-function handleNewTab() {
-  tabsStore.createTab()
+async function handleNewTab() {
+  await createTab()
 }
 
 function saveCurrentTab() {
@@ -320,7 +322,7 @@ async function closeOtherTabs() {
         const ok = await confirmCloseDirtyTab(tab)
         if (!ok) continue
       }
-      tabsStore.removeTab(tabId)
+      tabsStore.removeTabById(tabId)
     }
   }
   hideContextMenu()
@@ -337,7 +339,7 @@ function closeSavedTabs() {
   const toClose = keepAtLeastOne ? tabsToClose.slice(0, -1) : tabsToClose
 
   for (const tabId of toClose) {
-    tabsStore.removeTab(tabId)
+    tabsStore.removeTabById(tabId)
   }
   hideContextMenu()
 }
@@ -361,7 +363,7 @@ async function closeAllTabs() {
   }
 
   for (const tabId of allTabIds) {
-    tabsStore.removeTab(tabId)
+    tabsStore.removeTabById(tabId)
   }
 
   hideContextMenu()
@@ -397,7 +399,7 @@ async function detachTab() {
   if (window.electronAPI) {
     try {
       await window.electronAPI.openNewWindow({ tabData: serializeTabForIPC(tab) })
-      tabsStore.removeTab(tabId)
+      tabsStore.removeTabById(tabId)
     } catch (e) {
       toast.error('分离标签页失败，请重试')
     }

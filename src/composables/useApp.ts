@@ -7,13 +7,15 @@ import { useAutoSave } from '@/composables/useAutoSave'
 import { useFolderOpenHandler } from '@/composables/useFolderOpenHandler'
 import { initCommandSystem } from '@/commands'
 import { electronService } from '@/services/electron/ElectronService'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus as defaultEventBus, AppEvents } from '@/events/eventBus'
+import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import { useCapture } from '@/services/capture'
 import { setupEditorTypography } from '@/services/typography/EditorTypographyService'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
+import { useTabActions } from '@/composables/useTabActions'
 
 // 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
 let _isFullscreen: ReturnType<typeof ref<boolean>> | null = null
@@ -24,7 +26,8 @@ function getSharedFullscreenRef() {
   return _isFullscreen
 }
 
-export function useApp() {
+export function useApp(bus?: IEventBus) {
+  const eventBus = bus ?? defaultEventBus
   const isFullscreen = getSharedFullscreenRef()
   const tabsStore = useTabsStore()
   const prefsStore = usePreferencesStore()
@@ -33,6 +36,7 @@ export function useApp() {
   const { confirm } = useConfirmDialog()
   const toast = useToast()
   const selectDialog = useSelectDialog()
+  const { createTab } = useTabActions()
 
   const { initialize: initWritingEnhancement, cleanup: cleanupWritingEnhancement } = useWritingEnhancement()
   const { captureEditor, copyCaptureToClipboard, downloadCapture } = useCapture()
@@ -186,9 +190,9 @@ export function useApp() {
     })
   }
 
-  const restoreLastSession = (lastSession: NonNullable<ReturnType<typeof prefsStore.getLastSession>>) => {
-    lastSession.tabs.forEach((tabData) => {
-      const tab = tabsStore.createTab({
+  const restoreLastSession = async (lastSession: NonNullable<ReturnType<typeof prefsStore.getLastSession>>) => {
+    for (const tabData of lastSession.tabs) {
+      const tab = await createTab({
         title: tabData.title,
         content: tabData.content,
         filePath: tabData.filePath ?? undefined,
@@ -198,7 +202,7 @@ export function useApp() {
       if (tabData.isDirty) {
         tabsStore.updateTab(tab.id, { isDirty: true })
       }
-    })
+    }
     if (lastSession.activeTabId) {
       tabsStore.switchTab(lastSession.activeTabId)
     }
@@ -259,7 +263,7 @@ export function useApp() {
             fileStore.openFolderByPath(result.data.path)
           }
         }
-        tabsStore.createTab({ title: '未命名' })
+        await createTab({ title: '未命名' })
         break
       }
 

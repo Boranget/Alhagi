@@ -132,6 +132,17 @@ export interface AppEventPayloads {
   'app:tab-merge-requested': { tabData: DetachedTabData }
   'app:tab-detached': { tabData: DetachedTabData }
   'app:focus-tab-for-file': { filePath: string }
+
+  // UI 操作事件（替代 CustomEvent）
+  'app:show-search': { showReplace?: boolean } | undefined
+  'app:insert-image': undefined
+  'app:export': { format: 'markdown' | 'html' | 'pdf' }
+
+  // 编辑器命令事件（替代 document.execCommand）
+  'editor:cut': undefined
+  'editor:copy': undefined
+  'editor:paste': undefined
+  'editor:select-all': undefined
 }
 
 export type AppEventName = keyof AppEventPayloads

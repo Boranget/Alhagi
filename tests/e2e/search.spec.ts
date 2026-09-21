@@ -28,10 +28,17 @@ test.afterAll(async () => {
   }
 })
 
-// Helper: dispatch editor:showSearch event
+// Helper: dispatch editor:showSearch event via eventBus
 async function openSearch(page: Page, showReplace = false) {
   await page.evaluate((detail) => {
-    window.dispatchEvent(new CustomEvent('editor:showSearch', { detail }))
+    const bus = (window as any).__eventBus
+    const events = (window as any).__AppEvents
+    if (bus && events) {
+      bus.emit(events.SHOW_SEARCH, detail ? { showReplace: true } : undefined)
+    } else {
+      // Fallback for environments where eventBus isn't exposed
+      window.dispatchEvent(new CustomEvent('editor:showSearch', { detail }))
+    }
   }, showReplace ? { showReplace: true } : undefined)
   await page.waitForTimeout(500)
 }

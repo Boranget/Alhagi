@@ -62,6 +62,10 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getHTML(tabId)
   }
 
+  async setTabContent(tabId: string, content: string): Promise<void> {
+    return this.adapter.setTabContent(tabId, content)
+  }
+
   // 视图模式
   setViewMode(mode: ViewMode): void {
     return this.adapter.setViewMode(mode)
@@ -118,20 +122,6 @@ export class EditorServiceGateway implements IEditorProvider {
   // 主题
   async updateTheme(isDark: boolean): Promise<void> {
     return this.adapter.updateTheme(isDark)
-  }
-
-  // 向后兼容
-  async init(container: HTMLElement, content: string, tabId: string): Promise<void> {
-    console.log('[EditorServiceGateway] init called (deprecated)', { tabId, contentLength: content.length })
-    return this.adapter.init(container, content, tabId)
-  }
-
-  setCurrentTabId(tabId: string): void {
-    this.adapter.setCurrentTabId(tabId)
-  }
-
-  async setMarkdown(content: string): Promise<void> {
-    return this.adapter.setMarkdown(content)
   }
 
   // 缓存管理

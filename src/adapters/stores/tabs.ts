@@ -1,12 +1,12 @@
 ﻿import type { ITabRepository, CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
-import type { ViewMode, FileType, TabState } from '@shared/types'
+import type { ViewMode, TabState } from '@shared/types'
 import { Tab } from '@core/entities/Tab'
 import { defineStore } from 'pinia'
 import { useTabsStore } from '@/stores/tabs'
 
 /**
  * TabRepository adapter - 代理原始 useTabsStore
- * 
+ *
  * 架构设计：
  * - 实现 Core 层定义的 ITabRepository 接口
  * - 内部代理原始 Pinia store，保持数据一致性
@@ -51,18 +51,30 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
     return state ? toTab(state) : undefined
   }
 
-  const create = (options?: CreateTabOptions): Tab => {
-    const state = originalStore.createTab(options)
-    return toTab(state)
+  /**
+   * create — 委托给 CreateTab Use Case（业务逻辑在 Use Case 层）
+   * 注意：此方法被 CreateTab Use Case 间接调用时需避免循环。
+   * 实际使用中，UI 层应通过 getCreateTabUseCase() 调用。
+   */
+  const create = (_options?: CreateTabOptions): Tab => {
+    // 此方法保留向后兼容，但新代码应使用 CreateTab Use Case
+    // 业务逻辑已迁移到 CreateTab.execute()
+    throw new Error('Use CreateTab Use Case instead of tabRepository.create()')
+  }
+
+  /**
+   * insert — 纯数据插入，由 Use Case 调用
+   */
+  const insert = (tab: Tab): void => {
+    originalStore.addTab(toTabState(tab))
   }
 
   const update = (id: string, updates: Partial<TabUpdates>): void => {
-    console.log('[TabRepository] update called', { id, updates: Object.keys(updates) })
     originalStore.updateTab(id, updates as Partial<TabState>)
   }
 
   const deleteTab = (id: string): void => {
-    originalStore.removeTab(id)
+    originalStore.removeTabById(id)
   }
 
   const getActiveTab = (): Tab | undefined => {
@@ -75,7 +87,7 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
   }
 
   const setActiveTab = (id: string): void => {
-    originalStore.switchTab(id)
+    originalStore.setActiveTabId(id)
   }
 
   const getDirtyTabs = (): Tab[] => {
@@ -107,6 +119,10 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
     return originalStore.tabCount
   }
 
+  const getTabOrder = (): string[] => {
+    return originalStore.getTabOrder()
+  }
+
   const hasOpenFiles = (): boolean => {
     return originalStore.tabCount > 0
   }
@@ -115,6 +131,7 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
     getAll,
     getById,
     create,
+    insert,
     update,
     delete: deleteTab,
     getActiveTab,
@@ -127,6 +144,7 @@ export const useTabRepository = defineStore('tabsRepo', (): ITabRepository => {
     setSplitRatio,
     findTabByFilePath,
     getTabCount,
+    getTabOrder,
     hasOpenFiles,
   }
 })

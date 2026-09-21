@@ -209,6 +209,7 @@
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { t } from '@/services/i18n'
 import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
+import { eventBus, AppEvents } from '@/events/eventBus'
 
 const {
   searchQuery,
@@ -233,20 +234,22 @@ const showReplace = ref(false)
 let selectionBeforeSearch: { start: number | null; end: number | null; direction: 'forward' | 'backward' | 'none' | null } | null = null
 
 // 监听命令系统发送的搜索事件
-function handleShowSearch(event: CustomEvent) {
-  if (event.detail?.showReplace) {
+function handleShowSearch(payload?: { showReplace?: boolean }) {
+  if (payload?.showReplace) {
     showWithReplace()
   } else {
     showFloating()
   }
 }
 
+let unsubscribe: (() => void) | null = null
+
 onMounted(() => {
-  window.addEventListener('editor:showSearch', handleShowSearch as EventListener)
+  unsubscribe = eventBus.on(AppEvents.SHOW_SEARCH, handleShowSearch)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('editor:showSearch', handleShowSearch as EventListener)
+  unsubscribe?.()
 })
 
 const searchErrorMsg = computed(() => {
