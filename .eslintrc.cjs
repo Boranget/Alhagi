@@ -41,6 +41,23 @@ module.exports = {
   },
   overrides: [
     {
+      files: ['src/components/**/*.vue'],
+      rules: {
+        'no-restricted-imports': ['error', {
+          paths: [{
+            name: '@/events/eventBus',
+            message: '请通过 EventBusGateway 使用事件总线'
+          }],
+          patterns: [
+            { group: ['@/stores/tabs'], message: '请通过 useTabContext 使用 Tabs 数据' },
+            { group: ['@/stores/preferences'], message: '请通过 usePreferencesStore（仅 Composition Root）' },
+            { group: ['@/stores/search'], message: '请通过 useSearchContext 使用搜索数据' },
+            { group: ['@/stores/editor'], message: '请通过 useEditorContext 使用编辑器数据' },
+          ]
+        }]
+      }
+    },
+    {
       files: ['src/components/Sidebar/GlobalSearch.vue'],
       rules: {
         'vue/no-v-html': 'off'

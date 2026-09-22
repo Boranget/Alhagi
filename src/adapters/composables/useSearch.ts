@@ -1,13 +1,13 @@
 import { SearchInFile } from '@core/use-cases/search/SearchInFile'
 import { ReplaceInFile } from '@core/use-cases/search/ReplaceInFile'
 import { useSearchRepository } from '@adapters/stores/search'
-import { useTabRepository } from '@adapters/stores/tabs'
+import { useTabsStore } from '@/stores/tabs'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 import type { SearchQuery } from '@core/entities/Search'
 
 export function useSearch() {
   const searchRepository = useSearchRepository()
-  const tabRepository = useTabRepository()
+  const tabRepository = useTabsStore()
   const eventBus = useEventBusGateway()
 
   const searchInFile = new SearchInFile(searchRepository, tabRepository, eventBus)

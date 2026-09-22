@@ -3,7 +3,7 @@ import { GetMarkdown } from '@core/use-cases/editor/GetMarkdown'
 import { SetViewMode } from '@core/use-cases/editor/SetViewMode'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
-import { useTabRepository } from '@adapters/stores/tabs'
+import { useTabsStore } from '@/stores/tabs'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
 
@@ -13,7 +13,7 @@ let initEditorSingleton: InitEditor | null = null
 export function useEditor() {
   const editorProvider = getEditorServiceGateway()
   const eventBus = useEventBusGateway()
-  const tabRepository = useTabRepository()
+  const tabRepository = useTabsStore()
 
   if (!initEditorSingleton) {
     initEditorSingleton = new InitEditor(editorProvider, eventBus, tabRepository)

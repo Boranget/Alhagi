@@ -45,9 +45,8 @@ import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 
 // Adapter Stores
-import { useTabRepository } from '@adapters/stores/tabs'
-import { useLayoutRepository } from '@adapters/stores/layout'
 import { useTabsStore } from '@/stores/tabs'
+import { useLayoutRepository } from '@adapters/stores/layout'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useViewModeStore } from '@/stores/viewMode'
 
@@ -62,7 +61,7 @@ container.bind<IEventBus>(TYPES.EventBus).toDynamicValue(() => new EventBusGatew
 container.bind<IFileSystem>(TYPES.FileSystem).toDynamicValue(() => new FileSystemGateway()).inSingletonScope()
 container.bind<IElectronSync>(TYPES.ElectronSync).toDynamicValue(() => new ElectronSyncGateway()).inSingletonScope()
 container.bind<ILayoutSync>(TYPES.LayoutSync).toDynamicValue(() => new LayoutSyncGateway()).inSingletonScope()
-container.bind<ITabRepository>(TYPES.TabRepository).toDynamicValue(() => useTabRepository()).inSingletonScope()
+container.bind<ITabRepository>(TYPES.TabRepository).toDynamicValue(() => useTabsStore()).inSingletonScope()
 container.bind<ILayoutRepository>(TYPES.LayoutRepository).toDynamicValue(() => useLayoutRepository()).inSingletonScope()
 
 // 动态绑定（需要运行时获取实例）

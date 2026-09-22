@@ -1,6 +1,6 @@
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { ILayoutRepository } from '@core/domain/ports/repositories/ILayoutRepository'
-import { useTabRepository } from '@adapters/stores/tabs'
+import { useTabsStore } from '@/stores/tabs'
 import { useLayoutRepository } from '@adapters/stores/layout'
 
 const REBUILD_TRIGGERS = new Set([
@@ -101,7 +101,7 @@ export function getCommandContext(): CommandContext {
 }
 
 function initializeContext(ctx: CommandContext): void {
-  const tabRepo = useTabRepository()
+  const tabRepo = useTabsStore()
   const layoutRepo = useLayoutRepository()
 
   ctx.register('hasOpenFile', () => {

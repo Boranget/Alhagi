@@ -1,8 +1,35 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TabState, ViewMode } from '@/types'
+import type { TabState, ViewMode, FileType } from '@/types'
+import type { ITabRepository, CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
+import { Tab } from '@core/entities/Tab'
 import { trimHistoryStacks, MAX_UNDO_STACK_SIZE, MAX_REDO_STACK_SIZE } from '@/utils/tabHelpers'
 import { eventBus, AppEvents } from '@/events/eventBus'
+
+function toTab(state: TabState): Tab {
+  return new Tab({
+    id: state.id,
+    filePath: state.filePath,
+    content: state.content,
+    isDirty: state.isDirty,
+    title: state.title,
+    viewMode: state.viewMode,
+    splitRatio: state.splitRatio,
+    fileType: state.fileType,
+    createdAt: state.createdAt,
+    lastModified: state.lastModified,
+    lastSaved: state.lastSaved,
+    cursor: state.cursor,
+    scrollTop: state.scrollTop,
+    crepe: state.crepe,
+    codeMirror: state.codeMirror,
+    viewerState: state.viewerState,
+  })
+}
+
+function toTabState(tab: Tab): TabState {
+  return tab.toProps() as TabState
+}
 
 export const useTabsStore = defineStore('tabs', () => {
   const tabs = ref(new Map<string, TabState>())
@@ -52,10 +79,6 @@ export const useTabsStore = defineStore('tabs', () => {
 
   function getTab(tabId: string): TabState | undefined {
     return tabs.value.get(tabId)
-  }
-
-  function findTabByFilePath(filePath: string): TabState | undefined {
-    return Array.from(tabs.value.values()).find(t => t.filePath === filePath)
   }
 
   function updateTab(tabId: string, updates: Partial<TabState>): void {
@@ -109,6 +132,36 @@ export const useTabsStore = defineStore('tabs', () => {
     tabOrder.value = newOrder
   }
 
+  // ── ITabRepository implementation ─────────────────────
+
+  const getAll = (): Tab[] => getAllTabs().map(toTab)
+  const getById = (id: string): Tab | undefined => {
+    const state = getTab(id)
+    return state ? toTab(state) : undefined
+  }
+  const create = (_options?: CreateTabOptions): Tab => {
+    throw new Error('Use CreateTab Use Case instead of store.create()')
+  }
+  const insert = (tab: Tab): void => addTab(toTabState(tab))
+  const update = (id: string, updates: Partial<TabUpdates>): void => {
+    updateTab(id, updates as Partial<TabState>)
+  }
+  const deleteTab = (id: string): void => { removeTabById(id) }
+  const getActiveTab = (): Tab | undefined => {
+    const state = activeTab.value
+    return state ? toTab(state) : undefined
+  }
+  const getActiveTabId = (): string | null => activeTabId.value
+  const setActiveTab = (id: string): void => { setActiveTabId(id) }
+  const getDirtyTabs = (): Tab[] => dirtyTabs.value.map(toTab)
+  const findTabByFilePath = (filePath: string): Tab | undefined => {
+    const state = Array.from(tabs.value.values()).find(t => t.filePath === filePath)
+    return state ? toTab(state) : undefined
+  }
+  const getTabCount = (): number => tabCount.value
+  const hasOpenFiles = (): boolean => tabCount.value > 0
+  const setSplitRatio = (_id: string, _ratio: number): void => { /* store 不跟踪 */ }
+
   return {
     tabs,
     activeTabId,
@@ -129,5 +182,19 @@ export const useTabsStore = defineStore('tabs', () => {
     getAllTabs,
     getTabOrder,
     setTabOrder,
+    // ITabRepository
+    getAll,
+    getById,
+    create,
+    insert,
+    update,
+    delete: deleteTab,
+    getActiveTab,
+    getActiveTabId,
+    setActiveTab,
+    getDirtyTabs,
+    setSplitRatio,
+    getTabCount,
+    hasOpenFiles,
   }
 })

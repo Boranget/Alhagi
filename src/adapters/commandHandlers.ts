@@ -14,7 +14,7 @@ import { UpdateTab } from '@core/use-cases/tabs/UpdateTab'
 import { SaveFile } from '@core/use-cases/file/SaveFile'
 import { ExecuteEditorCommand } from '@core/use-cases/editor/ExecuteEditorCommand'
 import { EventBusGateway } from '@adapters/gateways/EventBusGateway'
-import { useTabRepository } from '@adapters/stores/tabs'
+import { useTabsStore } from '@/stores/tabs'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 
 // 获取 Use Cases（从 DI 容器）

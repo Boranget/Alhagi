@@ -45,11 +45,11 @@
       <span
         v-if="isEditorFile"
         class="status-item word-count-display"
-        :title="prefs.wordCountDisplayType.value === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
-        @click="prefs.toggleWordCountDisplayType()"
+        :title="prefsStore.wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
+        @click="prefsStore.toggleWordCountDisplayType()"
       >
         <Icon
-          :name="prefs.wordCountDisplayType.value === 'raw' ? 'file' : 'wysiwyg'"
+          :name="prefsStore.wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
           size="sm"
         />
         <span>{{ currentWordCount }}</span>
@@ -83,7 +83,7 @@
         class="status-btn"
         :class="{ active: isDarkMode }"
         :title="t('statusBar.switchTheme')"
-        @click="prefs.toggleLightDark()"
+        @click="prefsStore.toggleLightDark()"
       >
         <Icon
           :name="isDarkMode ? 'sun' : 'moon'"
@@ -99,7 +99,7 @@
           name="zoom-in"
           size="sm"
         />
-        <span>{{ prefs.zoom }}%</span>
+        <span>{{ prefsStore.zoom }}%</span>
       </span>
     </div>
   </div>
@@ -107,16 +107,20 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAppContext } from '@adapters/composables/useAppContext'
+import { useTabContext } from '@adapters/composables/useTabContext'
+import { useLayoutContext } from '@adapters/composables/useLayoutContext'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeContext } from '@adapters/composables/useViewModeContext'
 import { executeCommand } from '@/commands'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
-const { tabs, prefs, layout, viewMode } = useAppContext()
-const { typewriterMode, focusMode } = viewMode
+const { activeTab } = useTabContext()
+const layout = useLayoutContext()
+const prefsStore = usePreferencesStore()
+const { typewriterMode, focusMode } = useViewModeContext()
 
-const activeTab = tabs.activeTab
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
 async function handleToggleFocusMode() {
@@ -156,12 +160,12 @@ const plainTextChars = computed(() => {
 
 // 当前显示的字数统计
 const currentWordCount = computed(() => {
-  return prefs.wordCountDisplayType.value === 'raw' ? rawMarkdownChars.value : plainTextChars.value
+  return prefsStore.wordCountDisplayType === 'raw' ? rawMarkdownChars.value : plainTextChars.value
 })
 
 const isDarkMode = computed(() => {
-  if (prefs.theme.value === 'dark') return true
-  if (prefs.theme.value === 'system') {
+  if (prefsStore.theme === 'dark') return true
+  if (prefsStore.theme === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
   }
   return false

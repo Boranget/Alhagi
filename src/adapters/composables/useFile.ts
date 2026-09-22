@@ -3,12 +3,12 @@ import { SaveFile } from '@core/use-cases/file/SaveFile'
 import { CreateFile } from '@core/use-cases/file/CreateFile'
 import { DeleteFile } from '@core/use-cases/file/DeleteFile'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
-import { useTabRepository } from '@adapters/stores/tabs'
+import { useTabsStore } from '@/stores/tabs'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 
 export function useFile() {
   const fileSystem = useFileSystemGateway()
-  const tabRepository = useTabRepository()
+  const tabRepository = useTabsStore()
   const eventBus = useEventBusGateway()
 
   const openFile = new OpenFile(fileSystem, tabRepository, eventBus)

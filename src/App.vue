@@ -17,9 +17,9 @@
         />
       </Transition>
       <div class="editor-wrapper">
-        <TabBar v-if="layout.showTabBar.value && tabs.tabCount.value > 0" />
+        <TabBar v-if="layout.showTabBar.value && tabCount > 0" />
         <div class="editor-area">
-          <EditorContainer v-if="tabs.tabCount.value > 0" />
+          <EditorContainer v-if="tabCount > 0" />
           <Welcome v-else />
         </div>
       </div>
@@ -60,7 +60,9 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { useAppContext } from '@adapters/composables/useAppContext'
+import { useTabContext } from '@adapters/composables/useTabContext'
+import { useLayoutContext } from '@adapters/composables/useLayoutContext'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
 import { useToast } from '@/composables/useToast'
 import { useInputDialog } from '@/composables/useInputDialog'
@@ -82,7 +84,9 @@ const Toast = defineAsyncComponent(() => import('@/components/Toast/Toast.vue'))
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
 const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))
 
-const { tabs, layout, prefs } = useAppContext()
+const { tabCount } = useTabContext()
+const layout = useLayoutContext()
+const prefsStore = usePreferencesStore()
 const { isFullscreen, initializeApp } = useApp()
 const inputDialog = useInputDialog()
 const selectDialog = useSelectDialog()
@@ -132,9 +136,9 @@ function handleWheel(e: WheelEvent) {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -1 : 1
     if (delta > 0) {
-      prefs.zoomIn()
+      prefsStore.zoomIn()
     } else {
-      prefs.zoomOut()
+      prefsStore.zoomOut()
     }
   }
 }
@@ -163,11 +167,11 @@ onMounted(async () => {
   if (stopModeWatch) eventUnsubscribers.push(stopModeWatch)
 
   // 应用 hideScrollBars 设置
-  applyHideScrollBars(prefs.hideScrollBars.value)
+  applyHideScrollBars(prefsStore.hideScrollBars)
 })
 
 // 监听 hideScrollBars 变化并应用
-watch(() => prefs.hideScrollBars.value, (hide) => {
+watch(() => prefsStore.hideScrollBars, (hide) => {
   applyHideScrollBars(hide)
 })
 

@@ -25,7 +25,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useAppContext } from '@adapters/composables/useAppContext'
+import { useTabContext } from '@adapters/composables/useTabContext'
+import { useEditorContext } from '@adapters/composables/useEditorContext'
+import { useViewModeContext } from '@adapters/composables/useViewModeContext'
 import { eventBus, AppEvents } from '@/events/eventBus'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
@@ -37,7 +39,9 @@ import type { SearchService, SearchResult, ReplaceResult } from '@/services/sear
 import type { SearchConfig } from '@/utils/search'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
 
-const { tabs, editor, viewMode } = useAppContext()
+const tabsCtx = useTabContext()
+const editorCtx = useEditorContext()
+const { typewriterMode, focusMode } = useViewModeContext()
 const { windowWidth, isSmallScreen, editorScale } = useResponsiveEditor()
 
 const editorWrapper = ref<HTMLElement | null>(null)
@@ -49,18 +53,18 @@ const unsubscribes: (() => void)[] = []
 const searchService = computed(() => {
   // 多实例架构下，搜索服务基于当前活动编辑器
   if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
-    return new CrepeSearchService(() => editor.getView())
+    return new CrepeSearchService(() => editorCtx.getView())
   }
   // 源码模式：使用 CM 搜索服务
   if (currentMode.value === 'source') {
-    return editor.getCMSearchService()
+    return editorCtx.getCMSearchService()
   }
   return null
 })
 
 provideSearchService(searchService)
 
-const activeTab = tabs.activeTab
+const activeTab = tabsCtx.activeTab
 
 // 检查文件是否为支持的格式（仅支持 Markdown）
 function isSupportedFileType(filePath: string | null): boolean {
@@ -75,8 +79,8 @@ const containerStyle = computed(() => ({
 
 const contentClasses = computed(() => ({
   [`mode-${currentMode.value}`]: true,
-  'typewriter-mode': viewMode.typewriterMode.value,
-  'focus-mode': viewMode.focusMode.value,
+  'typewriter-mode': typewriterMode.value,
+  'focus-mode': focusMode.value,
   'small-screen': isSmallScreen.value
 }))
 
@@ -95,18 +99,18 @@ watch(activeTab, async (tab, oldTab) => {
   }
 
   // 确保目标 tab 有编辑器实例
-  if (!editor.hasTab(tab.id)) {
+  if (!editorCtx.hasTab(tab.id)) {
     console.log(`[EditorContainer] createTab: ${tab.id}, content=${tab.content.length}chars`)
-    await editor.createTab(tab.id, tab.content, tab.viewMode)
+    await editorCtx.createTab(tab.id, tab.content, tab.viewMode)
   }
 
   // 切换 tab（显示/隐藏）
   console.log(`[EditorContainer] switchTab: ${tab.id}`)
-  editor.switchTab(tab.id)
+  editorCtx.switchTab(tab.id)
 
   // 同步视图模式
   currentMode.value = tab.viewMode
-  editor.setTabViewMode(tab.id, tab.viewMode)
+  editorCtx.setTabViewMode(tab.id, tab.viewMode)
 }, { immediate: true })
 
 // ============================================================
@@ -123,8 +127,8 @@ const handleViewModeChange = async (mode: ViewMode) => {
 
   // 更新模式
   currentMode.value = mode
-  editor.setTabViewMode(activeTab.value.id, mode)
-  tabs.update(activeTab.value.id, { viewMode: mode })
+  editorCtx.setTabViewMode(activeTab.value.id, mode)
+  tabsCtx.update(activeTab.value.id, { viewMode: mode })
 
   // 等待 DOM 更新
   await nextTick()
@@ -146,7 +150,7 @@ unsubscribes.push(unsubscribeViewModeChanged)
 onMounted(async () => {
   if (editorWrapper.value) {
     try {
-      await editor.initWrapper(editorWrapper.value)
+      await editorCtx.initWrapper(editorWrapper.value)
     } catch (error) {
       console.error('[EditorContainer] Failed to initialize wrapper:', error)
     }
@@ -157,8 +161,8 @@ onMounted(async () => {
   // 多实例架构下，InitEditor.execute() 未被调用，需在此注册 CONTENT_CHANGED 事件
   // 使 useWorkspaceSearch 的搜索高亮在编辑时动态更新
   unsubscribes.push(
-    editor.onContentChange((markdown) => {
-      const tabId = tabs.activeTabId.value
+    editorCtx.onContentChange((markdown) => {
+      const tabId = tabsCtx.activeTabId.value
       if (tabId) {
         eventBus.emit(AppEvents.CONTENT_CHANGED, { content: markdown, tabId })
       }
@@ -171,7 +175,7 @@ onMounted(async () => {
 onUnmounted(async () => {
   // 解绑 EditorPool：销毁所有编辑器实例，清除 wrapper 引用
   // 与 onMounted 中的 initWrapper 形成对称生命周期
-  await editor.detach()
+  await editorCtx.detach()
   unsubscribes.forEach(unsubscribe => unsubscribe())
   window.removeEventListener('keydown', handleEditorKeydown)
 })
