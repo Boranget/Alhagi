@@ -45,11 +45,11 @@
       <span
         v-if="isEditorFile"
         class="status-item word-count-display"
-        :title="prefsStore.wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
-        @click="prefsStore.toggleWordCountDisplayType()"
+        :title="wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
+        @click="toggleWordCountDisplayType()"
       >
         <Icon
-          :name="prefsStore.wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
+          :name="wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
           size="sm"
         />
         <span>{{ currentWordCount }}</span>
@@ -83,7 +83,7 @@
         class="status-btn"
         :class="{ active: isDarkMode }"
         :title="t('statusBar.switchTheme')"
-        @click="prefsStore.toggleLightDark()"
+        @click="toggleLightDark()"
       >
         <Icon
           :name="isDarkMode ? 'sun' : 'moon'"
@@ -99,7 +99,7 @@
           name="zoom-in"
           size="sm"
         />
-        <span>{{ prefsStore.zoom }}%</span>
+        <span>{{ zoom }}%</span>
       </span>
     </div>
   </div>
@@ -109,16 +109,16 @@
 import { computed } from 'vue'
 import { useTabContext } from '@adapters/composables/useTabContext'
 import { useLayoutContext } from '@adapters/composables/useLayoutContext'
-import { usePreferencesStore } from '@/stores/preferences'
+import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
 import { useViewModeContext } from '@adapters/composables/useViewModeContext'
 import { executeCommand } from '@/commands'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
 const { activeTab } = useTabContext()
 const layout = useLayoutContext()
-const prefsStore = usePreferencesStore()
+const { wordCountDisplayType, toggleWordCountDisplayType, toggleLightDark, zoom, zoomIn, zoomOut, resetZoom, theme } = usePreferencesContext()
 const { typewriterMode, focusMode } = useViewModeContext()
 
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
@@ -160,12 +160,12 @@ const plainTextChars = computed(() => {
 
 // 当前显示的字数统计
 const currentWordCount = computed(() => {
-  return prefsStore.wordCountDisplayType === 'raw' ? rawMarkdownChars.value : plainTextChars.value
+  return wordCountDisplayType.value === 'raw' ? rawMarkdownChars.value : plainTextChars.value
 })
 
 const isDarkMode = computed(() => {
-  if (prefsStore.theme === 'dark') return true
-  if (prefsStore.theme === 'system') {
+  if (theme.value === 'dark') return true
+  if (theme.value === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
   }
   return false

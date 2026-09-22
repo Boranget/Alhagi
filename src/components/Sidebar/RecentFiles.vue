@@ -173,8 +173,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
+import { useFileContext } from '@adapters/composables/useFileContext'
 import { useTabService } from '@/services/tabService'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
@@ -184,14 +184,14 @@ import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
 const activeTab = ref<'files' | 'folders'>('files')
 
-const prefs = usePreferencesStore()
-const fileStore = useFileExplorerStore()
+const prefsCtx = usePreferencesContext()
+const fileCtx = useFileContext()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
 const { missingFiles, checkFiles } = useFileExistenceChecker()
 
-const recentFiles = computed(() => prefs.recentFiles)
-const recentFolders = computed(() => prefs.recentFolders)
+const recentFiles = computed(() => prefsCtx.recentFiles.value)
+const recentFolders = computed(() => prefsCtx.recentFolders.value)
 
 const pinnedFiles = computed(() => recentFiles.value.filter(f => f.pinned))
 const unpinnedFiles = computed(() => recentFiles.value.filter(f => !f.pinned))
@@ -213,15 +213,15 @@ function openFile(file: RecentFile) {
 async function openFolder(folder: RecentFolder) {
   // openFolderByPath 内部已统一 emit FOLDER_OPENED；
   // useFolderOpenHandler 会据此切回"文件资源管理器"页，避免这里重复 emit。
-  await fileStore.openFolderByPath(folder.folderPath)
+  await fileCtx.openFolderByPath(folder.folderPath)
 }
 
 function togglePinFile(file: RecentFile) {
-  prefs.pinRecentFile(file.filePath, !file.pinned)
+  prefsCtx.pinRecentFile(file.filePath, !file.pinned)
 }
 
 function togglePinFolder(folder: RecentFolder) {
-  prefs.pinRecentFolder(folder.folderPath, !folder.pinned)
+  prefsCtx.pinRecentFolder(folder.folderPath, !folder.pinned)
 }
 
 async function clearHistory() {
@@ -236,9 +236,9 @@ async function clearHistory() {
   if (!ok) return
 
   if (activeTab.value === 'files') {
-    prefs.clearRecentFiles()
+    prefsCtx.clearRecentFiles()
   } else {
-    prefs.clearRecentFolders()
+    prefsCtx.clearRecentFolders()
   }
 }
 </script>

@@ -9,10 +9,10 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { createCodeMirrorView, updateEditorTheme, updateEditorTypography, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
 import { CodeMirrorSearchService } from '@/services/search'
-import { eventBus, AppEvents } from '@/events/eventBus'
-import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useLayoutStore } from '@/stores/layout'
+import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
+import { useTabContext } from '@adapters/composables/useTabContext'
+import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
+import { useLayoutContext } from '@adapters/composables/useLayoutContext'
 
 interface Props {
   modelValue: string
@@ -22,17 +22,17 @@ const props = defineProps<Props>()
 
 const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
 
-const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
-const layoutStore = useLayoutStore()
+const tabsCtx = useTabContext()
+const prefsCtx = usePreferencesContext()
+const layoutCtx = useLayoutContext()
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
 const searchManager = new CodeMirrorSearchService(() => editorView)
 
 const isDarkMode = computed<ThemeType>(() => {
-  if (prefsStore.theme === 'dark') return 'dark'
-  if (prefsStore.theme === 'system') {
+  if (prefsCtx.theme.value === 'dark') return 'dark'
+  if (prefsCtx.theme.value === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return 'light'
@@ -54,7 +54,7 @@ const handleBlur = () => {
 
 function emitCursorChange() {
   if (!editorView) return
-  const tabId = tabsStore.activeTab?.id
+  const tabId = tabsCtx.activeTab.value?.id
   if (!tabId) return
   const { from, to } = editorView.state.selection.main
   eventBus.emit(AppEvents.CURSOR_CHANGED, { from, to, tabId })
@@ -154,7 +154,7 @@ watch(isDarkMode, (newTheme) => {
   handleThemeChange(newTheme)
 })
 
-watch(() => layoutStore.isStickyNoteMode, () => {
+watch(() => layoutCtx.isStickyNoteMode.value, () => {
   if (editorView) updateEditorTypography(editorView)
 })
 

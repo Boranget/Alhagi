@@ -2,11 +2,11 @@
   <div class="tab-bar">
     <div class="tabs-container">
       <div
-        v-for="tabId in tabsStore.tabOrder"
+        v-for="tabId in tabsCtx.tabOrder.value"
         :key="tabId"
         class="tab-item"
         :class="{ 
-          active: tabId === tabsStore.activeTabId, 
+          active: tabId === tabsCtx.activeTabId.value, 
           dirty: getTab(tabId)?.isDirty, 
           dragging: dragState.sourceTabId === tabId,
           'drag-over': dragState.targetTabId === tabId
@@ -191,7 +191,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTabsStore } from '@/stores/tabs'
+import { useTabContext } from '@adapters/composables/useTabContext'
 import { useTabDragDrop } from '@/composables/useTabDragDrop'
 import { t } from '@/services/i18n'
 import type { TabState } from '@/types'
@@ -201,7 +201,7 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { useTabActions } from '@/composables/useTabActions'
 
-const tabsStore = useTabsStore()
+const tabsCtx = useTabContext()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
 const toast = useToast()
@@ -227,7 +227,7 @@ const contextMenu = ref({
 })
 
 function getTab(tabId: string): TabState | undefined {
-  return tabsStore.tabs.get(tabId)
+  return tabsCtx.tabs.get(tabId)
 }
 
 function getCurrentTab(): TabState | undefined {
@@ -238,12 +238,12 @@ function getCurrentTab(): TabState | undefined {
 }
 
 function handleTabClick(tabId: string) {
-  tabsStore.switchTab(tabId)
+  tabsCtx.switch(tabId)
   hideContextMenu()
 }
 
 function showContextMenu(event: MouseEvent, tabId: string) {
-  tabsStore.switchTab(tabId)
+  tabsCtx.switch(tabId)
 
   contextMenu.value = {
     show: true,
@@ -311,23 +311,23 @@ async function closeCurrentTab() {
 }
 
 async function closeOtherTabs() {
-  const allTabIds = Array.from(tabsStore.tabs.keys())
+  const allTabIds = Array.from(tabsCtx.tabs.keys())
 
   for (const tabId of allTabIds) {
-    if (tabId !== tabsStore.activeTabId) {
+    if (tabId !== tabsCtx.activeTabId.value) {
       const tab = getTab(tabId)
       if (tab?.isDirty) {
         const ok = await confirmCloseDirtyTab(tab)
         if (!ok) continue
       }
-      tabsStore.removeTabById(tabId)
+      tabsCtx.removeTabById(tabId)
     }
   }
   hideContextMenu()
 }
 
 function closeSavedTabs() {
-  const allTabIds = Array.from(tabsStore.tabs.keys())
+  const allTabIds = Array.from(tabsCtx.tabs.keys())
   const tabsToClose = allTabIds.filter(tabId => {
     const tab = getTab(tabId)
     return !tab?.isDirty
@@ -337,13 +337,13 @@ function closeSavedTabs() {
   const toClose = keepAtLeastOne ? tabsToClose.slice(0, -1) : tabsToClose
 
   for (const tabId of toClose) {
-    tabsStore.removeTabById(tabId)
+    tabsCtx.removeTabById(tabId)
   }
   hideContextMenu()
 }
 
 async function closeAllTabs() {
-  const allTabIds = Array.from(tabsStore.tabs.keys())
+  const allTabIds = Array.from(tabsCtx.tabs.keys())
   const hasDirtyTab = allTabIds.some((tabId) => getTab(tabId)?.isDirty)
 
   if (hasDirtyTab) {
@@ -361,7 +361,7 @@ async function closeAllTabs() {
   }
 
   for (const tabId of allTabIds) {
-    tabsStore.removeTabById(tabId)
+    tabsCtx.removeTabById(tabId)
   }
 
   hideContextMenu()
@@ -397,7 +397,7 @@ async function detachTab() {
   if (window.electronAPI) {
     try {
       await window.electronAPI.openNewWindow({ tabData: serializeTabForIPC(tab) })
-      tabsStore.removeTabById(tabId)
+      tabsCtx.removeTabById(tabId)
     } catch (e) {
       toast.error('分离标签页失败，请重试')
     }

@@ -82,22 +82,20 @@
 </template>
 
 <script setup lang="ts">
-import { usePreferencesStore } from '@/stores/preferences'
-import { useTabsStore } from '@/stores/tabs'
-import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
+import { useFileContext } from '@adapters/composables/useFileContext'
 import { useTabService } from '@/services/tabService'
 import { useTabActions } from '@/composables/useTabActions'
 import { computed, onMounted, watch } from 'vue'
 import { Icon } from '@/components/Icons'
 import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
-const prefsStore = usePreferencesStore()
-const tabsStore = useTabsStore()
-const fileStore = useFileExplorerStore()
+const prefsCtx = usePreferencesContext()
+const fileCtx = useFileContext()
 const tabService = useTabService()
 const { createTab } = useTabActions()
 
-const recentFiles = computed(() => prefsStore.recentFiles)
+const recentFiles = computed(() => prefsCtx.recentFiles.value)
 const { missingFiles, checkFiles } = useFileExistenceChecker()
 
 onMounted(() => {
@@ -120,7 +118,7 @@ async function openFolder() {
   if (window.electronAPI) {
     const result = await window.electronAPI.openFolder()
     if (result.success && result.data) {
-      await fileStore.openFolderByPath(result.data.path)
+      await fileCtx.openFolderByPath(result.data.path)
     }
   }
 }

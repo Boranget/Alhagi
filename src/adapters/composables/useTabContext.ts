@@ -19,6 +19,8 @@ export function useTabContext() {
     tabCount,
     dirtyTabs,
     allTabs: computed(() => store.getAllTabs()),
+    tabOrder: computed(() => store.tabOrder),
+    tabs: store.tabs,
     getTab: (id: string) => store.getTab(id),
     findByPath: (path: string) => store.findTabByFilePath(path),
     create: async (options?: { filePath?: string; content?: string; title?: string; viewMode?: ViewMode; fileType?: import('@shared/types').FileType; splitRatio?: number }) => {
@@ -36,6 +38,8 @@ export function useTabContext() {
     markDirty: (id: string) => store.markDirty(id),
     markClean: (id: string) => store.markClean(id),
     setViewMode: (id: string, mode: ViewMode) => store.setViewMode(id, mode),
+    removeTabById: (id: string) => store.removeTabById(id),
+    updateTab: (id: string, updates: Partial<import('@shared/types').TabState>) => store.updateTab(id, updates),
   }
 }
 

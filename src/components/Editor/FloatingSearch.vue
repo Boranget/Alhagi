@@ -209,7 +209,7 @@
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { t } from '@/services/i18n'
 import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 
 const {
   searchQuery,

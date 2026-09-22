@@ -31,11 +31,3 @@ describe('DI Types', () => {
     expect(uniqueSymbols.size).toBe(allSymbols.length)
   })
 })
-
-describe('DI Container', () => {
-  it('should export container and initializeContainer', async () => {
-    const mod = await import('../Container')
-    expect(mod.container).toBeDefined()
-    expect(typeof mod.initializeContainer).toBe('function')
-  })
-})

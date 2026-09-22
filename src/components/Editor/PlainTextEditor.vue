@@ -38,8 +38,8 @@ import {
 } from '@codemirror/view'
 import { githubLight, githubDark } from '@uiw/codemirror-theme-github'
 
-import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
+import { useTabContext } from '@adapters/composables/useTabContext'
+import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
 import { CodeMirrorSearchService, codeMirrorSearchHighlight } from '@/services/search'
 
 interface Props {
@@ -56,8 +56,8 @@ const emit = defineEmits<{
   (e: 'blur'): void
 }>()
 
-const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
+const tabsCtx = useTabContext()
+const prefsCtx = usePreferencesContext()
 
 const editorRef = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
@@ -75,8 +75,8 @@ const themeCompartment = new Compartment()
 const ExternalChange = Annotation.define<boolean>()
 
 const isDark = computed(() => {
-  if (prefsStore.theme === 'dark') return true
-  if (prefsStore.theme === 'system') {
+  if (prefsCtx.theme.value === 'dark') return true
+  if (prefsCtx.theme.value === 'system') {
     return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
   }
   return false
@@ -130,7 +130,7 @@ function buildExtensions(): Extension[] {
 
 function getViewerState(tabId = props.tabId): { cursor?: { from: number; to: number }; scrollTop?: number } {
   if (!tabId) return {}
-  const tab = tabsStore.getTab(tabId)
+  const tab = tabsCtx.getTab(tabId)
   const raw = tab?.viewerState?.text
   if (!raw || typeof raw !== 'object') return {}
   return raw as { cursor?: { from: number; to: number }; scrollTop?: number }
@@ -138,7 +138,7 @@ function getViewerState(tabId = props.tabId): { cursor?: { from: number; to: num
 
 function persistViewerState(tabId = props.tabId): void {
   if (!tabId || !view) return
-  const tab = tabsStore.getTab(tabId)
+  const tab = tabsCtx.getTab(tabId)
   if (!tab) return
   const sel = view.state.selection.main
   const scroller = view.scrollDOM
@@ -146,7 +146,7 @@ function persistViewerState(tabId = props.tabId): void {
     cursor: { from: sel.from, to: sel.to },
     scrollTop: scroller.scrollTop,
   }
-  tabsStore.updateTab(tabId, {
+  tabsCtx.update(tabId, {
     viewerState: { ...(tab.viewerState ?? {}), text: next },
   })
 }

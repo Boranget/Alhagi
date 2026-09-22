@@ -8,11 +8,11 @@
         @open-folder="openFolder"
       />
       <div
-        v-if="fileStore.currentFolder"
+        v-if="fileCtx.currentFolder.value"
         class="file-tree"
       >
         <FileTreeNode
-          v-for="node in fileStore.fileTree"
+          v-for="node in fileCtx.fileTree.value"
           :key="node.path"
           :node="node"
           :depth="0"
@@ -99,9 +99,9 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
-import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { useFileContext } from '@adapters/composables/useFileContext'
 import FileTreeNode from './FileTreeNode.vue'
-import { useTabsStore } from '@/stores/tabs'
+import { useTabContext } from '@adapters/composables/useTabContext'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { detectDescriptor } from '@/fileTypes'
 import type { FileTreeNodeType } from '@/types'
@@ -113,8 +113,8 @@ import ExplorerHeader from './ExplorerHeader.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import { useTabActions } from '@/composables/useTabActions'
 
-const fileStore = useFileExplorerStore()
-const tabsStore = useTabsStore()
+const fileCtx = useFileContext()
+const tabsCtx = useTabContext()
 const { confirm } = useConfirmDialog()
 const inputDialog = useInputDialog()
 const { createTab } = useTabActions()
@@ -182,9 +182,9 @@ const contextMenuItems = computed(() => {
 })
 
 async function openFolder() {
-  const result = await fileStore.openFolder()
+  const result = await fileCtx.openFolder()
   if (result) {
-    await fileStore.refreshTree()
+    await fileCtx.refreshTree()
   }
 }
 
@@ -201,9 +201,9 @@ async function handleSelect(node: FileTreeNodeType) {
   }
 
   // 已经在本窗口打开了 → 切到那个 tab
-  const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === node.path)
+  const existingTab = Array.from(tabsCtx.tabs.values()).find(t => t.filePath === node.path)
   if (existingTab) {
-    tabsStore.switchTab(existingTab.id)
+    tabsCtx.switch(existingTab.id)
     return
   }
 
@@ -246,7 +246,7 @@ function handleContextMenu(event: MouseEvent, node: FileTreeNodeType) {
 
 function handleToggle(node: FileTreeNodeType) {
   if (node.type === 'directory') {
-    fileStore.toggleFolder(node)
+    fileCtx.toggleFolder(node)
   }
 }
 
@@ -304,11 +304,11 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
     
     const moveResult = await window.electronAPI.moveFile(sourcePath, targetDir)
     if (moveResult.success && moveResult.data) {
-      await fileStore.refreshTree()
+      await fileCtx.refreshTree()
       
-      const existingTab = Array.from(tabsStore.tabs.values()).find(t => t.filePath === sourcePath)
+      const existingTab = Array.from(tabsCtx.tabs.values()).find(t => t.filePath === sourcePath)
       if (existingTab) {
-        tabsStore.updateTab(existingTab.id, { filePath: moveResult.data })
+        tabsCtx.updateTab(existingTab.id, { filePath: moveResult.data })
       }
     }
   }
@@ -328,7 +328,7 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
     
     const copyResult = await window.electronAPI.copyFile(sourcePath, targetDir)
     if (copyResult.success && copyResult.data) {
-      await fileStore.refreshTree()
+      await fileCtx.refreshTree()
     }
   }
 }
@@ -362,7 +362,7 @@ async function confirmNewItem() {
     return
   }
 
-  let parentPath = fileStore.currentFolder || ''
+  let parentPath = fileCtx.currentFolder.value || ''
   if (targetNode) {
     if (targetNode.type === 'directory') {
       parentPath = targetNode.path
@@ -374,9 +374,9 @@ async function confirmNewItem() {
   const finalName = isFolder ? name : (name.endsWith('.md') ? name : name + '.md')
 
   if (isFolder) {
-    await fileStore.createDirectory(parentPath, name)
+    await fileCtx.createDirectory(parentPath, name)
   } else {
-    await fileStore.createFile(parentPath, finalName)
+    await fileCtx.createFile(parentPath, finalName)
   }
 
   closeNewItemDialog()
@@ -398,7 +398,7 @@ async function handleRename(node: FileTreeNodeType | null) {
     defaultValue: node.name,
   })
   if (newName && newName !== node.name) {
-    await fileStore.renameFile(node.path, newName)
+    await fileCtx.renameFile(node.path, newName)
   }
 }
 
@@ -416,7 +416,7 @@ async function handleDelete(node: FileTreeNodeType | null) {
   })
 
   if (ok) {
-    await fileStore.deleteFile(node.path)
+    await fileCtx.deleteFile(node.path)
   }
 }
 
@@ -430,13 +430,13 @@ async function handleOpenInExplorer(node: FileTreeNodeType | null) {
 }
 
 async function handleRefresh() {
-  await fileStore.refreshTree()
+  await fileCtx.refreshTree()
 }
 
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
-  if (fileStore.currentFolder) {
-    fileStore.refreshTree()
+  if (fileCtx.currentFolder.value) {
+    fileCtx.refreshTree()
   }
 })
 

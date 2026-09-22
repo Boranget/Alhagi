@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { FileTreeNodeType } from '@/types'
-import { useTabsStore } from '@/stores/tabs'
+import { useTabContext } from '@adapters/composables/useTabContext'
 import { Icon } from '@/components/Icons'
 
 const props = defineProps<{
@@ -60,7 +60,7 @@ const emit = defineEmits<{
   (e: 'toggle', node: FileTreeNodeType): void
 }>()
 
-const tabsStore = useTabsStore()
+const tabsCtx = useTabContext()
 
 const nodeIcon = computed(() => {
   if (props.node.type === 'directory') {
@@ -97,7 +97,7 @@ const nodeIcon = computed(() => {
 })
 
 const isSelected = computed(() => {
-  return tabsStore.activeTab?.filePath === props.node.path
+  return tabsCtx.activeTab.value?.filePath === props.node.path
 })
 
 function handleClick() {

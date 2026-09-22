@@ -62,7 +62,6 @@ import { formatKeybinding, getPlatform } from '@/commands/types'
 import { t } from '@/services/i18n'
 import type { Keybinding, CommandCategory } from '@/commands/types'
 import { getKeybindingManager } from '@/commands/keybinding'
-import { usePreferencesStore } from '@/stores/preferences'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import KeybindingItem from './KeybindingItem.vue'
@@ -74,7 +73,6 @@ const emit = defineEmits<{
   (e: 'save'): void
 }>()
 
-const prefsStore = usePreferencesStore()
 const { confirm } = useConfirmDialog()
 const toast = useToast()
 const searchQuery = ref('')

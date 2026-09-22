@@ -34,7 +34,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getGroupedMenuCommands, CATEGORY_LABELS } from '@/commands/registry'
 import { t } from '@/services/i18n'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 import MenuDropdown from './MenuDropdown.vue'
 import type { CommandCategory, CommandEntry } from '@/commands/types'
 

@@ -50,7 +50,7 @@ import RecentFiles from './RecentFiles.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import DocumentOutline from './DocumentOutline.vue'
 import { Icon } from '@/components/Icons'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
