@@ -63,7 +63,6 @@ export class CopyStrategy implements IImageInsertStrategy {
         : imageUrl.replace(/\\/g, '/')
 
       if (context.editorInsertImage) {
-        console.log('[CopyStrategy] inserting:', { editorUrl, fileName: source.fileName })
         context.editorInsertImage(editorUrl, source.fileName)
       }
 

@@ -410,12 +410,5 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loadCustomThemes, applyCustomTheme, resetToBuiltInTheme,
     toggleWordCountDisplayType, zoomIn, zoomOut, resetZoom,
     saveSession, getLastSession, clearSession, loadPreferences,
-
-    /** @deprecated 用 setOne(key, value) 替代 */
-    setPreference: setOne,
-    /** @deprecated 用 setMany(patch) 替代 */
-    updatePreferences: setMany,
-    /** @deprecated 所有写入走 IPC，无单独 save 入口 */
-    savePreferences: () => { /* no-op */ },
   }
 })

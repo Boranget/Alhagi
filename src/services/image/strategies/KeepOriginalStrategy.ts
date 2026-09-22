@@ -17,12 +17,6 @@ export class KeepOriginalStrategy implements IImageInsertStrategy {
         imageUrl = escapeImageUrl(imageUrl)
       }
 
-      console.log('[KeepOriginalStrategy] inserting:', {
-        sourceType: source.type,
-        dataPrefix: imageUrl.substring(0, 60),
-        fileName: source.fileName,
-      })
-
       if (context.editorInsertImage) {
         context.editorInsertImage(imageUrl, source.fileName)
       }

@@ -139,7 +139,6 @@ export class EditorPool {
     if (!this.wrapper) {
       // wrapper 未就绪，加入待处理队列
       this.pendingQueue.push({ tabId, content, viewMode })
-      console.log('[EditorPool] Wrapper not ready, queued tab:', tabId)
       return
     }
 
@@ -212,7 +211,6 @@ export class EditorPool {
         ctx.get(listenerCtx).markdownUpdated(
           debounce((...args: unknown[]) => {
             const markdown = args[1] as string
-            console.log(`[EditorPool] Crepe markdownUpdated: tabId=${tabId}, len=${markdown.length}, preview="${markdown.substring(0, 50)}"`)
             this.handleMarkdownUpdate(tabId, markdown)
           }, MARKDOWN_UPDATE_DEBOUNCE_MS)
         )
@@ -250,7 +248,6 @@ export class EditorPool {
       content,
       onChange: (getString: () => string) => {
         const markdown = getString()
-        console.log(`[EditorPool] CM onChange: tabId=${tabId}, len=${markdown.length}, preview="${markdown.substring(0, 50)}"`)
         this.handleCMUpdate(tabId, markdown)
       },
       onFocus: () => {},
@@ -280,7 +277,6 @@ export class EditorPool {
     }
 
     const createTime = performance.now() - startTime
-    console.log('[EditorPool] createTab done', { tabId, createTime: createTime.toFixed(2) })
   }
 
   async destroyTab(tabId: string): Promise<void> {
@@ -382,8 +378,6 @@ export class EditorPool {
 
   private applyViewMode(instance: TabEditorInstance): void {
     const { viewMode, container, crepeContainer, cmContainer, splitterEl } = instance
-
-    console.log(`[EditorPool] applyViewMode: tabId=${instance.tabId}, viewMode=${viewMode}`)
 
     // 同步 container 的 mode class，让 CSS 布局选择器生效
     container.classList.remove('mode-wysiwyg', 'mode-source', 'mode-split')
@@ -712,11 +706,9 @@ export class EditorPool {
     if (!instance) return
 
     if (instance.content === markdown) {
-      console.log(`[EditorPool] handleMarkdownUpdate: SKIPPED (same content) tabId=${tabId}`)
       return
     }
 
-    console.log(`[EditorPool] handleMarkdownUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${markdown.length}`)
     instance.content = markdown
 
     this.tabRepository.update(tabId, {
@@ -728,7 +720,6 @@ export class EditorPool {
     // 分屏模式下，Crepe 内容变更需同步到 CodeMirror
     if (instance.viewMode === 'split' && instance.cmView) {
       try {
-        console.log(`[EditorPool] handleMarkdownUpdate: syncing to CM`)
         instance.cmView.dispatch({
           changes: { from: 0, to: instance.cmView.state.doc.length, insert: markdown },
           annotations: ExternalChange.of(true),
@@ -748,8 +739,6 @@ export class EditorPool {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
-    console.log(`[EditorPool] handleCMUpdate: tabId=${tabId}, viewMode=${instance.viewMode}, len=${content.length}, hasCrepe=${!!instance.crepe}`)
-
     instance.content = content
 
     this.tabRepository.update(tabId, {
@@ -761,13 +750,10 @@ export class EditorPool {
     // 同步到 Crepe
     if (instance.crepe && instance.viewMode !== 'source') {
       try {
-        console.log(`[EditorPool] handleCMUpdate: syncing to Crepe via replaceAll`)
         instance.crepe.editor.action(replaceAll(content))
       } catch (e) {
         console.error(`[EditorPool] handleCMUpdate: replaceAll failed`, e)
       }
-    } else {
-      console.log(`[EditorPool] handleCMUpdate: NOT syncing to Crepe (crepe=${!!instance.crepe}, viewMode=${instance.viewMode})`)
     }
 
     // 仅活动 tab 触发回调

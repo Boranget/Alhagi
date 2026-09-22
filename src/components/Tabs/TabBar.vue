@@ -238,13 +238,11 @@ function getCurrentTab(): TabState | undefined {
 }
 
 function handleTabClick(tabId: string) {
-  console.log(`[TabBar] click: ${tabId}`)
   tabsStore.switchTab(tabId)
   hideContextMenu()
 }
 
 function showContextMenu(event: MouseEvent, tabId: string) {
-  console.log('[TabBar] showContextMenu', { tabId })
   tabsStore.switchTab(tabId)
 
   contextMenu.value = {

@@ -25,13 +25,6 @@ export class ImageInsertService {
       ? 'copy'
       : options.mode
 
-    console.log('[ImageInsertService] insertWith:', {
-      sourceType: source.type,
-      isClipboard,
-      requestedMode: options.mode,
-      effectiveMode,
-    })
-
     const strategy = this.strategies.get(effectiveMode)
     if (!strategy) {
       return ImageInsertResult.failure(`Unknown insert mode: ${options.mode}`)

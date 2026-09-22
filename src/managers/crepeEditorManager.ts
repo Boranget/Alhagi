@@ -320,7 +320,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     }
     
     if (this.currentTabId === tabId) {
-      console.log('[CrepeEditorManager] switchToTab: already on this tab', { tabId })
       return
     }
 
@@ -335,8 +334,6 @@ setActiveEditor(editor: 'crepe' | 'codemirror' | null): void {
     const previousTabId = this.currentTabId
     this.currentTabId = tabId
     this.currentMode = tab.viewMode
-
-    console.log(`[CrepeEditorManager] switchToTab: ${previousTabId} → ${tabId}, content=${tab.content.length}chars, changed=${tab.content !== this.content}`)
 
     if (tab.content !== this.content) {
       await this.setMarkdown(tab.content)

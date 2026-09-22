@@ -91,21 +91,17 @@ const contentClasses = computed(() => ({
 watch(activeTab, async (tab, oldTab) => {
   const oldId = oldTab?.id ?? 'null'
   const newId = tab?.id ?? 'null'
-  console.log(`[EditorContainer] watch: ${oldId} → ${newId}`)
 
   if (!tab) {
-    console.log('[EditorContainer] activeTab is null')
     return
   }
 
   // 确保目标 tab 有编辑器实例
   if (!editorCtx.hasTab(tab.id)) {
-    console.log(`[EditorContainer] createTab: ${tab.id}, content=${tab.content.length}chars`)
     await editorCtx.createTab(tab.id, tab.content, tab.viewMode)
   }
 
   // 切换 tab（显示/隐藏）
-  console.log(`[EditorContainer] switchTab: ${tab.id}`)
   editorCtx.switchTab(tab.id)
 
   // 同步视图模式
@@ -118,7 +114,6 @@ watch(activeTab, async (tab, oldTab) => {
 // ============================================================
 
 const handleViewModeChange = async (mode: ViewMode) => {
-  console.log(`[EditorContainer] handleViewModeChange: ${currentMode.value} → ${mode}, activeTab=${activeTab.value?.id}`)
   if (mode === currentMode.value) return
   if (!activeTab.value) return
 
