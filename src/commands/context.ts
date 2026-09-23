@@ -31,11 +31,7 @@ class CommandContext {
     }
     const getter = this.getters.get(key)
     if (getter) {
-      const value = getter()
-      if (value !== undefined) {
-        this.values.set(key, value)
-      }
-      return value
+      return getter()
     }
     return undefined
   }

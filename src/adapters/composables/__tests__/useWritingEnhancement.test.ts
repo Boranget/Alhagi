@@ -12,6 +12,42 @@ vi.mock('@/managers/crepeEditorManager', () => ({
   })),
 }))
 
+// Mock EditorServiceGateway
+vi.mock('@adapters/gateways/EditorServiceGateway', () => {
+  const mockGateway = {
+    getActiveEditor: vi.fn(() => 'crepe'),
+    getView: vi.fn(() => null),
+    getSelection: vi.fn(() => null),
+    getMarkdown: vi.fn(() => ''),
+    getHTML: vi.fn(() => ''),
+    isReady: vi.fn(() => true),
+    onContentChange: vi.fn(() => () => {}),
+    onCursorChange: vi.fn(() => () => {}),
+    getCachedContent: vi.fn(() => undefined),
+    setCachedContent: vi.fn(),
+    clearCache: vi.fn(),
+    setTabContent: vi.fn(() => Promise.resolve()),
+    getCMSearchService: vi.fn(() => null),
+    updateTheme: vi.fn(() => Promise.resolve()),
+    initWrapper: vi.fn(() => Promise.resolve()),
+    detach: vi.fn(() => Promise.resolve()),
+    createTab: vi.fn(() => Promise.resolve()),
+    destroyTab: vi.fn(() => Promise.resolve()),
+    switchTab: vi.fn(),
+    hasTab: vi.fn(() => false),
+    setViewMode: vi.fn(),
+    setTabViewMode: vi.fn(),
+    getViewMode: vi.fn(() => 'wysiwyg'),
+    scrollToHeading: vi.fn(),
+    getHeadings: vi.fn(() => []),
+    destroy: vi.fn(() => Promise.resolve()),
+  }
+  return {
+    getEditorServiceGateway: vi.fn(() => mockGateway),
+    initializeEditorGateway: vi.fn(),
+  }
+})
+
 describe('useWritingEnhancement', () => {
   beforeEach(() => {
     resetWritingEnhancementInstance()

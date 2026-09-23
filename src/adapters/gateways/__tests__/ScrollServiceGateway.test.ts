@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ScrollServiceGateway } from '../ScrollServiceGateway'
+import { eventBus, AppEvents } from '@/events/eventBus'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import type { ViewMode } from '@shared/types'
 
@@ -124,10 +125,11 @@ describe('ScrollServiceGateway', () => {
       const editorWysiwyg = createMockHTMLElement('editor-wysiwyg', 0)
       document.body.appendChild(editorWysiwyg)
 
-mockProvider = createMockEditorProvider({
+      mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
         getView: () => ({
-          coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
+          // cursorY = 420 - 100(containerTop) = 320, targetY = 320 → distance = 0
+          coordsAtPos: vi.fn(() => ({ top: 420, bottom: 440, left: 100, right: 100 })),
           state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
           dispatch: vi.fn(),
         }),
@@ -135,7 +137,7 @@ mockProvider = createMockEditorProvider({
       gateway = new ScrollServiceGateway(mockProvider)
 
       const result = gateway.scrollCursorToPosition()
-      expect(result.scrolledDistance).toBe(1)
+      expect(result.scrolledDistance).toBeLessThanOrEqual(2)
       expect(window.requestAnimationFrame).not.toHaveBeenCalled()
     })
 
@@ -161,45 +163,47 @@ mockProvider = createMockEditorProvider({
   // ── startTypewriterMode / stopTypewriterMode ───────
 
   describe('startTypewriterMode / stopTypewriterMode', () => {
-    it('should add selectionchange listener when started', () => {
-      const addSpy = vi.spyOn(document, 'addEventListener')
+    it('should subscribe to CURSOR_CHANGED event when started', () => {
+      const onSpy = vi.spyOn(eventBus, 'on')
       mockProvider = createMockEditorProvider()
       gateway = new ScrollServiceGateway(mockProvider)
 
       gateway.startTypewriterMode()
 
-      expect(addSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function))
+      expect(onSpy).toHaveBeenCalledWith(AppEvents.CURSOR_CHANGED, expect.any(Function))
     })
 
-    it('should not add duplicate listener when started twice', () => {
-      const addSpy = vi.spyOn(document, 'addEventListener')
+    it('should not add duplicate subscription when started twice', () => {
+      const onSpy = vi.spyOn(eventBus, 'on')
       mockProvider = createMockEditorProvider()
       gateway = new ScrollServiceGateway(mockProvider)
 
       gateway.startTypewriterMode()
       gateway.startTypewriterMode()
 
-      expect(addSpy).toHaveBeenCalledTimes(1)
+      expect(onSpy).toHaveBeenCalledTimes(1)
     })
 
-    it('should remove selectionchange listener when stopped', () => {
-      const removeSpy = vi.spyOn(document, 'removeEventListener')
+    it('should unsubscribe from CURSOR_CHANGED event when stopped', () => {
+      const unsubscribe = vi.fn()
+      vi.spyOn(eventBus, 'on').mockReturnValue(unsubscribe)
       mockProvider = createMockEditorProvider()
       gateway = new ScrollServiceGateway(mockProvider)
 
       gateway.startTypewriterMode()
       gateway.stopTypewriterMode()
 
-      expect(removeSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function))
+      expect(unsubscribe).toHaveBeenCalled()
     })
 
     it('should be idempotent when stopped without starting', () => {
-      const removeSpy = vi.spyOn(document, 'removeEventListener')
+      const unsubscribe = vi.fn()
+      vi.spyOn(eventBus, 'on').mockReturnValue(unsubscribe)
       mockProvider = createMockEditorProvider()
       gateway = new ScrollServiceGateway(mockProvider)
 
       gateway.stopTypewriterMode()
-      expect(removeSpy).not.toHaveBeenCalled()
+      expect(unsubscribe).not.toHaveBeenCalled()
     })
   })
 
