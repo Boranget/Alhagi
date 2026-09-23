@@ -25,9 +25,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useTabContext } from '@adapters/composables/useTabContext'
+import { storeToRefs } from 'pinia'
+import { useTabsStore } from '@/stores/tabs'
+import { useViewModeStore } from '@/stores/viewMode'
 import { useEditorContext } from '@adapters/composables/useEditorContext'
-import { useViewModeContext } from '@adapters/composables/useViewModeContext'
 import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
@@ -39,9 +40,11 @@ import type { SearchService, SearchResult, ReplaceResult } from '@/services/sear
 import type { SearchConfig } from '@/utils/search'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
 
-const tabsCtx = useTabContext()
+const tabsStore = useTabsStore()
+const viewModeStore = useViewModeStore()
+const { activeTab, activeTabId } = storeToRefs(tabsStore)
+const { typewriterMode, focusMode } = storeToRefs(viewModeStore)
 const editorCtx = useEditorContext()
-const { typewriterMode, focusMode } = useViewModeContext()
 const { windowWidth, isSmallScreen, editorScale } = useResponsiveEditor()
 
 const editorWrapper = ref<HTMLElement | null>(null)
@@ -63,8 +66,6 @@ const searchService = computed(() => {
 })
 
 provideSearchService(searchService)
-
-const activeTab = tabsCtx.activeTab
 
 // 检查文件是否为支持的格式（仅支持 Markdown）
 function isSupportedFileType(filePath: string | null): boolean {
@@ -123,7 +124,7 @@ const handleViewModeChange = async (mode: ViewMode) => {
   // 更新模式
   currentMode.value = mode
   editorCtx.setTabViewMode(activeTab.value.id, mode)
-  tabsCtx.update(activeTab.value.id, { viewMode: mode })
+  tabsStore.updateTab(activeTab.value.id, { viewMode: mode })
 
   // 等待 DOM 更新
   await nextTick()
@@ -157,7 +158,7 @@ onMounted(async () => {
   // 使 useWorkspaceSearch 的搜索高亮在编辑时动态更新
   unsubscribes.push(
     editorCtx.onContentChange((markdown) => {
-      const tabId = tabsCtx.activeTabId.value
+      const tabId = activeTabId.value
       if (tabId) {
         eventBus.emit(AppEvents.CONTENT_CHANGED, { content: markdown, tabId })
       }

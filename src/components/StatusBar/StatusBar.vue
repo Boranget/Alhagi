@@ -7,7 +7,7 @@
         @click="toggleSidebar"
       >
         <Icon
-          :name="layout.showSidebar ? 'collapse-left' : 'expand-right'"
+          :name="showSidebar ? 'collapse-left' : 'expand-right'"
           size="sm"
         />
       </button>
@@ -46,7 +46,7 @@
         v-if="isEditorFile"
         class="status-item word-count-display"
         :title="wordCountDisplayType === 'raw' ? t('editor.rawMarkdownChars') : t('statusBar.renderTextCount')"
-        @click="toggleWordCountDisplayType()"
+        @click="handleToggleWordCountDisplay"
       >
         <Icon
           :name="wordCountDisplayType === 'raw' ? 'file' : 'wysiwyg'"
@@ -83,7 +83,7 @@
         class="status-btn"
         :class="{ active: isDarkMode }"
         :title="t('statusBar.switchTheme')"
-        @click="toggleLightDark()"
+        @click="handleToggleLightDark"
       >
         <Icon
           :name="isDarkMode ? 'sun' : 'moon'"
@@ -107,19 +107,28 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useTabContext } from '@adapters/composables/useTabContext'
-import { useLayoutContext } from '@adapters/composables/useLayoutContext'
-import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
-import { useViewModeContext } from '@adapters/composables/useViewModeContext'
-import { executeCommand } from '@/commands'
+import { storeToRefs } from 'pinia'
+import { useTabsStore } from '@/stores/tabs'
+import { useLayoutStore } from '@/stores/layout'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useViewModeStore } from '@/stores/viewMode'
+import { getMediator } from '@adapters/mediator'
+import { LayoutCommands, PreferenceCommands, ViewModeCommands } from '@adapters/mediator/commands'
 import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
+import { executeCommand } from '@/commands'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
-const { activeTab } = useTabContext()
-const layout = useLayoutContext()
-const { wordCountDisplayType, toggleWordCountDisplayType, toggleLightDark, zoom, zoomIn, zoomOut, resetZoom, theme } = usePreferencesContext()
-const { typewriterMode, focusMode } = useViewModeContext()
+const tabsStore = useTabsStore()
+const layoutStore = useLayoutStore()
+const prefsStore = usePreferencesStore()
+const viewModeStore = useViewModeStore()
+const mediator = getMediator()
+
+const { activeTab } = storeToRefs(tabsStore)
+const { showSidebar } = storeToRefs(layoutStore)
+const { wordCountDisplayType, zoom, theme } = storeToRefs(prefsStore)
+const { typewriterMode, focusMode } = storeToRefs(viewModeStore)
 
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
@@ -174,7 +183,15 @@ const isDarkMode = computed(() => {
 
 
 function toggleSidebar() {
-  layout.toggleSidebar()
+  mediator.send({ type: LayoutCommands.TOGGLE_SIDEBAR })
+}
+
+function handleToggleWordCountDisplay() {
+  mediator.send({ type: PreferenceCommands.TOGGLE_WORD_COUNT_DISPLAY })
+}
+
+function handleToggleLightDark() {
+  mediator.send({ type: PreferenceCommands.TOGGLE_LIGHT_DARK })
 }
 
 // 模块级变量：记录从 split→非 split 时应该去哪一侧

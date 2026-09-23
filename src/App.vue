@@ -1,10 +1,10 @@
 <template>
   <div
     class="app-container"
-    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': layout.isStickyNoteMode.value, 'is-immersive': layout.isImmersiveMode.value }"
+    :class="{ 'is-fullscreen': isFullscreen, 'is-sticky-note': isStickyNoteMode, 'is-immersive': isImmersiveMode }"
   >
     <div
-      v-if="layout.isImmersiveMode.value"
+      v-if="isImmersiveMode"
       class="immersive-tip"
     >
       按 Esc 退出沉浸模式
@@ -12,12 +12,12 @@
     <div class="app-content">
       <Transition name="sidebar-slide">
         <EnhancedSidebar
-          v-if="layout.showSidebar.value"
+          v-if="showSidebar"
           @open-settings="openSettingsWindow"
         />
       </Transition>
       <div class="editor-wrapper">
-        <TabBar v-if="layout.showTabBar.value && tabCount > 0" />
+        <TabBar v-if="showTabBar && tabCount > 0" />
         <div class="editor-area">
           <EditorContainer v-if="tabCount > 0" />
           <Welcome v-else />
@@ -25,7 +25,7 @@
       </div>
     </div>
     <Transition name="statusbar-slide">
-      <StatusBar v-if="layout.showStatusBar.value" />
+      <StatusBar v-if="showStatusBar" />
     </Transition>
     <CommandPalette
       :visible="showCommandPalette"
@@ -60,8 +60,9 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { useTabContext } from '@adapters/composables/useTabContext'
-import { useLayoutContext } from '@adapters/composables/useLayoutContext'
+import { storeToRefs } from 'pinia'
+import { useTabsStore } from '@/stores/tabs'
+import { useLayoutStore } from '@/stores/layout'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useApp } from '@/composables/useApp'
 import { useToast } from '@/composables/useToast'
@@ -84,8 +85,10 @@ const Toast = defineAsyncComponent(() => import('@/components/Toast/Toast.vue'))
 // 让 Welcome 页面首屏体积减小 ~1MB（gz ~300KB）。
 const EditorContainer = defineAsyncComponent(() => import('@/components/Editor/EditorContainer.vue'))
 
-const { tabCount } = useTabContext()
-const layout = useLayoutContext()
+const tabsStore = useTabsStore()
+const layoutStore = useLayoutStore()
+const { tabCount } = storeToRefs(tabsStore)
+const { showSidebar, showTabBar, showStatusBar, isStickyNoteMode, isImmersiveMode } = storeToRefs(layoutStore)
 const prefsStore = usePreferencesStore()
 const { isFullscreen, initializeApp } = useApp()
 const inputDialog = useInputDialog()
@@ -121,7 +124,7 @@ function applyHideScrollBars(hide: boolean) {
 }
 
 function exitImmersiveMode() {
-  if (!layout.isImmersiveMode.value) return
+  if (!isImmersiveMode.value) return
   window.electronAPI?.setWindowMode('normal')
 }
 
@@ -162,7 +165,7 @@ onMounted(async () => {
   )
 
   const stopModeWatch = window.electronAPI?.onWindowModeChanged((mode) => {
-    layout.applyWindowMode(mode)
+    layoutStore.applyWindowMode(mode)
   })
   if (stopModeWatch) eventUnsubscribers.push(stopModeWatch)
 

@@ -7,12 +7,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { createCodeMirrorView, updateEditorTheme, updateEditorTypography, EditorView, ExternalChange, type ThemeType } from './codemirror/setup'
 import { CodeMirrorSearchService } from '@/services/search'
 import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
-import { useTabContext } from '@adapters/composables/useTabContext'
-import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
-import { useLayoutContext } from '@adapters/composables/useLayoutContext'
+import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
+import { useLayoutStore } from '@/stores/layout'
 
 interface Props {
   modelValue: string
@@ -22,17 +23,20 @@ const props = defineProps<Props>()
 
 const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
 
-const tabsCtx = useTabContext()
-const prefsCtx = usePreferencesContext()
-const layoutCtx = useLayoutContext()
+const tabsStore = useTabsStore()
+const prefsStore = usePreferencesStore()
+const layoutStore = useLayoutStore()
+const { activeTab } = storeToRefs(tabsStore)
+const { theme } = storeToRefs(prefsStore)
+const { isStickyNoteMode } = storeToRefs(layoutStore)
 
 const editorRef = ref<HTMLElement | null>(null)
 let editorView: EditorView | null = null
 const searchManager = new CodeMirrorSearchService(() => editorView)
 
 const isDarkMode = computed<ThemeType>(() => {
-  if (prefsCtx.theme.value === 'dark') return 'dark'
-  if (prefsCtx.theme.value === 'system') {
+  if (theme.value === 'dark') return 'dark'
+  if (theme.value === 'system') {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return 'light'
@@ -54,7 +58,7 @@ const handleBlur = () => {
 
 function emitCursorChange() {
   if (!editorView) return
-  const tabId = tabsCtx.activeTab.value?.id
+  const tabId = activeTab.value?.id
   if (!tabId) return
   const { from, to } = editorView.state.selection.main
   eventBus.emit(AppEvents.CURSOR_CHANGED, { from, to, tabId })
@@ -154,7 +158,7 @@ watch(isDarkMode, (newTheme) => {
   handleThemeChange(newTheme)
 })
 
-watch(() => layoutCtx.isStickyNoteMode.value, () => {
+watch(() => isStickyNoteMode.value, () => {
   if (editorView) updateEditorTypography(editorView)
 })
 

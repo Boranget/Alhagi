@@ -173,8 +173,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
-import { useFileContext } from '@adapters/composables/useFileContext'
+import { storeToRefs } from 'pinia'
+import { usePreferencesStore } from '@/stores/preferences'
+import { getMediator } from '@adapters/mediator'
+import { PreferenceCommands, FileExplorerCommands } from '@adapters/mediator/commands'
 import { useTabService } from '@/services/tabService'
 import type { RecentFile, RecentFolder } from '@/types'
 import { t } from '@/services/i18n'
@@ -184,14 +186,12 @@ import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
 const activeTab = ref<'files' | 'folders'>('files')
 
-const prefsCtx = usePreferencesContext()
-const fileCtx = useFileContext()
+const prefsStore = usePreferencesStore()
+const { recentFiles, recentFolders } = storeToRefs(prefsStore)
+const mediator = getMediator()
 const tabService = useTabService()
 const { confirm } = useConfirmDialog()
 const { missingFiles, checkFiles } = useFileExistenceChecker()
-
-const recentFiles = computed(() => prefsCtx.recentFiles.value)
-const recentFolders = computed(() => prefsCtx.recentFolders.value)
 
 const pinnedFiles = computed(() => recentFiles.value.filter(f => f.pinned))
 const unpinnedFiles = computed(() => recentFiles.value.filter(f => !f.pinned))
@@ -213,15 +213,15 @@ function openFile(file: RecentFile) {
 async function openFolder(folder: RecentFolder) {
   // openFolderByPath 内部已统一 emit FOLDER_OPENED；
   // useFolderOpenHandler 会据此切回"文件资源管理器"页，避免这里重复 emit。
-  await fileCtx.openFolderByPath(folder.folderPath)
+  await mediator.send({ type: FileExplorerCommands.OPEN_FOLDER_BY_PATH, payload: { folderPath: folder.folderPath } })
 }
 
 function togglePinFile(file: RecentFile) {
-  prefsCtx.pinRecentFile(file.filePath, !file.pinned)
+  mediator.send({ type: PreferenceCommands.PIN_RECENT_FILE, payload: { filePath: file.filePath, pinned: !file.pinned } })
 }
 
 function togglePinFolder(folder: RecentFolder) {
-  prefsCtx.pinRecentFolder(folder.folderPath, !folder.pinned)
+  mediator.send({ type: PreferenceCommands.PIN_RECENT_FOLDER, payload: { folderPath: folder.folderPath, pinned: !folder.pinned } })
 }
 
 async function clearHistory() {
@@ -236,9 +236,9 @@ async function clearHistory() {
   if (!ok) return
 
   if (activeTab.value === 'files') {
-    prefsCtx.clearRecentFiles()
+    mediator.send({ type: PreferenceCommands.CLEAR_RECENT_FILES })
   } else {
-    prefsCtx.clearRecentFolders()
+    mediator.send({ type: PreferenceCommands.CLEAR_RECENT_FOLDERS })
   }
 }
 </script>

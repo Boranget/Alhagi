@@ -48,11 +48,11 @@
           最近文件
         </h2>
         <div
-          v-if="recentFiles.length > 0"
+          v-if="recentFilesList.length > 0"
           class="recent-files-list"
         >
           <div 
-            v-for="file in recentFiles" 
+            v-for="file in recentFilesList" 
             :key="file.filePath"
             class="recent-file-item"
             :class="{ 'file-missing': missingFiles.has(file.filePath) }"
@@ -82,27 +82,30 @@
 </template>
 
 <script setup lang="ts">
-import { usePreferencesContext } from '@adapters/composables/usePreferencesContext'
-import { useFileContext } from '@adapters/composables/useFileContext'
+import { storeToRefs } from 'pinia'
+import { usePreferencesStore } from '@/stores/preferences'
+import { getMediator } from '@adapters/mediator'
+import { FileExplorerCommands } from '@adapters/mediator/commands'
 import { useTabService } from '@/services/tabService'
 import { useTabActions } from '@/composables/useTabActions'
 import { computed, onMounted, watch } from 'vue'
 import { Icon } from '@/components/Icons'
 import { useFileExistenceChecker } from '@/composables/useFileExistenceChecker'
 
-const prefsCtx = usePreferencesContext()
-const fileCtx = useFileContext()
+const prefsStore = usePreferencesStore()
+const { recentFiles } = storeToRefs(prefsStore)
+const mediator = getMediator()
 const tabService = useTabService()
 const { createTab } = useTabActions()
 
-const recentFiles = computed(() => prefsCtx.recentFiles.value)
+const recentFilesList = computed(() => recentFiles.value)
 const { missingFiles, checkFiles } = useFileExistenceChecker()
 
 onMounted(() => {
-  checkFiles(recentFiles.value.map(f => f.filePath))
+  checkFiles(recentFilesList.value.map(f => f.filePath))
 })
 
-watch(recentFiles, (files) => {
+watch(recentFilesList, (files) => {
   checkFiles(files.map(f => f.filePath))
 })
 
@@ -118,7 +121,7 @@ async function openFolder() {
   if (window.electronAPI) {
     const result = await window.electronAPI.openFolder()
     if (result.success && result.data) {
-      await fileCtx.openFolderByPath(result.data.path)
+      await mediator.send({ type: FileExplorerCommands.OPEN_FOLDER_BY_PATH, payload: { folderPath: result.data.path } })
     }
   }
 }

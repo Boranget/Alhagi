@@ -8,11 +8,11 @@
         @open-folder="openFolder"
       />
       <div
-        v-if="fileCtx.currentFolder.value"
+        v-if="currentFolder"
         class="file-tree"
       >
         <FileTreeNode
-          v-for="node in fileCtx.fileTree.value"
+          v-for="node in fileTree"
           :key="node.path"
           :node="node"
           :depth="0"
@@ -99,9 +99,12 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
-import { useFileContext } from '@adapters/composables/useFileContext'
+import { storeToRefs } from 'pinia'
+import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { useTabsStore } from '@/stores/tabs'
+import { getMediator } from '@adapters/mediator'
+import { FileExplorerCommands, TabCommands } from '@adapters/mediator/commands'
 import FileTreeNode from './FileTreeNode.vue'
-import { useTabContext } from '@adapters/composables/useTabContext'
 import { extractTitleFromPath, getDirname } from '@/utils/helpers'
 import { detectDescriptor } from '@/fileTypes'
 import type { FileTreeNodeType } from '@/types'
@@ -113,8 +116,11 @@ import ExplorerHeader from './ExplorerHeader.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import { useTabActions } from '@/composables/useTabActions'
 
-const fileCtx = useFileContext()
-const tabsCtx = useTabContext()
+const fileStore = useFileExplorerStore()
+const tabsStore = useTabsStore()
+const { currentFolder, fileTree } = storeToRefs(fileStore)
+const { tabs } = storeToRefs(tabsStore)
+const mediator = getMediator()
 const { confirm } = useConfirmDialog()
 const inputDialog = useInputDialog()
 const { createTab } = useTabActions()
@@ -182,9 +188,9 @@ const contextMenuItems = computed(() => {
 })
 
 async function openFolder() {
-  const result = await fileCtx.openFolder()
+  const result = await mediator.send({ type: FileExplorerCommands.OPEN_FOLDER })
   if (result) {
-    await fileCtx.refreshTree()
+    await mediator.send({ type: FileExplorerCommands.REFRESH_TREE })
   }
 }
 
@@ -201,9 +207,9 @@ async function handleSelect(node: FileTreeNodeType) {
   }
 
   // 已经在本窗口打开了 → 切到那个 tab
-  const existingTab = Array.from(tabsCtx.tabs.values()).find(t => t.filePath === node.path)
+  const existingTab = Array.from(tabs.value.values()).find(tab => tab.filePath === node.path)
   if (existingTab) {
-    tabsCtx.switch(existingTab.id)
+    mediator.send({ type: TabCommands.SWITCH, payload: { tabId: existingTab.id } })
     return
   }
 
@@ -246,7 +252,7 @@ function handleContextMenu(event: MouseEvent, node: FileTreeNodeType) {
 
 function handleToggle(node: FileTreeNodeType) {
   if (node.type === 'directory') {
-    fileCtx.toggleFolder(node)
+    mediator.send({ type: FileExplorerCommands.TOGGLE_FOLDER, payload: { node } })
   }
 }
 
@@ -304,11 +310,11 @@ async function handleMoveTo(node: FileTreeNodeType | null) {
     
     const moveResult = await window.electronAPI.moveFile(sourcePath, targetDir)
     if (moveResult.success && moveResult.data) {
-      await fileCtx.refreshTree()
+      await mediator.send({ type: FileExplorerCommands.REFRESH_TREE })
       
-      const existingTab = Array.from(tabsCtx.tabs.values()).find(t => t.filePath === sourcePath)
+      const existingTab = Array.from(tabs.value.values()).find(tab => tab.filePath === sourcePath)
       if (existingTab) {
-        tabsCtx.updateTab(existingTab.id, { filePath: moveResult.data })
+        tabsStore.updateTab(existingTab.id, { filePath: moveResult.data })
       }
     }
   }
@@ -328,7 +334,7 @@ async function handleCopyTo(node: FileTreeNodeType | null) {
     
     const copyResult = await window.electronAPI.copyFile(sourcePath, targetDir)
     if (copyResult.success && copyResult.data) {
-      await fileCtx.refreshTree()
+      await mediator.send({ type: FileExplorerCommands.REFRESH_TREE })
     }
   }
 }
@@ -362,7 +368,7 @@ async function confirmNewItem() {
     return
   }
 
-  let parentPath = fileCtx.currentFolder.value || ''
+  let parentPath = currentFolder.value || ''
   if (targetNode) {
     if (targetNode.type === 'directory') {
       parentPath = targetNode.path
@@ -374,9 +380,9 @@ async function confirmNewItem() {
   const finalName = isFolder ? name : (name.endsWith('.md') ? name : name + '.md')
 
   if (isFolder) {
-    await fileCtx.createDirectory(parentPath, name)
+    await mediator.send({ type: FileExplorerCommands.CREATE_DIRECTORY, payload: { dirPath: parentPath, dirName: name } })
   } else {
-    await fileCtx.createFile(parentPath, finalName)
+    await mediator.send({ type: FileExplorerCommands.CREATE_FILE, payload: { dirPath: parentPath, fileName: finalName } })
   }
 
   closeNewItemDialog()
@@ -398,7 +404,7 @@ async function handleRename(node: FileTreeNodeType | null) {
     defaultValue: node.name,
   })
   if (newName && newName !== node.name) {
-    await fileCtx.renameFile(node.path, newName)
+    await mediator.send({ type: FileExplorerCommands.RENAME_FILE, payload: { oldPath: node.path, newName } })
   }
 }
 
@@ -416,7 +422,7 @@ async function handleDelete(node: FileTreeNodeType | null) {
   })
 
   if (ok) {
-    await fileCtx.deleteFile(node.path)
+    await mediator.send({ type: FileExplorerCommands.DELETE_FILE, payload: { filePath: node.path } })
   }
 }
 
@@ -430,13 +436,13 @@ async function handleOpenInExplorer(node: FileTreeNodeType | null) {
 }
 
 async function handleRefresh() {
-  await fileCtx.refreshTree()
+  await mediator.send({ type: FileExplorerCommands.REFRESH_TREE })
 }
 
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
-  if (fileCtx.currentFolder.value) {
-    fileCtx.refreshTree()
+  if (currentFolder.value) {
+    mediator.send({ type: FileExplorerCommands.REFRESH_TREE })
   }
 })
 
