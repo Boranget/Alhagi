@@ -115,7 +115,6 @@ import { useViewModeStore } from '@/stores/viewMode'
 import { getMediator } from '@adapters/mediator'
 import { LayoutCommands, PreferenceCommands, ViewModeCommands } from '@adapters/mediator/commands'
 import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
-import { executeCommand } from '@/commands'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
 
@@ -132,12 +131,12 @@ const { typewriterMode, focusMode } = storeToRefs(viewModeStore)
 
 const isEditorFile = computed(() => activeTab.value?.fileType === 'editor')
 
-async function handleToggleFocusMode() {
-  await executeCommand('view.focusMode')
+function handleToggleFocusMode() {
+  mediator.send({ type: ViewModeCommands.TOGGLE_FOCUS_MODE })
 }
 
-async function handleToggleTypewriterMode() {
-  await executeCommand('view.typewriterMode')
+function handleToggleTypewriterMode() {
+  mediator.send({ type: ViewModeCommands.TOGGLE_TYPEWRITER_MODE })
 }
 
 // 仅显示文件名，不显示完整路径

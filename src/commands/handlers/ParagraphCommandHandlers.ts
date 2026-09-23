@@ -18,18 +18,6 @@ export function registerParagraphHandlers(dispatcher: ReturnType<typeof getDispa
       executeEditorCommand.execute('toggleHeading3')
     },
 
-    'paragraph.heading4': () => {
-      executeEditorCommand.execute('toggleHeading4')
-    },
-
-    'paragraph.heading5': () => {
-      executeEditorCommand.execute('toggleHeading5')
-    },
-
-    'paragraph.heading6': () => {
-      executeEditorCommand.execute('toggleHeading6')
-    },
-
     'paragraph.paragraph': () => {
       executeEditorCommand.execute('toggleParagraph')
     },

@@ -99,8 +99,3 @@ export function matchKeyEvent(
     return eventKey === bindingKey
   }
 }
-
-// P4: 统一命令处理器接口
-export interface ICommandHandler {
-  execute(): Promise<void>
-}
