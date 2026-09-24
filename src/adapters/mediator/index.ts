@@ -5,6 +5,12 @@ import { LayoutCommandHandler } from './handlers/LayoutCommandHandler'
 import { SearchCommandHandler } from './handlers/SearchCommandHandler'
 import { ViewModeCommandHandler } from './handlers/ViewModeCommandHandler'
 import { FileExplorerCommandHandler } from './handlers/FileExplorerCommandHandler'
+import { EditCommandHandler } from './handlers/EditCommandHandler'
+import { EditorCommandHandler } from './handlers/EditorCommandHandler'
+import { ViewCommandHandler } from './handlers/ViewCommandHandler'
+import { FileOperationsCommandHandler } from './handlers/FileOperationsCommandHandler'
+import { ToolsCommandHandler } from './handlers/ToolsCommandHandler'
+import { HelpCommandHandler } from './handlers/HelpCommandHandler'
 import { useTabQueries } from './handlers/TabQueryAdapter'
 import { usePreferenceQueries } from './handlers/PreferenceQueryAdapter'
 import { useSearchQueries } from './handlers/SearchQueryAdapter'
@@ -15,6 +21,8 @@ import {
   SearchCommands, SearchQueries,
   ViewModeCommands, ViewModeQueries,
   FileExplorerCommands, FileExplorerQueries,
+  EditCommands, EditorCommands, ViewCommands,
+  FileCommands, ToolsCommands, HelpCommands,
 } from './commands'
 import { useLayoutStore } from '@/stores/layout'
 import { useViewModeStore } from '@/stores/viewMode'
@@ -38,6 +46,12 @@ function registerCommandHandlers(mediator: AppMediator): void {
   const search = new SearchCommandHandler()
   const viewMode = new ViewModeCommandHandler()
   const file = new FileExplorerCommandHandler()
+  const edit = new EditCommandHandler()
+  const editor = new EditorCommandHandler()
+  const view = new ViewCommandHandler()
+  const fileOps = new FileOperationsCommandHandler()
+  const tools = new ToolsCommandHandler()
+  const help = new HelpCommandHandler()
 
   // Tab commands
   mediator.registerCommand(TabCommands.CREATE, { execute: (p) => tab.execute({ type: TabCommands.CREATE, ...p as object }) })
@@ -104,6 +118,51 @@ function registerCommandHandlers(mediator: AppMediator): void {
   mediator.registerCommand(FileExplorerCommands.CREATE_DIRECTORY, { execute: (p) => file.execute({ type: FileExplorerCommands.CREATE_DIRECTORY, ...p as object }) })
   mediator.registerCommand(FileExplorerCommands.DELETE_FILE, { execute: (p) => file.execute({ type: FileExplorerCommands.DELETE_FILE, ...p as object }) })
   mediator.registerCommand(FileExplorerCommands.RENAME_FILE, { execute: (p) => file.execute({ type: FileExplorerCommands.RENAME_FILE, ...p as object }) })
+
+  // Edit commands
+  mediator.registerCommand(EditCommands.UNDO, { execute: (p) => edit.execute({ type: EditCommands.UNDO, ...p as object }) })
+  mediator.registerCommand(EditCommands.REDO, { execute: (p) => edit.execute({ type: EditCommands.REDO, ...p as object }) })
+  mediator.registerCommand(EditCommands.CUT, { execute: (p) => edit.execute({ type: EditCommands.CUT, ...p as object }) })
+  mediator.registerCommand(EditCommands.COPY, { execute: (p) => edit.execute({ type: EditCommands.COPY, ...p as object }) })
+  mediator.registerCommand(EditCommands.PASTE, { execute: (p) => edit.execute({ type: EditCommands.PASTE, ...p as object }) })
+  mediator.registerCommand(EditCommands.SELECT_ALL, { execute: (p) => edit.execute({ type: EditCommands.SELECT_ALL, ...p as object }) })
+  mediator.registerCommand(EditCommands.FIND, { execute: (p) => edit.execute({ type: EditCommands.FIND, ...p as object }) })
+  mediator.registerCommand(EditCommands.REPLACE, { execute: (p) => edit.execute({ type: EditCommands.REPLACE, ...p as object }) })
+
+  // Editor commands (format / paragraph / table)
+  for (const cmd of Object.values(EditorCommands)) {
+    mediator.registerCommand(cmd, { execute: (p) => editor.execute({ type: cmd, ...p as object }) })
+  }
+
+  // View commands
+  mediator.registerCommand(ViewCommands.TOGGLE_SOURCE_MODE, { execute: (p) => view.execute({ type: ViewCommands.TOGGLE_SOURCE_MODE, ...p as object }) })
+  mediator.registerCommand(ViewCommands.WYSIWYG_MODE, { execute: (p) => view.execute({ type: ViewCommands.WYSIWYG_MODE, ...p as object }) })
+  mediator.registerCommand(ViewCommands.SPLIT_MODE, { execute: (p) => view.execute({ type: ViewCommands.SPLIT_MODE, ...p as object }) })
+  mediator.registerCommand(ViewCommands.FULLSCREEN, { execute: (p) => view.execute({ type: ViewCommands.FULLSCREEN, ...p as object }) })
+  mediator.registerCommand(ViewCommands.DEV_TOOLS, { execute: (p) => view.execute({ type: ViewCommands.DEV_TOOLS, ...p as object }) })
+  mediator.registerCommand(ViewCommands.STICKY_NOTE_MODE, { execute: (p) => view.execute({ type: ViewCommands.STICKY_NOTE_MODE, ...p as object }) })
+  mediator.registerCommand(ViewCommands.IMMERSIVE_MODE, { execute: (p) => view.execute({ type: ViewCommands.IMMERSIVE_MODE, ...p as object }) })
+  mediator.registerCommand(ViewCommands.NEXT_TAB, { execute: (p) => view.execute({ type: ViewCommands.NEXT_TAB, ...p as object }) })
+  mediator.registerCommand(ViewCommands.PREV_TAB, { execute: (p) => view.execute({ type: ViewCommands.PREV_TAB, ...p as object }) })
+
+  // File operations commands
+  mediator.registerCommand(FileCommands.OPEN, { execute: (p) => fileOps.execute({ type: FileCommands.OPEN, ...p as object }) })
+  mediator.registerCommand(FileCommands.SAVE, { execute: (p) => fileOps.execute({ type: FileCommands.SAVE, ...p as object }) })
+  mediator.registerCommand(FileCommands.SAVE_AS, { execute: (p) => fileOps.execute({ type: FileCommands.SAVE_AS, ...p as object }) })
+  mediator.registerCommand(FileCommands.CLOSE_ACTIVE, { execute: (p) => fileOps.execute({ type: FileCommands.CLOSE_ACTIVE, ...p as object }) })
+  mediator.registerCommand(FileCommands.NEW_WINDOW, { execute: (p) => fileOps.execute({ type: FileCommands.NEW_WINDOW, ...p as object }) })
+
+  // Tools commands
+  mediator.registerCommand(ToolsCommands.PREFERENCES, { execute: (p) => tools.execute({ type: ToolsCommands.PREFERENCES, ...p as object }) })
+  mediator.registerCommand(ToolsCommands.EXPORT, { execute: (p) => tools.execute({ type: ToolsCommands.EXPORT, ...p as object }) })
+  mediator.registerCommand(ToolsCommands.EXPORT_HTML, { execute: (p) => tools.execute({ type: ToolsCommands.EXPORT_HTML, ...p as object }) })
+  mediator.registerCommand(ToolsCommands.EXPORT_PDF, { execute: (p) => tools.execute({ type: ToolsCommands.EXPORT_PDF, ...p as object }) })
+  mediator.registerCommand(ToolsCommands.CAPTURE_SCREEN, { execute: (p) => tools.execute({ type: ToolsCommands.CAPTURE_SCREEN, ...p as object }) })
+
+  // Help commands
+  mediator.registerCommand(HelpCommands.SHORTCUTS, { execute: (p) => help.execute({ type: HelpCommands.SHORTCUTS, ...p as object }) })
+  mediator.registerCommand(HelpCommands.COMMAND_PALETTE, { execute: (p) => help.execute({ type: HelpCommands.COMMAND_PALETTE, ...p as object }) })
+  mediator.registerCommand(HelpCommands.ABOUT, { execute: (p) => help.execute({ type: HelpCommands.ABOUT, ...p as object }) })
 }
 
 function registerQueryHandlers(mediator: AppMediator): void {

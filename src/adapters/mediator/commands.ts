@@ -180,6 +180,88 @@ export const FileExplorerQueries = {
   GET_ERROR: 'file:getError',
 } as const
 
+// ── Edit Commands ──────────────────────────────────────
+export const EditCommands = {
+  UNDO: 'edit:undo',
+  REDO: 'edit:redo',
+  CUT: 'edit:cut',
+  COPY: 'edit:copy',
+  PASTE: 'edit:paste',
+  SELECT_ALL: 'edit:selectAll',
+  FIND: 'edit:find',
+  REPLACE: 'edit:replace',
+} as const
+
+// ── Editor Commands (format / paragraph / table) ───────
+export const EditorCommands = {
+  // format
+  BOLD: 'editor:format:bold',
+  ITALIC: 'editor:format:italic',
+  STRIKETHROUGH: 'editor:format:strikethrough',
+  CODE: 'editor:format:code',
+  LINK: 'editor:format:link',
+  IMAGE: 'editor:format:image',
+  HIGHLIGHT: 'editor:format:highlight',
+  // paragraph
+  HEADING1: 'editor:paragraph:heading1',
+  HEADING2: 'editor:paragraph:heading2',
+  HEADING3: 'editor:paragraph:heading3',
+  PARAGRAPH: 'editor:paragraph:paragraph',
+  QUOTE: 'editor:paragraph:quote',
+  BULLET_LIST: 'editor:paragraph:bulletList',
+  ORDERED_LIST: 'editor:paragraph:orderedList',
+  TASK_LIST: 'editor:paragraph:taskList',
+  CODE_BLOCK: 'editor:paragraph:codeBlock',
+  MATH_BLOCK: 'editor:paragraph:mathBlock',
+  HORIZONTAL_RULE: 'editor:paragraph:horizontalRule',
+  // table
+  TABLE_INSERT: 'editor:table:insert',
+  TABLE_ROW_ABOVE: 'editor:table:insertRowAbove',
+  TABLE_ROW_BELOW: 'editor:table:insertRowBelow',
+  TABLE_COL_LEFT: 'editor:table:insertColumnLeft',
+  TABLE_COL_RIGHT: 'editor:table:insertColumnRight',
+  TABLE_DELETE_ROW: 'editor:table:deleteRow',
+  TABLE_DELETE_COL: 'editor:table:deleteColumn',
+} as const
+
+// ── View Commands (extras beyond layout/preference/viewMode) ──
+export const ViewCommands = {
+  TOGGLE_SOURCE_MODE: 'view:toggleSourceMode',
+  WYSIWYG_MODE: 'view:wysiwygMode',
+  SPLIT_MODE: 'view:splitMode',
+  FULLSCREEN: 'view:fullscreen',
+  DEV_TOOLS: 'view:devTools',
+  STICKY_NOTE_MODE: 'view:stickyNoteMode',
+  IMMERSIVE_MODE: 'view:immersiveMode',
+  NEXT_TAB: 'view:nextTab',
+  PREV_TAB: 'view:prevTab',
+} as const
+
+// ── File Commands (open/save/close beyond FileExplorer) ──
+export const FileCommands = {
+  OPEN: 'file:open',
+  SAVE: 'file:save',
+  SAVE_AS: 'file:saveAs',
+  CLOSE_ACTIVE: 'file:closeActive',
+  NEW_WINDOW: 'file:newWindow',
+} as const
+
+// ── Tools Commands ─────────────────────────────────────
+export const ToolsCommands = {
+  PREFERENCES: 'tools:preferences',
+  EXPORT: 'tools:export',
+  EXPORT_HTML: 'tools:exportHTML',
+  EXPORT_PDF: 'tools:exportPDF',
+  CAPTURE_SCREEN: 'tools:captureScreen',
+} as const
+
+// ── Help Commands ──────────────────────────────────────
+export const HelpCommands = {
+  SHORTCUTS: 'help:shortcuts',
+  COMMAND_PALETTE: 'help:commandPalette',
+  ABOUT: 'help:about',
+} as const
+
 // ── Command/Query factory helpers ──────────────────────
 export function createCommand<T>(type: string, payload?: unknown): Command<T> {
   return { type, payload }

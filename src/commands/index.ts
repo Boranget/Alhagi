@@ -8,7 +8,7 @@ export * from './types'
 // 导出命令注册表
 export * from './registry'
 
-// 导出调度器
+// 导出调度器（桥接层：旧命令 ID → Mediator）
 export * from './dispatcher'
 
 // 导出上下文
@@ -17,22 +17,15 @@ export * from './context'
 // 导出快捷键管理
 export * from './keybinding'
 
-// 导出处理器
-export { initCommandHandlers } from './handlers'
-
-import { initCommandHandlers } from './handlers'
 import { getKeybindingManager } from './keybinding'
 
 // 初始化命令系统
 export function initCommandSystem(): void {
-  // 1. 初始化所有命令处理器
-  initCommandHandlers()
-
-  // 2. 启用快捷键管理
+  // 1. 启用快捷键管理（命令执行已路由到 Mediator，无需注册 handler）
   const keybindingManager = getKeybindingManager()
   keybindingManager.attachGlobalListener()
 
-  // 3. 加载用户自定义快捷键
+  // 2. 加载用户自定义快捷键
   loadCustomKeybindings(keybindingManager)
 }
 

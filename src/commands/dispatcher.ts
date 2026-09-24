@@ -1,46 +1,139 @@
 // ============================================================
-// Alhagi Command Dispatcher - 统一命令调度器
+// Alhagi Command Dispatcher - 桥接层（旧命令 ID → Mediator）
 // ============================================================
+//
+// 命令面板 / 快捷键 / 菜单仍使用旧的命令 ID（如 'view.toggleSidebar'），
+// 本文件负责将这些 ID 映射到 Mediator 命令并路由执行。
+//
+// 保留的功能：
+//   - when/whenNot 条件评估（context.ts）
+//   - before/after 执行监听器
+//   - 执行深度保护
+//
+// 已移除：
+//   - 本地 handler 注册表（所有执行逻辑已迁移到 Mediator CommandHandler）
 
-import type { CommandHandler, CommandResult } from './types'
+import type { CommandResult } from './types'
 import { getCommand } from './registry'
 import { getCommandContext } from './context'
+import { getMediator } from '@/adapters/mediator'
+import {
+  TabCommands, PreferenceCommands, LayoutCommands,
+  ViewModeCommands, FileExplorerCommands,
+  EditCommands, EditorCommands, ViewCommands,
+  FileCommands, ToolsCommands, HelpCommands,
+} from '@/adapters/mediator/commands'
 
 // 命令执行事件监听器
 type CommandEventHandler = (action: string, result: CommandResult) => void
 const beforeExecuteListeners: CommandEventHandler[] = []
 const afterExecuteListeners: CommandEventHandler[] = []
 
+// ── 旧命令 ID → Mediator 命令映射 ──────────────────────
+interface MediatorCommandMapping {
+  type: string
+  payload?: Record<string, unknown>
+}
+
+const COMMAND_MAP: Record<string, MediatorCommandMapping> = {
+  // File
+  'file.new': { type: TabCommands.CREATE, payload: { title: '未命名' } },
+  'file.newWindow': { type: FileCommands.NEW_WINDOW },
+  'file.open': { type: FileCommands.OPEN },
+  'file.openFolder': { type: FileExplorerCommands.OPEN_FOLDER },
+  'file.save': { type: FileCommands.SAVE },
+  'file.saveAs': { type: FileCommands.SAVE_AS },
+  'file.close': { type: FileCommands.CLOSE_ACTIVE },
+
+  // Edit
+  'edit.undo': { type: EditCommands.UNDO },
+  'edit.redo': { type: EditCommands.REDO },
+  'edit.redoAlt': { type: EditCommands.REDO },
+  'edit.cut': { type: EditCommands.CUT },
+  'edit.copy': { type: EditCommands.COPY },
+  'edit.paste': { type: EditCommands.PASTE },
+  'edit.selectAll': { type: EditCommands.SELECT_ALL },
+  'edit.find': { type: EditCommands.FIND },
+  'edit.replace': { type: EditCommands.REPLACE },
+
+  // Format
+  'format.bold': { type: EditorCommands.BOLD },
+  'format.italic': { type: EditorCommands.ITALIC },
+  'format.strikethrough': { type: EditorCommands.STRIKETHROUGH },
+  'format.code': { type: EditorCommands.CODE },
+  'format.link': { type: EditorCommands.LINK },
+  'format.image': { type: EditorCommands.IMAGE },
+  'format.highlight': { type: EditorCommands.HIGHLIGHT },
+
+  // Paragraph
+  'paragraph.heading1': { type: EditorCommands.HEADING1 },
+  'paragraph.heading2': { type: EditorCommands.HEADING2 },
+  'paragraph.heading3': { type: EditorCommands.HEADING3 },
+  'paragraph.paragraph': { type: EditorCommands.PARAGRAPH },
+  'paragraph.quote': { type: EditorCommands.QUOTE },
+  'paragraph.bulletList': { type: EditorCommands.BULLET_LIST },
+  'paragraph.orderedList': { type: EditorCommands.ORDERED_LIST },
+  'paragraph.taskList': { type: EditorCommands.TASK_LIST },
+  'paragraph.codeBlock': { type: EditorCommands.CODE_BLOCK },
+  'paragraph.mathBlock': { type: EditorCommands.MATH_BLOCK },
+  'paragraph.horizontalRule': { type: EditorCommands.HORIZONTAL_RULE },
+
+  // Table
+  'table.insert': { type: EditorCommands.TABLE_INSERT },
+  'table.insertRowAbove': { type: EditorCommands.TABLE_ROW_ABOVE },
+  'table.insertRowBelow': { type: EditorCommands.TABLE_ROW_BELOW },
+  'table.insertColumnLeft': { type: EditorCommands.TABLE_COL_LEFT },
+  'table.insertColumnRight': { type: EditorCommands.TABLE_COL_RIGHT },
+  'table.deleteRow': { type: EditorCommands.TABLE_DELETE_ROW },
+  'table.deleteColumn': { type: EditorCommands.TABLE_DELETE_COL },
+
+  // View - layout
+  'view.toggleSidebar': { type: LayoutCommands.TOGGLE_SIDEBAR },
+  'view.toggleTabBar': { type: LayoutCommands.TOGGLE_TAB_BAR },
+  'view.toggleStatusBar': { type: LayoutCommands.TOGGLE_STATUS_BAR },
+
+  // View - editor mode
+  'view.toggleSourceMode': { type: ViewCommands.TOGGLE_SOURCE_MODE },
+  'view.wysiwygMode': { type: ViewCommands.WYSIWYG_MODE },
+  'view.splitMode': { type: ViewCommands.SPLIT_MODE },
+
+  // View - preferences
+  'view.toggleTheme': { type: PreferenceCommands.TOGGLE_LIGHT_DARK },
+  'view.zoomIn': { type: PreferenceCommands.ZOOM_IN },
+  'view.zoomOut': { type: PreferenceCommands.ZOOM_OUT },
+  'view.resetZoom': { type: PreferenceCommands.RESET_ZOOM },
+
+  // View - window / electron
+  'view.fullscreen': { type: ViewCommands.FULLSCREEN },
+  'view.devTools': { type: ViewCommands.DEV_TOOLS },
+  'view.stickyNoteMode': { type: ViewCommands.STICKY_NOTE_MODE },
+  'view.immersiveMode': { type: ViewCommands.IMMERSIVE_MODE },
+
+  // View - writing enhancement
+  'view.focusMode': { type: ViewModeCommands.TOGGLE_FOCUS_MODE },
+  'view.typewriterMode': { type: ViewModeCommands.TOGGLE_TYPEWRITER_MODE },
+
+  // View - tab navigation
+  'view.nextTab': { type: ViewCommands.NEXT_TAB },
+  'view.prevTab': { type: ViewCommands.PREV_TAB },
+
+  // Tools
+  'tools.preferences': { type: ToolsCommands.PREFERENCES },
+  'tools.export': { type: ToolsCommands.EXPORT },
+  'tools.exportHTML': { type: ToolsCommands.EXPORT_HTML },
+  'tools.exportPDF': { type: ToolsCommands.EXPORT_PDF },
+  'tools.captureScreen': { type: ToolsCommands.CAPTURE_SCREEN },
+
+  // Help
+  'help.shortcuts': { type: HelpCommands.SHORTCUTS },
+  'help.commandPalette': { type: HelpCommands.COMMAND_PALETTE },
+  'help.about': { type: HelpCommands.ABOUT },
+}
+
 class CommandDispatcher {
-  private handlers = new Map<string, CommandHandler>()
   private executionDepth = 0
 
-  // 注册命令处理器
-  register(action: string, handler: CommandHandler): void {
-    if (this.handlers.has(action)) {
-      console.warn(`[CommandDispatcher] Handler already registered for "${action}", overwriting`)
-    }
-    this.handlers.set(action, handler)
-  }
-
-  // 批量注册处理器
-  registerBatch(entries: Record<string, CommandHandler>): void {
-    for (const [action, handler] of Object.entries(entries)) {
-      this.register(action, handler)
-    }
-  }
-
-  // 取消注册处理器
-  unregister(action: string): boolean {
-    return this.handlers.delete(action)
-  }
-
-  // 检查命令是否已注册处理器
-  hasHandler(action: string): boolean {
-    return this.handlers.has(action)
-  }
-
-  // 获取命令是否可以执行（根据上下文条件）
+  // 检查命令是否可以执行（根据上下文条件）
   canExecute(action: string): boolean {
     const command = getCommand(action)
     if (!command) {
@@ -52,7 +145,7 @@ class CommandDispatcher {
     return ctx.check(command.when)
   }
 
-  // 执行命令
+  // 执行命令（路由到 Mediator）
   async execute(action: string): Promise<CommandResult> {
     const startTime = performance.now()
 
@@ -67,10 +160,10 @@ class CommandDispatcher {
       return { success: false, error: `Command not found: ${action}` }
     }
 
-    const handler = this.handlers.get(action)
-    if (!handler) {
-      console.warn(`[CommandDispatcher] No handler registered for: "${action}"`)
-      return { success: false, error: `No handler for: ${action}` }
+    const mapping = COMMAND_MAP[action]
+    if (!mapping) {
+      console.warn(`[CommandDispatcher] No mediator mapping for: "${action}"`)
+      return { success: false, error: `No mediator mapping for: ${action}` }
     }
 
     const ctx = getCommandContext()
@@ -98,7 +191,8 @@ class CommandDispatcher {
     this.executionDepth++
 
     try {
-      const result = await handler()
+      const mediator = getMediator()
+      const result = await mediator.send({ type: mapping.type, payload: mapping.payload })
 
       const afterResult: CommandResult = { success: true, data: result }
       for (const listener of afterExecuteListeners) {
@@ -124,11 +218,11 @@ class CommandDispatcher {
     }
   }
 
-  // 同步执行命令（用于不需要异步的场景）
+  // 同步执行命令（Mediator 是异步的，这里退化为 fire-and-forget）
   executeSync(action: string): CommandResult {
-    const handler = this.handlers.get(action)
-    if (!handler) {
-      return { success: false, error: `No handler for: ${action}` }
+    const mapping = COMMAND_MAP[action]
+    if (!mapping) {
+      return { success: false, error: `No mediator mapping for: ${action}` }
     }
 
     const command = getCommand(action)
@@ -142,12 +236,8 @@ class CommandDispatcher {
     }
 
     try {
-      const result = handler()
-      if (result instanceof Promise) {
-        console.warn(`[CommandDispatcher] executeSync called on async handler "${action}"`)
-        return { success: false, error: 'Async handler called with executeSync' }
-      }
-      return { success: true, data: result }
+      getMediator().send({ type: mapping.type, payload: mapping.payload })
+      return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       return { success: false, error: errorMessage }
@@ -186,11 +276,6 @@ class CommandDispatcher {
     beforeExecuteListeners.length = 0
     afterExecuteListeners.length = 0
   }
-
-  // 清除所有处理器
-  clearHandlers(): void {
-    this.handlers.clear()
-  }
 }
 
 let dispatcherInstance: CommandDispatcher | null = null
@@ -210,12 +295,15 @@ export function canExecuteCommand(action: string): boolean {
   return getDispatcher().canExecute(action)
 }
 
-export function registerCommand(action: string, handler: CommandHandler): void {
-  getDispatcher().register(action, handler)
+// 已废弃：所有执行逻辑已迁移到 Mediator，此函数保留为 no-op 以兼容旧调用方
+export function registerCommand(_action: string, _handler: unknown): void {
+  console.warn('[CommandDispatcher] registerCommand is deprecated. Use mediator.registerCommand() instead.')
 }
 
-export function unregisterCommand(action: string): boolean {
-  return getDispatcher().unregister(action)
+// 已废弃：Mediator 路由无 unregister 概念
+export function unregisterCommand(_action: string): boolean {
+  console.warn('[CommandDispatcher] unregisterCommand is deprecated.')
+  return false
 }
 
 export function useCommandDispatcher() {
@@ -225,9 +313,9 @@ export function useCommandDispatcher() {
     executeSync: (action: string) => dispatcher.executeSync(action),
     tryExecute: (action: string) => dispatcher.tryExecute(action),
     canExecute: (action: string) => dispatcher.canExecute(action),
-    register: (action: string, handler: CommandHandler) => dispatcher.register(action, handler),
-    unregister: (action: string) => dispatcher.unregister(action),
-    hasHandler: (action: string) => dispatcher.hasHandler(action),
+    register: (action: string, handler: unknown) => registerCommand(action, handler),
+    unregister: (action: string) => unregisterCommand(action),
+    hasHandler: (action: string) => action in COMMAND_MAP,
     onBeforeExecute: (handler: CommandEventHandler) => dispatcher.onBeforeExecute(handler),
     onAfterExecute: (handler: CommandEventHandler) => dispatcher.onAfterExecute(handler),
   }
