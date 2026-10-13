@@ -1,3 +1,4 @@
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
 export class EditCommandHandler {
@@ -5,22 +6,41 @@ export class EditCommandHandler {
     const { type } = payload as { type: string }
     switch (type) {
       case 'edit:undo':
-        eventBus.emit(AppEvents.EDIT_UNDO)
+        getEditorServiceGateway().undo()
         return
       case 'edit:redo':
-        eventBus.emit(AppEvents.EDIT_REDO)
+        getEditorServiceGateway().redo()
         return
-      case 'edit:cut':
-        eventBus.emit(AppEvents.EDITOR_CUT)
+      case 'edit:cut': {
+        getEditorServiceGateway().focus()
+        document.execCommand('cut')
         return
-      case 'edit:copy':
-        eventBus.emit(AppEvents.EDITOR_COPY)
+      }
+      case 'edit:copy': {
+        getEditorServiceGateway().focus()
+        document.execCommand('copy')
         return
-      case 'edit:paste':
-        eventBus.emit(AppEvents.EDITOR_PASTE)
+      }
+      case 'edit:paste': {
+        const gateway = getEditorServiceGateway()
+        gateway.focus()
+        // Chromium 禁止脚本触发原生粘贴（execCommand('paste') 返回 false）。
+        // 回退：navigator.clipboard 读取纯文本 + 在光标处插入。
+        try {
+          if (document.execCommand('paste')) return
+        } catch {
+          // execCommand 不可用，走回退
+        }
+        try {
+          const text = await navigator.clipboard.readText()
+          if (text) gateway.insertText(text)
+        } catch (error) {
+          console.error('[EditCommandHandler] paste failed:', error)
+        }
         return
+      }
       case 'edit:selectAll':
-        eventBus.emit(AppEvents.EDITOR_SELECT_ALL)
+        getEditorServiceGateway().selectAll()
         return
       case 'edit:find':
         eventBus.emit(AppEvents.SHOW_SEARCH)

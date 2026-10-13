@@ -13,6 +13,6 @@ export class SwitchTab {
 
     const previousTabId = currentTab?.id
     this.tabRepository.setActiveTab(tabId)
-    // 事件由 Store 层的 switchTab 负责 emit，此处不再重复
+    this.eventBus.emit('app:tab:switched', { tabId, previousTabId })
   }
 }

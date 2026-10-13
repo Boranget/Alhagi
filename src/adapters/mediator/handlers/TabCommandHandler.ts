@@ -23,7 +23,10 @@ export class TabCommandHandler {
       case 'tab:setViewMode':
         return this.store.setViewMode(params.tabId, params.mode)
       case 'tab:remove':
-        return this.store.removeTabById(params.tabId)
+        // 与 tab:close 同语义：必须走 CloseTab —— 处理 activeTabId 邻居切换、
+        // app:tab:closed / app:tab:switched 事件与 opened-files IPC 同步。
+        // 直接 store.removeTabById 会让批量关闭（关闭其他/已保存/全部）留下悬空 activeTabId。
+        return getCloseTabUseCase().execute(params.tabId)
       default:
         throw new Error(`Unknown tab command: ${type}`)
     }

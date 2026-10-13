@@ -105,6 +105,27 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.onCursorChange(callback)
   }
 
+  // 历史 / 焦点 / 选区
+  undo(): void {
+    return this.adapter.undo()
+  }
+
+  redo(): void {
+    return this.adapter.redo()
+  }
+
+  focus(): void {
+    return this.adapter.focus()
+  }
+
+  selectAll(): void {
+    return this.adapter.selectAll()
+  }
+
+  insertText(text: string): void {
+    return this.adapter.insertText(text)
+  }
+
   // 状态查询
   getSelection(): { from: number; to: number } | null {
     return this.adapter.getSelection()

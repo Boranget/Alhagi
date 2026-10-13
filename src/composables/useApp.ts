@@ -16,6 +16,7 @@ import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useTabActions } from '@/composables/useTabActions'
+import { restoreDetachedTab } from '@/services/crossWindowTab'
 
 // 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
 let _isFullscreen: ReturnType<typeof ref<boolean>> | null = null
@@ -102,6 +103,19 @@ export function useApp(bus?: IEventBus) {
             cursor: { from, to }
           })
         }
+      })
+    )
+
+    // 跨窗口标签：其他窗口拖入（TAB.MERGE）/ 分离新建窗口（TAB.DETACHED）携带的 tabData。
+    // 没有消费方时源窗口已删除 tab，数据直接丢失。
+    unsubscribers.push(
+      eventBus.on(AppEvents.TAB_MERGE_REQUESTED, ({ tabData }) => {
+        void restoreDetachedTab(tabData)
+      })
+    )
+    unsubscribers.push(
+      eventBus.on(AppEvents.TAB_DETACHED, ({ tabData }) => {
+        void restoreDetachedTab(tabData)
       })
     )
 

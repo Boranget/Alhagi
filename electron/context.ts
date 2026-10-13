@@ -106,6 +106,8 @@ export class AppContext {
       showStatusBar?: boolean
       isStickyNoteMode?: boolean
       isImmersiveMode?: boolean
+      typewriterMode?: boolean
+      focusMode?: boolean
     }) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return { success: false, data: false }

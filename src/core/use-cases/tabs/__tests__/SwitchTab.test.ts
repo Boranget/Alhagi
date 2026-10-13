@@ -87,11 +87,14 @@ describe('SwitchTab', () => {
     expect(mockTabRepository.setActiveTab).not.toHaveBeenCalled()
   })
 
-  it('should not emit events (events are handled by Store layer)', async () => {
+  it('should emit TAB_SWITCHED with tabId and previousTabId', async () => {
     vi.mocked(mockTabRepository.getActiveTab).mockReturnValue(undefined)
 
     await switchTab.execute('tab-1')
 
-    expect(mockEventBus.emit).not.toHaveBeenCalled()
+    expect(mockEventBus.emit).toHaveBeenCalledWith('app:tab:switched', {
+      tabId: 'tab-1',
+      previousTabId: undefined,
+    })
   })
 })

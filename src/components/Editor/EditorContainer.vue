@@ -165,6 +165,13 @@ onMounted(async () => {
     })
   )
 
+  // 关闭的 tab 立即释放编辑器实例（Crepe/CM/DOM），否则每次关闭都泄漏
+  unsubscribes.push(
+    eventBus.on(AppEvents.TAB_CLOSED, ({ tabId }) => {
+      void editorCtx.destroyTab(tabId)
+    })
+  )
+
   window.addEventListener('keydown', handleEditorKeydown)
 })
 

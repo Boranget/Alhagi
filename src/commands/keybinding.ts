@@ -2,7 +2,7 @@
 // Alhagi Keybinding Manager - 快捷键管理器
 // ============================================================
 
-import { COMMANDS, getCommand, getPlatformKeybinding, isHiddenOnPlatform } from './registry'
+import { COMMANDS, getCommand, getPlatformKeybinding, isBindingHiddenOnPlatform } from './registry'
 import { executeCommand, canExecuteCommand } from './dispatcher'
 import { matchKeyEvent, formatKeybinding, getPlatform } from './types'
 import type { Keybinding } from './types'
@@ -95,8 +95,8 @@ class KeybindingManager {
   // 其他快捷键（Ctrl+S/B/I/1/...）继续走命令系统。
   //
   // 注意：Ctrl+Y 不在拦截列表里——Windows 习惯用它做 redo，registry 中
-  // 通过隐藏的 edit.redoAlt 命令绑定到 Ctrl+Y，统一走 eventBus emit EDIT_REDO，
-  // 由 EditorContainer 按当前模式（wysiwyg/source/split）分发到 PM 或 CM。
+  // 通过隐藏的 edit.redoAlt 命令绑定到 Ctrl+Y，经 EditCommandHandler
+  // 直接调用 editorProvider.redo()，按当前模式分发到 PM 或 CM。
   // 之前 Ctrl+Y 被一并拦截但无人接管，Windows 用户按下没反应是个静默 bug。
   private shouldIgnoreEvent(event: KeyboardEvent): boolean {
     const target = event.target as HTMLElement
@@ -124,7 +124,9 @@ class KeybindingManager {
   // 查找匹配的命令（优先使用自定义快捷键，其次平台特定快捷键，最后默认快捷键）
   private findMatchingCommand(event: KeyboardEvent) {
     for (const command of COMMANDS) {
-      if (isHiddenOnPlatform(command)) continue
+      // 只跳过「平台级隐藏」的绑定；全局 hidden（如 edit.redoAlt 的
+      // Ctrl+Y 别名）不进菜单但快捷键必须生效。
+      if (isBindingHiddenOnPlatform(command)) continue
 
       // 优先使用自定义快捷键；否则用平台特定/默认快捷键
       const customBinding = this.customKeybindings.get(command.id)
@@ -205,7 +207,7 @@ class KeybindingManager {
     const bucket = new Map<string, string[]>()
 
     for (const command of COMMANDS) {
-      if (isHiddenOnPlatform(command)) continue
+      if (isBindingHiddenOnPlatform(command)) continue
 
       const custom = this.customKeybindings.get(command.id)
       const binding = custom || getPlatformKeybinding(command)

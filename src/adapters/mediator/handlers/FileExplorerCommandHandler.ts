@@ -10,7 +10,7 @@ export class FileExplorerCommandHandler {
       case 'file:openFolder':
         return this.store.openFolder()
       case 'file:openFolderByPath':
-        return this.store.openFolderByPath(params.path)
+        return this.store.openFolderByPath(params.folderPath)
       case 'file:refreshTree':
         return this.store.refreshTree()
       case 'file:toggleFolder':

@@ -110,8 +110,6 @@ export interface AppEventPayloads {
   'editor:active-editor-changed': { editor: 'crepe' | 'codemirror' | null }
   'editor:content:changed': { content: string; tabId: string }
   'editor:cursor:changed': { from: number; to: number; tabId: string }
-  'editor:undo': undefined
-  'editor:redo': undefined
 
   // UI事件
   'app:capture-screen': undefined
@@ -135,14 +133,6 @@ export interface AppEventPayloads {
 
   // UI 操作事件（替代 CustomEvent）
   'app:show-search': { showReplace?: boolean } | undefined
-  'app:insert-image': undefined
-  'app:export': { format: 'markdown' | 'html' | 'pdf' }
-
-  // 编辑器命令事件（替代 document.execCommand）
-  'editor:cut': undefined
-  'editor:copy': undefined
-  'editor:paste': undefined
-  'editor:select-all': undefined
 }
 
 export type AppEventName = keyof AppEventPayloads

@@ -56,15 +56,12 @@ export function matchKeyEvent(
 ): boolean {
   if (typeof binding === 'string') {
     const parsed = parseAccelerator(binding)
-    const ctrlKey = event.ctrlKey || event.metaKey
-    const altKey = event.altKey
-    const shiftKey = event.shiftKey
-    const metaKey = event.metaKey
+    const primaryPressed = event.ctrlKey || event.metaKey
 
-    if (parsed.ctrl && !ctrlKey) return false
-    if (parsed.alt && !altKey) return false
-    if (parsed.shift && !shiftKey) return false
-    if (parsed.meta && !metaKey) return false
+    if (parsed.ctrl !== primaryPressed) return false
+    if (parsed.alt !== event.altKey) return false
+    if (parsed.shift !== event.shiftKey) return false
+    if (parsed.meta && !event.metaKey) return false
 
     const eventKey = event.key.toLowerCase()
     const bindingKey = parsed.key.toLowerCase()
@@ -83,15 +80,18 @@ export function matchKeyEvent(
 
     return eventKey === bindingKey
   } else {
-    const ctrlKey = event.ctrlKey || event.metaKey
-    const altKey = event.altKey
-    const shiftKey = event.shiftKey
-    const metaKey = event.metaKey
+    const primaryPressed = event.ctrlKey || event.metaKey
+    // KeyModifiers 字段全部可选：缺省视为 false，否则严格相等会把
+    // 未显式声明 alt/shift 的绑定（registry 中绝大多数）全部判为失配。
+    const wantCtrl = binding.modifiers.ctrl ?? false
+    const wantAlt = binding.modifiers.alt ?? false
+    const wantShift = binding.modifiers.shift ?? false
+    const wantMeta = binding.modifiers.meta ?? false
 
-    if (binding.modifiers.ctrl && !ctrlKey) return false
-    if (binding.modifiers.alt && !altKey) return false
-    if (binding.modifiers.shift && !shiftKey) return false
-    if (binding.modifiers.meta && !metaKey) return false
+    if (wantCtrl !== primaryPressed) return false
+    if (wantAlt !== event.altKey) return false
+    if (wantShift !== event.shiftKey) return false
+    if (wantMeta && !event.metaKey) return false
 
     const eventKey = event.key.toUpperCase()
     const bindingKey = binding.key.toUpperCase()

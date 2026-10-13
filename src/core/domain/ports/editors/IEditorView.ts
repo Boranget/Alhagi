@@ -24,4 +24,9 @@ export interface IEditorView {
   getActiveEditor(): 'crepe' | 'codemirror' | null
   getView(): any | null
   getCMSearchService(tabId?: string): SearchService | null
+  undo(): void
+  redo(): void
+  focus(): void
+  selectAll(): void
+  insertText(text: string): void
 }

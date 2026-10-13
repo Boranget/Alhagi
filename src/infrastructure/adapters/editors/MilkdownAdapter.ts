@@ -177,6 +177,30 @@ export class MilkdownAdapter implements IEditorProvider {
   }
 
   // ============================================================
+  // 历史 / 焦点 / 选区
+  // ============================================================
+
+  undo(): void {
+    this.pool.undo()
+  }
+
+  redo(): void {
+    this.pool.redo()
+  }
+
+  focus(): void {
+    this.pool.focus()
+  }
+
+  selectAll(): void {
+    this.pool.selectAll()
+  }
+
+  insertText(text: string): void {
+    this.pool.insertText(text)
+  }
+
+  // ============================================================
   // 状态查询
   // ============================================================
 

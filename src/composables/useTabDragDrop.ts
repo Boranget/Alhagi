@@ -9,6 +9,7 @@ import type {
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
+import { useTabActions } from '@/composables/useTabActions'
 import { electronService } from '@/services/electron/ElectronService'
 
 /** 拖拽离开防抖延迟：防止光标短暂离开时闪烁 */
@@ -27,6 +28,7 @@ export class DraggedTabIdentifier implements DraggedTabIdentifierType {
 
 export function useTabDragDrop() {
   const tabsStore = useTabsStore()
+  const { closeTab } = useTabActions()
 
   const dragState = shallowReactive<DragDropState>({
     sourceTabId: null,
@@ -401,7 +403,9 @@ export function useTabDragDrop() {
     if (shouldMerge && targetWindow) {
       const merged = await mergeTabToWindow(tabData, targetWindow.id)
       if (merged) {
-        tabsStore.removeTabById(tab.id)
+        // 走 CloseTab：邻居切换、TAB_CLOSED（释放源窗口 EditorPool 实例）、
+        // opened-files 同步；直接 store.removeTabById 会全部缺失。
+        await closeTab(tab.id)
       }
     }
     else if (
@@ -410,7 +414,7 @@ export function useTabDragDrop() {
     ) {
       const newWindowId = await createNewWindow(tabData)
       if (newWindowId) {
-        tabsStore.removeTabById(tab.id)
+        await closeTab(tab.id)
       }
     }
   }

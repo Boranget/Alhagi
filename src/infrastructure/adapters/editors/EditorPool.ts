@@ -8,8 +8,10 @@
 import { Crepe, CrepeFeature } from '@milkdown/crepe'
 import { editorViewCtx } from '@milkdown/kit/core'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
-import { replaceAll, insert, getHTML as getHTMLUtil } from '@milkdown/kit/utils'
-import { Selection } from '@milkdown/kit/prose/state'
+import { replaceAll, insert, getHTML as getHTMLUtil, callCommand } from '@milkdown/kit/utils'
+import { undoCommand, redoCommand } from '@milkdown/plugin-history'
+import { undo as cmUndo, redo as cmRedo } from '@codemirror/commands'
+import { Selection, TextSelection } from '@milkdown/kit/prose/state'
 import { eclipse } from '@uiw/codemirror-theme-eclipse'
 import type { ViewMode } from '@shared/types'
 import { codeBlockSearchHighlight } from '@/services/search/codeBlockSearchHighlight'
@@ -23,6 +25,7 @@ import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 import { debounce } from '@/utils/helpers'
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
+import { startDocumentSync, type DocumentSync } from './documentSync'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
@@ -45,6 +48,10 @@ interface TabEditorInstance {
   viewMode: ViewMode
   content: string
   isReady: boolean
+  /** 权威（tabsStore）与两侧编辑器的同步器 */
+  docSync: DocumentSync | null
+  /** applyContentToCrepe 灌入后的 PM doc 引用；listener echo 按引用比对抑制回写 */
+  lastAppliedCrepeDoc: unknown | null
 }
 
 // ============================================================
@@ -208,12 +215,7 @@ export class EditorPool {
     // 配置 Crepe 监听器
     crepe.editor
       .config((ctx) => {
-        ctx.get(listenerCtx).markdownUpdated(
-          debounce((...args: unknown[]) => {
-            const markdown = args[1] as string
-            this.handleMarkdownUpdate(tabId, markdown)
-          }, MARKDOWN_UPDATE_DEBOUNCE_MS)
-        )
+        ctx.get(listenerCtx).markdownUpdated(this.createMarkdownUpdatedHandler(tabId))
 
         ctx.get(listenerCtx).updated((ctx) => {
           try {
@@ -266,7 +268,29 @@ export class EditorPool {
       viewMode,
       content,
       isReady: true,
+      docSync: null,
+      lastAppliedCrepeDoc: null,
     }
+
+    // 文档同步：tabsStore.content 为唯一权威，两侧编辑器订阅刷新。
+    // split 实时同步、切模式交接、外部直写 store 的接入都由它统一承担。
+    instance.docSync = startDocumentSync(tabId, this.tabRepository, {
+      readVisible: () => {
+        try {
+          if (instance.viewMode === 'source') {
+            return instance.cmView ? instance.cmView.state.doc.toString() : null
+          }
+          return instance.crepe ? instance.crepe.getMarkdown() : null
+        } catch {
+          return null
+        }
+      },
+      applyToWysiwyg: (doc) => this.applyContentToCrepe(instance, doc),
+      applyToSource: (doc) => this.applyContentToCM(instance, doc),
+      onAuthoritativeChange: (doc) => {
+        if (tabId === this.activeTabId) this.emitContentChange(doc)
+      },
+    })
 
     this.instances.set(tabId, instance)
     this.applyViewMode(instance)
@@ -280,8 +304,15 @@ export class EditorPool {
   }
 
   async destroyTab(tabId: string): Promise<void> {
+    // 从创建队列中移除（wrapper 未就绪时关闭的 tab 不应再被创建）
+    this.pendingQueue = this.pendingQueue.filter(item => item.tabId !== tabId)
+
     const instance = this.instances.get(tabId)
     if (!instance) return
+
+    // 停止文档同步（watch + commit 通道）
+    instance.docSync?.stop()
+    instance.docSync = null
 
     // 销毁 Crepe
     if (instance.crepe) {
@@ -371,6 +402,11 @@ export class EditorPool {
   setViewMode(tabId: string, mode: ViewMode): void {
     const instance = this.instances.get(tabId)
     if (!instance) return
+    if (instance.viewMode === mode) return
+
+    // 冲刷 Crepe 防抖窗口：可见编辑器里的未 commit 内容先进权威，
+    // watch 会把两侧刷成最新（含即将显示的隐藏侧），无需手动交接。
+    instance.docSync?.flush()
 
     instance.viewMode = mode
     this.applyViewMode(instance)
@@ -421,12 +457,17 @@ export class EditorPool {
     const id = tabId || this.activeTabId
     if (!id) return ''
 
+    // 冲刷 Crepe 防抖后从权威读取（保存/导出语义：拿到已落定的最新内容）
     const instance = this.instances.get(id)
-    if (!instance?.crepe) return instance?.content || ''
+    instance?.docSync?.flush()
 
+    const authoritative = this.tabRepository.getById(id)?.content
+    if (authoritative != null) return authoritative
+
+    // 实例尚未建立时退回本地缓存
+    if (!instance) return ''
     try {
-      const markdown = instance.crepe.getMarkdown()
-      return markdown || instance.content
+      return instance.crepe?.getMarkdown() || instance.content
     } catch {
       return instance.content
     }
@@ -599,7 +640,13 @@ export class EditorPool {
 
       // Crepe 主题更新需要销毁重建
       if (instance.crepe && instance.container) {
-        const currentContent = instance.crepe.getMarkdown() || instance.content
+        // '' 是有效内容（用户清空文档），不能用 || 回退到旧缓存
+        let currentContent = instance.content
+        try {
+          currentContent = instance.crepe.getMarkdown()
+        } catch {
+          // 读取失败退回 instance.content
+        }
         const container = instance.crepeContainer
 
         // 销毁旧 Crepe
@@ -641,18 +688,18 @@ export class EditorPool {
 
         crepe.editor
           .config((ctx) => {
-            ctx.get(listenerCtx).markdownUpdated(
-              debounce((...args: unknown[]) => {
-                const markdown = args[1] as string
-                this.handleMarkdownUpdate(tabId, markdown)
-              }, MARKDOWN_UPDATE_DEBOUNCE_MS)
-            )
+            ctx.get(listenerCtx).markdownUpdated(this.createMarkdownUpdatedHandler(tabId))
           })
           .use(listener)
 
         await crepe.create()
         instance.crepe = crepe
         instance.content = currentContent
+        instance.lastAppliedCrepeDoc = null
+
+        // 防抖窗口内未落定的编辑可能只存在于旧 Crepe 里；重建后统一进权威，
+        // watch 会把 CM 一并刷齐。内容相同则幂等跳过。
+        instance.docSync?.commit(currentContent)
       }
     }
   }
@@ -701,64 +748,192 @@ export class EditorPool {
   // 内部更新处理
   // ============================================================
 
-  private handleMarkdownUpdate(tabId: string, markdown: string): void {
+  /**
+   * markdownUpdated 处理器（带 debounce）。
+   * args 约定：[ctx, markdown, prevMarkdown]（@milkdown/plugin-listener 签名）。
+   * 回调时刻从 ctx 读取当前 doc，供 echo 抑制按引用比对。
+   */
+  private createMarkdownUpdatedHandler(tabId: string) {
+    return debounce((...args: unknown[]) => {
+      const markdown = args[1] as string
+      let currentDoc: unknown = null
+      try {
+        const ctx = args[0] as {
+          get: (slice: typeof editorViewCtx) => { state: { doc: unknown } } | null
+        }
+        currentDoc = ctx.get(editorViewCtx)?.state?.doc ?? null
+      } catch {
+        // ignore
+      }
+      this.handleMarkdownUpdate(tabId, currentDoc, markdown)
+    }, MARKDOWN_UPDATE_DEBOUNCE_MS)
+  }
+
+  private handleMarkdownUpdate(tabId: string, currentDoc: unknown, markdown: string): void {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
-    if (instance.content === markdown) {
+    // echo 抑制：本次事务是 applyContentToCrepe 从权威灌入的
+    // （灌入后无任何用户新事务，doc 引用未变）。严格按引用比对，无时序窗。
+    if (currentDoc != null && currentDoc === instance.lastAppliedCrepeDoc) {
       return
     }
 
-    instance.content = markdown
-
-    this.tabRepository.update(tabId, {
-      content: markdown,
-      isDirty: true,
-      lastModified: Date.now(),
-    })
-
-    // 分屏模式下，Crepe 内容变更需同步到 CodeMirror
-    if (instance.viewMode === 'split' && instance.cmView) {
-      try {
-        instance.cmView.dispatch({
-          changes: { from: 0, to: instance.cmView.state.doc.length, insert: markdown },
-          annotations: ExternalChange.of(true),
-        })
-      } catch (e) {
-        console.error(`[EditorPool] handleMarkdownUpdate: CM sync failed`, e)
-      }
-    }
-
-    // 仅活动 tab 触发回调
-    if (tabId === this.activeTabId) {
-      this.emitContentChange(markdown)
-    }
+    instance.docSync?.commit(markdown)
   }
 
   private handleCMUpdate(tabId: string, content: string): void {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
+    instance.docSync?.commit(content)
+  }
+
+  /**
+   * 权威 → Crepe。比对相同则不动编辑器（保护光标/undo）；
+   * 灌入后记录 doc 引用，供 echo 抑制。
+   */
+  private applyContentToCrepe(instance: TabEditorInstance, content: string): void {
     instance.content = content
+    if (!instance.crepe) return
 
-    this.tabRepository.update(tabId, {
-      content,
-      isDirty: true,
-      lastModified: Date.now(),
-    })
+    try {
+      if ((instance.crepe.getMarkdown() || '') === content) return
 
-    // 同步到 Crepe
-    if (instance.crepe && instance.viewMode !== 'source') {
+      instance.crepe.editor.action((ctx) => {
+        replaceAll(content)(ctx)
+        instance.lastAppliedCrepeDoc = ctx.get(editorViewCtx).state.doc
+      })
+    } catch (e) {
+      console.error('[EditorPool] applyContentToCrepe failed', e)
+    }
+  }
+
+  /** 权威 → CodeMirror。ExternalChange 注解阻止回灌 handleCMUpdate。 */
+  private applyContentToCM(instance: TabEditorInstance, content: string): void {
+    instance.content = content
+    if (!instance.cmView) return
+
+    try {
+      const current = instance.cmView.state.doc.toString()
+      if (current === content) return
+
+      instance.cmView.dispatch({
+        changes: { from: 0, to: instance.cmView.state.doc.length, insert: content },
+        annotations: ExternalChange.of(true),
+      })
+    } catch (e) {
+      console.error('[EditorPool] applyContentToCM failed', e)
+    }
+  }
+
+  // ============================================================
+  // 历史 / 焦点 / 选区（按当前 viewMode 分发到 PM 或 CM）
+  // ============================================================
+
+  undo(): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
+    if (!instance) return
+    if (instance.viewMode === 'source') {
+      if (instance.cmView) cmUndo(instance.cmView)
+      return
+    }
+    if (instance.crepe) {
       try {
-        instance.crepe.editor.action(replaceAll(content))
-      } catch (e) {
-        console.error(`[EditorPool] handleCMUpdate: replaceAll failed`, e)
+        instance.crepe.editor.action(callCommand(undoCommand.key))
+      } catch {
+        // ignore
       }
     }
+  }
 
-    // 仅活动 tab 触发回调
-    if (tabId === this.activeTabId) {
-      this.emitContentChange(content)
+  redo(): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
+    if (!instance) return
+    if (instance.viewMode === 'source') {
+      if (instance.cmView) cmRedo(instance.cmView)
+      return
+    }
+    if (instance.crepe) {
+      try {
+        instance.crepe.editor.action(callCommand(redoCommand.key))
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  focus(): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
+    if (!instance) return
+    if (instance.viewMode === 'source') {
+      instance.cmView?.focus()
+      return
+    }
+    if (instance.crepe) {
+      try {
+        instance.crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          if (view) view.focus()
+        })
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  selectAll(): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
+    if (!instance) return
+    if (instance.viewMode === 'source') {
+      const cmView = instance.cmView
+      if (!cmView) return
+      cmView.focus()
+      cmView.dispatch({ selection: { anchor: 0, head: cmView.state.doc.length } })
+      return
+    }
+    if (instance.crepe) {
+      try {
+        instance.crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          if (!view) return
+          const { doc } = view.state
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, 0, doc.content.size)))
+          view.focus()
+        })
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // 在光标/选区处插入纯文本（粘贴回退路径；不解析 markdown）
+  insertText(text: string): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
+    if (!instance) return
+    if (instance.viewMode === 'source') {
+      const cmView = instance.cmView
+      if (!cmView) return
+      const range = cmView.state.selection.main
+      cmView.dispatch({
+        changes: { from: range.from, to: range.to, insert: text },
+        selection: { anchor: range.from + text.length },
+        scrollIntoView: true,
+      })
+      cmView.focus()
+      return
+    }
+    if (instance.crepe) {
+      try {
+        instance.crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          if (!view) return
+          view.dispatch(view.state.tr.insertText(text))
+          view.focus()
+        })
+      } catch {
+        // ignore
+      }
     }
   }
 

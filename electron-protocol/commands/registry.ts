@@ -764,5 +764,16 @@ export function isHiddenOnPlatform(
   platform: Platform
 ): boolean {
   if (command.hidden) return true
+  return isBindingHiddenOnPlatform(command, platform)
+}
+
+// 仅判断「平台级隐藏」（platformOverrides.hidden）——供快捷键匹配使用。
+//
+// 与 isHiddenOnPlatform 的区别：全局 hidden（cmd.hidden）只表示
+// 不进菜单/命令面板，其别名快捷键仍需生效（如 edit.redoAlt 的 Ctrl+Y）。
+export function isBindingHiddenOnPlatform(
+  command: CommandEntry,
+  platform: Platform
+): boolean {
   return command.platformOverrides?.[platform]?.hidden === true
 }

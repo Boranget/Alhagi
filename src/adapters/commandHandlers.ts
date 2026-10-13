@@ -13,6 +13,8 @@ import { SwitchTab } from '@core/use-cases/tabs/SwitchTab'
 import { UpdateTab } from '@core/use-cases/tabs/UpdateTab'
 import { SaveFile } from '@core/use-cases/file/SaveFile'
 import { ExecuteEditorCommand } from '@core/use-cases/editor/ExecuteEditorCommand'
+import { ToggleTypewriterMode } from '@core/use-cases/editor/ToggleTypewriterMode'
+import { ToggleFocusMode } from '@core/use-cases/editor/ToggleFocusMode'
 import { EventBusGateway } from '@adapters/gateways/EventBusGateway'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
@@ -36,6 +38,14 @@ export function getUpdateTabUseCase(): UpdateTab {
 
 export function getExecuteEditorCommandUseCase(): ExecuteEditorCommand {
   return container.get<ExecuteEditorCommand>(TYPES.ExecuteEditorCommandUseCase)
+}
+
+export function getToggleTypewriterModeUseCase(): ToggleTypewriterMode {
+  return container.get<ToggleTypewriterMode>(TYPES.ToggleTypewriterModeUseCase)
+}
+
+export function getToggleFocusModeUseCase(): ToggleFocusMode {
+  return container.get<ToggleFocusMode>(TYPES.ToggleFocusModeUseCase)
 }
 
 // 保持兼容性（用于测试）

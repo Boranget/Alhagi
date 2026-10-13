@@ -53,6 +53,32 @@ import { useViewModeStore } from '@/stores/viewMode'
 // Managers
 import { EditorCommands } from '@/managers/EditorCommands'
 
+// 图片插入服务访问器 — 供命令处理器等非 DI 调用方使用
+let _imageInsertService: ImageInsertService | null = null
+let _getImageOptions: (() => ImageInsertOptions) | null = null
+let _getImageContext: (() => ImageInsertContext) | null = null
+
+export function getImageInsertService(): ImageInsertService {
+  if (!_imageInsertService) {
+    throw new Error('ImageInsertService not initialized. Call initializeContainer() first.')
+  }
+  return _imageInsertService
+}
+
+export function getImageInsertOptions(): ImageInsertOptions {
+  if (!_getImageOptions) {
+    throw new Error('getImageOptions not initialized. Call initializeContainer() first.')
+  }
+  return _getImageOptions()
+}
+
+export function getImageInsertContext(): ImageInsertContext {
+  if (!_getImageContext) {
+    throw new Error('getImageContext not initialized. Call initializeContainer() first.')
+  }
+  return _getImageContext()
+}
+
 // 创建容器
 const container = new Container()
 
@@ -182,6 +208,10 @@ export function initializeContainer(): void {
     () => useViewModeStore().focusMode,
     container.get<ITabRepository>(TYPES.TabRepository)
   )
+
+  _imageInsertService = imageInsertService
+  _getImageOptions = getImageOptions
+  _getImageContext = getImageContext
 
   initializeEditorGateway({ adapter })
 }

@@ -1,6 +1,7 @@
 import { getExecuteEditorCommandUseCase } from '@adapters/commandHandlers'
-import { eventBus, AppEvents } from '@/events/eventBus'
 import type { EditorCommandType } from '@core/use-cases/editor/ExecuteEditorCommand'
+import { getImageInsertService, getImageInsertOptions, getImageInsertContext } from '@infrastructure/di/Container'
+import { fileToImageSource } from '@/services/image/ImagePasteHandler'
 
 const EDITOR_COMMAND_MAP: Record<string, EditorCommandType> = {
   'editor:format:bold': 'toggleBold',
@@ -29,12 +30,32 @@ const EDITOR_COMMAND_MAP: Record<string, EditorCommandType> = {
   'editor:table:deleteColumn': 'deleteTableColumn',
 }
 
+function pickAndInsertImage(): void {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    try {
+      const source = await fileToImageSource(file)
+      const service = getImageInsertService()
+      const options = getImageInsertOptions()
+      const context = getImageInsertContext()
+      await service.insertWith(source, options, context)
+    } catch (error) {
+      console.error('[EditorCommandHandler] insert image failed:', error)
+    }
+  }
+  input.click()
+}
+
 export class EditorCommandHandler {
   async execute(payload?: unknown): Promise<unknown> {
     const { type } = payload as { type: string }
 
     if (type === 'editor:format:image') {
-      eventBus.emit(AppEvents.INSERT_IMAGE)
+      pickAndInsertImage()
       return
     }
 

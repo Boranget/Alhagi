@@ -2,6 +2,7 @@
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { Tab } from '@core/entities/Tab'
+import type { CreateTab } from '@core/use-cases/tabs/CreateTab'
 
 export interface OpenFileOptions {
   filePath?: string
@@ -12,7 +13,8 @@ export class OpenFile {
   constructor(
     private fileSystem: IFileSystem,
     private tabRepository: ITabRepository,
-    private eventBus: IEventBus
+    private eventBus: IEventBus,
+    private createTab: CreateTab
   ) {}
 
   async execute(options: OpenFileOptions): Promise<Tab | null> {
@@ -31,29 +33,23 @@ export class OpenFile {
   private async openFile(filePath: string): Promise<Tab> {
     const existingTab = this.tabRepository.findTabByFilePath(filePath)
     if (existingTab) {
+      const previousTabId = this.tabRepository.getActiveTabId()
       this.tabRepository.setActiveTab(existingTab.id)
-      this.eventBus.emit('app:tab:switched', {
-        tabId: existingTab.id,
-        previousTabId: this.tabRepository.getActiveTab()?.id,
-      })
+      if (previousTabId && previousTabId !== existingTab.id) {
+        this.eventBus.emit('app:tab:switched', {
+          tabId: existingTab.id,
+          previousTabId,
+        })
+      }
       return existingTab
     }
 
     const content = await this.fileSystem.readFile(filePath)
     const fileName = filePath.split(/[/\\]/).pop() || '无标题'
 
-    const tab = this.tabRepository.create({
-      filePath,
-      title: fileName,
-      content,
-    })
-
-    this.tabRepository.setActiveTab(tab.id)
-
-    this.eventBus.emit('app:tab:created', { tabId: tab.id, tab: tab.toProps() as any })
-    this.eventBus.emit('app:file:opened', { filePath, tabId: tab.id })
-
-    return tab
+    // tabRepository.create 是「必须走 CreateTab Use Case」的故意守卫，
+    // 这里委托给 CreateTab：insert、活动切换、事件、Electron opened-files 同步。
+    return this.createTab.execute({ filePath, title: fileName, content })
   }
 
   private async openFolder(folderPath: string): Promise<void> {

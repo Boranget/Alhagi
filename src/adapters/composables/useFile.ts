@@ -5,13 +5,14 @@ import { DeleteFile } from '@core/use-cases/file/DeleteFile'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { useTabsStore } from '@/stores/tabs'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
+import { getCreateTabUseCase } from '@adapters/commandHandlers'
 
 export function useFile() {
   const fileSystem = useFileSystemGateway()
   const tabRepository = useTabsStore()
   const eventBus = useEventBusGateway()
 
-  const openFile = new OpenFile(fileSystem, tabRepository, eventBus)
+  const openFile = new OpenFile(fileSystem, tabRepository, eventBus, getCreateTabUseCase())
   const saveFile = new SaveFile(fileSystem, tabRepository, eventBus)
   const createFile = new CreateFile(fileSystem, eventBus)
   const deleteFile = new DeleteFile(fileSystem, tabRepository, eventBus)

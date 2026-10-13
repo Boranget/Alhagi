@@ -92,8 +92,6 @@ export const AppEvents = {
   ACTIVE_EDITOR_CHANGED: 'editor:active-editor-changed' as const,
   CONTENT_CHANGED: 'editor:content:changed' as const,
   CURSOR_CHANGED: 'editor:cursor:changed' as const,
-  EDIT_UNDO: 'editor:undo' as const,
-  EDIT_REDO: 'editor:redo' as const,
 
   // UI 操作
   CAPTURE_SCREEN: 'app:capture-screen' as const,
@@ -115,14 +113,6 @@ export const AppEvents = {
 
   // UI 操作事件（替代 CustomEvent）
   SHOW_SEARCH: 'app:show-search' as const,
-  INSERT_IMAGE: 'app:insert-image' as const,
-  EXPORT: 'app:export' as const,
-
-  // 编辑器命令事件（替代 document.execCommand）
-  EDITOR_CUT: 'editor:cut' as const,
-  EDITOR_COPY: 'editor:copy' as const,
-  EDITOR_PASTE: 'editor:paste' as const,
-  EDITOR_SELECT_ALL: 'editor:select-all' as const,
 }
 
 export type { AppEventName, AppEventPayloads, EventCallback }

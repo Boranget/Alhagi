@@ -21,6 +21,7 @@ export {
 import {
   getPlatformKeybinding as getPlatformKeybindingRaw,
   isHiddenOnPlatform as isHiddenOnPlatformRaw,
+  isBindingHiddenOnPlatform as isBindingHiddenOnPlatformRaw,
 } from '@electron-protocol/commands/registry'
 import type { CommandEntry, Keybinding } from '@electron-protocol/commands/types'
 import { getPlatform } from './types'
@@ -32,4 +33,9 @@ export function getPlatformKeybinding(command: CommandEntry): Keybinding | undef
 
 export function isHiddenOnPlatform(command: CommandEntry): boolean {
   return isHiddenOnPlatformRaw(command, getPlatform())
+}
+
+// 快捷键匹配专用：忽略全局 hidden（菜单级隐藏不影响别名快捷键生效）
+export function isBindingHiddenOnPlatform(command: CommandEntry): boolean {
+  return isBindingHiddenOnPlatformRaw(command, getPlatform())
 }
