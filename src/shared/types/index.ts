@@ -12,7 +12,6 @@ export type {
   RecentFile,
   RecentFolder,
   EditorSpecificState,
-  HistoryItem,
   AppEventPayloads,
   AppEventName,
   EventCallback,

@@ -10,8 +10,8 @@ function createMockTab(content: string): Tab {
     id: 'tab-1', title: 'test.md', filePath: '/path/to/test.md',
     content, isDirty: false, viewMode: 'wysiwyg', splitRatio: 50, fileType: 'editor',
     createdAt: Date.now(), lastModified: Date.now(), lastSaved: null,
-    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
-    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
+    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
+    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
   })
 }
 

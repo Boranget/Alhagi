@@ -5,9 +5,7 @@ import { detectDescriptor, getRegisteredIds } from '@/fileTypes'
 export function createDefaultEditorState(): EditorSpecificState {
   return {
     cursor: { from: 0, to: 0 },
-    scrollTop: 0,
-    undoStack: [],
-    redoStack: []
+    scrollTop: 0
   }
 }
 
@@ -61,14 +59,6 @@ export function validateTabState(tabState: unknown): tabState is TabState {
     return false
   }
 
-  if (!Array.isArray(crepe.undoStack) || !Array.isArray(crepe.redoStack)) {
-    return false
-  }
-  
-  if (!Array.isArray(codeMirror.undoStack) || !Array.isArray(codeMirror.redoStack)) {
-    return false
-  }
-
   return true
 }
 
@@ -95,17 +85,5 @@ export function createDefaultTabState(id: string): TabState {
     lastSaved: null,
     crepe: createDefaultEditorState(),
     codeMirror: createDefaultEditorState()
-  }
-}
-
-export const MAX_UNDO_STACK_SIZE = EDITOR.MAX_UNDO_STACK_SIZE
-export const MAX_REDO_STACK_SIZE = EDITOR.MAX_REDO_STACK_SIZE
-
-export function trimHistoryStacks(editorState: EditorSpecificState): void {
-  if (editorState.undoStack.length > MAX_UNDO_STACK_SIZE) {
-    editorState.undoStack = editorState.undoStack.slice(-MAX_UNDO_STACK_SIZE)
-  }
-  if (editorState.redoStack.length > MAX_REDO_STACK_SIZE) {
-    editorState.redoStack = editorState.redoStack.slice(-MAX_REDO_STACK_SIZE)
   }
 }

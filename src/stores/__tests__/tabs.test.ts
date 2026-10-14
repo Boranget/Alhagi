@@ -7,10 +7,7 @@ vi.mock('@/utils/tabHelpers', () => ({
   validateTabState: vi.fn(() => true),
   detectFileType: vi.fn(() => 'markdown'),
   createDefaultTabState: vi.fn((_id: string) => ({})),
-  trimHistoryStacks: vi.fn(),
-  createDefaultEditorState: vi.fn(() => ({ cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] })),
-  MAX_UNDO_STACK_SIZE: 100,
-  MAX_REDO_STACK_SIZE: 100,
+  createDefaultEditorState: vi.fn(() => ({ cursor: { from: 0, to: 0 }, scrollTop: 0 })),
 }))
 
 function createTestTab(overrides: Partial<TabState> = {}): TabState {
@@ -26,8 +23,8 @@ function createTestTab(overrides: Partial<TabState> = {}): TabState {
     createdAt: Date.now(),
     lastModified: Date.now(),
     lastSaved: null,
-    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
-    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
+    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
+    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
     ...overrides,
   }
 }

@@ -61,8 +61,6 @@ export class Tab {
     const defaultEditorState: EditorSpecificState = {
       cursor: { from: 0, to: 0 },
       scrollTop: 0,
-      undoStack: [],
-      redoStack: [],
     }
 
     return new Tab({

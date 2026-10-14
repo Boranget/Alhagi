@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import type { TabState, ViewMode, FileType } from '@/types'
 import type { ITabRepository, CreateTabOptions, TabUpdates } from '@core/domain/ports/repositories/ITabRepository'
 import { Tab } from '@core/entities/Tab'
-import { trimHistoryStacks, MAX_UNDO_STACK_SIZE, MAX_REDO_STACK_SIZE } from '@/utils/tabHelpers'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
 function toTab(state: TabState): Tab {
@@ -87,12 +86,6 @@ export const useTabsStore = defineStore('tabs', () => {
       Object.assign(tab, updates)
       if (updates.isDirty !== undefined) {
         tab.isDirty = updates.isDirty
-      }
-      if (tab.crepe.undoStack.length > MAX_UNDO_STACK_SIZE || tab.crepe.redoStack.length > MAX_REDO_STACK_SIZE) {
-        trimHistoryStacks(tab.crepe)
-      }
-      if (tab.codeMirror.undoStack.length > MAX_UNDO_STACK_SIZE || tab.codeMirror.redoStack.length > MAX_REDO_STACK_SIZE) {
-        trimHistoryStacks(tab.codeMirror)
       }
     }
   }

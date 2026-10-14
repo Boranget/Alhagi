@@ -26,6 +26,7 @@ import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pat
 import { debounce } from '@/utils/helpers'
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { startDocumentSync, type DocumentSync } from './documentSync'
+import { resolveHistorySide, type HistorySide } from './historySide'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
@@ -52,6 +53,10 @@ interface TabEditorInstance {
   docSync: DocumentSync | null
   /** applyContentToCrepe 灌入后的 PM doc 引用；listener echo 按引用比对抑制回写 */
   lastAppliedCrepeDoc: unknown | null
+  /** PM 侧 contenteditable DOM（focusin 监听与焦点判定用） */
+  crepeDom: HTMLElement | null
+  /** 本 tab 内最后一次获得焦点的一侧；菜单夺焦后 undo 分派的依据 */
+  lastFocusedEditor: HistorySide | null
 }
 
 // ============================================================
@@ -270,7 +275,27 @@ export class EditorPool {
       isReady: true,
       docSync: null,
       lastAppliedCrepeDoc: null,
+      crepeDom: null,
+      lastFocusedEditor: null,
     }
+
+    // 焦点归属追踪：undo/redo 命令（菜单/命令面板）点击后 activeElement
+    // 已离开编辑器，需记住最后聚焦的一侧才能与键盘 Ctrl+Z 行为一致。
+    try {
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        if (!view) return
+        instance.crepeDom = view.dom
+        view.dom.addEventListener('focusin', () => {
+          instance.lastFocusedEditor = 'crepe'
+        })
+      })
+    } catch {
+      // ignore
+    }
+    cmView.dom.addEventListener('focusin', () => {
+      instance.lastFocusedEditor = 'cm'
+    })
 
     // 文档同步：tabsStore.content 为唯一权威，两侧编辑器订阅刷新。
     // split 实时同步、切模式交接、外部直写 store 的接入都由它统一承担。
@@ -828,13 +853,27 @@ export class EditorPool {
   }
 
   // ============================================================
-  // 历史 / 焦点 / 选区（按当前 viewMode 分发到 PM 或 CM）
+  // 历史 / 焦点 / 选区
   // ============================================================
+
+  /**
+   * 命令驱动 undo/redo 的目标侧。与键盘路径（keybinding 放行给聚焦编辑器）
+   * 使用同一判定：source/wysiwyg 按模式，split 按焦点/最后聚焦侧。
+   */
+  private historySide(instance: TabEditorInstance): HistorySide {
+    const active = document.activeElement
+    return resolveHistorySide({
+      viewMode: instance.viewMode,
+      activeInCM: !!active && !!instance.cmView && instance.cmView.dom.contains(active),
+      activeInCrepe: !!active && !!instance.crepeDom && instance.crepeDom.contains(active),
+      lastFocused: instance.lastFocusedEditor,
+    })
+  }
 
   undo(): void {
     const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
     if (!instance) return
-    if (instance.viewMode === 'source') {
+    if (this.historySide(instance) === 'cm') {
       if (instance.cmView) cmUndo(instance.cmView)
       return
     }
@@ -850,7 +889,7 @@ export class EditorPool {
   redo(): void {
     const instance = this.activeTabId ? this.instances.get(this.activeTabId) : null
     if (!instance) return
-    if (instance.viewMode === 'source') {
+    if (this.historySide(instance) === 'cm') {
       if (instance.cmView) cmRedo(instance.cmView)
       return
     }

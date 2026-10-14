@@ -7,8 +7,6 @@ import { Tab } from '@core/entities/Tab'
 const defaultEditorState = {
   cursor: { from: 0, to: 0 },
   scrollTop: 0,
-  undoStack: [],
-  redoStack: [],
 }
 
 function createMockTab(overrides: Partial<{ id: string; title: string; content: string }> = {}): Tab {

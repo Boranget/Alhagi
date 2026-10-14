@@ -14,6 +14,12 @@
 //
 // 由此，任何直写 store 的路径（搜索替换、外部重载等）都会
 // 自动刷新编辑器，无需各自记得通知。
+//
+// 注意「刷新」是派发真实编辑器事务（PM tr.replace / CM dispatch），
+// 因此**直写 store 的内容变更会进入两侧编辑器的原生 undo 历史**——
+// 替换等操作天然可撤销，无需另行实现历史栈（也不存在 store 级历史，
+// 历史只属于编辑器）。副作用：对侧收到的同步推送同样占一条 undo 记录，
+// 跨模式撤销按提交顺序逐步回退。
 
 import { watch, type WatchStopHandle } from 'vue'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'

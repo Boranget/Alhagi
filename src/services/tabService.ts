@@ -88,6 +88,17 @@ export class TabService {
     }
   }
 
+  /**
+   * 读取用于持久化的权威内容。
+   *
+   * 不直接用 `tab.content`：Crepe 编辑进 store 有 200ms 防抖，直接读 store
+   * 会在防抖窗口内保存到旧内容。getMarkdown() 会先 flush 待定编辑再读权威，
+   * 是「保存/导出拿已落定内容」的唯一正确入口。
+   */
+  private readAuthoritativeContent(tabId: string): string {
+    return getEditorServiceGateway().getMarkdown(tabId)
+  }
+
   async saveFile(tabId: string): Promise<boolean> {
     const tab = this.tabsStore.getTab(tabId)
     if (!tab) return false
@@ -96,7 +107,7 @@ export class TabService {
 
     if (tab.filePath) {
       const lineEnding = this.preferencesStore.lineEnding as LineEnding
-      const response = await electronService.saveFile(tab.filePath, tab.content, lineEnding)
+      const response = await electronService.saveFile(tab.filePath, this.readAuthoritativeContent(tabId), lineEnding)
       if (!response.success) return false
 
       this.tabsStore.markClean(tabId)
@@ -124,7 +135,7 @@ export class TabService {
       defaultPath = tab.title + descriptor.defaultExtension
     }
 
-    const filePathResp = await electronService.saveAsFile(tab.content, defaultPath, lineEnding)
+    const filePathResp = await electronService.saveAsFile(this.readAuthoritativeContent(tabId), defaultPath, lineEnding)
 
     if (filePathResp.success && filePathResp.data) {
       const filePath = filePathResp.data

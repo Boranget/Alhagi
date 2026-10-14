@@ -119,6 +119,15 @@ export function useApp(bus?: IEventBus) {
       })
     )
 
+    // 文件已在本窗口打开时，主进程 focusWindow 会回发此事件，要求切换到对应 tab。
+    // 缺消费者时窗口被聚焦但不切 tab，跨窗口打开文件的意图只实现了一半。
+    unsubscribers.push(
+      eventBus.on(AppEvents.FOCUS_TAB_FOR_FILE, ({ filePath }) => {
+        const tab = tabsStore.findTabByFilePath(filePath)
+        if (tab) tabsStore.switchTab(tab.id)
+      })
+    )
+
     return unsubscribers
   }
 

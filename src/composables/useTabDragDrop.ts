@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, shallowReactive, onMounted, onUnmounted } from 'vue'
 import type { DetachedTabData } from '@electron-protocol/index'
-import type { 
-  TabState, 
-  DragDropState, 
-  DropTargetType, 
+import type {
+  TabState,
+  DragDropState,
+  DropTargetType,
   WindowInfo,
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
@@ -26,25 +25,30 @@ export class DraggedTabIdentifier implements DraggedTabIdentifierType {
   ) {}
 }
 
+/** updateTarget 的局部更新描述：未提及的字段一律重置为默认值 */
+interface DropTargetUpdate {
+  targetType: DropTargetType
+  targetTabId?: string | null
+  targetWindowId?: number | null
+  windowEdgeDirection?: 'left' | 'right' | null
+  insertIndex?: number
+}
+
 export function useTabDragDrop() {
   const tabsStore = useTabsStore()
   const { closeTab } = useTabActions()
 
+  // 唯一状态源：dragState 是拖拽期间所有判定的单一数据源。
+  // 不存在需要手动同步的影子变量（lastTarget* 已移除——它们与
+  // dragState 失步正是"放下无反应"bug 的根因）。
   const dragState = shallowReactive<DragDropState>({
     sourceTabId: null,
     targetType: 'none',
     targetTabId: null,
     targetWindowId: null,
     windowEdgeDirection: null,
-    insertIndex: -1,
-    mousePosition: { x: 0, y: 0 },
-    isNewWindowOperation: false
+    insertIndex: -1
   })
-
-  let lastTargetType: DropTargetType = 'none'
-  let lastTargetTabId: string | null = null
-  let lastTargetWindowId: number | null = null
-  let lastWindowEdgeDirection: 'left' | 'right' | null = null
 
   const windowList = ref<WindowInfo[]>([])
   let currentWindowId: number | null = null
@@ -70,7 +74,7 @@ export function useTabDragDrop() {
 
     for (const w of winList) {
       const { x, y, width, height } = w.bounds
-      
+
       if (screenX >= x && screenX <= x + width &&
           screenY >= y && screenY <= y + height) {
         return w
@@ -149,45 +153,46 @@ export function useTabDragDrop() {
     return result.success
   }
 
-  function getDropIndicatorPosition(
-    event: DragEvent,
-    targetElement: HTMLElement
-  ): 'left' | 'right' {
-    const rect = targetElement.getBoundingClientRect()
-    const midpoint = rect.left + rect.width / 2
+  /**
+   * 计算"把 sourceTab 放到 targetTab 某一侧"时，移除 sourceTab 后
+   * 的最终插入下标。返回 -1 表示无效（tab 不存在或拖到自身）。
+   */
+  function computeInsertIndex(targetTabId: string, placeAfter: boolean): number {
+    const sourceTabId = dragState.sourceTabId
+    if (!sourceTabId) return -1
 
-    return event.clientX > midpoint ? 'right' : 'left'
+    const order = tabsStore.tabOrder
+    const fromIndex = order.indexOf(sourceTabId)
+    const toIndex = order.indexOf(targetTabId)
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return -1
+
+    const adjustedTargetIdx = fromIndex < toIndex ? toIndex - 1 : toIndex
+    return placeAfter ? adjustedTargetIdx + 1 : adjustedTargetIdx
   }
 
-  async function handleDragStart(event: DragEvent, tabId: string): Promise<void> {
+  function handleDragStart(event: DragEvent, tabId: string): void {
     resetDragState()
-
     dragState.sourceTabId = tabId
-    hasDroppedOnTab = false
 
-    lastTargetType = 'none'
-    lastTargetTabId = null
-    lastTargetWindowId = null
-    lastWindowEdgeDirection = null
-
-    await refreshWindowList()
-
-    const idResp = await electronService.getWindowId()
-    if (idResp.success && idResp.data) {
-      currentWindowId = idResp.data
+    // dataTransfer 配置（setData/effectAllowed/setDragImage）必须在
+    // dragstart 的同步阶段完成，await 之后浏览器会忽略这些调用。
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', tabId)
     }
-
     const tab = tabsStore.tabs.get(tabId)
     if (tab) {
       applyDragImage(event, tab)
     }
+
+    // 窗口列表只服务于跨窗口合并探测，异步刷新即可，不阻塞拖拽启动
+    refreshWindowList().catch(() => {
+      // Silent fail - 窗口列表获取失败不阻塞拖拽
+    })
   }
 
-  function handleDragEnter(event: DragEvent, tabId: string): void {
-    if (!dragState.sourceTabId || dragState.sourceTabId === tabId) {
-      return
-    }
-
+  function handleDragEnter(_event: DragEvent, _tabId: string): void {
+    // 进入任何元素都取消待生效的 leave 防抖，避免误清目标
     if (dragLeaveTimer) {
       clearTimeout(dragLeaveTimer)
       dragLeaveTimer = null
@@ -196,61 +201,62 @@ export function useTabDragDrop() {
 
   function handleDragOver(event: DragEvent, tabId: string): void {
     if (!dragState.sourceTabId) return
-    if (dragState.sourceTabId === tabId) return
-
-    let newTargetType: DropTargetType = 'none'
-    let newTargetTabId: string | null = null
-    let newTargetWindowId: number | null = null
-    let newWindowEdgeDirection: 'left' | 'right' | null = null
 
     const edgeResult = checkWindowEdge(event)
     if (edgeResult.targetWindowId) {
-      newTargetType = 'windowEdge'
-      newTargetWindowId = edgeResult.targetWindowId
-      newWindowEdgeDirection = edgeResult.direction
-    } else if (isMouseOutsideWindow(event)) {
-      newTargetType = 'outsideWindow'
-    } else {
-      newTargetType = 'tab'
-      newTargetTabId = tabId
+      updateTarget({
+        targetType: 'windowEdge',
+        targetWindowId: edgeResult.targetWindowId,
+        windowEdgeDirection: edgeResult.direction
+      })
+      return
+    }
+    if (isMouseOutsideWindow(event)) {
+      updateTarget({ targetType: 'outsideWindow' })
+      return
+    }
+    if (tabId === dragState.sourceTabId) {
+      updateTarget({ targetType: 'none' })
+      return
     }
 
-    const shouldUpdate = 
-      newTargetType !== lastTargetType ||
-      newTargetTabId !== lastTargetTabId ||
-      newTargetWindowId !== lastTargetWindowId ||
-      newWindowEdgeDirection !== lastWindowEdgeDirection
+    // 必须用 currentTarget（绑定 handler 的 .tab-item）。event.target
+    // 可能是 .tab-title/.tab-close 子元素，用它的 rect 算中点会判错左右。
+    const tabElement = event.currentTarget as HTMLElement
+    const rect = tabElement.getBoundingClientRect()
+    const placeAfter = event.clientX > rect.left + rect.width / 2
+    const insertIndex = computeInsertIndex(tabId, placeAfter)
+    if (insertIndex === -1) return
 
-    if (shouldUpdate) {
-      dragState.targetType = newTargetType
-      dragState.targetTabId = newTargetTabId
-      dragState.targetWindowId = newTargetWindowId
-      dragState.windowEdgeDirection = newWindowEdgeDirection
-
-      lastTargetType = newTargetType
-      lastTargetTabId = newTargetTabId
-      lastTargetWindowId = newTargetWindowId
-      lastWindowEdgeDirection = newWindowEdgeDirection
-    }
+    updateTarget({ targetType: 'tab', targetTabId: tabId, insertIndex })
   }
 
-  function checkWindowEdge(event: DragEvent): { 
-    targetWindowId: number | null, 
-    direction: 'left' | 'right' | null 
+  /**
+   * 拖放目标状态的唯一写入口：未提及的字段一律重置为默认值，
+   * 保证各目标类型之间切换时不会残留上一目标的状态。
+   * 直接赋值即可——Vue 响应式 set 对相同值是 no-op，无需手动变更检测。
+   */
+  function updateTarget(partial: DropTargetUpdate): void {
+    dragState.targetType = partial.targetType
+    dragState.targetTabId = partial.targetTabId ?? null
+    dragState.targetWindowId = partial.targetWindowId ?? null
+    dragState.windowEdgeDirection = partial.windowEdgeDirection ?? null
+    dragState.insertIndex = partial.insertIndex ?? -1
+  }
+
+  function checkWindowEdge(event: DragEvent): {
+    targetWindowId: number | null,
+    direction: 'left' | 'right' | null
   } {
     const EDGE_THRESHOLD = 50
-    const _direction: 'left' | 'right' | null =
-      event.clientX < EDGE_THRESHOLD ? 'left' :
-      event.clientX > window.innerWidth - EDGE_THRESHOLD ? 'right' : null
-
     const otherWindows = windowList.value.filter(w => w.id !== currentWindowId)
     if (otherWindows.length > 0) {
       const screenX = (window.screenLeft ?? window.screenX ?? 0) + event.clientX
       const screenY = (window.screenTop ?? window.screenY ?? 0) + event.clientY
       const targetWindow = findWindowAtPoint(otherWindows, screenX, screenY)
-      
+
       if (targetWindow) {
-        const isNearEdge = 
+        const isNearEdge =
           event.clientX < EDGE_THRESHOLD ||
           event.clientX > window.innerWidth - EDGE_THRESHOLD ||
           event.clientY < EDGE_THRESHOLD ||
@@ -272,9 +278,10 @@ export function useTabDragDrop() {
     if (dragLeaveTimer) clearTimeout(dragLeaveTimer)
 
     dragLeaveTimer = setTimeout(() => {
+      dragLeaveTimer = null
+      // 仅清理"标签"类目标；边缘/窗口外目标由后续 dragover/dragend 决定
       if (dragState.targetType === 'tab') {
-        dragState.targetTabId = null
-        dragState.targetType = 'none'
+        updateTarget({ targetType: 'none' })
       }
     }, DRAG_LEAVE_DEBOUNCE_MS)
   }
@@ -286,7 +293,7 @@ export function useTabDragDrop() {
       return false
     }
 
-    if (dragState.targetType !== 'tab') {
+    if (dragState.targetType !== 'tab' || dragState.insertIndex < 0) {
       return false
     }
 
@@ -294,26 +301,14 @@ export function useTabDragDrop() {
 
     const currentOrder = [...tabsStore.tabOrder]
     const fromIndex = currentOrder.indexOf(dragState.sourceTabId)
-    const toIndex = currentOrder.indexOf(targetTabId)
+    if (fromIndex === -1) return false
 
-    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
-      return false
-    }
-
+    // insertIndex 是"移除 sourceTab 后"的下标（dragover 时已计算好），
+    // 直接应用即可，drop 阶段无需再读 event 坐标。
     currentOrder.splice(fromIndex, 1)
+    currentOrder.splice(dragState.insertIndex, 0, dragState.sourceTabId)
 
-    const adjustedTargetIdx = fromIndex < toIndex ? toIndex - 1 : toIndex
-
-    const insertDirection = getDropIndicatorPosition(event, event.target as HTMLElement)
-    const insertAt = insertDirection === 'right' ?
-      adjustedTargetIdx + 1 :
-      adjustedTargetIdx
-
-    tabsStore.setTabOrder([
-      ...currentOrder.slice(0, insertAt),
-      dragState.sourceTabId,
-      ...currentOrder.slice(insertAt)
-    ])
+    tabsStore.setTabOrder(currentOrder)
 
     return true
   }
@@ -325,7 +320,7 @@ export function useTabDragDrop() {
     }
 
     const sourceTabId = dragState.sourceTabId
-    
+
     if (!sourceTabId) {
       resetDragState()
       return
@@ -336,17 +331,9 @@ export function useTabDragDrop() {
       return
     }
 
-    const currentDragState: DragDropState = {
-      sourceTabId: dragState.sourceTabId,
-      targetType: dragState.targetType,
-      targetTabId: dragState.targetTabId,
-      targetWindowId: dragState.targetWindowId,
-      windowEdgeDirection: dragState.windowEdgeDirection,
-      insertIndex: dragState.insertIndex,
-      mousePosition: dragState.mousePosition,
-      isNewWindowOperation: dragState.isNewWindowOperation,
-    }
-    
+    // 在 reset 前快照异步流程需要的值，避免 IPC 期间状态被清空
+    const endedTargetType = dragState.targetType
+    const endedTargetWindowId = dragState.targetWindowId
     const currentWindowList = [...windowList.value]
     const currentWindowIdValue = currentWindowId
 
@@ -360,7 +347,8 @@ export function useTabDragDrop() {
     executeDragEndAsync(
       event,
       tab,
-      currentDragState,
+      endedTargetType,
+      endedTargetWindowId,
       currentWindowList,
       currentWindowIdValue
     ).catch(_error => {
@@ -371,7 +359,8 @@ export function useTabDragDrop() {
   async function executeDragEndAsync(
     event: DragEvent,
     tab: TabState,
-    currentDragState: DragDropState,
+    targetType: DropTargetType,
+    targetWindowId: number | null,
     currentWindowList: WindowInfo[],
     currentWindowIdValue: number | null
   ): Promise<void> {
@@ -382,22 +371,22 @@ export function useTabDragDrop() {
 
     const otherWindows = currentWindowList.filter(w => w.id !== currentWindowIdValue)
     let targetWindow: WindowInfo | null = null
-    
+
     if (otherWindows.length > 0) {
-      if (currentDragState.targetWindowId) {
-        targetWindow = otherWindows.find(w => w.id === currentDragState.targetWindowId) ?? null
+      if (targetWindowId) {
+        targetWindow = otherWindows.find(w => w.id === targetWindowId) ?? null
       }
       if (!targetWindow) {
         targetWindow = findWindowAtPoint(otherWindows, screenX, screenY)
       }
     }
 
-    const shouldMerge = 
-      (currentDragState.targetType === 'windowEdge' && targetWindow) || 
-      (currentDragState.targetType !== 'windowEdge' && 
-       !coordsUnreliable && 
+    const shouldMerge =
+      (targetType === 'windowEdge' && targetWindow) ||
+      (targetType !== 'windowEdge' &&
+       !coordsUnreliable &&
        targetWindow &&
-       (isMouseOutsideWindow(event) || 
+       (isMouseOutsideWindow(event) ||
         event.clientX < 50 || event.clientX > window.innerWidth - 50))
 
     if (shouldMerge && targetWindow) {
@@ -409,7 +398,7 @@ export function useTabDragDrop() {
       }
     }
     else if (
-      currentDragState.targetType === 'outsideWindow' ||
+      targetType === 'outsideWindow' ||
       (!coordsUnreliable && isMouseOutsideWindow(event))
     ) {
       const newWindowId = await createNewWindow(tabData)
@@ -427,7 +416,6 @@ export function useTabDragDrop() {
     dragImage.textContent = tab.title || 'Untitled'
     document.body.appendChild(dragImage)
 
-    event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setDragImage(dragImage, -10, -10)
 
     setTimeout(() => dragImage.remove(), 0)
@@ -457,18 +445,26 @@ export function useTabDragDrop() {
     }
   }
 
+  async function initWindowId(): Promise<void> {
+    try {
+      const idResp = await electronService.getWindowId()
+      if (idResp.success && typeof idResp.data === 'number') {
+        currentWindowId = idResp.data
+      }
+    } catch (e) {
+      // Silent fail - window id 获取失败时按"无本窗口 id"处理
+    }
+  }
+
   function resetDragState(): void {
     dragState.sourceTabId = null
-    dragState.targetType = 'none'
-    dragState.targetTabId = null
-    dragState.targetWindowId = null
-    dragState.windowEdgeDirection = null
-    dragState.insertIndex = -1
-    dragState.isNewWindowOperation = false
+    updateTarget({ targetType: 'none' })
     hasDroppedOnTab = false
   }
 
   onMounted(() => {
+    // windowId 在窗口生命周期内不变，挂载时取一次即可，无需每次 dragstart 取
+    initWindowId()
     refreshWindowList()
   })
 

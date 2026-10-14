@@ -27,11 +27,7 @@ export const EDITOR = {
 
   // 源码模式（CodeMirror）独立的字体/行高，与 wysiwyg 解耦
   DEFAULT_SOURCE_FONT_SIZE: 14,
-  DEFAULT_SOURCE_LINE_HEIGHT: 1.5,
-  
-  // 历史记录
-  MAX_UNDO_STACK_SIZE: 100,
-  MAX_REDO_STACK_SIZE: 50
+  DEFAULT_SOURCE_LINE_HEIGHT: 1.5
 } as const
 
 // ==================== 标签页常量 ====================

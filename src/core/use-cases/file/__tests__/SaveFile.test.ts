@@ -18,8 +18,8 @@ function createMockTab(overrides: Partial<{ id: string; filePath: string | null;
     createdAt: Date.now(),
     lastModified: Date.now(),
     lastSaved: null,
-    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
-    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
+    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
+    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
   })
 }
 
@@ -115,8 +115,8 @@ describe('SaveFile', () => {
       createdAt: Date.now(),
       lastModified: Date.now(),
       lastSaved: null,
-      crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
-      codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
+      crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
+      codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
     })
     vi.mocked(mockTabRepository.getById).mockReturnValue(tab)
 

@@ -18,8 +18,8 @@ function createTabEntity(id = 'tab-1', content = 'initial'): Tab {
     createdAt: Date.now(),
     lastModified: Date.now(),
     lastSaved: null,
-    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
-    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0, undoStack: [], redoStack: [] },
+    crepe: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
+    codeMirror: { cursor: { from: 0, to: 0 }, scrollTop: 0 },
   })
 }
 

@@ -8,8 +8,6 @@ export interface EditorSpecificState {
     to: number
   }
   scrollTop: number
-  undoStack: HistoryItem[]
-  redoStack: HistoryItem[]
 }
 
 export interface TabState {
@@ -42,14 +40,6 @@ export interface TabState {
    * 必须可 JSON 序列化，将来要进 lastSession 持久化。
    */
   viewerState?: Record<string, unknown>
-}
-
-export interface HistoryItem {
-  type: 'insert' | 'delete' | 'replace'
-  from: number
-  to: number
-  content: string
-  timestamp: number
 }
 
 export type ViewMode = 'wysiwyg' | 'source' | 'split'
@@ -199,9 +189,8 @@ export interface DragDropState {
   targetTabId: string | null
   targetWindowId: number | null
   windowEdgeDirection: 'left' | 'right' | null
+  /** 拖放目标为 tab 时，源标签移除后的插入下标；其余场景为 -1 */
   insertIndex: number
-  mousePosition: { x: number, y: number }
-  isNewWindowOperation: boolean
 }
 
 /**
