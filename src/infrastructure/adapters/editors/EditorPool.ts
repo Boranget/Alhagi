@@ -249,23 +249,12 @@ export class EditorPool {
     // 创建 Crepe 编辑器
     await crepe.create()
 
-    // 创建 CodeMirror 实例（初始隐藏）
-    const cmView = createCodeMirrorView({
-      root: cmContainer,
-      content,
-      onChange: (getString: () => string) => {
-        const markdown = getString()
-        this.handleCMUpdate(tabId, markdown)
-      },
-      onFocus: () => {},
-      onBlur: () => {},
-      theme: isDark ? 'dark' : 'light',
-    })
-
+    // 懒建：CodeMirror 不在此创建，applyViewMode 在进入 source/split 时
+    // 通过 ensureCodeMirror 按需建立，回到纯 wysiwyg 即销毁。
     const instance: TabEditorInstance = {
       tabId,
       crepe,
-      cmView,
+      cmView: null,
       container,
       crepeContainer,
       cmContainer,
@@ -293,9 +282,6 @@ export class EditorPool {
     } catch {
       // ignore
     }
-    cmView.dom.addEventListener('focusin', () => {
-      instance.lastFocusedEditor = 'cm'
-    })
 
     // 文档同步：tabsStore.content 为唯一权威，两侧编辑器订阅刷新。
     // split 实时同步、切模式交接、外部直写 store 的接入都由它统一承担。
@@ -440,6 +426,14 @@ export class EditorPool {
   private applyViewMode(instance: TabEditorInstance): void {
     const { viewMode, container, crepeContainer, cmContainer, splitterEl } = instance
 
+    // 懒建：CM 只在需要显示的一侧存在；纯 wysiwyg 下销毁以省资源。
+    // 创建时直接读权威内容（CM 不存在期间 store 可能已被外部改写）。
+    if (viewMode === 'wysiwyg') {
+      this.destroyCodeMirror(instance)
+    } else {
+      this.ensureCodeMirror(instance)
+    }
+
     // 同步 container 的 mode class，让 CSS 布局选择器生效
     container.classList.remove('mode-wysiwyg', 'mode-source', 'mode-split')
     container.classList.add(`mode-${viewMode}`)
@@ -472,6 +466,42 @@ export class EditorPool {
         splitterEl.style.order = '2'
         break
     }
+  }
+
+  /**
+   * 按需创建 CodeMirror（懒建）。
+   * 内容直接取权威（tabsStore），因为 CM 不存在期间外部直写 store
+   * 不会有人接收 applyToSource——创建即对齐，无一致性缺口。
+   */
+  private ensureCodeMirror(instance: TabEditorInstance): void {
+    if (instance.cmView) return
+
+    try {
+      const content = this.tabRepository.getById(instance.tabId)?.content ?? instance.content
+      const cmView = createCodeMirrorView({
+        root: instance.cmContainer,
+        content,
+        onChange: (getString: () => string) => {
+          this.handleCMUpdate(instance.tabId, getString())
+        },
+        onFocus: () => {},
+        onBlur: () => {},
+        theme: this.isDarkModeFn() ? 'dark' : 'light',
+      })
+      cmView.dom.addEventListener('focusin', () => {
+        instance.lastFocusedEditor = 'cm'
+      })
+      instance.cmView = cmView
+    } catch (e) {
+      console.error('[EditorPool] ensureCodeMirror failed', e)
+    }
+  }
+
+  /** 销毁 CodeMirror（回纯 wysiwyg 时调用）。历史随之丢弃，与页面语义一致。 */
+  private destroyCodeMirror(instance: TabEditorInstance): void {
+    if (!instance.cmView) return
+    instance.cmView.destroy()
+    instance.cmView = null
   }
 
   // ============================================================

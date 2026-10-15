@@ -120,6 +120,11 @@ export interface AppEventPayloads {
   'app:tab-merge-requested': { tabData: DetachedTabData }
   'app:tab-detached': { tabData: DetachedTabData }
   'app:focus-tab-for-file': { filePath: string }
+  /**
+   * 跨窗口拖 tab 的回执（ack）：目标窗口已成功恢复 tab。
+   * 源窗口收到后才删除本地副本（originalTabId 为源窗口的 tab id）。
+   */
+  'app:tab-merge-complete': { originalTabId: string }
 
   // UI 操作事件（替代 CustomEvent）
   'app:show-search': { showReplace?: boolean } | undefined

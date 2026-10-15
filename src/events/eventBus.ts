@@ -105,6 +105,8 @@ export const AppEvents = {
   TAB_MERGE_REQUESTED: 'app:tab-merge-requested' as const,
   TAB_DETACHED: 'app:tab-detached' as const,
   FOCUS_TAB_FOR_FILE: 'app:focus-tab-for-file' as const,
+  /** 目标窗口恢复 tab 成功的回执；源窗口据此删除本地副本 */
+  TAB_MERGE_COMPLETE: 'app:tab-merge-complete' as const,
 
   // 编辑器空闲 / 内容渲染完成
   EDITOR_SETTLED: 'editor:settled' as const,

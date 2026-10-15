@@ -207,6 +207,14 @@ export class ElectronService {
     return await this.api.mergeTab(tabData, targetWindowId)
   }
 
+  /**
+   * 跨窗口拖 tab 回执：本窗口已成功恢复 tab，通知主进程转发给源窗口。
+   * 源窗口收到后才删除本地副本。
+   */
+  notifyTabMergeComplete(payload: { sourceWindowId: number; originalTabId: string }): void {
+    this.api?.notifyTabMergeComplete(payload)
+  }
+
   async updateOpenedFiles(filePaths: string[]): Promise<IPCResponse<boolean>> {
     if (!this.api) return { success: false }
     return await this.api.updateOpenedFiles(filePaths)

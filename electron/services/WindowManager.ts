@@ -322,6 +322,19 @@ export class WindowManager {
   }
 
   /**
+   * 向指定窗口转发任意 IPC 通知（如跨窗口拖 tab 的 ack）。
+   */
+  sendToWindow(windowId: number, channel: string, payload: unknown): boolean {
+    const win = this.windows.get(windowId)
+    if (!win || win.isDestroyed()) {
+      this.windows.delete(windowId)
+      return false
+    }
+    win.webContents.send(channel, payload)
+    return true
+  }
+
+  /**
    * 聚焦指定窗口，并可选地通知它切换到某文件标签页。
    */
   focusWindow(windowId: number, filePath?: string): boolean {

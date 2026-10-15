@@ -153,4 +153,13 @@ export interface ElectronAPI {
   onTabDetached: (callback: (tabData: DetachedTabData) => void) => () => void
   /** 通知本窗口聚焦到对应文件的 tab（用户从其他窗口请求打开已打开的文件时）*/
   onFocusTabForFile: (callback: (filePath: string) => void) => () => void
+
+  // ========== 跨窗口拖 tab 回执（ack） ==========
+  /**
+   * 目标窗口恢复 tab 成功后通知主进程，主进程转发给源窗口。
+   * 源窗口收到后才删除本地副本（防止传输失败时 tab 丢失）。
+   */
+  notifyTabMergeComplete: (payload: { sourceWindowId: number; originalTabId: string }) => void
+  /** 源窗口订阅：某个拖出的 tab 已在目标窗口就绪，可安全删除本地副本 */
+  onTabMergeComplete: (callback: (payload: { originalTabId: string }) => void) => () => void
 }

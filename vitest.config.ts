@@ -17,6 +17,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    // happy-dom 每文件创建耗时占全量测试 ~80%（44 文件 ≈ 77s 环境时间）。
+    // vmThreads：每个 worker 复用同一个 happy-dom 实例，保留按文件隔离。
+    pool: 'vmThreads',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',

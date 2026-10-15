@@ -205,6 +205,15 @@ const api: ElectronAPI = {
 
   onFocusTabForFile: (callback) =>
     createListener<[string]>(IPC_CHANNELS.TAB.FOCUS_FOR_FILE, callback),
+
+  // ========== 跨窗口拖 tab 回执（ack） ==========
+  notifyTabMergeComplete: (payload) => {
+    // 单向通知，无需主进程回复
+    ipcRenderer.send(IPC_CHANNELS.TAB.MERGE_COMPLETE, payload)
+  },
+
+  onTabMergeComplete: (callback) =>
+    createListener<[{ originalTabId: string }]>(IPC_CHANNELS.TAB.MERGE_COMPLETE, callback),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

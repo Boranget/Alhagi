@@ -4,7 +4,7 @@
 //
 // 这里"很薄"，只把渲染端的窗口请求路由到 WindowManager / ThemeService。
 
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import {
   IPC_CHANNELS,
   IPCErrorCode,
@@ -28,6 +28,7 @@ export class WindowIpcHandlers {
     this.registerWindowDiscovery()
     this.registerNewWindow()
     this.registerMergeTab()
+    this.registerTabMergeComplete()
     this.registerFocusWindow()
     this.registerFileTracking()
     this.registerCursorAndScreen()
@@ -101,6 +102,24 @@ export class WindowIpcHandlers {
         const ok = this.windowManager.mergeTabToWindow(targetWindowId, tabData)
         if (!ok) return createErrorResponse(IPCErrorCode.UNKNOWN_ERROR, 'Target window not found or destroyed')
         return createSuccessResponse(true)
+      },
+    )
+  }
+
+  /**
+   * 跨窗口拖 tab 回执：目标窗口 renderer 报告"tab 已就绪"，
+   * 主进程只做转发（send 通道，无 invoke 回复），源窗口收到后才删除本地副本。
+   */
+  private registerTabMergeComplete(): void {
+    ipcMain.on(
+      IPC_CHANNELS.TAB.MERGE_COMPLETE,
+      (_event, payload: { sourceWindowId?: number; originalTabId?: string }) => {
+        if (!payload?.sourceWindowId || !payload?.originalTabId) return
+        this.windowManager.sendToWindow(
+          payload.sourceWindowId,
+          IPC_CHANNELS.TAB.MERGE_COMPLETE,
+          { originalTabId: payload.originalTabId },
+        )
       },
     )
   }

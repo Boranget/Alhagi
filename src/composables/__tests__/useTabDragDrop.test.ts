@@ -19,13 +19,6 @@ vi.mock('@/services/electron/ElectronService', () => ({
   electronService: mockElectronService,
 }))
 
-vi.mock('@/composables/useTabActions', () => ({
-  useTabActions: () => ({
-    createTab: vi.fn(),
-    closeTab: vi.fn().mockResolvedValue(undefined),
-  }),
-}))
-
 import { useTabsStore } from '@/stores/tabs'
 import { useTabDragDrop } from '../useTabDragDrop'
 import type { TabState, DragDropState } from '@/types'

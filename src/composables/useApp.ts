@@ -16,7 +16,7 @@ import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useTabActions } from '@/composables/useTabActions'
-import { restoreDetachedTab } from '@/services/crossWindowTab'
+import { restoreDetachedTab, confirmTabTransferred } from '@/services/crossWindowTab'
 
 // 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
 let _isFullscreen: ReturnType<typeof ref<boolean>> | null = null
@@ -125,6 +125,14 @@ export function useApp(bus?: IEventBus) {
       eventBus.on(AppEvents.FOCUS_TAB_FOR_FILE, ({ filePath }) => {
         const tab = tabsStore.findTabByFilePath(filePath)
         if (tab) tabsStore.switchTab(tab.id)
+      })
+    )
+
+    // 跨窗口拖 tab 回执：本窗口拖出的 tab 已在目标窗口就绪，删除本地副本。
+    // 缺消费者时源 tab 永远等不到 ack，只能超时保留（同一 tab 双窗口重复）。
+    unsubscribers.push(
+      eventBus.on(AppEvents.TAB_MERGE_COMPLETE, ({ originalTabId }) => {
+        void confirmTabTransferred(originalTabId)
       })
     )
 

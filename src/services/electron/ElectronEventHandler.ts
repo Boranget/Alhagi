@@ -154,5 +154,13 @@ export class ElectronEventHandler {
         }, 'onFocusTabForFile')
       })
     )
+
+    this.disposables.push(
+      this.api!.onTabMergeComplete((payload) => {
+        this.safeExecute(() => {
+          this.eventBus.emit(AppEvents.TAB_MERGE_COMPLETE, { originalTabId: payload.originalTabId })
+        }, 'onTabMergeComplete')
+      })
+    )
   }
 }

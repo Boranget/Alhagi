@@ -67,6 +67,13 @@ export const IPC_CHANNELS = {
     MERGE: 'tab:merge',
     DETACHED: 'tab:detached',
     FOCUS_FOR_FILE: 'focus-tab-for-file',
+    /**
+     * 跨窗口拖 tab 的回执（ack）：
+     * renderer(目标) → main → renderer(源)。
+     * 目标窗口恢复 tab 成功后发送；源窗口收到才删除本地副本，
+     * 避免"IPC 已送达但目标尚未建好"期间源侧删除导致 tab 丢失。
+     */
+    MERGE_COMPLETE: 'tab:merge-complete',
   },
   /**
    * 用户偏好持久化通道 —— Single-Writer 模式（仿 Muya）。

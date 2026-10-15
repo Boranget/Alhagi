@@ -8,7 +8,7 @@ import type {
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
-import { useTabActions } from '@/composables/useTabActions'
+import { beginTabTransfer } from '@/services/crossWindowTab'
 import { electronService } from '@/services/electron/ElectronService'
 
 /** 拖拽离开防抖延迟：防止光标短暂离开时闪烁 */
@@ -36,7 +36,6 @@ interface DropTargetUpdate {
 
 export function useTabDragDrop() {
   const tabsStore = useTabsStore()
-  const { closeTab } = useTabActions()
 
   // 唯一状态源：dragState 是拖拽期间所有判定的单一数据源。
   // 不存在需要手动同步的影子变量（lastTarget* 已移除——它们与
@@ -394,7 +393,9 @@ export function useTabDragDrop() {
       if (merged) {
         // 走 CloseTab：邻居切换、TAB_CLOSED（释放源窗口 EditorPool 实例）、
         // opened-files 同步；直接 store.removeTabById 会全部缺失。
-        await closeTab(tab.id)
+        // 删除不立即执行：登记待确认，目标窗口回发 ack 后才真正 closeTab
+        // （ack 超时则保留源 tab —— 数据安全优先）。
+        beginTabTransfer(tab.id)
       }
     }
     else if (
@@ -403,7 +404,7 @@ export function useTabDragDrop() {
     ) {
       const newWindowId = await createNewWindow(tabData)
       if (newWindowId) {
-        await closeTab(tab.id)
+        beginTabTransfer(tab.id)
       }
     }
   }
@@ -430,7 +431,9 @@ export function useTabDragDrop() {
       filePath: serializedTab.filePath ?? null,
       isDirty: serializedTab.isDirty,
       viewMode: serializedTab.viewMode,
-      cursor: serializedTab.crepe?.cursor ?? { from: 0, to: 0 }
+      cursor: serializedTab.crepe?.cursor ?? { from: 0, to: 0 },
+      // 目标窗口恢复成功后据此回发 ack，源窗口收到才删除本地副本
+      sourceWindowId: currentWindowId ?? undefined
     }
   }
 

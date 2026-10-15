@@ -68,6 +68,8 @@ export interface DetachedTabData {
   isDirty: boolean
   viewMode: string
   cursor: { from: number; to: number }
+  /** 拖出 tab 的源窗口 id；目标窗口恢复成功后据此回发 ack */
+  sourceWindowId?: number
 }
 
 // ========== 文件类型常量 ==========
