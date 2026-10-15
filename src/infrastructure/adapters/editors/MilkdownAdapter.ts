@@ -156,6 +156,14 @@ export class MilkdownAdapter implements IEditorProvider {
     return this.pool.getScrollContainer()
   }
 
+  getCursorViewportY(): number | null {
+    return this.pool.getCursorViewportY()
+  }
+
+  setEditorFocusMode(enabled: boolean): void {
+    this.pool.setEditorFocusMode(enabled)
+  }
+
   getCommands(): MilkdownCommands {
     return this.commands
   }

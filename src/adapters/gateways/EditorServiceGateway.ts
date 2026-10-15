@@ -87,6 +87,14 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getScrollContainer()
   }
 
+  getCursorViewportY(): number | null {
+    return this.adapter.getCursorViewportY()
+  }
+
+  setEditorFocusMode(enabled: boolean): void {
+    return this.adapter.setEditorFocusMode(enabled)
+  }
+
   getActiveEditor(): 'crepe' | 'codemirror' | null {
     return this.adapter.getActiveEditor()
   }

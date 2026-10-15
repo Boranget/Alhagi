@@ -4,7 +4,6 @@
 
 import type { IViewModeGateway } from '@core/domain/ports/gateways/IViewModeGateway'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
-import { focusModePluginKey } from '@/plugins/focusModePlugin'
 import { useViewModeStore } from '@/stores/viewMode'
 
 const TYPEWRITER_CLASS = 'typewriter-mode'
@@ -25,39 +24,21 @@ export class ViewModeGateway implements IViewModeGateway {
 
   enableFocusMode(): void {
     document.body.classList.add(FOCUS_CLASS)
-    this.findEditorRoot()?.classList.add(FOCUS_CLASS)
-    this.dispatchFocusModeMeta(true)
+    this.editorProvider?.setEditorFocusMode(true)
   }
 
   disableFocusMode(): void {
     document.body.classList.remove(FOCUS_CLASS)
-    this.findEditorRoot()?.classList.remove(FOCUS_CLASS)
-    this.dispatchFocusModeMeta(false)
+    this.editorProvider?.setEditorFocusMode(false)
   }
 
   disableAll(): void {
     document.body.classList.remove(TYPEWRITER_CLASS, FOCUS_CLASS)
-    this.findEditorRoot()?.classList.remove(FOCUS_CLASS)
-    this.dispatchFocusModeMeta(false)
+    this.editorProvider?.setEditorFocusMode(false)
   }
 
   syncToActiveEditor(): void {
     const viewModeStore = useViewModeStore()
-    this.dispatchFocusModeMeta(viewModeStore.focusMode)
-  }
-
-  private dispatchFocusModeMeta(enabled: boolean): void {
-    const view = this.editorProvider?.getView()
-    if (!view) return
-
-    view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled }))
-  }
-
-  private findEditorRoot(): HTMLElement | null {
-    return (
-      document.querySelector('.ProseMirror') ||
-      document.querySelector('.crepe') ||
-      document.querySelector('.cm-editor')
-    )
+    this.editorProvider?.setEditorFocusMode(viewModeStore.focusMode)
   }
 }

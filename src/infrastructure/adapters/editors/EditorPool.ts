@@ -393,12 +393,16 @@ export class EditorPool {
   }
 
   private syncFocusModeToActiveEditor(instance: { crepe: Crepe | null }): void {
+    this.dispatchFocusModeMeta(instance, this.isFocusModeFn())
+  }
+
+  private dispatchFocusModeMeta(instance: { crepe: Crepe | null }, enabled: boolean): void {
     if (!instance.crepe) return
     try {
       instance.crepe.editor.action((ctx) => {
         const view = ctx.get(editorViewCtx)
         if (view) {
-          view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled: this.isFocusModeFn() }))
+          view.dispatch(view.state.tr.setMeta(focusModePluginKey, { enabled }))
         }
       })
     } catch {
@@ -574,6 +578,45 @@ export class EditorPool {
       return instance.cmView?.scrollDOM ?? null
     }
     return instance.crepeContainer
+  }
+
+  /** 当前光标在视口坐标系中的 Y（px）；无实例/光标时 null。测量细节归池 */
+  getCursorViewportY(): number | null {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : undefined
+    if (!instance) return null
+
+    if (instance.viewMode === 'source') {
+      const cmView = instance.cmView
+      if (!cmView) return null
+      try {
+        const coords = cmView.coordsAtPos(cmView.state.selection.main.head)
+        return coords?.top ?? null
+      } catch {
+        return null
+      }
+    }
+
+    if (!instance.crepe) return null
+    let result: number | null = null
+    try {
+      instance.crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        if (view) {
+          const coords = view.coordsAtPos(view.state.selection.from)
+          result = coords?.top ?? null
+        }
+      })
+    } catch {
+      return null
+    }
+    return result
+  }
+
+  /** 焦点模式 meta 派发（PM 插件 Decoration 开关），作用于活动 tab */
+  setEditorFocusMode(enabled: boolean): void {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : undefined
+    if (!instance) return
+    this.dispatchFocusModeMeta(instance, enabled)
   }
 
   getActiveCrepe(tabId?: string): Crepe | null {

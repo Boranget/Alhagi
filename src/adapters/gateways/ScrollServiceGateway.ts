@@ -7,13 +7,13 @@
 //
 // 职责：
 //   - 从编辑器端口取当前视图模式的滚动容器（DOM 映射由 EditorPool 持有）
-//   - 计算光标 Y 坐标
+//   - 从编辑器端口取光标视口坐标（测量细节由 EditorPool 持有）
 //   - 执行带缓动的动画滚动
 //   - 管理打字机模式的事件监听生命周期
 
 import type { IScrollService, ScrollResult } from '@core/domain/ports/services/IScrollService'
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
-import { eventBus, AppEvents } from '@/events/eventBus'
+import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 
 /** 打字机模式默认目标 Y 坐标（距滚动容器顶部，px） */
 const TYPEWRITER_TARGET_Y = 320
@@ -36,7 +36,7 @@ export class ScrollServiceGateway implements IScrollService {
       return { containerFound: false, cursorResolved: false, scrolledDistance: 0 }
     }
 
-    const cursorY = this.getCursorYFromContainer(container)
+    const cursorY = this.getCursorYInContainer(container)
     if (cursorY === null) {
       return { containerFound: true, cursorResolved: false, scrolledDistance: 0 }
     }
@@ -55,7 +55,7 @@ export class ScrollServiceGateway implements IScrollService {
     const container = this.findScrollContainer()
     if (!container) return null
 
-    const y = this.getCursorYFromContainer(container)
+    const y = this.getCursorYInContainer(container)
     if (y === null) return null
 
     const containerRect = container.getBoundingClientRect()
@@ -73,13 +73,14 @@ export class ScrollServiceGateway implements IScrollService {
     if (this.typewriterListenerActive) return
 
     this.typewriterListenerActive = true
-    this.unsubscribeCursorChange = eventBus.on(AppEvents.CURSOR_CHANGED, () => {
+    const bus = useEventBusGateway()
+    this.unsubscribeCursorChange = bus.on('editor:cursor:changed', () => {
       this.throttledScrollToCenter()
     })
     // 切 tab 后光标已恢复到各自编辑器（markdown 多实例保活 DOM，
     // viewer 组件在 prop watch 里同步 restore），下一帧即可测量对齐。
     // 否则打字机开启下切 tab，光标停留在上次滚动位置而非居中。
-    this.unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
+    this.unsubscribeTabSwitched = bus.on('app:tab:switched', () => {
       this.throttledScrollToCenter()
     })
   }
@@ -106,33 +107,12 @@ export class ScrollServiceGateway implements IScrollService {
 
   // ── Private: Cursor Position Calculation ────────────
 
-  private getCursorYFromContainer(container: HTMLElement): number | null {
-    // 容器由池按视图模式给出，光标测量按活动编辑器类型分派，不再扫 DOM 猜类型
-    if (this.editorProvider.getActiveEditor() === 'crepe') {
-      return this.getCursorYFromCrepe(container)
-    }
-    return this.getCursorYFromSelection(container)
-  }
+  /** 容器坐标系中的光标 Y：端口给视口坐标，容器偏移由网关扣除 */
+  private getCursorYInContainer(container: HTMLElement): number | null {
+    const viewportY = this.editorProvider.getCursorViewportY()
+    if (viewportY === null) return null
 
-  private getCursorYFromCrepe(container: HTMLElement): number | null {
-    const view = this.editorProvider.getView()
-    if (!view?.coordsAtPos || !view?.state?.selection) return null
-
-    const coords = view.coordsAtPos(view.state.selection.from)
-    if (!coords) return null
-
-    return coords.top - container.getBoundingClientRect().top
-  }
-
-  /** 原生选区路径：source（CodeMirror）与回退场景通用 */
-  private getCursorYFromSelection(container: HTMLElement): number | null {
-    const selection = window.getSelection()
-    if (!selection?.rangeCount) return null
-
-    const rects = selection.getRangeAt(0).getClientRects()
-    if (!rects.length) return null
-
-    return rects[0].top - container.getBoundingClientRect().top
+    return viewportY - container.getBoundingClientRect().top
   }
 
   // ── Private: Animation ──────────────────────────────

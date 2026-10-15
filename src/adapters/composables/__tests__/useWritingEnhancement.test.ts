@@ -9,6 +9,8 @@ vi.mock('@adapters/gateways/EditorServiceGateway', () => {
   const mockGateway = {
     getActiveEditor: vi.fn(() => 'crepe'),
     getScrollContainer: vi.fn(() => null),
+    getCursorViewportY: vi.fn(() => null),
+    setEditorFocusMode: vi.fn(),
     getView: vi.fn(() => null),
     getSelection: vi.fn(() => null),
     getMarkdown: vi.fn(() => ''),
