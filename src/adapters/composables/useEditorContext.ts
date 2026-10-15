@@ -1,37 +1,28 @@
-import { useEditor } from '@/adapters/composables/useEditor'
-import { useEditorStore } from '@/stores/editor'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
 
+// ============================================================
+// useEditorContext — 组件层编辑器门面（唯一入口）
+// ============================================================
+//
+// 直接委托 EditorServiceGateway（IEditorProvider），只暴露组件实际
+// 消费的能力。池级事件桥接在组合根（bridgeEditorEvents），组件不再
+// 订阅/转发池回调；新增能力按需在此有意添加，不做全量代理。
+
 export function useEditorContext() {
-  const editor = useEditor()
-  const editorStore = useEditorStore()
+  const gateway = getEditorServiceGateway()
 
   return {
-    initWrapper: (wrapper: HTMLElement) => editor.initWrapper(wrapper),
-    detach: () => editor.detach(),
-    createTab: (tabId: string, content: string, viewMode?: ViewMode) => editor.createTab(tabId, content, viewMode),
-    destroyTab: (tabId: string) => editor.destroyTab(tabId),
-    switchTab: (tabId: string) => editor.switchTab(tabId),
-    hasTab: (tabId: string) => editor.hasTab(tabId),
-    getCMSearchService: (tabId?: string): SearchService | null => editor.getCMSearchService(tabId),
-    updateTheme: (isDark: boolean) => editor.updateTheme(isDark),
-    destroy: () => editor.destroy(),
-    isReady: () => editor.isReady(),
-    getMarkdown: () => editor.getMarkdown(),
-    getHTML: () => editor.getHTML(),
-    setViewMode: (mode: ViewMode) => editor.setViewMode(mode),
-    setTabViewMode: (tabId: string, mode: ViewMode) => editor.setTabViewMode(tabId, mode),
-    getViewMode: () => editor.getViewMode(),
-    getActiveEditor: () => editor.getActiveEditor(),
-    onCursorChange: (handler: (from: number, to: number) => void) => editor.onCursorChange(handler),
-    onContentChange: (handler: (markdown: string) => void) => editor.onContentChange(handler),
-    getHeadingsWithPos: () => editorStore.getHeadingsWithPos(),
-    scrollToHeading: (pos: number) => editorStore.scrollToHeading(pos),
-    getCachedContent: (tabId: string) => editor.getCachedContent(tabId),
-    setCachedContent: (tabId: string, content: string) => editor.setCachedContent(tabId, content),
-    clearCache: () => editor.clearCache(),
-    getView: () => editor.getView(),
+    initWrapper: (wrapper: HTMLElement) => gateway.initWrapper(wrapper),
+    detach: () => gateway.detach(),
+    createTab: (tabId: string, content: string, viewMode?: ViewMode) => gateway.createTab(tabId, content, viewMode),
+    destroyTab: (tabId: string) => gateway.destroyTab(tabId),
+    switchTab: (tabId: string) => gateway.switchTab(tabId),
+    hasTab: (tabId: string) => gateway.hasTab(tabId),
+    setTabViewMode: (tabId: string, mode: ViewMode) => gateway.setTabViewMode(tabId, mode),
+    getCMSearchService: (tabId?: string): SearchService | null => gateway.getCMSearchService(tabId),
+    getView: () => gateway.getView(),
   }
 }
 
