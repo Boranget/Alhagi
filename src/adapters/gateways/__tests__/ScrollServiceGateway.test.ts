@@ -10,6 +10,7 @@ function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEd
   return {
     getActiveEditor: vi.fn(() => 'crepe') as IEditorProvider['getActiveEditor'],
     getScrollContainer: vi.fn(() => null) as IEditorProvider['getScrollContainer'],
+    getCommands: vi.fn(() => ({})) as unknown as IEditorProvider['getCommands'],
     getView: vi.fn(() => null),
     getSelection: vi.fn(() => null),
     getHeadings: vi.fn(() => []),

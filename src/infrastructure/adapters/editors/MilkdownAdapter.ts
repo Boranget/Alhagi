@@ -6,6 +6,7 @@
 // 使用 EditorPool 管理每个 Tab 独立的 Crepe + CodeMirror 实例。
 
 import { EditorPool } from './EditorPool'
+import { MilkdownCommands } from './MilkdownCommands'
 import { replaceAll, insert } from '@milkdown/kit/utils'
 import type { ViewMode } from '@shared/types'
 import type { HeadingItem } from '@/utils/headings'
@@ -18,6 +19,7 @@ import type { SearchService } from '@/services/search/types'
 
 export class MilkdownAdapter implements IEditorProvider {
   private pool: EditorPool
+  private commands: MilkdownCommands
 
   // 图片插入相关
   private imageInsertService: ImageInsertService
@@ -54,6 +56,8 @@ export class MilkdownAdapter implements IEditorProvider {
       isFocusMode,
       tabRepository
     )
+
+    this.commands = new MilkdownCommands(() => this.pool.getActiveCrepe())
   }
 
   // ============================================================
@@ -152,8 +156,8 @@ export class MilkdownAdapter implements IEditorProvider {
     return this.pool.getScrollContainer()
   }
 
-  getActiveCrepe(tabId?: string): any | null {
-    return this.pool.getActiveCrepe(tabId)
+  getCommands(): MilkdownCommands {
+    return this.commands
   }
 
   getView(): any | null {

@@ -5,6 +5,7 @@
 // 委托给 MilkdownAdapter，不包含任何 Milkdown 特定逻辑。
 // 实现 IEditorProvider 接口。
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
+import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
@@ -90,8 +91,8 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getActiveEditor()
   }
 
-  getActiveCrepe(tabId?: string): any | null {
-    return (this.adapter as any).getActiveCrepe?.(tabId) ?? null
+  getCommands(): IEditorCommands {
+    return this.adapter.getCommands()
   }
 
   getView(): any | null {

@@ -1,9 +1,11 @@
 // ============================================================
-// EditorCommands - 编辑器命令薄壳
+// MilkdownCommands — Milkdown 命令薄壳（基础设施层）
 // ============================================================
 //
 // 把 Milkdown 标准的 `crepe.editor.action(callCommand(commandKey, payload))`
 // 模板抽象到一个 `runCommand` 私有方法，避免 28 个 try-catch 复制粘贴。
+// 经 MilkdownAdapter.getCommands() 实现 IEditorCommandSource 端口，
+// Crepe 实例不出适配器边界。
 //
 // 设计：
 //   - 无参 milkdown 内置命令 → 一行调 `runCommand(commandKey)`
@@ -45,7 +47,7 @@ import type { CmdKey } from '@milkdown/core'
 import type { Ctx } from '@milkdown/ctx'
 import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 
-export class EditorCommands implements IEditorCommands {
+export class MilkdownCommands implements IEditorCommands {
   private getCrepeFn: () => Crepe | null
 
   constructor(getCrepe: () => Crepe | null) {

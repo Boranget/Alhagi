@@ -50,9 +50,6 @@ import { useLayoutRepository } from '@adapters/stores/layout'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useViewModeStore } from '@/stores/viewMode'
 
-// Managers
-import { EditorCommands } from '@/managers/EditorCommands'
-
 // 图片插入服务访问器 — 供命令处理器等非 DI 调用方使用
 let _imageInsertService: ImageInsertService | null = null
 let _getImageOptions: (() => ImageInsertOptions) | null = null
@@ -96,8 +93,7 @@ container.bind<IEditorProvider>(TYPES.EditorProvider).toDynamicValue(() => {
 }).inSingletonScope()
 
 container.bind<IEditorCommands>(TYPES.EditorCommands).toDynamicValue(() => {
-  const gateway = getEditorServiceGateway()
-  return new EditorCommands(() => gateway.getActiveCrepe())
+  return getEditorServiceGateway().getCommands()
 }).inSingletonScope()
 
 container.bind<IScrollService>(TYPES.ScrollService).toDynamicValue(() => {

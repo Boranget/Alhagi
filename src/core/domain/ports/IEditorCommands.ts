@@ -3,7 +3,7 @@
 // ============================================================
 //
 // 定义编辑器 UI 操作的契约（格式化、段落、表格等）。
-// 由 MilkdownAdapter 实现。
+// 由适配器经 IEditorCommandSource.getCommands() 供给。
 
 export interface IEditorCommands {
   // 格式化命令
