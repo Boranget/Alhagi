@@ -70,4 +70,40 @@ describe('CreateTab', () => {
 
     expect(mockElectronSync.syncOpenedFiles).toHaveBeenCalled()
   })
+
+  // ============================================================
+  // fileType 重算契约（3b）：不信任持久化的旧 fileType，
+  // 一律按当前 filePath 经 registry 重算 —— 会话/跨窗口恢复同链路。
+  // ============================================================
+  describe('fileType 按路径重算', () => {
+    it('.md → editor', async () => {
+      const tab = await createTab.execute({ filePath: '/docs/readme.md' })
+      expect(tab.fileType).toBe('editor')
+    })
+
+    it('.txt → text', async () => {
+      const tab = await createTab.execute({ filePath: '/docs/notes.txt' })
+      expect(tab.fileType).toBe('text')
+    })
+
+    it('.png → image', async () => {
+      const tab = await createTab.execute({ filePath: '/img/logo.png' })
+      expect(tab.fileType).toBe('image')
+    })
+
+    it('未知扩展名 → unsupported', async () => {
+      const tab = await createTab.execute({ filePath: '/a/file.xyz' })
+      expect(tab.fileType).toBe('unsupported')
+    })
+
+    it('无 filePath（欢迎页/新建）→ editor', async () => {
+      const tab = await createTab.execute({ title: 'Untitled' })
+      expect(tab.fileType).toBe('editor')
+    })
+
+    it('显式传入 fileType 时尊重调用方（覆盖通道保留，调用方须传 registry id）', async () => {
+      const tab = await createTab.execute({ filePath: '/docs/x.md', fileType: 'text' })
+      expect(tab.fileType).toBe('text')
+    })
+  })
 })

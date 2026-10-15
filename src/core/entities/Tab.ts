@@ -71,7 +71,9 @@ export class Tab {
       title: options.title || '无标题',
       viewMode: options.viewMode || 'wysiwyg',
       splitRatio: options.splitRatio || 1,
-      fileType: options.fileType || 'markdown',
+      // 兜底与 registry 对齐（'editor'）；'markdown' 是 registry 不存在的死值。
+      // 正常链路 CreateTab 总会传入 detectFileType(filePath) 的重算结果。
+      fileType: options.fileType || 'editor',
       createdAt: now,
       lastModified: now,
       lastSaved: null,

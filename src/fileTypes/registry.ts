@@ -62,9 +62,10 @@ export interface FileTypeDescriptor {
    *   :model-value?: string                               (canSave=true 才有意义)
    *   @update:model-value?: (content: string) => void     (canSave=true 才有意义)
    *
-   * 没有 viewer 时（id === 'editor' / 'unsupported'）值为 null：
-   *   - 'editor' 走主编辑器外壳（Crepe + CodeMirror），不走覆盖层
-   *   - 'unsupported' 走内置的"不支持"提示，也不走覆盖层
+   * 没有 viewer 时（id === 'editor'）值为 null，走主编辑器外壳
+   * （Crepe + CodeMirror），不走覆盖层。其余 descriptor（含
+   * 'unsupported' 的提示视图）必须提供 viewer 组件 —— 否则该类型
+   * 会被判定为主编辑器 tab，内容灌给 markdown 链路。
    */
   viewer: Component | null
 }
