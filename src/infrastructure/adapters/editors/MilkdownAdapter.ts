@@ -148,6 +148,10 @@ export class MilkdownAdapter implements IEditorProvider {
     return 'crepe'
   }
 
+  getScrollContainer(): HTMLElement | null {
+    return this.pool.getScrollContainer()
+  }
+
   getActiveCrepe(tabId?: string): any | null {
     return this.pool.getActiveCrepe(tabId)
   }

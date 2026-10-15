@@ -213,7 +213,7 @@ export function initializeContainer(): void {
   _getImageOptions = getImageOptions
   _getImageContext = getImageContext
 
-  initializeEditorGateway({ adapter })
+  initializeEditorGateway({ adapter, getActiveTabId: () => tabsStore.getActiveTabId() })
 }
 
 export { container }

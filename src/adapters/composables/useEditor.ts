@@ -1,24 +1,13 @@
-import { InitEditor } from '@core/use-cases/editor/InitEditor'
 import { GetMarkdown } from '@core/use-cases/editor/GetMarkdown'
 import { SetViewMode } from '@core/use-cases/editor/SetViewMode'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
-import { useTabsStore } from '@/stores/tabs'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
-
-// 单例实例，防止多次创建 InitEditor 导致 handler 累积
-let initEditorSingleton: InitEditor | null = null
 
 export function useEditor() {
   const editorProvider = getEditorServiceGateway()
   const eventBus = useEventBusGateway()
-  const tabRepository = useTabsStore()
-
-  if (!initEditorSingleton) {
-    initEditorSingleton = new InitEditor(editorProvider, eventBus, tabRepository)
-  }
-  const initEditor = initEditorSingleton
 
   const getMarkdown = new GetMarkdown(editorProvider)
   const setViewMode = new SetViewMode(editorProvider, eventBus)
@@ -37,9 +26,6 @@ export function useEditor() {
 
     // 主题
     updateTheme: (isDark: boolean) => editorProvider.updateTheme(isDark),
-
-    // 初始化（通过 Use Case）
-    init: (container: HTMLElement, content: string = '', tabId: string) => initEditor.execute(container, content, tabId),
 
     // 通用操作
     destroy: () => editorProvider.destroy(),

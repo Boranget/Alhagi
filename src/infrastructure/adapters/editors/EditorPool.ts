@@ -226,7 +226,7 @@ export class EditorPool {
           try {
             const view = ctx.get(editorViewCtx)
             const { from, to } = view.state.selection
-            this.emitCursorChange(from, to)
+            this.emitCursorChange(from, to, tabId)
           } catch {
             // ignore
           }
@@ -235,7 +235,7 @@ export class EditorPool {
         ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
           try {
             const { from, to } = selection
-            this.emitCursorChange(from, to)
+            this.emitCursorChange(from, to, tabId)
           } catch {
             // ignore
           }
@@ -478,7 +478,8 @@ export class EditorPool {
 
     try {
       const content = this.tabRepository.getById(instance.tabId)?.content ?? instance.content
-      const cmView = createCodeMirrorView({
+      let cmView: EditorView | null = null
+      cmView = createCodeMirrorView({
         root: instance.cmContainer,
         content,
         onChange: (getString: () => string) => {
@@ -486,6 +487,13 @@ export class EditorPool {
         },
         onFocus: () => {},
         onBlur: () => {},
+        // 源码模式光标移动也要驱动 CURSOR_CHANGED（打字机对齐 + cursor 持久化），
+        // 否则 source 视图下打字机不生效。
+        onSelectionChange: () => {
+          if (!cmView) return
+          const { from, to } = cmView.state.selection.main
+          this.emitCursorChange(from, to, instance.tabId)
+        },
         theme: this.isDarkModeFn() ? 'dark' : 'light',
       })
       cmView.dom.addEventListener('focusin', () => {
@@ -552,6 +560,20 @@ export class EditorPool {
 
   getActiveTabId(): string | null {
     return this.activeTabId
+  }
+
+  /**
+   * 活动 tab 当前视图模式对应的滚动容器。
+   * DOM 结构与视图模式的映射（wysiwyg/split → Crepe 容器，source → CM scroller）
+   * 只由池持有；调用方不得再自行查询选择器。
+   */
+  getScrollContainer(): HTMLElement | null {
+    const instance = this.activeTabId ? this.instances.get(this.activeTabId) : undefined
+    if (!instance) return null
+    if (instance.viewMode === 'source') {
+      return instance.cmView?.scrollDOM ?? null
+    }
+    return instance.crepeContainer
   }
 
   getActiveCrepe(tabId?: string): Crepe | null {
@@ -789,7 +811,10 @@ export class EditorPool {
     }
   }
 
-  private emitCursorChange(from: number, to: number): void {
+  private emitCursorChange(from: number, to: number, tabId?: string): void {
+    // 只上报活动 tab：隐藏实例的内容同步/焦点恢复会触发 selection 回调，
+    // 若不过滤，会把后台 tab 的选区写进活动 tab 的 cursor 持久化，并误触打字机对齐。
+    if (tabId !== undefined && tabId !== this.activeTabId) return
     for (const cb of this.cursorChangeCallbacks) {
       try {
         cb(from, to)

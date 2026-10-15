@@ -2,11 +2,11 @@
 // ScrollServiceGateway — 滚动服务适配器（Adapters Layer）
 // ============================================================
 //
-// 实现 IScrollService 接口，封装编辑器滚动操作的 DOM 细节。
-// 依赖 IEditorService 获取编辑器状态，不直接操作编辑器实例。
+// 实现 IScrollService 接口。
+// 依赖 IEditorProvider 获取编辑器状态，不直接操作编辑器实例。
 //
 // 职责：
-//   - 查找滚动容器（CodeMirror / ProseMirror）
+//   - 从编辑器端口取当前视图模式的滚动容器（DOM 映射由 EditorPool 持有）
 //   - 计算光标 Y 坐标
 //   - 执行带缓动的动画滚动
 //   - 管理打字机模式的事件监听生命周期
@@ -22,6 +22,7 @@ export class ScrollServiceGateway implements IScrollService {
   private animationFrameId: number | null = null
   private typewriterListenerActive = false
   private unsubscribeCursorChange: (() => void) | null = null
+  private unsubscribeTabSwitched: (() => void) | null = null
 
   constructor(
     private editorProvider: IEditorProvider
@@ -65,17 +66,7 @@ export class ScrollServiceGateway implements IScrollService {
   }
 
   findScrollContainer(): HTMLElement | null {
-    const activeEditor = this.editorProvider.getActiveEditor()
-
-    if (activeEditor === 'codemirror') {
-      return this.findCodeMirrorScroller()
-    }
-
-    if (activeEditor === 'crepe') {
-      return this.findCrepeContainer()
-    }
-
-    return this.findByActiveElement()
+    return this.editorProvider.getScrollContainer()
   }
 
   startTypewriterMode(): void {
@@ -83,6 +74,12 @@ export class ScrollServiceGateway implements IScrollService {
 
     this.typewriterListenerActive = true
     this.unsubscribeCursorChange = eventBus.on(AppEvents.CURSOR_CHANGED, () => {
+      this.throttledScrollToCenter()
+    })
+    // 切 tab 后光标已恢复到各自编辑器（markdown 多实例保活 DOM，
+    // viewer 组件在 prop watch 里同步 restore），下一帧即可测量对齐。
+    // 否则打字机开启下切 tab，光标停留在上次滚动位置而非居中。
+    this.unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
       this.throttledScrollToCenter()
     })
   }
@@ -94,6 +91,10 @@ export class ScrollServiceGateway implements IScrollService {
       this.unsubscribeCursorChange()
       this.unsubscribeCursorChange = null
     }
+    if (this.unsubscribeTabSwitched) {
+      this.unsubscribeTabSwitched()
+      this.unsubscribeTabSwitched = null
+    }
 
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId)
@@ -103,85 +104,14 @@ export class ScrollServiceGateway implements IScrollService {
     this.typewriterListenerActive = false
   }
 
-  // ── Private: Scroll Container Detection ─────────────
-
-  private findCodeMirrorScroller(): HTMLElement | null {
-    return (
-      document.querySelector('.cm-editor.cm-focused .cm-scroller') ||
-      document.querySelector('.cm-focused .cm-scroller') ||
-      document.querySelector('.cm-editor.cm-focused') ||
-      document.querySelector('.cm-scroller')
-    )
-  }
-
-  private findCrepeContainer(): HTMLElement | null {
-    return (
-      document.querySelector('.editor-wysiwyg') ||
-      document.querySelector('.editor-split-preview')
-    )
-  }
-
-  private findByActiveElement(): HTMLElement | null {
-    const activeElement = document.activeElement
-
-    if (activeElement?.closest('.cm-editor')) {
-      const cmEditor = activeElement.closest('.cm-editor')
-      return (
-        (cmEditor as HTMLElement)?.querySelector('.cm-scroller') ||
-        (cmEditor as HTMLElement) ||
-        document.querySelector('.cm-scroller')
-      )
-    }
-
-    if (activeElement?.closest('.editor-wysiwyg, .editor-split-preview')) {
-      return (
-        document.querySelector('.editor-split-preview') ||
-        document.querySelector('.editor-wysiwyg')
-      )
-    }
-
-    if (activeElement?.closest('.editor-split-source, .codemirror-editor')) {
-      const cmContainer = activeElement.closest('.codemirror-editor, .editor-split-source')
-      return (
-        (cmContainer as HTMLElement)?.querySelector('.cm-scroller, .cm-editor') ||
-        document.querySelector('.cm-scroller')
-      )
-    }
-
-    // 回退到通用选择器
-    return (
-      document.querySelector('.cm-editor.cm-focused .cm-scroller') ||
-      document.querySelector('.editor-split-preview') ||
-      document.querySelector('.cm-scroller') ||
-      document.querySelector('.editor-wysiwyg')
-    )
-  }
-
   // ── Private: Cursor Position Calculation ────────────
 
   private getCursorYFromContainer(container: HTMLElement): number | null {
-    const isCodeMirror = container.closest('.cm-editor, .codemirror-editor, .editor-split-source') !== null
-    const isCrepe = container.closest('.editor-wysiwyg, .editor-split-preview, .crepe') !== null
-
-    if (isCodeMirror) {
-      return this.getCursorYFromCodeMirror(container)
-    }
-
-    if (isCrepe) {
+    // 容器由池按视图模式给出，光标测量按活动编辑器类型分派，不再扫 DOM 猜类型
+    if (this.editorProvider.getActiveEditor() === 'crepe') {
       return this.getCursorYFromCrepe(container)
     }
-
     return this.getCursorYFromSelection(container)
-  }
-
-  private getCursorYFromCodeMirror(container: HTMLElement): number | null {
-    const selection = window.getSelection()
-    if (!selection?.rangeCount) return null
-
-    const rects = selection.getRangeAt(0).getClientRects()
-    if (!rects.length) return null
-
-    return rects[0].top - container.getBoundingClientRect().top
   }
 
   private getCursorYFromCrepe(container: HTMLElement): number | null {
@@ -194,6 +124,7 @@ export class ScrollServiceGateway implements IScrollService {
     return coords.top - container.getBoundingClientRect().top
   }
 
+  /** 原生选区路径：source（CodeMirror）与回退场景通用 */
   private getCursorYFromSelection(container: HTMLElement): number | null {
     const selection = window.getSelection()
     if (!selection?.rangeCount) return null

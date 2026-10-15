@@ -9,6 +9,7 @@ import type { ViewMode } from '@shared/types'
 function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEditorProvider {
   return {
     getActiveEditor: vi.fn(() => 'crepe') as IEditorProvider['getActiveEditor'],
+    getScrollContainer: vi.fn(() => null) as IEditorProvider['getScrollContainer'],
     getView: vi.fn(() => null),
     getSelection: vi.fn(() => null),
     getHeadings: vi.fn(() => []),
@@ -93,11 +94,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should return cursorResolved: false when cursor position cannot be determined', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg')
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => null,
       })
       gateway = new ScrollServiceGateway(mockProvider)
@@ -107,11 +108,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should calculate correct scroll distance for Crepe editor', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg', 0)
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
           state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
@@ -127,11 +128,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should not scroll when distance is <= 2px', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg', 0)
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => ({
           // cursorY = 420 - 100(containerTop) = 320, targetY = 320 → distance = 0
           coordsAtPos: vi.fn(() => ({ top: 420, bottom: 440, left: 100, right: 100 })),
@@ -147,11 +148,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should use custom targetY when provided', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg', 0)
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
           state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
@@ -168,7 +169,7 @@ describe('ScrollServiceGateway', () => {
   // ── startTypewriterMode / stopTypewriterMode ───────
 
   describe('startTypewriterMode / stopTypewriterMode', () => {
-    it('should subscribe to CURSOR_CHANGED event when started', () => {
+    it('should subscribe to CURSOR_CHANGED and TAB_SWITCHED when started', () => {
       const onSpy = vi.spyOn(eventBus, 'on')
       mockProvider = createMockEditorProvider()
       gateway = new ScrollServiceGateway(mockProvider)
@@ -176,6 +177,7 @@ describe('ScrollServiceGateway', () => {
       gateway.startTypewriterMode()
 
       expect(onSpy).toHaveBeenCalledWith(AppEvents.CURSOR_CHANGED, expect.any(Function))
+      expect(onSpy).toHaveBeenCalledWith(AppEvents.TAB_SWITCHED, expect.any(Function))
     })
 
     it('should not add duplicate subscription when started twice', () => {
@@ -186,10 +188,11 @@ describe('ScrollServiceGateway', () => {
       gateway.startTypewriterMode()
       gateway.startTypewriterMode()
 
-      expect(onSpy).toHaveBeenCalledTimes(1)
+      // 每个事件各订阅一次（CURSOR_CHANGED + TAB_SWITCHED），重复 start 不叠加
+      expect(onSpy).toHaveBeenCalledTimes(2)
     })
 
-    it('should unsubscribe from CURSOR_CHANGED event when stopped', () => {
+    it('should unsubscribe from both events when stopped', () => {
       const unsubscribe = vi.fn()
       vi.spyOn(eventBus, 'on').mockReturnValue(unsubscribe)
       mockProvider = createMockEditorProvider()
@@ -198,7 +201,36 @@ describe('ScrollServiceGateway', () => {
       gateway.startTypewriterMode()
       gateway.stopTypewriterMode()
 
-      expect(unsubscribe).toHaveBeenCalled()
+      expect(unsubscribe).toHaveBeenCalledTimes(2)
+    })
+
+    it('should realign cursor to center on TAB_SWITCHED while active', () => {
+      const container = createMockHTMLElement()
+      // 光标 viewport y = coords.top(500) - container.top(100) = 400 → 目标 320 → 滚 80
+      const view = {
+        state: { selection: { from: 1, to: 1 } },
+        coordsAtPos: () => ({ top: 500, bottom: 520, left: 0, right: 10 }),
+      }
+      mockProvider = createMockEditorProvider({
+        getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
+        getView: () => view as never,
+      })
+      gateway = new ScrollServiceGateway(mockProvider)
+
+      gateway.startTypewriterMode()
+      eventBus.emit(AppEvents.TAB_SWITCHED, { tabId: 'tab-2' })
+      // 帧 1：外层 rAF 派发 scrollCursorToPosition；帧 2：animatedScrollTo 首帧落 scrollTop
+      vi.advanceTimersByTime(32)
+
+      expect(container.scrollTop).toBeGreaterThan(0)
+
+      // 停用后同一事件不再触发滚动
+      container.scrollTop = 0
+      gateway.stopTypewriterMode()
+      eventBus.emit(AppEvents.TAB_SWITCHED, { tabId: 'tab-3' })
+      vi.advanceTimersByTime(32)
+      expect(container.scrollTop).toBe(0)
     })
 
     it('should be idempotent when stopped without starting', () => {
@@ -209,6 +241,56 @@ describe('ScrollServiceGateway', () => {
 
       gateway.stopTypewriterMode()
       expect(unsubscribe).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── 滚动容器来自编辑器端口（DOM 结构映射由池持有） ──
+
+  describe('scroll container from editor provider', () => {
+    it('should return the container provided by the editor provider', () => {
+      const container = createMockHTMLElement()
+
+      mockProvider = createMockEditorProvider({
+        getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
+      })
+      gateway = new ScrollServiceGateway(mockProvider)
+
+      expect(gateway.findScrollContainer()).toBe(container)
+    })
+
+    it('should measure cursor via native selection when active editor is codemirror', () => {
+      const scroller = createMockHTMLElement()
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        rangeCount: 1,
+        getRangeAt: () => ({ getClientRects: () => [{ top: 250 }] }),
+      } as unknown as Selection)
+
+      mockProvider = createMockEditorProvider({
+        getActiveEditor: () => 'codemirror',
+        getScrollContainer: () => scroller,
+      })
+      gateway = new ScrollServiceGateway(mockProvider)
+
+      expect(gateway.getCursorY()).toEqual({ y: 150, viewportY: 250 })
+    })
+
+    it('should use crepe coords path by editor type, not by container DOM classes', () => {
+      // 旧实现靠 closest() 扫类名猜类型；容器类名带 cm-* 也应按活动编辑器类型走 crepe 路径
+      const crepeContainer = createMockHTMLElement('cm-scroller')
+
+      mockProvider = createMockEditorProvider({
+        getActiveEditor: () => 'crepe',
+        getScrollContainer: () => crepeContainer,
+        getView: () => ({
+          coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
+          state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },
+          dispatch: vi.fn(),
+        }),
+      })
+      gateway = new ScrollServiceGateway(mockProvider)
+
+      expect(gateway.getCursorY()).toEqual({ y: 300, viewportY: 400 })
     })
   })
 
@@ -223,11 +305,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should return null when cursor position cannot be determined', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg')
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => null,
       })
       gateway = new ScrollServiceGateway(mockProvider)
@@ -236,11 +318,11 @@ describe('ScrollServiceGateway', () => {
     })
 
     it('should return correct cursor position for Crepe editor', () => {
-      const editorWysiwyg = createMockHTMLElement('editor-wysiwyg')
-      document.body.appendChild(editorWysiwyg)
+      const container = createMockHTMLElement()
 
       mockProvider = createMockEditorProvider({
         getActiveEditor: () => 'crepe',
+        getScrollContainer: () => container,
         getView: () => ({
           coordsAtPos: vi.fn(() => ({ top: 400, bottom: 420, left: 100, right: 100 })),
           state: { selection: { from: 10, to: 10 }, tr: {}, doc: {} },

@@ -4,18 +4,11 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useWritingEnhancement, resetWritingEnhancementInstance } from '@/adapters/composables/useWritingEnhancement'
 import { useViewModeStore } from '@/stores/viewMode'
 
-// Mock the crepeEditorManager
-vi.mock('@/managers/crepeEditorManager', () => ({
-  useCrepeEditorManager: vi.fn(() => ({
-    getActiveEditor: vi.fn(() => 'crepe'),
-    getView: vi.fn(() => null),
-  })),
-}))
-
 // Mock EditorServiceGateway
 vi.mock('@adapters/gateways/EditorServiceGateway', () => {
   const mockGateway = {
     getActiveEditor: vi.fn(() => 'crepe'),
+    getScrollContainer: vi.fn(() => null),
     getView: vi.fn(() => null),
     getSelection: vi.fn(() => null),
     getMarkdown: vi.fn(() => ''),

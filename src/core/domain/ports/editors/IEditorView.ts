@@ -18,6 +18,7 @@ export interface IEditorView {
   setViewMode(mode: ViewMode): void
   setTabViewMode(tabId: string, mode: ViewMode): void
   getViewMode(): ViewMode
+  getScrollContainer(): HTMLElement | null
   scrollToHeading(pos: number): void
   getHeadings(): EditorHeading[]
   getSelection(): EditorSelection | null

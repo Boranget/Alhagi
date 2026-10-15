@@ -7,9 +7,12 @@
 import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
+import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 
 export interface EditorServiceGatewayDeps {
   adapter: IEditorProvider
+  /** 组合根提供：事件桥接时把池级回调对齐到当前活动 tab */
+  getActiveTabId: () => string | null
 }
 
 export class EditorServiceGateway implements IEditorProvider {
@@ -77,6 +80,10 @@ export class EditorServiceGateway implements IEditorProvider {
 
   getViewMode(): ViewMode {
     return this.adapter.getViewMode()
+  }
+
+  getScrollContainer(): HTMLElement | null {
+    return this.adapter.getScrollContainer()
   }
 
   getActiveEditor(): 'crepe' | 'codemirror' | null {
@@ -162,13 +169,32 @@ export class EditorServiceGateway implements IEditorProvider {
 // 单例工厂（由 DI 容器管理实例）
 let gatewayInstance: EditorServiceGateway | null = null
 
-export function initializeEditorGateway(deps: EditorServiceGatewayDeps): void {
-  if (gatewayInstance) return
-  gatewayInstance = new EditorServiceGateway(deps)
+/**
+ * 池级回调 → 事件总线的唯一桥接点（打字机对齐、光标持久化、搜索高亮
+ * 都订阅这些事件）。做在组合根而非组件挂载里：EditorContainer 卸载/重建
+ * 不再影响事件流，且 gateway 存在即桥接存在，无法漏配。
+ */
+function bridgeEditorEvents(provider: IEditorProvider, getActiveTabId: () => string | null): void {
+  const bus = useEventBusGateway()
+
+  provider.onCursorChange((from, to) => {
+    const tabId = getActiveTabId()
+    if (!tabId) return
+    bus.emit('editor:cursor:changed', { from, to, tabId })
+  })
+
+  provider.onContentChange((markdown) => {
+    const tabId = getActiveTabId()
+    if (!tabId) return
+    bus.emit('editor:content:changed', { content: markdown, tabId })
+  })
 }
 
-export function setEditorServiceGateway(instance: EditorServiceGateway): void {
-  gatewayInstance = instance
+export function initializeEditorGateway(deps: EditorServiceGatewayDeps): void {
+  if (gatewayInstance) return
+  const gateway = new EditorServiceGateway(deps)
+  gatewayInstance = gateway
+  bridgeEditorEvents(gateway, deps.getActiveTabId)
 }
 
 export function getEditorServiceGateway(): EditorServiceGateway {

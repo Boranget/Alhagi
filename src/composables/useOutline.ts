@@ -94,9 +94,9 @@ export function useOutline(bus?: IEventBus) {
       return
     }
 
-    const editorElement = findScrollContainer(mode)
+    const editorElement = findScrollContainer()
     if (!editorElement) {
-      retryFindScrollContainer(mode)
+      retryFindScrollContainer()
       return
     }
 
@@ -104,22 +104,19 @@ export function useOutline(bus?: IEventBus) {
     setupScrollHandler()
   }
 
-  function findScrollContainer(mode: string): HTMLElement | null {
-    if (mode === EDITOR.VIEW_MODES.WYSIWYG) {
-      return document.querySelector('.editor-wysiwyg') as HTMLElement
-    } else if (mode === EDITOR.VIEW_MODES.SPLIT) {
-      return document.querySelector('.editor-split-preview') as HTMLElement
-    }
-    return null
+  function findScrollContainer(): HTMLElement | null {
+    // 滚动容器由池按视图模式给出；wysiwyg/split 都是 Crepe 侧容器。
+    // source 模式不做滚动同步，由调用方（shouldTrackPosition / initScrollListener）把关。
+    return gateway.getScrollContainer()
   }
 
-  function retryFindScrollContainer(mode: string) {
+  function retryFindScrollContainer() {
     let retries = 0
     const maxRetries = 10
     const retryInterval = setInterval(() => {
       retries++
 
-      const editorElement = findScrollContainer(mode)
+      const editorElement = findScrollContainer()
 
       if (editorElement) {
         clearInterval(retryInterval)
@@ -232,7 +229,7 @@ export function useOutline(bus?: IEventBus) {
     refreshOutline()
 
     if (shouldTrackPosition()) {
-      const currentContainer = findScrollContainer(tab.viewMode)
+      const currentContainer = findScrollContainer()
 
       if (currentContainer !== scrollContainer) {
         isOutlineInitialized.value = false
@@ -252,19 +249,12 @@ export function useOutline(bus?: IEventBus) {
 
   let unsubscribeContentChanged: (() => void) | null = null
   let unsubscribeTabSwitched: (() => void) | null = null
-  let unsubscribeEditorReady: (() => void) | null = null
   let unsubscribeViewModeChanged: (() => void) | null = null
   let unsubscribeActiveEditorChanged: (() => void) | null = null
 
   function setupEventListeners() {
     unsubscribeContentChanged = eventBus.on(AppEvents.CONTENT_CHANGED, () => {
       refreshOutline()
-    })
-
-    unsubscribeEditorReady = eventBus.on(AppEvents.EDITOR_READY, () => {
-      trackTimer(setTimeout(() => {
-        ensureOutlineReady()
-      }, EDITOR_SETTLE_DELAY_MS))
     })
 
     unsubscribeTabSwitched = eventBus.on(AppEvents.TAB_SWITCHED, () => {
@@ -288,7 +278,6 @@ export function useOutline(bus?: IEventBus) {
   function cleanupEventListeners() {
     unsubscribeContentChanged?.()
     unsubscribeTabSwitched?.()
-    unsubscribeEditorReady?.()
     unsubscribeViewModeChanged?.()
     unsubscribeActiveEditorChanged?.()
     cleanupScrollListener()

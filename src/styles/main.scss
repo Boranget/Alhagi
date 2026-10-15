@@ -241,26 +241,22 @@ textarea {
 // 打字机模式 & 专注模式 —— 全局 body 级样式
 // ──────────────────────────────────────────
 
-// 打字机模式：光标始终居中 + 编辑区顶部留白
+// 打字机模式：光标居中 + 编辑区上下 40vh 留白
+// padding 规则在 EditorContainer.vue scoped 的 &.typewriter-mode 下 ——
+// 组件内 .tab-editor-crepe/.tab-editor-cm 的 padding 特异性更高，
+// 全局写在这里永远输（打字机"不生效"的成因之一），勿再搬回。
 body.typewriter-mode {
+  .tab-editor-crepe,
+  .tab-editor-cm .cm-scroller {
+    scroll-behavior: auto; // JS 控制 instant 滚动，CSS 不需要 smooth
+  }
+
+  // 旧多实例前选择器（0149c06 已删除），留作回退
   .editor-wysiwyg,
   .editor-split-preview,
   .codemirror-editor,
   .editor-split-source {
-    scroll-behavior: auto; // JS 控制 instant 滚动，CSS 不需要 smooth
-  }
-
-  // ProseMirror 编辑器（WYSIWYG 模式）顶部留白
-  .ProseMirror {
-    padding-top: 40vh !important;
-    padding-bottom: 40vh !important;
-  }
-
-  // CodeMirror 源码模式顶部留白（排除代码块内的 CodeMirror）
-  .editor-split-source .cm-content,
-  .codemirror-editor .cm-content {
-    padding-top: 40vh !important;
-    padding-bottom: 40vh !important;
+    scroll-behavior: auto;
   }
 }
 

@@ -52,7 +52,7 @@ import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
 
 const tabsStore = useTabsStore()
 const viewModeStore = useViewModeStore()
-const { activeTab, activeTabId } = storeToRefs(tabsStore)
+const { activeTab } = storeToRefs(tabsStore)
 const { typewriterMode, focusMode } = storeToRefs(viewModeStore)
 const editorCtx = useEditorContext()
 const { windowWidth, isSmallScreen, editorScale } = useResponsiveEditor()
@@ -205,16 +205,8 @@ onMounted(async () => {
     console.error('[EditorContainer] editorWrapper is null!')
   }
 
-  // 多实例架构下，InitEditor.execute() 未被调用，需在此注册 CONTENT_CHANGED 事件
-  // 使 useWorkspaceSearch 的搜索高亮在编辑时动态更新
-  unsubscribes.push(
-    editorCtx.onContentChange((markdown) => {
-      const tabId = activeTabId.value
-      if (tabId) {
-        eventBus.emit(AppEvents.CONTENT_CHANGED, { content: markdown, tabId })
-      }
-    })
-  )
+  // CONTENT_CHANGED / CURSOR_CHANGED 由组合根统一桥接（见 bridgeEditorEvents）：
+  // 池级回调 → 事件总线，随挂载/卸载反复注册会造成漏配或重复发送。
 
   // 关闭的 tab 立即释放编辑器实例（Crepe/CM/DOM），否则每次关闭都泄漏
   unsubscribes.push(
@@ -298,6 +290,28 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.small-screen {
     :deep(.milkdown-block-handle) {
       display: none !important;
+    }
+  }
+
+  /* 打字机模式：编辑区上下 40vh 留白，让光标停在视口中部。
+   * 必须在 scoped 里写：组件内 .tab-editor-crepe/.tab-editor-cm 的
+   * padding 规则特异性（0,4,0）压过 body.typewriter-mode 全局规则
+   * （0,2,1），全局 40vh 永远不生效 —— 这正是打字机"不生效"的成因之一。
+   * .editor-content.typewriter-mode 钩子来自 contentClasses。 */
+  &.typewriter-mode {
+    :deep(.tab-editor-crepe) {
+      .ProseMirror {
+        padding-top: 40vh !important;
+        padding-bottom: 40vh !important;
+      }
+    }
+
+    // 源码/分屏 CM：仅容器级 cm-content（代码块内 CM 不在 .tab-editor-cm 下，天然排除）
+    :deep(.tab-editor-cm) {
+      .cm-content {
+        padding-top: 40vh !important;
+        padding-bottom: 40vh !important;
+      }
     }
   }
 }

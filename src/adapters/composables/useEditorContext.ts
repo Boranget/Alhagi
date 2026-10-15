@@ -16,7 +16,6 @@ export function useEditorContext() {
     hasTab: (tabId: string) => editor.hasTab(tabId),
     getCMSearchService: (tabId?: string): SearchService | null => editor.getCMSearchService(tabId),
     updateTheme: (isDark: boolean) => editor.updateTheme(isDark),
-    init: (container: HTMLElement, content: string = '', tabId: string = '') => editor.init(container, content, tabId),
     destroy: () => editor.destroy(),
     isReady: () => editor.isReady(),
     getMarkdown: () => editor.getMarkdown(),
