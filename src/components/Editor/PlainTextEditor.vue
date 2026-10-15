@@ -9,39 +9,20 @@
 /**
  * PlainTextEditor —— 纯文本可编辑视图（辅助功能 viewer）。
  *
- * **完全独立**：不依赖 CodeMirrorEditor 或 codemirror/setup.ts。
- * 源码模式（CodeMirrorEditor）以后加任何 markdown 专属特性
- * （行内公式预览、wiki link、@mention 等）都不会影响这里。
- * 隔离代价：~30 行重复的"创建 EditorView + 主题切换"样板，可接受。
- *
- * 状态持久化：cursor / scrollTop 存到 `tab.viewerState.text`。
- * 与 markdown tab 的 `tab.crepe` / `tab.codeMirror` 字段解耦，按
- * descriptor.id（'text'）命名空间隔离。未来 PDF/视频 viewer 各自往
- * `viewerState.pdf` / `viewerState.video` 存自己的状态。
+ * 建立在 useCmDocumentView 底座上：EditorView 生命周期 / 主题 / 搜索 /
+ * 外部同步标注全部来自底座，本组件只保留 text viewer 特有的两件事：
+ *   1. viewerState.text 的光标 / 滚动持久化（按 descriptor id 命名空间隔离，
+ *      未来 PDF / 视图类 viewer 各存自己的 viewerState.<id>）
+ *   2. tab 切换时的状态保存 / 恢复编排
  *
  * 见 [[alhagi-auxiliary-features]]。
  */
 
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { watch, onMounted, onUnmounted } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
-import { usePreferencesStore } from '@/stores/preferences'
-import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { search } from '@codemirror/search'
-import {
-  EditorView,
-  drawSelection,
-  dropCursor,
-  highlightActiveLine,
-  highlightSpecialChars,
-  keymap,
-  rectangularSelection,
-  crosshairCursor,
-} from '@codemirror/view'
-import { githubLight, githubDark } from '@uiw/codemirror-theme-github'
-
-import { CodeMirrorSearchService, codeMirrorSearchHighlight } from '@/services/search'
+import { useCmDocumentView } from './codemirror/useCmDocumentView'
+import { ExternalChange } from './codemirror/shared'
+import { useViewerSearchSlot } from '@/composables/useSearch'
 
 interface Props {
   modelValue: string
@@ -58,77 +39,16 @@ const emit = defineEmits<{
 }>()
 
 const tabsStore = useTabsStore()
-const prefsStore = usePreferencesStore()
-const { theme } = storeToRefs(prefsStore)
 
-const editorRef = ref<HTMLElement | null>(null)
-let view: EditorView | null = null
-const searchManager = new CodeMirrorSearchService(() => view)
+// EditorContainer 提供的 viewer 搜索槽：挂载注册、卸载注销，
+// Ctrl+F 据此路由到本组件的 searchManager（无提供者时为一次性 ref，静默 no-op）。
+const searchSlot = useViewerSearchSlot()
 
-const themeCompartment = new Compartment()
-
-/**
- * Transaction 标注：标记由"外部 modelValue 同步"驱动的 dispatch
- * （切 tab、saveAs 等），与"用户在编辑器里敲键盘"区分开。
- *
- * updateListener 看到带此标注的 transaction 就**不再** emit('update:modelValue')，
- * 避免把外部输入当成用户编辑触发 isDirty。
- */
-const ExternalChange = Annotation.define<boolean>()
-
-const isDark = computed(() => {
-  if (theme.value === 'dark') return true
-  if (theme.value === 'system') {
-    return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
-  }
-  return false
+const { editorRef, createView, destroyView, syncContent, getView, searchManager } = useCmDocumentView({
+  onUserChange: (content) => emit('update:modelValue', content),
+  onFocus: () => emit('focus'),
+  onBlur: () => emit('blur'),
 })
-
-function getTheme(): Extension {
-  return isDark.value ? githubDark : githubLight
-}
-
-/**
- * 纯文本视图自己的扩展集 —— 故意不引入 markdown / lang-* 包。
- * 想给 .json / .yaml 加按扩展名动态选语言时，在这里加 import + 选择即可，
- * 不会污染源码模式（markdown 编辑器）。
- */
-function buildExtensions(): Extension[] {
-  return [
-    highlightSpecialChars(),
-    history(),
-    drawSelection(),
-    dropCursor(),
-    EditorState.allowMultipleSelections.of(true),
-    rectangularSelection(),
-    crosshairCursor(),
-    highlightActiveLine(),
-    search(),
-    codeMirrorSearchHighlight(),
-    keymap.of([
-      ...defaultKeymap,
-      ...historyKeymap,
-    ]),
-    themeCompartment.of(getTheme()),
-    EditorView.updateListener.of((update) => {
-      if (update.focusChanged) {
-        if (update.view.hasFocus) emit('focus')
-        else emit('blur')
-      }
-      // 严格仅 doc 变化才上报，避免点击/滚动误标 isDirty。
-      // 同时跳过"外部同步"产生的变更（切 tab 时父组件 modelValue 变化触发的
-      // dispatch），它们带有 ExternalChange 标注 —— 不是用户编辑。
-      if (update.docChanged) {
-        const fromExternal = update.transactions.some(
-          (tr) => tr.annotation(ExternalChange) === true,
-        )
-        if (!fromExternal) {
-          emit('update:modelValue', update.state.doc.toString())
-        }
-      }
-    }),
-  ]
-}
 
 function getViewerState(tabId = props.tabId): { cursor?: { from: number; to: number }; scrollTop?: number } {
   if (!tabId) return {}
@@ -139,6 +59,7 @@ function getViewerState(tabId = props.tabId): { cursor?: { from: number; to: num
 }
 
 function persistViewerState(tabId = props.tabId): void {
+  const view = getView()
   if (!tabId || !view) return
   const tab = tabsStore.getTab(tabId)
   if (!tab) return
@@ -154,6 +75,7 @@ function persistViewerState(tabId = props.tabId): void {
 }
 
 function restoreViewerState(tabId = props.tabId): void {
+  const view = getView()
   if (!view) return
   const saved = getViewerState(tabId)
   if (saved.cursor) {
@@ -172,50 +94,28 @@ function restoreViewerState(tabId = props.tabId): void {
   }
   if (typeof saved.scrollTop === 'number') {
     requestAnimationFrame(() => {
-      if (view) view.scrollDOM.scrollTop = saved.scrollTop ?? 0
+      const v = getView()
+      if (v) v.scrollDOM.scrollTop = saved.scrollTop ?? 0
     })
   }
 }
 
-function createView(content: string) {
-  if (!editorRef.value) return
-  view = new EditorView({
-    state: EditorState.create({
-      doc: content,
-      extensions: buildExtensions(),
-    }),
-    parent: editorRef.value,
-  })
-
-  // 恢复光标 / 滚动
-  restoreViewerState()
-
-  // mount 后自动 focus —— 避免用户打开 .txt 后看不到光标
-  view.focus()
-}
-
-function destroyView() {
-  if (!view) return
-  searchManager.clear()
-  persistViewerState()
-  view.destroy()
-  view = null
-}
-
 onMounted(() => {
   createView(props.modelValue)
+  // 恢复光标 / 滚动
+  restoreViewerState()
+  // mount 后自动 focus —— 避免用户打开 .txt 后看不到光标
+  getView()?.focus()
+  searchSlot.value = searchManager
 })
 
 onUnmounted(() => {
+  // 先注销再销毁：注销带回环保护，不覆盖已被其它实例接管的槽位。
+  // 槽位是 shallowRef —— ref() 会把对象值包成 reactive proxy，
+  // proxy !== 原实例导致这里的 === 回环保护失效。
+  if (searchSlot.value === searchManager) searchSlot.value = null
+  persistViewerState()
   destroyView()
-})
-
-// 主题动态切换
-watch(isDark, () => {
-  if (!view) return
-  view.dispatch({
-    effects: themeCompartment.reconfigure(getTheme()),
-  })
 })
 
 // 外部更新（切 tab / saveAs / 其它窗口同步等）→ 同步进 EditorView。
@@ -223,39 +123,24 @@ watch(isDark, () => {
 // 注意：PlainTextEditor 作为 dynamic viewer 会在多个 text tab 之间**复用同一个组件实例**。
 // 因此 tabId 变化时必须：
 //   1. 先保存旧 tab 的 viewerState.text
-//   2. 用新 modelValue 替换当前 CodeMirror doc（带 ExternalChange，避免误标 isDirty）
-//   3. 下一帧恢复新 tab 的 cursor / scrollTop
+//   2. 用新 modelValue 替换当前 CodeMirror doc（底座 syncContent 带 ExternalChange，避免误标 isDirty）
+//   3. 恢复新 tab 的 cursor / scrollTop
 watch(
   () => ({ tabId: props.tabId, content: props.modelValue }),
   (next, prev) => {
-    if (!view) return
+    if (!getView()) return
 
     if (prev?.tabId && prev.tabId !== next.tabId) {
       persistViewerState(prev.tabId)
     }
 
-    const cur = view.state.doc.toString()
-    if (cur !== next.content) {
-      view.dispatch({
-        changes: { from: 0, to: cur.length, insert: next.content },
-        annotations: ExternalChange.of(true),
-      })
-    }
+    syncContent(next.content)
 
     if (prev?.tabId !== next.tabId) {
       restoreViewerState(next.tabId)
     }
   },
 )
-
-defineExpose({
-  search: searchManager.search.bind(searchManager),
-  clearSearch: searchManager.clear.bind(searchManager),
-  findNext: searchManager.findNext.bind(searchManager),
-  findPrev: searchManager.findPrev.bind(searchManager),
-  replaceNext: searchManager.replaceNext.bind(searchManager),
-  replaceAll: searchManager.replaceAll.bind(searchManager),
-})
 </script>
 
 <style scoped lang="scss">

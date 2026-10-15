@@ -8,23 +8,33 @@
       class="editor-content"
       :class="contentClasses"
     >
-      <!-- 不支持的文件格式提示 -->
-      <UnsupportedFileMessage
-        v-if="activeTab && !isSupportedFileType(activeTab.filePath)"
-        :file-path="activeTab.filePath || ''"
-      />
-
-      <!-- 多实例编辑器容器 — EditorPool 管理内部的 Crepe + CodeMirror -->
+      <!-- 主编辑器外壳（Crepe + CodeMirror）始终保留在 DOM 中（v-show）——
+           切到辅助 viewer 后不卸载，切回 markdown 无需重建实例。
+           辅助 viewer（text / image / unsupported）作为绝对定位覆盖层渲染在上方。 -->
       <div
+        v-show="useEditorShell"
         ref="editorWrapper"
         class="editor-wrapper"
+      />
+
+      <!-- 辅助 viewer 覆盖层：descriptor.viewer 非 null 时挂载。
+           canSave 决定是否双向绑定 model-value；tabId 透传，
+           viewer 可往 tab.viewerState[descriptor.id] 持久化私有状态。 -->
+      <component
+        :is="currentDescriptor.viewer"
+        v-if="!useEditorShell && currentDescriptor.viewer && activeTab"
+        class="viewer-overlay"
+        :tab-id="activeTab.id"
+        :file-path="activeTab.filePath ?? null"
+        :model-value="currentDescriptor.canSave ? activeTab.content : undefined"
+        @update:model-value="currentDescriptor.canSave ? handleViewerChange($event) : undefined"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@/stores/tabs'
 import { useViewModeStore } from '@/stores/viewMode'
@@ -33,8 +43,8 @@ import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 import { EDITOR } from '@/constants'
 import type { ViewMode } from '@/types'
 import FloatingSearch from './FloatingSearch.vue'
-import UnsupportedFileMessage from './UnsupportedFileMessage.vue'
-import { provideSearchService } from '@/composables/useSearch'
+import { getDescriptor, detectDescriptor, type FileTypeDescriptor } from '@/fileTypes'
+import { provideSearchService, provideViewerSearchSlot } from '@/composables/useSearch'
 import { CrepeSearchService } from '@/services/search'
 import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
 import type { SearchConfig } from '@/utils/search'
@@ -53,7 +63,32 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 const currentMode = ref<ViewMode>('wysiwyg')
 const unsubscribes: (() => void)[] = []
 
+/**
+ * 当前 tab 对应的 descriptor —— 渲染分支的单一事实源。
+ *   - editor（viewer === null）→ 主编辑器外壳（Crepe + CodeMirror）
+ *   - 其它（text / image / unsupported）→ descriptor.viewer 覆盖层
+ *
+ * 欢迎页（无 activeTab / 无 filePath）→ 默认按 editor 处理，让 Crepe 挂载占位。
+ */
+const currentDescriptor = computed<FileTypeDescriptor>(() => {
+  if (!activeTab.value) return detectDescriptor(null)
+  return getDescriptor(activeTab.value.fileType) ?? detectDescriptor(activeTab.value.filePath)
+})
+
+/** 使用主编辑器外壳的条件：descriptor 没有自己的 viewer。 */
+const useEditorShell = computed(() => currentDescriptor.value.viewer === null)
+
+/**
+ * viewer 搜索注册槽：辅助 viewer 挂载时注册 searchManager、卸载时注销。
+ * 无 viewer 注册（image / unsupported）时为 null，Ctrl+F 静默无效。
+ * shallowRef：service 是类实例，不深度代理（ref 会包 proxy 破坏 === 保护与 private field）。
+ */
+const viewerSearchSlot = shallowRef<SearchService | null>(null)
+provideViewerSearchSlot(viewerSearchSlot)
+
 const searchService = computed(() => {
+  // 辅助 viewer tab：搜索路由到 viewer 注册的服务，而非被覆盖层遮住的主编辑器
+  if (!useEditorShell.value) return viewerSearchSlot.value
   // 多实例架构下，搜索服务基于当前活动编辑器
   if (currentMode.value === 'wysiwyg' || currentMode.value === 'split') {
     return new CrepeSearchService(() => editorCtx.getView())
@@ -66,13 +101,6 @@ const searchService = computed(() => {
 })
 
 provideSearchService(searchService)
-
-// 检查文件是否为支持的格式（仅支持 Markdown）
-function isSupportedFileType(filePath: string | null): boolean {
-  if (!filePath) return true // 没有文件路径时（欢迎页）显示编辑器
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  return ext === 'md' || ext === 'markdown'
-}
 
 const containerStyle = computed(() => ({
   '--editor-scale': editorScale.value.toString()
@@ -89,11 +117,19 @@ const contentClasses = computed(() => ({
 // Tab 切换逻辑（多实例）
 // ============================================================
 
-watch(activeTab, async (tab, oldTab) => {
-  const oldId = oldTab?.id ?? 'null'
-  const newId = tab?.id ?? 'null'
-
+// activeTab 是原地 mutate 的同一对象引用（updateTab 走 Object.assign），
+// watch 只盯对象身份会在 save-as 改扩展名（fileType 变化）时漏触发，
+// 故把 currentDescriptor 一并作为 watch 源（descriptor 引用随 fileType 变化）。
+watch([activeTab, currentDescriptor], async ([tab]) => {
   if (!tab) {
+    return
+  }
+
+  // 仅 markdown 主编辑器 tab 参与 EditorPool 链路。
+  // 辅助 tab（text / image / unsupported）完全不动 Crepe/CM：
+  //   - 它们的 content 是纯文本或空，不能灌给 markdown 解析器
+  //   - 灌进去会触发 docChanged 误标 isDirty
+  if (currentDescriptor.value.id !== 'editor') {
     return
   }
 
@@ -117,6 +153,8 @@ watch(activeTab, async (tab, oldTab) => {
 const handleViewModeChange = async (mode: ViewMode) => {
   if (mode === currentMode.value) return
   if (!activeTab.value) return
+  // 辅助 viewer tab 没有 viewMode 概念
+  if (currentDescriptor.value.id !== 'editor') return
 
   // 切换模式时自动关闭搜索框
   floatingSearchRef.value?.hide()
@@ -128,6 +166,19 @@ const handleViewModeChange = async (mode: ViewMode) => {
 
   // 等待 DOM 更新
   await nextTick()
+}
+
+/**
+ * 辅助 viewer 内容变化（仅 canSave=true 的 viewer 触发，如 PlainTextEditor）。
+ * 写回 store + 标脏；不走 editorManager/Crepe 链路，辅助 tab 不参与主编辑器。
+ * 随后发 CONTENT_CHANGED —— 与 markdown 链路（pool onContentChange）对齐：
+ * 搜索高亮实时刷新 + 自动保存调度对 txt tab 同样生效。
+ */
+function handleViewerChange(content: string) {
+  if (!activeTab.value) return
+  const tabId = activeTab.value.id
+  tabsStore.updateTab(tabId, { content, isDirty: true })
+  eventBus.emit(AppEvents.CONTENT_CHANGED, { content, tabId })
 }
 
 // ============================================================
@@ -249,6 +300,16 @@ function handleEditorKeydown(e: KeyboardEvent) {
       display: none !important;
     }
   }
+}
+
+/* 辅助 viewer 覆盖层（image / text / unsupported / 未来 PDF 等）。
+ * :deep() 是因为 viewer 是 dynamic <component>，class 落在子组件根元素上，
+ * scoped CSS 需穿透才能命中。
+ * 同一时刻只有一个 viewer 在挂载（v-if 保证），z-index 不会冲突。 */
+:deep(.viewer-overlay) {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
 }
 
 // ============================================================

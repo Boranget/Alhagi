@@ -1,5 +1,5 @@
 import type { Extension } from '@codemirror/state'
-import { Annotation, Compartment } from '@codemirror/state'
+import { Compartment } from '@codemirror/state'
 import {
   autocompletion,
   closeBrackets,
@@ -34,26 +34,17 @@ import { githubLight } from '@uiw/codemirror-theme-github'
 import { githubDark } from '@uiw/codemirror-theme-github'
 import { debounce } from '@/utils/helpers'
 import { codeMirrorSearchHighlight } from '@/services/search'
+import { ExternalChange, type ThemeType } from './shared'
 
-export type ThemeType = 'dark' | 'light'
+// 向后兼容转发：ExternalChange / ThemeType 的唯一定义在 ./shared.ts
+export { ExternalChange } from './shared'
+export type { ThemeType } from './shared'
 
 /** CodeMirror 内容更新防抖延迟 */
 const CODEMIRROR_UPDATE_DEBOUNCE_MS = 200
 
 const themeCompartment = new Compartment()
 const typographyCompartment = new Compartment()
-
-/**
- * Transaction 标注：标记由"外部 modelValue 同步"驱动的 dispatch
- * （切 tab、saveAs、其它窗口同步等），与"用户在编辑器里敲键盘"区分开。
- *
- * 配合 EditorView.updateListener 检查：带此标注的 transaction
- * 不再调用 onChange，避免把外部输入当用户编辑触发 isDirty。
- *
- * 跟 PlainTextEditor 内部那个 ExternalChange 是同义物（PlainTextEditor 不依赖
- * setup.ts，自己定义了一份）。两者做完全一样的事。
- */
-export const ExternalChange = Annotation.define<boolean>()
 
 /**
  * 获取主题扩展
