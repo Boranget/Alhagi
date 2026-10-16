@@ -127,25 +127,6 @@ export const LayoutQueries = {
   GET_ALL: 'layout:getAll',
 } as const
 
-// ── Search Commands ─────────────────────────────────────
-export const SearchCommands = {
-  EXECUTE: 'search:execute',
-  FIND_NEXT: 'search:findNext',
-  FIND_PREV: 'search:findPrev',
-  REPLACE_NEXT: 'search:replaceNext',
-  REPLACE_ALL: 'search:replaceAll',
-  CLEAR: 'search:clear',
-} as const
-
-// ── Search Queries ──────────────────────────────────────
-export const SearchQueries = {
-  GET_QUERY: 'search:getQuery',
-  GET_MATCHES: 'search:getMatches',
-  GET_CURRENT_INDEX: 'search:getCurrentIndex',
-  GET_TOTAL: 'search:getTotal',
-  GET_CURRENT_MATCH: 'search:getCurrentMatch',
-} as const
-
 // ── ViewMode Commands ───────────────────────────────────
 export const ViewModeCommands = {
   SET_TYPEWRITER_MODE: 'view:setTypewriterMode',

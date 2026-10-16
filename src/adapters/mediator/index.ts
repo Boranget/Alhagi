@@ -2,7 +2,6 @@ import { AppMediator } from './AppMediator'
 import { TabCommandHandler } from './handlers/TabCommandHandler'
 import { PreferenceCommandHandler } from './handlers/PreferenceCommandHandler'
 import { LayoutCommandHandler } from './handlers/LayoutCommandHandler'
-import { SearchCommandHandler } from './handlers/SearchCommandHandler'
 import { ViewModeCommandHandler } from './handlers/ViewModeCommandHandler'
 import { FileExplorerCommandHandler } from './handlers/FileExplorerCommandHandler'
 import { EditCommandHandler } from './handlers/EditCommandHandler'
@@ -13,12 +12,10 @@ import { ToolsCommandHandler } from './handlers/ToolsCommandHandler'
 import { HelpCommandHandler } from './handlers/HelpCommandHandler'
 import { useTabQueries } from './handlers/TabQueryAdapter'
 import { usePreferenceQueries } from './handlers/PreferenceQueryAdapter'
-import { useSearchQueries } from './handlers/SearchQueryAdapter'
 import {
   TabCommands, TabQueries,
   PreferenceCommands, PreferenceQueries,
   LayoutCommands, LayoutQueries,
-  SearchCommands, SearchQueries,
   ViewModeCommands, ViewModeQueries,
   FileExplorerCommands, FileExplorerQueries,
   EditCommands, EditorCommands, ViewCommands,
@@ -43,7 +40,6 @@ function registerCommandHandlers(mediator: AppMediator): void {
   const tab = new TabCommandHandler()
   const pref = new PreferenceCommandHandler()
   const layout = new LayoutCommandHandler()
-  const search = new SearchCommandHandler()
   const viewMode = new ViewModeCommandHandler()
   const file = new FileExplorerCommandHandler()
   const edit = new EditCommandHandler()
@@ -94,14 +90,6 @@ function registerCommandHandlers(mediator: AppMediator): void {
   mediator.registerCommand(LayoutCommands.RESTORE_DEFAULTS, { execute: (p) => layout.execute({ type: LayoutCommands.RESTORE_DEFAULTS, ...p as object }) })
   mediator.registerCommand(LayoutCommands.SET_STICKY_NOTE_MODE, { execute: (p) => layout.execute({ type: LayoutCommands.SET_STICKY_NOTE_MODE, ...p as object }) })
   mediator.registerCommand(LayoutCommands.SET_IMMERSIVE_MODE, { execute: (p) => layout.execute({ type: LayoutCommands.SET_IMMERSIVE_MODE, ...p as object }) })
-
-  // Search commands
-  mediator.registerCommand(SearchCommands.EXECUTE, { execute: (p) => search.execute({ type: SearchCommands.EXECUTE, ...p as object }) })
-  mediator.registerCommand(SearchCommands.FIND_NEXT, { execute: (p) => search.execute({ type: SearchCommands.FIND_NEXT, ...p as object }) })
-  mediator.registerCommand(SearchCommands.FIND_PREV, { execute: (p) => search.execute({ type: SearchCommands.FIND_PREV, ...p as object }) })
-  mediator.registerCommand(SearchCommands.REPLACE_NEXT, { execute: (p) => search.execute({ type: SearchCommands.REPLACE_NEXT, ...p as object }) })
-  mediator.registerCommand(SearchCommands.REPLACE_ALL, { execute: (p) => search.execute({ type: SearchCommands.REPLACE_ALL, ...p as object }) })
-  mediator.registerCommand(SearchCommands.CLEAR, { execute: (p) => search.execute({ type: SearchCommands.CLEAR, ...p as object }) })
 
   // ViewMode commands
   mediator.registerCommand(ViewModeCommands.SET_TYPEWRITER_MODE, { execute: (p) => viewMode.execute({ type: ViewModeCommands.SET_TYPEWRITER_MODE, ...p as object }) })
@@ -168,7 +156,6 @@ function registerCommandHandlers(mediator: AppMediator): void {
 function registerQueryHandlers(mediator: AppMediator): void {
   const tabQueries = useTabQueries()
   const prefQueries = usePreferenceQueries()
-  const searchQueries = useSearchQueries()
 
   // Tab queries
   mediator.registerQuery(TabQueries.GET_ALL, { execute: () => tabQueries.getAll() })
@@ -183,13 +170,6 @@ function registerQueryHandlers(mediator: AppMediator): void {
   // Preference queries
   mediator.registerQuery(PreferenceQueries.GET, { execute: (p) => prefQueries.get((p as { key: string }).key as keyof import('@core/entities/Preferences').PreferencesProps) })
   mediator.registerQuery(PreferenceQueries.GET_ALL, { execute: () => prefQueries.getAll() })
-
-  // Search queries
-  mediator.registerQuery(SearchQueries.GET_QUERY, { execute: () => searchQueries.getQuery() })
-  mediator.registerQuery(SearchQueries.GET_MATCHES, { execute: () => searchQueries.getMatches() })
-  mediator.registerQuery(SearchQueries.GET_CURRENT_INDEX, { execute: () => searchQueries.getCurrentIndex() })
-  mediator.registerQuery(SearchQueries.GET_TOTAL, { execute: () => searchQueries.getTotal() })
-  mediator.registerQuery(SearchQueries.GET_CURRENT_MATCH, { execute: () => searchQueries.getCurrentMatch() })
 
   // Layout queries (direct store access — read-only, reactive)
   const layoutStore = useLayoutStore()
