@@ -1179,13 +1179,18 @@ export class EditorPool {
   // ============================================================
 
   getCMSearchService(tabId?: string): SearchService | null {
-    const id = tabId || this.activeTabId
-    if (!id) return null
+    // 视图按调用时刻解析：省略 tabId 时每次取视图都跟随当前活动 tab，显式
+    // tabId 则锁定该 tab——构造闭包不再绑死实例。否则 source 模式 md→md 切
+    // tab 后（EditorContainer 的 computed 因 descriptor 是 registry 单例而不
+    // 重算），服务会一直指向旧 tab 的隐藏视图。
+    const resolveView = (): EditorView | null => {
+      const id = tabId || this.activeTabId
+      if (!id) return null
+      return this.instances.get(id)?.cmView ?? null
+    }
 
-    const instance = this.instances.get(id)
-    if (!instance?.cmView) return null
-
-    return new CodeMirrorSearchService(() => instance.cmView)
+    if (!resolveView()) return null
+    return new CodeMirrorSearchService(resolveView)
   }
 
   // ============================================================

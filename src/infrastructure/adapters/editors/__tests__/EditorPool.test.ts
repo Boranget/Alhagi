@@ -609,3 +609,70 @@ describe('EditorPool.readVisibleContent', () => {
     ).toBeNull()
   })
 })
+
+describe('EditorPool.getCMSearchService（G3：服务不绑死构造时实例）', () => {
+  function makeCmFake() {
+    return { scrollDOM: document.createElement('div'), dispatch: vi.fn() }
+  }
+
+  it('省略 tabId：切活动 tab 后服务作用于新 tab 的视图，不再打旧 tab 隐藏视图', () => {
+    const pool = createPool()
+    const viewA = makeCmFake()
+    const viewB = makeCmFake()
+    const internals = inject(pool, 'a', {
+      a: { ...makeInstance('source', true), cmView: viewA },
+      b: { ...makeInstance('source', true), cmView: viewB },
+    })
+
+    const service = pool.getCMSearchService()!
+    expect(service).not.toBeNull()
+
+    // showTab 将 activeTabId 指向 b（白盒直改字段，避开容器 DOM 依赖）
+    internals.activeTabId = 'b'
+    service.clear()
+
+    expect(viewB.dispatch).toHaveBeenCalledTimes(1)
+    expect(viewA.dispatch).not.toHaveBeenCalled()
+  })
+
+  it('显式 tabId：锁定指定 tab，不随活动 tab 漂移', () => {
+    const pool = createPool()
+    const viewA = makeCmFake()
+    const viewB = makeCmFake()
+    const internals = inject(pool, 'a', {
+      a: { ...makeInstance('source', true), cmView: viewA },
+      b: { ...makeInstance('source', true), cmView: viewB },
+    })
+
+    const service = pool.getCMSearchService('a')!
+    internals.activeTabId = 'b'
+    service.clear()
+
+    expect(viewA.dispatch).toHaveBeenCalledTimes(1)
+    expect(viewB.dispatch).not.toHaveBeenCalled()
+  })
+
+  it('无活动 tab / 活动 tab 无 cmView：返回 null（沿用原契约）', () => {
+    const pool = createPool()
+    inject(pool, null)
+    expect(pool.getCMSearchService()).toBeNull()
+
+    const pool2 = createPool()
+    inject(pool2, 'a', { a: makeInstance('source', false) })
+    expect(pool2.getCMSearchService()).toBeNull()
+  })
+
+  it('构造时视图被销毁后（活动 tab cmView 置空）：后续调用静默 no-op', () => {
+    const pool = createPool()
+    const viewA = makeCmFake()
+    const internals = inject(pool, 'a', {
+      a: { ...makeInstance('source', true), cmView: viewA },
+    })
+
+    const service = pool.getCMSearchService()!
+    ;(internals.instances.get('a') as { cmView: unknown }).cmView = null
+
+    expect(() => service.clear()).not.toThrow()
+    expect(viewA.dispatch).not.toHaveBeenCalled()
+  })
+})
