@@ -130,6 +130,9 @@ export class CodeMirrorSearchService implements SearchService {
     return this._isReplacing
   }
 
+  /** CM 高亮随文档自行重算，但不写 searchStore 共享计数——门面仍需重查回填 */
+  readonly selfWritesStoreOnDocChange = false
+
   search(config: SearchConfig, options?: { select?: boolean }): SearchResult {
     const view = this.getView()
     const query = this.createQuery(config)

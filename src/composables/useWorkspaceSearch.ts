@@ -128,6 +128,17 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
+  /**
+   * 文档变化后的计数刷新：自写共享态的服务（Crepe 插件 apply Path 2 已
+   * 随事务重算并回填 searchStore）跳过重查——否则一次编辑触发插件与门面
+   * 双份全量匹配；CM 路径不写共享态，保留重查回填。
+   */
+  function refreshAfterDocChange() {
+    if (!searchQuery.value.trim() || searchScope.value !== 'file') return
+    if (searchService.value?.selfWritesStoreOnDocChange) return
+    updateEditorHighlight(false)
+  }
+
   function buildSearchPattern(): RegExp | null {
     if (!searchQuery.value.trim()) return null
     let pattern = options.regex ? searchQuery.value : escapeRegExp(searchQuery.value)
@@ -387,9 +398,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     if (replaceRefreshTimer) clearTimeout(replaceRefreshTimer)
     // markdownUpdated 有 200ms debounce，等 300ms 确保 content 已同步
     replaceRefreshTimer = setTimeout(() => {
-      if (searchQuery.value.trim() && searchScope.value === 'file') {
-        updateEditorHighlight(false)
-      }
+      refreshAfterDocChange()
     }, REPLACE_REFRESH_DELAY_MS)
   }
 
@@ -547,9 +556,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
       if (isNavigating) {
         return
       }
-      if (searchQuery.value.trim() && searchScope.value === 'file') {
-        updateEditorHighlight(false)
-      }
+      refreshAfterDocChange()
     })
   })
 

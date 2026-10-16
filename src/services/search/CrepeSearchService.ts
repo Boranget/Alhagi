@@ -130,9 +130,12 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
 
       // --- Path 1: Search query changed (set/clear) ---
       if (meta && (meta as { type: string }).type === 'set' && (meta as { query?: SearchQuery }).query) {
-        const { query, activeIndex } = meta as { type: string; query: SearchQuery; activeIndex?: number }
+        const { query, activeIndex, matches: providedMatches } = meta as { type: string; query: SearchQuery; activeIndex?: number; matches?: MatchInfo[] }
 
-        const matches = findAllMatches(state.doc, query)
+        // 优先复用派发方已算好的匹配（search()/replaceNext 与本 apply 同批
+        // 文档、同步执行，位置等价），同一次操作不再跑第二遍全量匹配；
+        // 缺省回退自算，保持任何 'set' 派发的通用性
+        const matches = providedMatches ?? findAllMatches(state.doc, query)
 
         newState.query = query
         newState.matches = matches
@@ -250,6 +253,9 @@ export class CrepeSearchService implements SearchService {
     return false
   }
 
+  /** 文档变化时插件 apply（Path 2）已自行重算并写入共享计数 */
+  readonly selfWritesStoreOnDocChange = true
+
   search(config: SearchConfig, options?: { select?: boolean }): SearchResult {
     const view = this.getView()
     if (!view) {
@@ -294,7 +300,7 @@ export class CrepeSearchService implements SearchService {
       activeIndex = 0
     }
 
-    const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery, activeIndex })
+    const tr = state.tr.setMeta(searchPluginKey, { type: 'set', query: searchQuery, activeIndex, matches })
 
     if (matches.length > 0 && options?.select !== false) {
       const firstMatch = matches[activeIndex] ?? matches[0]
@@ -497,7 +503,7 @@ export class CrepeSearchService implements SearchService {
       tr.scrollIntoView()
     }
 
-    tr.setMeta(searchPluginKey, { type: 'set', query: this.store.currentQuery, activeIndex: newCurrentIndex })
+    tr.setMeta(searchPluginKey, { type: 'set', query: this.store.currentQuery, activeIndex: newCurrentIndex, matches: newMatches })
 
     // Sync to code blocks
     if (newMatches.length > 0) {

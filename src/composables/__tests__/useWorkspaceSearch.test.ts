@@ -235,4 +235,34 @@ describe('useWorkspaceSearch 计数分流（file→共享 store / 工作区→�
     expect(store.currentIndex).toBe(4)
     expect(api.totalMatches.value).toBe(11)
   })
+
+  it('自写共享态服务（Crepe 类）：CONTENT_CHANGED 跳过重查，切 tab 仍重新投影查询', async () => {
+    const svc = { ...makeService(), selfWritesStoreOnDocChange: true }
+    holder.svc.value = svc
+    const store = useSearchStore()
+    store.totalMatches = 9
+    store.currentIndex = 1
+
+    const tabs = useTabsStore()
+    tabs.addTab(makeTab({ id: 'a' }))
+    tabs.addTab(makeTab({ id: 'b', title: 'b.md' }))
+
+    const { api, onCalls } = mountSearch()
+    api.searchQuery.value = 'hello'
+
+    // 插件 Path 2 已随事务写入的计数：门面不得重查覆盖
+    onCalls[0]()
+    expect(svc.search).not.toHaveBeenCalled()
+    expect(store.totalMatches).toBe(9)
+    expect(api.totalMatches.value).toBe(9)
+
+    // 切 tab 是把当前查询投影到新编辑器（各 tab 插件态独立），必须重查
+    tabs.setActiveTabId('b')
+    await nextTick()
+    expect(svc.search).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'hello' }),
+      { select: false },
+    )
+    expect(store.totalMatches).toBe(5)
+  })
 })
