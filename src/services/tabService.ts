@@ -107,10 +107,13 @@ export class TabService {
 
     if (tab.filePath) {
       const lineEnding = this.preferencesStore.lineEnding as LineEnding
-      const response = await electronService.saveFile(tab.filePath, this.readAuthoritativeContent(tabId), lineEnding)
+      const content = this.readAuthoritativeContent(tabId)
+      const response = await electronService.saveFile(tab.filePath, content, lineEnding)
       if (!response.success) return false
 
-      this.tabsStore.markClean(tabId)
+      // 仅内容仍与落盘快照一致才清 dirty：IPC 往返期间的敲键保持 dirty，
+      // 交由下一轮自动保存补存，否则关闭无提示、自动保存被 !isDirty 跳过。
+      this.tabsStore.markCleanIfUnchanged(tabId, content)
 
       this.eventBus.emit(AppEvents.FILE_SAVED, { filePath: tab.filePath, tabId })
       return true
@@ -124,6 +127,9 @@ export class TabService {
     if (!tab || !electronService.isAvailable()) return false
 
     const lineEnding = this.preferencesStore.lineEnding as LineEnding
+    // 快照先取（flush 到最新权威），落盘与清 dirty 都以它为准——原生对话框
+    // 阻断输入，保存期间内容理应不变；若期间确有变化则保持 dirty。
+    const content = this.readAuthoritativeContent(tabId)
     // 默认文件名：尊重 tab 已有的扩展名，否则用 descriptor.defaultExtension 补。
     //   - tab.title 已带扩展名（无论什么后缀）→ 原样
     //   - 没扩展名 + descriptor 给了 defaultExtension → 自动补
@@ -135,7 +141,7 @@ export class TabService {
       defaultPath = tab.title + descriptor.defaultExtension
     }
 
-    const filePathResp = await electronService.saveAsFile(this.readAuthoritativeContent(tabId), defaultPath, lineEnding)
+    const filePathResp = await electronService.saveAsFile(content, defaultPath, lineEnding)
 
     if (filePathResp.success && filePathResp.data) {
       const filePath = filePathResp.data
@@ -150,7 +156,7 @@ export class TabService {
         title: extractTitleFromPath(filePath),
         fileType: newDescriptor.id,
       })
-      this.tabsStore.markClean(tabId)
+      this.tabsStore.markCleanIfUnchanged(tabId, content)
 
       this.preferencesStore.addRecentFile(filePath, tab.title)
 

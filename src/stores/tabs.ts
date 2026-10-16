@@ -106,6 +106,19 @@ export const useTabsStore = defineStore('tabs', () => {
     }
   }
 
+  /**
+   * 仅当当前内容仍与落盘快照一致时清除 dirty——保存 IPC 往返期间用户
+   * 敲的键（commit 已置 dirty）不能被无条件 markClean 清掉，否则关闭
+   * 无提示、自动保存因 !isDirty 跳过。返回是否真正清除。
+   */
+  function markCleanIfUnchanged(tabId: string, savedContent: string): boolean {
+    const tab = tabs.value.get(tabId)
+    if (!tab || tab.content !== savedContent) return false
+    tab.isDirty = false
+    tab.lastSaved = Date.now()
+    return true
+  }
+
   function setViewMode(tabId: string, mode: ViewMode): void {
     const tab = tabs.value.get(tabId)
     if (tab) {
@@ -171,6 +184,7 @@ export const useTabsStore = defineStore('tabs', () => {
     updateTab,
     markDirty,
     markClean,
+    markCleanIfUnchanged,
     setViewMode,
     getAllTabs,
     getTabOrder,

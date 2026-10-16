@@ -174,6 +174,35 @@ describe('Tabs Store', () => {
     })
   })
 
+  describe('markCleanIfUnchanged', () => {
+    it('内容与落盘快照一致时清除 dirty 并记录 lastSaved', () => {
+      const store = useTabsStore()
+      store.addTab(createTestTab({ id: 'tab-1', content: 'v1', isDirty: true }))
+
+      const cleaned = store.markCleanIfUnchanged('tab-1', 'v1')
+
+      expect(cleaned).toBe(true)
+      expect(store.getTab('tab-1')?.isDirty).toBe(false)
+      expect(store.getTab('tab-1')?.lastSaved).not.toBeNull()
+    })
+
+    it('保存期间有新编辑（内容≠快照）时保持 dirty', () => {
+      const store = useTabsStore()
+      store.addTab(createTestTab({ id: 'tab-1', content: 'v2', isDirty: true }))
+
+      const cleaned = store.markCleanIfUnchanged('tab-1', 'v1')
+
+      expect(cleaned).toBe(false)
+      expect(store.getTab('tab-1')?.isDirty).toBe(true)
+      expect(store.getTab('tab-1')?.lastSaved).toBeNull()
+    })
+
+    it('tab 不存在时返回 false', () => {
+      const store = useTabsStore()
+      expect(store.markCleanIfUnchanged('missing', 'v1')).toBe(false)
+    })
+  })
+
   describe('computed', () => {
     it('activeTab should return the active tab', () => {
       const store = useTabsStore()
