@@ -881,19 +881,22 @@ export class EditorPool {
   private createMarkdownUpdatedHandler(tabId: string) {
     return (...args: unknown[]) => {
       let currentDoc: unknown = null
+      let composing = false
       try {
         const ctx = args[0] as {
-          get: (slice: typeof editorViewCtx) => { state: { doc: unknown } } | null
+          get: (slice: typeof editorViewCtx) => { state: { doc: unknown }; composing: boolean } | null
         }
-        currentDoc = ctx.get(editorViewCtx)?.state?.doc ?? null
+        const view = ctx.get(editorViewCtx)
+        currentDoc = view?.state?.doc ?? null
+        composing = view?.composing === true
       } catch {
         // ignore
       }
-      this.handleMarkdownUpdate(tabId, currentDoc)
+      this.handleMarkdownUpdate(tabId, currentDoc, composing)
     }
   }
 
-  private handleMarkdownUpdate(tabId: string, currentDoc: unknown): void {
+  private handleMarkdownUpdate(tabId: string, currentDoc: unknown, composing: boolean): void {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
@@ -902,6 +905,12 @@ export class EditorPool {
     if (currentDoc != null && currentDoc === instance.lastAppliedCrepeDoc) {
       return
     }
+
+    // 组合期绝不写权威：PM 在组合中可能已把裸拼音字母吞进 doc（Windows
+    // Chromium readDOMChange 行为），此刻序列化出来的是暂态垃圾——写进 store
+    // 会被自动保存/回写管道消费。跳过后 compositionend 的落定事务会在
+    // 200ms 内重新触发本处理器，提交的就是最终中文。
+    if (composing) return
 
     // 现场序列化：commit 永远取编辑器此刻的内容，而非事件参数里的旧快照。
     // 若提交过期快照，apply 侧「现场序列化 vs 权威」比对必然不等 →
@@ -922,20 +931,26 @@ export class EditorPool {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
+    // 与 Crepe 侧同理：组合期 CM doc 里的裸拼音是暂态，不进权威
+    if (instance.cmView?.composing) return
+
     instance.docSync?.commit(content)
   }
 
   /**
-   * 权威 → Crepe。比对相同则不动编辑器（保护光标/undo）；
-   * 灌入后记录 doc 引用，供 echo 抑制。
-   * IME 组合期禁止派发：replaceAll 会强制打断输入法组合，
-   * 拼音被冻结成普通文本后残留到提交的中文前面——挂起到 compositionend。
+   * 权威 → Crepe。比对相同则不动编辑器（保护光标/undo）——注意相等检查
+   * 必须在组合检查之前：组合期产生的 store 变更多为自身 echo，内容相等
+   * 时直接返回，绝不挂起；否则 compositionend 的 finish 会拿暂态 store
+   * 覆盖刚落定的中文（ni'h 回归）。仅真正不等的外部变更才挂起。
+   * IME 组合期禁止派发：replaceAll 会强制打断输入法组合。
    */
   private applyContentToCrepe(instance: TabEditorInstance, content: string): void {
     instance.content = content
     if (!instance.crepe) return
 
     try {
+      if ((instance.crepe.getMarkdown() || '') === content) return
+
       let composing = false
       instance.crepe.editor.action((ctx) => {
         composing = ctx.get(editorViewCtx)?.composing === true
@@ -944,8 +959,6 @@ export class EditorPool {
         this.scheduleApplyAfterComposition(instance, 'crepe')
         return
       }
-
-      if ((instance.crepe.getMarkdown() || '') === content) return
 
       instance.crepe.editor.action((ctx) => {
         replaceAll(content)(ctx)
@@ -956,19 +969,19 @@ export class EditorPool {
     }
   }
 
-  /** 权威 → CodeMirror。ExternalChange 注解阻止回灌 handleCMUpdate。组合期同样挂起。 */
+  /** 权威 → CodeMirror。ExternalChange 注解阻止回灌 handleCMUpdate。同样相等先于组合检查。 */
   private applyContentToCM(instance: TabEditorInstance, content: string): void {
     instance.content = content
     if (!instance.cmView) return
 
     try {
+      const current = instance.cmView.state.doc.toString()
+      if (current === content) return
+
       if (instance.cmView.composing) {
         this.scheduleApplyAfterComposition(instance, 'cm')
         return
       }
-
-      const current = instance.cmView.state.doc.toString()
-      if (current === content) return
 
       instance.cmView.dispatch({
         changes: { from: 0, to: instance.cmView.state.doc.length, insert: content },
@@ -982,6 +995,8 @@ export class EditorPool {
   /**
    * 组合期挂起的权威回写：compositionend 后重读权威最新值再应用两侧
    * （重入 apply 走正常比对，内容相同则各自幂等跳过）。
+   * 仅在「内容确实不等 + 正在组合」时才会挂起——即真外部写入落进组合期；
+   * 组合期的自身 echo 已被相等检查拦截，不会产生 finish 覆盖刚提交中文的竞态。
    * 单 pending 位即可：同一 tab 不可能同时在两个视图发起输入法组合；
    * 若挂起期间 DOM 被销毁、事件永不触发，flag 残留也只影响下一次挂起
    * （正常 apply 路径不看 flag，下次内容变更仍会应用，不产生发散）。
