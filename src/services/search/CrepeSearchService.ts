@@ -318,9 +318,10 @@ export class CrepeSearchService implements SearchService {
         activeMatch.codeBlockPmPos,
         activeMatch.from,
         activeMatch.to,
+        view.dom,
       )
     } else {
-      updateAllCodeBlockSearch(cmSearchQuery)
+      updateAllCodeBlockSearch(cmSearchQuery, view.dom)
     }
 
     view.dispatch(tr)
@@ -387,9 +388,10 @@ export class CrepeSearchService implements SearchService {
           nextMatch.codeBlockPmPos,
           nextMatch.from,
           nextMatch.to,
+          view.dom,
         )
       } else {
-        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }))
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }), view.dom)
       }
     }
 
@@ -441,9 +443,10 @@ export class CrepeSearchService implements SearchService {
           prevMatch.codeBlockPmPos,
           prevMatch.from,
           prevMatch.to,
+          view.dom,
         )
       } else {
-        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }))
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: q.search, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, regexp: q.regexp }), view.dom)
       }
     }
 
@@ -514,9 +517,10 @@ export class CrepeSearchService implements SearchService {
           nextMatch.codeBlockPmPos,
           nextMatch.from,
           nextMatch.to,
+          view.dom,
         )
       } else if (this.store.currentQuery) {
-        updateAllCodeBlockSearch(new CMSearchQuery({ search: this.store.currentQuery.search, caseSensitive: this.store.currentQuery.caseSensitive, wholeWord: this.store.currentQuery.wholeWord, regexp: this.store.currentQuery.regexp }))
+        updateAllCodeBlockSearch(new CMSearchQuery({ search: this.store.currentQuery.search, caseSensitive: this.store.currentQuery.caseSensitive, wholeWord: this.store.currentQuery.wholeWord, regexp: this.store.currentQuery.regexp }), view.dom)
       }
     }
 

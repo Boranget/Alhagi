@@ -35,28 +35,42 @@ function buildSearchDecorations(state: EditorState, query: SearchQuery | null, a
 // 存 getPos 函数而非数字，文档编辑后位置自动更新
 const registeredViews = new Map<EditorView, () => number>()
 
-function registerCodeBlock(getPos: () => number, view: EditorView): void {
+/**
+ * 注册嵌套代码块 CM view（扩展内部与测试共用）。注册不携带 tab 信息——
+ * 归属在分发时按 owner DOM 子树判定（见 forEachInOwner）。
+ */
+export function registerCodeBlock(getPos: () => number, view: EditorView): void {
   registeredViews.set(view, getPos)
 }
 
+/** 只遍历位于 ownerDom（当前编辑器 DOM）子树内的注册 view */
+function forEachInOwner(ownerDom: Element, fn: (view: EditorView, getPos: () => number) => void): void {
+  registeredViews.forEach((getPos, view) => {
+    if (ownerDom.contains(view.dom)) fn(view, getPos)
+  })
+}
+
 /**
- * 向目标代码块设置 active match，其他代码块清除 active
+ * 向目标代码块设置 active match，该编辑器下其他代码块清除 active。
+ * ownerDom：发起搜索的编辑器 DOM——多 tab 下各编辑器文档位置会撞号，
+ * 不按 owner 过滤会把 active 漏到隐藏 tab 的同位置代码块上。
  */
 export function updateCodeBlockSearchQuery(
   query: SearchQuery | null,
   codeBlockPmPos: number,
   activeFrom: number,
   activeTo: number,
+  ownerDom: Element,
 ): void {
-  // 先清除所有代码块的 active 高亮（保留黄色搜索匹配）
-  registeredViews.forEach((_getPos, view) => {
+  // 先清除 owner 编辑器下所有代码块的 active（保留黄色搜索匹配）
+  forEachInOwner(ownerDom, view => {
     view.dispatch({
       effects: [codeBlockSearchEffect.of({ query, activeFrom: -1, activeTo: -1 })],
     })
   })
 
   // 再向目标代码块设置 active match
-  registeredViews.forEach((getPos, view) => {
+  forEachInOwner(ownerDom, (view, getPos) => {
     const currentPmPos = getPos()
     if (currentPmPos === codeBlockPmPos) {
       let cmActiveFrom = -1
@@ -73,10 +87,10 @@ export function updateCodeBlockSearchQuery(
 }
 
 /**
- * updateAllCodeBlockSearch — 向所有已注册代码块分发搜索查询（无活跃 match）
+ * updateAllCodeBlockSearch — 向 owner 编辑器下已注册代码块分发搜索查询（无活跃 match）
  */
-export function updateAllCodeBlockSearch(query: SearchQuery | null): void {
-  registeredViews.forEach((_pos, view) => {
+export function updateAllCodeBlockSearch(query: SearchQuery | null, ownerDom: Element): void {
+  forEachInOwner(ownerDom, view => {
     view.dispatch({
       effects: [codeBlockSearchEffect.of({ query, activeFrom: -1, activeTo: -1 })],
     })
