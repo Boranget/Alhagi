@@ -26,31 +26,6 @@ interface MatchInfo {
   codeBlockPmPos?: number
 }
 
-class SearchCache {
-  private cache: {
-    [key: string]: MatchInfo[]
-  } = {}
-
-  private getKey(query: SearchQuery): string {
-    return `${query.search}|${query.caseSensitive}|${query.wholeWord}|${query.regexp}`
-  }
-
-  get(query: SearchQuery): MatchInfo[] | null {
-    const key = this.getKey(query)
-    return this.cache[key] || null
-  }
-
-  set(query: SearchQuery, matches: MatchInfo[]): void {
-    const key = this.getKey(query)
-    this.cache[key] = matches
-  }
-
-  clear(): void {
-    this.cache = {}
-  }
-}
-
-const searchCache = new SearchCache()
 const searchPluginKey = new PluginKey<SearchState>('search-highlight')
 
 interface SearchState {
@@ -156,10 +131,8 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
       // --- Path 1: Search query changed (set/clear) ---
       if (meta && (meta as { type: string }).type === 'set' && (meta as { query?: SearchQuery }).query) {
         const { query, activeIndex } = meta as { type: string; query: SearchQuery; activeIndex?: number }
-        searchCache.clear()
 
         const matches = findAllMatches(state.doc, query)
-        searchCache.set(query, matches)
 
         newState.query = query
         newState.matches = matches
@@ -190,10 +163,7 @@ export const searchPlugin = $prose(() => new Plugin<SearchState>({
 
       // --- Path 2: Document changed — tiptap-style mapping ---
       if (tr.docChanged && value.query && value.query.search) {
-        searchCache.clear()
-
         const matches = findAllMatches(state.doc, value.query)
-        searchCache.set(value.query, matches)
 
         newState.matches = matches
         newState.totalMatches = matches.length
@@ -359,7 +329,6 @@ export class CrepeSearchService implements SearchService {
     this.store.currentQuery = null
     this.store.currentMatches = []
     this.store.currentIndex = -1
-    searchCache.clear()
 
     clearAllCodeBlockSearch()
 
@@ -513,7 +482,6 @@ export class CrepeSearchService implements SearchService {
 
     // Re-search the entire new document state
     const newMatches = findAllMatches(tr.doc, this.store.currentQuery)
-    searchCache.set(this.store.currentQuery, newMatches)
     this.store.currentMatches = newMatches
 
     // Find first match after the replacement text

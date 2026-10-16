@@ -1,6 +1,7 @@
 import { ref, reactive, computed, onUnmounted, onMounted, watch } from 'vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
+import { useSearchStore } from '../stores/search'
 import { SearchConfig, findMatchesInContent } from '@/utils/search'
 import { xssSanitizer } from '@/services/xssSanitizer'
 import { debounce } from '@/utils/helpers'
@@ -41,6 +42,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
   const eventBus = bus ?? defaultEventBus
   const tabsStore = useTabsStore()
   const fileStore = useFileExplorerStore()
+  const searchStore = useSearchStore()
   const searchService = useSearch()
   const toast = useToast()
 
@@ -49,11 +51,25 @@ export function useWorkspaceSearch(bus?: IEventBus) {
   const replaceQuery = ref('')
   const isSearching = ref(false)
   const results = ref<SearchResult[]>([])
-  const totalMatches = ref(0)
-  const currentMatchIndex = ref(0)
   const searchScope = ref<SearchScope>('file')
   const searchMode = ref<SearchMode>('sidebar')
   const linkedFromGlobalSearch = ref(false)
+
+  // 计数状态按范围分流：file 范围 = 引擎共享状态（searchStore，由
+  // Crepe/CM 引擎与本门面写入）；工作区范围（all/folder）= 侧栏私有计数。
+  const localTotalMatches = ref(0)
+  const localCurrentMatchIndex = ref(0)
+  const totalMatches = computed(() =>
+    searchScope.value === 'file' ? searchStore.totalMatches : localTotalMatches.value)
+  const currentMatchIndex = computed(() => {
+    if (searchScope.value !== 'file') return localCurrentMatchIndex.value
+    return searchStore.currentIndex < 0 ? 0 : searchStore.currentIndex
+  })
+
+  function setEngineMatches(total: number, current: number): void {
+    searchStore.totalMatches = total
+    searchStore.currentIndex = current
+  }
 
   // Issue 1 fix: 导航锁，防止 navigateNext/navigatePrev 后
   // CONTENT_CHANGED 事件重置 totalMatches
@@ -88,16 +104,13 @@ export function useWorkspaceSearch(bus?: IEventBus) {
   }
 
   function updateEditorHighlight(select = true) {
-    if (!searchService.value) {
-      totalMatches.value = 0
-      currentMatchIndex.value = 0
-      return
-    }
+    // 未注入引擎（侧栏实例恒如此）：直接返回，绝不清共享计数——
+    // 否则共享后侧栏的空跑会清掉浮动框/引擎的真实计数。
+    if (!searchService.value) return
 
     if (!searchQuery.value.trim()) {
       searchService.value.clear()
-      totalMatches.value = 0
-      currentMatchIndex.value = 0
+      setEngineMatches(0, 0)
       return
     }
 
@@ -108,8 +121,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
       regexp: options.regex
     }, { select })
 
-    totalMatches.value = result.total
-    currentMatchIndex.value = result.current
+    setEngineMatches(result.total, result.current)
   }
 
   function escapeRegExp(string: string): string {
@@ -158,28 +170,36 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     const pattern = buildSearchPattern()
     if (!pattern) {
       results.value = []
-      totalMatches.value = 0
-      currentMatchIndex.value = 0
       if (searchScope.value === 'file') {
-        searchService.value?.clear()
+        // 计数归零必须以引擎为准：有引擎才清（clear+写共享态），无引擎不动
+        if (searchService.value) {
+          searchService.value.clear()
+          setEngineMatches(0, 0)
+        }
+      } else {
+        localTotalMatches.value = 0
+        localCurrentMatchIndex.value = 0
       }
       return
     }
-    
+
     isSearching.value = true
     results.value = []
-    totalMatches.value = 0
-    currentMatchIndex.value = 0
-    
+
     if (searchScope.value === 'file') {
       // Single search path: searchService is the source of truth
+      // （file 范围计数由引擎独写共享态，此处不预清零，避免清掉引擎真值）
       updateEditorHighlight()
       // Also populate sidebar results from local regex
       searchInActiveFile(pattern)
     } else if (searchScope.value === 'all') {
+      localTotalMatches.value = 0
+      localCurrentMatchIndex.value = 0
       searchInAllTabs(pattern)
       isSearching.value = false
     } else {
+      localTotalMatches.value = 0
+      localCurrentMatchIndex.value = 0
       searchInFolder(pattern)
     }
   }
@@ -213,7 +233,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
       }
     })
     results.value = searchResults
-    totalMatches.value = total
+    localTotalMatches.value = total
     if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
   }
 
@@ -248,7 +268,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
           })
           const searchResults = Array.from(groupedByFile.values())
           results.value = searchResults
-          totalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
+          localTotalMatches.value = searchResults.reduce((sum, r) => sum + r.matches.length, 0)
           if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
         }
       }).catch(error => {
@@ -268,7 +288,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
         }
       })
       results.value = searchResults
-      totalMatches.value = total
+      localTotalMatches.value = total
       if (searchResults.length > 0) expandedFiles.value.add(searchResults[0].file)
       isSearching.value = false
     }
@@ -285,13 +305,12 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     if (searchScope.value === 'file') {
       if (searchService.value) {
         const result = searchService.value.findNext()
-        currentMatchIndex.value = result.current
-        totalMatches.value = result.total
+        setEngineMatches(result.total, result.current)
       }
     } else {
       if (totalMatches.value === 0) return
-      currentMatchIndex.value = (currentMatchIndex.value + 1) % totalMatches.value
-      scrollToMatch(currentMatchIndex.value)
+      localCurrentMatchIndex.value = (localCurrentMatchIndex.value + 1) % totalMatches.value
+      scrollToMatch(localCurrentMatchIndex.value)
     }
   }
 
@@ -300,13 +319,12 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     if (searchScope.value === 'file') {
       if (searchService.value) {
         const result = searchService.value.findPrev()
-        currentMatchIndex.value = result.current
-        totalMatches.value = result.total
+        setEngineMatches(result.total, result.current)
       }
     } else {
       if (totalMatches.value === 0) return
-      currentMatchIndex.value = currentMatchIndex.value === 0 ? totalMatches.value - 1 : currentMatchIndex.value - 1
-      scrollToMatch(currentMatchIndex.value)
+      localCurrentMatchIndex.value = localCurrentMatchIndex.value === 0 ? totalMatches.value - 1 : localCurrentMatchIndex.value - 1
+      scrollToMatch(localCurrentMatchIndex.value)
     }
   }
 
@@ -332,8 +350,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     if (searchScope.value === 'file') {
       if (searchService.value) {
         const result = searchService.value.replaceNext(replaceQuery.value)
-        currentMatchIndex.value = result.current
-        totalMatches.value = result.total
+        setEngineMatches(result.total, result.current)
         // replaceNext already recomputes matches and sets activeIndex correctly.
         // scheduleReplaceRefresh removed — it would overwrite activeIndex with 0.
       }
@@ -455,18 +472,13 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     }, LINK_RESET_DELAY_MS)
   }
 
-  function syncFromGlobalSearch(query: string, scope: SearchScope = 'folder') {
-    searchQuery.value = query
-    searchScope.value = scope
-    performSearch()
-  }
-
   function setSearchScope(scope: SearchScope) {
     searchScope.value = scope
     if (searchQuery.value) {
       performSearch()
-      if (scope !== 'file') {
-        searchService.value?.clear()
+      if (scope !== 'file' && searchService.value) {
+        searchService.value.clear()
+        setEngineMatches(0, 0)
       }
     }
   }
@@ -480,6 +492,7 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     // Clear previous search state to reset active highlight
     if (searchQuery.value.trim()) {
       searchService.value?.clear()
+      if (searchService.value) setEngineMatches(0, 0)
     }
   }
 
@@ -487,11 +500,12 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     isVisible.value = false
     searchQuery.value = ''
     replaceQuery.value = ''
-    totalMatches.value = 0
-    currentMatchIndex.value = 0
+    localTotalMatches.value = 0
+    localCurrentMatchIndex.value = 0
     results.value = []
     expandedFiles.value.clear()
     searchService.value?.clear()
+    if (searchService.value) setEngineMatches(0, 0)
   }
 
   const debouncedSearch = debounce(() => {
@@ -508,6 +522,17 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     () => {
       if (searchQuery.value.trim()) {
         performSearch()
+      }
+    }
+  )
+
+  // 切换 tab 后，file 范围的引擎计数/高亮属于新编辑器：不带选区重查一次，
+  // 避免共享计数里残留旧 tab 的 n/N（插件态 per-tab，store 全局）。
+  watch(
+    () => tabsStore.activeTabId,
+    () => {
+      if (searchScope.value === 'file' && searchQuery.value.trim()) {
+        updateEditorHighlight(false)
       }
     }
   )
@@ -565,7 +590,6 @@ export function useWorkspaceSearch(bus?: IEventBus) {
     handleMatchClick,
     setSearchScope,
     linkToCurrentFile,
-    syncFromGlobalSearch,
     show,
     hide,
     handleSearchInput,
