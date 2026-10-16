@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { restoreDetachedTab, beginTabTransfer, confirmTabTransferred } from '../crossWindowTab'
+import { restoreDetachedTab, beginTabTransfer, confirmTabTransferred, cancelTabTransfer } from '../crossWindowTab'
 import { useTabsStore } from '@/stores/tabs'
 import { useTabActions } from '@/composables/useTabActions'
 import type { DetachedTabData } from '@electron-protocol/index'
@@ -142,6 +142,84 @@ describe('传输回执（ack）', () => {
 
       expect(mockElectronService.notifyTabMergeComplete).not.toHaveBeenCalled()
     })
+
+    it('内容一致且源侧 dirty：复用 + ack，并把未落盘状态交接给本地 tab', async () => {
+      const store = useTabsStore()
+      const { createTab } = useTabActions()
+      const existing = await createTab({
+        title: 'same.md',
+        content: '# same',
+        filePath: '/docs/same.md',
+      })
+      const baseline = store.tabCount
+
+      await restoreDetachedTab(
+        makeTabData({
+          filePath: '/docs/same.md',
+          content: '# same',
+          isDirty: true,
+          sourceWindowId: 7,
+        })
+      )
+
+      expect(store.tabCount).toBe(baseline)
+      expect(store.getTab(existing.id)!.isDirty).toBe(true)
+      expect(mockElectronService.notifyTabMergeComplete).toHaveBeenCalledWith({
+        sourceWindowId: 7,
+        originalTabId: 'src-tab-id',
+      })
+    })
+
+    it('内容分歧且源侧 clean：本地编辑保留，ack（源内容已在磁盘上）', async () => {
+      const store = useTabsStore()
+      const { createTab } = useTabActions()
+      const existing = await createTab({
+        title: 'w.md',
+        content: 'local edits',
+        filePath: '/docs/w.md',
+      })
+      const baseline = store.tabCount
+
+      await restoreDetachedTab(
+        makeTabData({
+          filePath: '/docs/w.md',
+          content: 'on-disk content',
+          isDirty: false,
+          sourceWindowId: 7,
+        })
+      )
+
+      expect(store.tabCount).toBe(baseline)
+      expect(store.getTab(existing.id)!.content).toBe('local edits')
+      expect(mockElectronService.notifyTabMergeComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it('内容分歧且源侧 dirty：拒绝接管——不 ack 不切换，两侧数据都不丢', async () => {
+      const store = useTabsStore()
+      const { createTab } = useTabActions()
+      const existing = await createTab({
+        title: 'c.md',
+        content: 'target unsaved',
+        filePath: '/docs/c.md',
+      })
+      const activeBefore = store.activeTabId
+      const baseline = store.tabCount
+
+      await restoreDetachedTab(
+        makeTabData({
+          filePath: '/docs/c.md',
+          content: 'source unsaved',
+          isDirty: true,
+          sourceWindowId: 7,
+        })
+      )
+
+      // 不回 ack → 源窗口超时后保留自己的 tab（数据安全优先）
+      expect(mockElectronService.notifyTabMergeComplete).not.toHaveBeenCalled()
+      expect(store.tabCount).toBe(baseline)
+      expect(store.activeTabId).toBe(activeBefore)
+      expect(store.getTab(existing.id)!.content).toBe('target unsaved')
+    })
   })
 
   describe('beginTabTransfer / confirmTabTransferred', () => {
@@ -171,6 +249,18 @@ describe('传输回执（ack）', () => {
 
     it('未登记的 tabId 收到 ack 时静默忽略', async () => {
       await expect(confirmTabTransferred('never-transferred')).resolves.toBeUndefined()
+    })
+
+    it('cancelTabTransfer 后到达的 ack 不删除（merge 失败撤销登记）', async () => {
+      const store = useTabsStore()
+      const { createTab } = useTabActions()
+      const tab = await createTab({ title: 'c2.md', content: '' })
+
+      beginTabTransfer(tab.id)
+      cancelTabTransfer(tab.id)
+      await confirmTabTransferred(tab.id)
+
+      expect(store.getTab(tab.id)).toBeDefined()
     })
   })
 })

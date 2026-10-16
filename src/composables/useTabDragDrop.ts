@@ -8,8 +8,9 @@ import type {
   DraggedTabIdentifier as DraggedTabIdentifierType
 } from '@/types'
 import { useTabsStore } from '@/stores/tabs'
-import { beginTabTransfer } from '@/services/crossWindowTab'
+import { beginTabTransfer, cancelTabTransfer } from '@/services/crossWindowTab'
 import { electronService } from '@/services/electron/ElectronService'
+import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 
 /** 拖拽离开防抖延迟：防止光标短暂离开时闪烁 */
 const DRAG_LEAVE_DEBOUNCE_MS = 100
@@ -389,22 +390,26 @@ export function useTabDragDrop() {
         event.clientX < 50 || event.clientX > window.innerWidth - 50))
 
     if (shouldMerge && targetWindow) {
+      // 先登记待删再发 IPC：ack 可能早于 mergeTabToWindow 返回到达，
+      // 后登记会把 ack 吞掉（confirm 查不到 timer → 源 tab 永不关闭 → 双份）
+      beginTabTransfer(tab.id)
       const merged = await mergeTabToWindow(tabData, targetWindow.id)
-      if (merged) {
-        // 走 CloseTab：邻居切换、TAB_CLOSED（释放源窗口 EditorPool 实例）、
-        // opened-files 同步；直接 store.removeTabById 会全部缺失。
-        // 删除不立即执行：登记待确认，目标窗口回发 ack 后才真正 closeTab
-        // （ack 超时则保留源 tab —— 数据安全优先）。
-        beginTabTransfer(tab.id)
+      if (!merged) {
+        cancelTabTransfer(tab.id)
       }
+      // 走 CloseTab：邻居切换、TAB_CLOSED（释放源窗口 EditorPool 实例）、
+      // opened-files 同步；直接 store.removeTabById 会全部缺失。
+      // 删除不立即执行：登记待确认，目标窗口回发 ack 后才真正 closeTab
+      // （ack 超时则保留源 tab —— 数据安全优先）。
     }
     else if (
       targetType === 'outsideWindow' ||
       (!coordsUnreliable && isMouseOutsideWindow(event))
     ) {
+      beginTabTransfer(tab.id)
       const newWindowId = await createNewWindow(tabData)
-      if (newWindowId) {
-        beginTabTransfer(tab.id)
+      if (!newWindowId) {
+        cancelTabTransfer(tab.id)
       }
     }
   }
@@ -424,12 +429,21 @@ export function useTabDragDrop() {
 
   function serializeTabForIPC(tab: TabState): DetachedTabData {
     const serializedTab = JSON.parse(JSON.stringify(tab))
+    // 传输前取权威新鲜内容：listener 有 200ms 落定窗口，store 快照可能
+    // 缺最后几笔敲键——getMarkdown 会先 flush（组合期自动跳过）。随后的
+    // isDirty 必须在 flush 之后读（flush 的 commit 会置 dirty）。
+    let content = serializedTab.content
+    try {
+      content = getEditorServiceGateway().getMarkdown(tab.id)
+    } catch {
+      // 网关未初始化（早期生命周期/测试）：退回 store 快照
+    }
     return {
       id: serializedTab.id,
       title: serializedTab.title,
-      content: serializedTab.content,
+      content,
       filePath: serializedTab.filePath ?? null,
-      isDirty: serializedTab.isDirty,
+      isDirty: tab.isDirty,
       viewMode: serializedTab.viewMode,
       cursor: serializedTab.crepe?.cursor ?? { from: 0, to: 0 },
       // 目标窗口恢复成功后据此回发 ack，源窗口收到才删除本地副本
