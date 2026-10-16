@@ -29,7 +29,6 @@ function createMockEditorProvider(overrides: Partial<IEditorProvider> = {}): IEd
     getCachedContent: vi.fn(() => undefined),
     setCachedContent: vi.fn(),
     clearCache: vi.fn(),
-    setTabContent: vi.fn(() => Promise.resolve()),
     getCMSearchService: vi.fn(() => null),
     undo: vi.fn(),
     redo: vi.fn(),

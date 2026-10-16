@@ -21,7 +21,6 @@ vi.mock('@adapters/gateways/EditorServiceGateway', () => {
     getCachedContent: vi.fn(() => undefined),
     setCachedContent: vi.fn(),
     clearCache: vi.fn(),
-    setTabContent: vi.fn(() => Promise.resolve()),
     getCMSearchService: vi.fn(() => null),
     updateTheme: vi.fn(() => Promise.resolve()),
     initWrapper: vi.fn(() => Promise.resolve()),

@@ -7,7 +7,7 @@
 
 import { EditorPool } from './EditorPool'
 import { MilkdownCommands } from './MilkdownCommands'
-import { replaceAll, insert } from '@milkdown/kit/utils'
+import { insert } from '@milkdown/kit/utils'
 import type { ViewMode } from '@shared/types'
 import type { HeadingItem } from '@/utils/headings'
 import { ImageInsertService } from '@/services/image/ImageInsertService'
@@ -110,18 +110,6 @@ export class MilkdownAdapter implements IEditorProvider {
 
   getHTML(tabId?: string): string {
     return this.pool.getHTML(tabId)
-  }
-
-  async setTabContent(tabId: string, content: string): Promise<void> {
-    const instance = this.pool.getInstance(tabId)
-    if (!instance?.crepe) return
-
-    try {
-      instance.crepe.editor.action(replaceAll(content))
-      instance.content = content
-    } catch (error) {
-      console.error('[MilkdownAdapter] Failed to set tab content:', error)
-    }
   }
 
   // ============================================================

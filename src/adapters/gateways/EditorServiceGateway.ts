@@ -66,10 +66,6 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getHTML(tabId)
   }
 
-  async setTabContent(tabId: string, content: string): Promise<void> {
-    return this.adapter.setTabContent(tabId, content)
-  }
-
   // 视图模式
   setViewMode(mode: ViewMode): void {
     return this.adapter.setViewMode(mode)
