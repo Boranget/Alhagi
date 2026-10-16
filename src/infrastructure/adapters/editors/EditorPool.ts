@@ -23,16 +23,13 @@ import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
-import { debounce } from '@/utils/helpers'
+
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import { startDocumentSync, type DocumentSync } from './documentSync'
 import { resolveHistorySide, type HistorySide } from './historySide'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
 import type { SearchService } from '@/services/search/types'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
-
-/** Markdown 更新防抖延迟 */
-const MARKDOWN_UPDATE_DEBOUNCE_MS = 200
 
 // ============================================================
 // TabEditorInstance — 单个 Tab 的编辑器单元
@@ -57,6 +54,8 @@ interface TabEditorInstance {
   crepeDom: HTMLElement | null
   /** 本 tab 内最后一次获得焦点的一侧；菜单夺焦后 undo 分派的依据 */
   lastFocusedEditor: HistorySide | null
+  /** IME 组合期被挂起的权威回写待办；compositionend 后重读权威应用 */
+  compositionApplyPending: boolean
 }
 
 // ============================================================
@@ -266,6 +265,7 @@ export class EditorPool {
       lastAppliedCrepeDoc: null,
       crepeDom: null,
       lastFocusedEditor: null,
+      compositionApplyPending: false,
     }
 
     // 焦点归属追踪：undo/redo 命令（菜单/命令面板）点击后 activeElement
@@ -816,6 +816,7 @@ export class EditorPool {
         instance.crepe = crepe
         instance.content = currentContent
         instance.lastAppliedCrepeDoc = null
+        instance.compositionApplyPending = false
 
         // 防抖窗口内未落定的编辑可能只存在于旧 Crepe 里；重建后统一进权威，
         // watch 会把 CM 一并刷齐。内容相同则幂等跳过。
@@ -872,13 +873,13 @@ export class EditorPool {
   // ============================================================
 
   /**
-   * markdownUpdated 处理器（带 debounce）。
+   * markdownUpdated 处理器（同步；事件侧 @milkdown/plugin-listener 已自带 200ms 合并，
+   * 不再叠加第二层 debounce——叠加会在「快照捕获 → 延迟提交」之间打开陈旧窗口）。
    * args 约定：[ctx, markdown, prevMarkdown]（@milkdown/plugin-listener 签名）。
    * 回调时刻从 ctx 读取当前 doc，供 echo 抑制按引用比对。
    */
   private createMarkdownUpdatedHandler(tabId: string) {
-    return debounce((...args: unknown[]) => {
-      const markdown = args[1] as string
+    return (...args: unknown[]) => {
       let currentDoc: unknown = null
       try {
         const ctx = args[0] as {
@@ -888,11 +889,11 @@ export class EditorPool {
       } catch {
         // ignore
       }
-      this.handleMarkdownUpdate(tabId, currentDoc, markdown)
-    }, MARKDOWN_UPDATE_DEBOUNCE_MS)
+      this.handleMarkdownUpdate(tabId, currentDoc)
+    }
   }
 
-  private handleMarkdownUpdate(tabId: string, currentDoc: unknown, markdown: string): void {
+  private handleMarkdownUpdate(tabId: string, currentDoc: unknown): void {
     const instance = this.instances.get(tabId)
     if (!instance) return
 
@@ -901,6 +902,18 @@ export class EditorPool {
     if (currentDoc != null && currentDoc === instance.lastAppliedCrepeDoc) {
       return
     }
+
+    // 现场序列化：commit 永远取编辑器此刻的内容，而非事件参数里的旧快照。
+    // 若提交过期快照，apply 侧「现场序列化 vs 权威」比对必然不等 →
+    // 误判外部变更 → replaceAll(旧内容) 回退刚敲的字，且组合期派发会
+    // 打断 IME（拼音被冻结成普通文本，残留到中文前面）。
+    let markdown: string | null = null
+    try {
+      markdown = instance.crepe ? instance.crepe.getMarkdown() : null
+    } catch {
+      return
+    }
+    if (markdown == null) return
 
     instance.docSync?.commit(markdown)
   }
@@ -915,12 +928,23 @@ export class EditorPool {
   /**
    * 权威 → Crepe。比对相同则不动编辑器（保护光标/undo）；
    * 灌入后记录 doc 引用，供 echo 抑制。
+   * IME 组合期禁止派发：replaceAll 会强制打断输入法组合，
+   * 拼音被冻结成普通文本后残留到提交的中文前面——挂起到 compositionend。
    */
   private applyContentToCrepe(instance: TabEditorInstance, content: string): void {
     instance.content = content
     if (!instance.crepe) return
 
     try {
+      let composing = false
+      instance.crepe.editor.action((ctx) => {
+        composing = ctx.get(editorViewCtx)?.composing === true
+      })
+      if (composing) {
+        this.scheduleApplyAfterComposition(instance, 'crepe')
+        return
+      }
+
       if ((instance.crepe.getMarkdown() || '') === content) return
 
       instance.crepe.editor.action((ctx) => {
@@ -932,12 +956,17 @@ export class EditorPool {
     }
   }
 
-  /** 权威 → CodeMirror。ExternalChange 注解阻止回灌 handleCMUpdate。 */
+  /** 权威 → CodeMirror。ExternalChange 注解阻止回灌 handleCMUpdate。组合期同样挂起。 */
   private applyContentToCM(instance: TabEditorInstance, content: string): void {
     instance.content = content
     if (!instance.cmView) return
 
     try {
+      if (instance.cmView.composing) {
+        this.scheduleApplyAfterComposition(instance, 'cm')
+        return
+      }
+
       const current = instance.cmView.state.doc.toString()
       if (current === content) return
 
@@ -948,6 +977,44 @@ export class EditorPool {
     } catch (e) {
       console.error('[EditorPool] applyContentToCM failed', e)
     }
+  }
+
+  /**
+   * 组合期挂起的权威回写：compositionend 后重读权威最新值再应用两侧
+   * （重入 apply 走正常比对，内容相同则各自幂等跳过）。
+   * 单 pending 位即可：同一 tab 不可能同时在两个视图发起输入法组合；
+   * 若挂起期间 DOM 被销毁、事件永不触发，flag 残留也只影响下一次挂起
+   * （正常 apply 路径不看 flag，下次内容变更仍会应用，不产生发散）。
+   */
+  private scheduleApplyAfterComposition(instance: TabEditorInstance, side: 'crepe' | 'cm'): void {
+    if (instance.compositionApplyPending) return
+
+    let dom: HTMLElement | null = null
+    if (side === 'crepe') {
+      try {
+        instance.crepe?.editor.action((ctx) => {
+          dom = ctx.get(editorViewCtx)?.dom ?? null
+        })
+      } catch {
+        // ignore
+      }
+    } else {
+      dom = instance.cmView?.dom ?? null
+    }
+    if (!dom) return
+    const target: HTMLElement = dom
+
+    instance.compositionApplyPending = true
+    const finish = () => {
+      target.removeEventListener('compositionend', finish)
+      instance.compositionApplyPending = false
+      const latest = this.tabRepository.getById(instance.tabId)?.content
+      if (latest != null) {
+        this.applyContentToCrepe(instance, latest)
+        this.applyContentToCM(instance, latest)
+      }
+    }
+    target.addEventListener('compositionend', finish)
   }
 
   // ============================================================
