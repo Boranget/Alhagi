@@ -15,40 +15,51 @@ export function useAutoSave(bus?: IEventBus) {
   const lastAutoSaveTime = ref<number | null>(null)
   const autoSaveError = ref<string | null>(null)
 
-  let debouncedSave: (() => void) | null = null
+  let debouncedSave: ReturnType<typeof debounce> | null = null
   const unsubscribers: (() => void)[] = []
   const stopWatchers: (() => void)[] = []
 
   function setupAutoSave() {
     if (!prefsStore.autoSave) return
 
+    // interval 变更重建时丢弃旧挂起，防止新旧两个 timer 双触发
+    debouncedSave?.cancel()
     debouncedSave = debounce(async () => {
       await performAutoSave()
     }, prefsStore.autoSaveInterval * 1000)
   }
 
+  /**
+   * 保存**全部** dirty 且有落盘路径的 tab，而非仅活动 tab。
+   * 触发源与保存目标必须解耦：CONTENT_CHANGED 只在 tab 活动期发出，
+   * 防抖窗口内切走后，旧的"只存活动 tab"写法会让原 tab 的 dirty
+   * 永无触发源——自动保存对其永久失效，直到用户重新编辑它。
+   */
   async function performAutoSave() {
-    const activeTab = tabsStore.activeTab
-
-    if (!activeTab || !activeTab.isDirty || !activeTab.filePath) {
-      return
-    }
+    const pending = tabsStore.dirtyTabs.filter(tab => !!tab.filePath)
+    if (pending.length === 0) return
 
     isAutoSaving.value = true
     autoSaveError.value = null
 
-    try {
-      const success = await tabService.saveFile(activeTab.id)
-      if (success) {
-        lastAutoSaveTime.value = Date.now()
-      } else {
-        autoSaveError.value = 'Failed to auto-save'
+    let failed = false
+    for (const tab of pending) {
+      try {
+        const success = await tabService.saveFile(tab.id)
+        if (success) {
+          lastAutoSaveTime.value = Date.now()
+        } else {
+          failed = true
+        }
+      } catch (e) {
+        failed = true
+        console.error('[useAutoSave] save failed for', tab.id, e)
       }
-    } catch (e) {
-      autoSaveError.value = `Auto-save error: ${e}`
-    } finally {
-      isAutoSaving.value = false
     }
+    // 单文件失败不阻断其余；isDirty 保持 true，下一轮触发会重试
+    if (failed) autoSaveError.value = 'Failed to auto-save'
+
+    isAutoSaving.value = false
   }
 
   function handleContentChanged() {
@@ -58,6 +69,8 @@ export function useAutoSave(bus?: IEventBus) {
   }
 
   function stopAutoSave() {
+    // 关闭自动保存时撤销挂起的那次，否则停用后仍会落盘一次
+    debouncedSave?.cancel()
     debouncedSave = null
   }
 
