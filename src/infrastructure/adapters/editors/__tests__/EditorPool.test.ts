@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EditorPool } from '../EditorPool'
 import { focusModePluginKey } from '@/plugins/focusModePlugin'
 import type { ViewMode } from '@shared/types'
@@ -256,6 +256,7 @@ interface PrivatePool {
   activeTabId: string | null
   createMarkdownUpdatedHandler: (tabId: string) => (...args: unknown[]) => void
   handleCMUpdate: (tabId: string, content: string) => void
+  readVisibleContent: (instance: unknown) => string | null
   applyContentToCrepe: (instance: unknown, content: string) => void
   applyContentToCM: (instance: unknown, content: string) => void
 }
@@ -522,5 +523,89 @@ describe('EditorPool composition guard', () => {
     expect(instance.compositionApplyPending).toBe(false)
     // 单 listener：finish 只跑一次 → 组合期 3 次挂起只对应 1 次重入比对
     expect(instance.crepe.getMarkdown).toHaveBeenCalledTimes(4)
+  })
+})
+
+// ── flush 保存路径护栏：组合期活读返回 null，暂态不进权威 ──
+// getMarkdown（保存/导出/复制）→ flush → readVisible 是 commit 边界上的
+// 活读；组合期若照常序列化，裸拼音会被冲进 store 并随自动保存写进磁盘。
+
+describe('EditorPool.readVisibleContent', () => {
+  const internals = () => pool as unknown as PrivatePool
+  let pool: EditorPool
+
+  beforeEach(() => {
+    pool = createPool()
+  })
+
+  it('should return live markdown when not composing', () => {
+    const view = { composing: false, state: { doc: {} } }
+    const instance = {
+      viewMode: 'wysiwyg',
+      crepe: {
+        getMarkdown: vi.fn(() => 'settled-markdown'),
+        editor: { action: (fn: (ctx: { get: () => unknown }) => void) => fn({ get: () => view }) },
+      },
+      cmView: null,
+    }
+
+    expect(internals().readVisibleContent(instance)).toBe('settled-markdown')
+  })
+
+  it('should return null while crepe is composing (transient pinyin never reaches authority)', () => {
+    const view = { composing: true, state: { doc: {} } }
+    const getMarkdown = vi.fn(() => 'raw-pinyin')
+    const instance = {
+      viewMode: 'wysiwyg',
+      crepe: {
+        getMarkdown,
+        editor: { action: (fn: (ctx: { get: () => unknown }) => void) => fn({ get: () => view }) },
+      },
+      cmView: null,
+    }
+
+    expect(internals().readVisibleContent(instance)).toBeNull()
+    expect(getMarkdown).not.toHaveBeenCalled()
+  })
+
+  it('should return null while CM is composing in source mode', () => {
+    const toString = vi.fn(() => 'raw-pinyin')
+    const instance = {
+      viewMode: 'source',
+      crepe: null,
+      cmView: { composing: true, state: { doc: { toString } } },
+    }
+
+    expect(internals().readVisibleContent(instance)).toBeNull()
+    expect(toString).not.toHaveBeenCalled()
+  })
+
+  it('should return CM markdown in source mode when not composing', () => {
+    const instance = {
+      viewMode: 'source',
+      crepe: null,
+      cmView: { composing: false, state: { doc: { toString: () => 'source-markdown' } } },
+    }
+
+    expect(internals().readVisibleContent(instance)).toBe('source-markdown')
+  })
+
+  it('should return null when the editor is missing or serialization throws', () => {
+    expect(internals().readVisibleContent({ viewMode: 'wysiwyg', crepe: null, cmView: null })).toBeNull()
+    expect(internals().readVisibleContent({ viewMode: 'source', crepe: null, cmView: null })).toBeNull()
+
+    const view = { composing: false, state: { doc: {} } }
+    expect(
+      internals().readVisibleContent({
+        viewMode: 'wysiwyg',
+        crepe: {
+          getMarkdown: vi.fn(() => {
+            throw new Error('serialize failed')
+          }),
+          editor: { action: (fn: (ctx: { get: () => unknown }) => void) => fn({ get: () => view }) },
+        },
+        cmView: null,
+      })
+    ).toBeNull()
   })
 })

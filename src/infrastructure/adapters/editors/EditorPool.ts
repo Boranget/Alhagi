@@ -286,16 +286,7 @@ export class EditorPool {
     // 文档同步：tabsStore.content 为唯一权威，两侧编辑器订阅刷新。
     // split 实时同步、切模式交接、外部直写 store 的接入都由它统一承担。
     instance.docSync = startDocumentSync(tabId, this.tabRepository, {
-      readVisible: () => {
-        try {
-          if (instance.viewMode === 'source') {
-            return instance.cmView ? instance.cmView.state.doc.toString() : null
-          }
-          return instance.crepe ? instance.crepe.getMarkdown() : null
-        } catch {
-          return null
-        }
-      },
+      readVisible: () => this.readVisibleContent(instance),
       applyToWysiwyg: (doc) => this.applyContentToCrepe(instance, doc),
       applyToSource: (doc) => this.applyContentToCM(instance, doc),
       onAuthoritativeChange: (doc) => {
@@ -519,6 +510,33 @@ export class EditorPool {
   // ============================================================
   // 内容操作
   // ============================================================
+
+  /**
+   * commit 边界上的唯一活读（flush → readVisible 专用）。
+   * 组合期返回 null：此刻序列化出来的是暂态（PM 可能把裸拼音吞进 doc），
+   * flush 随之空转，保存/导出/复制拿到的是已落定的权威内容——自动保存
+   * debounce 落在组合窗口内时，否则会把裸拼音写进磁盘文件。
+   * 与 listener 侧「组合期跳过提交」构成同一不变量的全部覆盖。
+   */
+  private readVisibleContent(instance: TabEditorInstance): string | null {
+    try {
+      if (instance.viewMode === 'source') {
+        if (instance.cmView?.composing) return null
+        return instance.cmView ? instance.cmView.state.doc.toString() : null
+      }
+      if (!instance.crepe) return null
+
+      let composing = false
+      instance.crepe.editor.action((ctx) => {
+        composing = ctx.get(editorViewCtx)?.composing === true
+      })
+      if (composing) return null
+
+      return instance.crepe.getMarkdown()
+    } catch {
+      return null
+    }
+  }
 
   getMarkdown(tabId?: string): string {
     const id = tabId || this.activeTabId

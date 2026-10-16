@@ -25,7 +25,7 @@ import { watch, type WatchStopHandle } from 'vue'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 
 export interface DocumentSyncTargets {
-  /** 当前可见编辑器的最新 markdown（用于 flush；不可用时返回 null） */
+  /** 当前可见编辑器的最新 markdown（用于 flush；不可用或组合期返回 null——暂态不进权威） */
   readVisible: () => string | null
   /** 把权威内容应用到 wysiwyg 侧（内部负责比对与断环） */
   applyToWysiwyg: (content: string) => void
