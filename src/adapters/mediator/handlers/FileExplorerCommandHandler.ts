@@ -1,11 +1,24 @@
 import type { ICommandHandler } from '@core/domain/ports/IMediator'
+import type { FileTreeNodeType } from '@/types'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
+
+/** 命令 payload 在中介者边界是动态的；按各 case 实际消费的字段声明 */
+interface FileExplorerCommandParams {
+  folderPath: string
+  node: FileTreeNodeType
+  dirPath: string
+  fileName: string
+  dirName: string
+  filePath: string
+  oldPath: string
+  newName: string
+}
 
 export class FileExplorerCommandHandler {
   private store = useFileExplorerStore()
 
   async execute(payload?: unknown): Promise<unknown> {
-    const { type, ...params } = payload as { type: string; [k: string]: any }
+    const { type, ...params } = payload as { type: string } & FileExplorerCommandParams
     switch (type) {
       case 'file:openFolder':
         return this.store.openFolder()

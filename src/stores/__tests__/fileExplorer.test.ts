@@ -191,12 +191,12 @@ describe('FileExplorer Store', () => {
         data: [{ name: 'child.md', path: '/docs/child.md', isDirectory: false }],
       })
       const store = useFileExplorerStore()
-      const node = { name: 'sub', path: '/docs/sub', type: 'directory', expanded: false, children: [] } as any
+      const node = { name: 'sub', path: '/docs/sub', type: 'directory', expanded: false, children: [] } as unknown as import('@/types').FileTreeNodeType
 
       await store.toggleFolder(node)
 
       expect(node.expanded).toBe(true)
-      expect(node.children.length).toBe(1)
+      expect(node.children?.length).toBe(1)
     })
   })
 })

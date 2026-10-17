@@ -17,10 +17,11 @@ export class FileWatcherServiceGateway implements IFileWatcherService {
       }
     }
 
-    // Register the watcher if available
-    if ((api as any).onFileChanged) {
-      const unsubscribe = (api as any).onFileChanged(handler)
-      this.watchers.set(path, unsubscribe)
+    // Register the watcher if available（preload 未声明该方法，按结构收窄）
+    const watcherApi = api as { onFileChanged?: (handler: (event: unknown, changedPath: string) => void) => (() => void) | undefined }
+    if (watcherApi.onFileChanged) {
+      const unsubscribe = watcherApi.onFileChanged(handler)
+      this.watchers.set(path, unsubscribe ?? (() => {}))
       return () => {
         this.unwatch(path)
       }

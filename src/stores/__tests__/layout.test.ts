@@ -46,7 +46,7 @@ describe('Layout Store', () => {
     it('should not emit IPC if value unchanged (dedup)', () => {
       const store = useLayoutStore()
       store.setSidebar(true)
-      expect((window as any).electronAPI.layoutChanged).not.toHaveBeenCalled()
+      expect(window.electronAPI?.layoutChanged).not.toHaveBeenCalled()
     })
   })
 

@@ -251,7 +251,7 @@ describe('ImageInsertService Integration', () => {
         data: '/images/photo.png',
         fileName: 'photo.png',
       })
-      const options = new ImageInsertOptions({ mode: 'unknown' as any })
+      const options = new ImageInsertOptions({ mode: 'unknown' as never })
 
       const result = await service.insertWith(source, options, mockContext)
 
@@ -295,7 +295,7 @@ describe('ImageInsertService Integration', () => {
         data: '/images/photo.png',
         fileName: 'photo.png',
       })
-      const options = new ImageInsertOptions({ mode: 'custom' as any })
+      const options = new ImageInsertOptions({ mode: 'custom' as never })
 
       const result = await service.insertWith(source, options, mockContext)
 

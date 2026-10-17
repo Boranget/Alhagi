@@ -1,11 +1,25 @@
 import type { ICommandHandler } from '@core/domain/ports/IMediator'
+import type { Preferences } from '@/stores/preferences'
 import { usePreferencesStore } from '@/stores/preferences'
+
+/** 命令 payload 在中介者边界是动态的；按各 case 实际消费的字段声明 */
+interface PreferenceCommandParams {
+  key: keyof Preferences
+  value: Preferences[keyof Preferences]
+  patch: Partial<Preferences>
+  filePath: string
+  title: string
+  pinned: boolean
+  folderPath: string
+  name: string
+  data: Preferences['lastSession']
+}
 
 export class PreferenceCommandHandler {
   private store = usePreferencesStore()
 
   async execute(payload?: unknown): Promise<unknown> {
-    const { type, ...params } = payload as { type: string; [k: string]: any }
+    const { type, ...params } = payload as { type: string } & PreferenceCommandParams
     switch (type) {
       case 'pref:set':
         return this.store.setOne(params.key, params.value)

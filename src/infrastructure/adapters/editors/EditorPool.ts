@@ -25,6 +25,7 @@ import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
 
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
+import type { EditorView as ProseMirrorEditorView } from '@milkdown/kit/prose/view'
 import { startDocumentSync, type DocumentSync } from './documentSync'
 import { resolveHistorySide, type HistorySide } from './historySide'
 import { CodeMirrorSearchService, searchPlugin } from '@/services/search'
@@ -655,14 +656,14 @@ export class EditorPool {
     return instance?.isReady ?? false
   }
 
-  getView(tabId?: string): any | null {
+  getView(tabId?: string): ProseMirrorEditorView | null {
     const id = tabId || this.activeTabId
     if (!id) return null
 
     const instance = this.instances.get(id)
     if (!instance?.crepe) return null
 
-    let view: any = null
+    let view: ProseMirrorEditorView | null = null
     instance.crepe.editor.action((ctx) => {
       const proseView = ctx.get(editorViewCtx)
       if (proseView) view = proseView

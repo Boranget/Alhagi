@@ -1,11 +1,11 @@
-import type { Preferences, PreferencesProps } from '@core/entities/Preferences'
+import type { PreferencesProps } from '@core/entities/Preferences'
 import type { Theme } from '@shared/types'
 
 export interface IPreferencesRepository {
   get<K extends keyof PreferencesProps>(key: K): PreferencesProps[K]
   set<K extends keyof PreferencesProps>(key: K, value: PreferencesProps[K]): Promise<void>
   setMany(prefs: Partial<PreferencesProps>): Promise<void>
-  getAll(): Preferences
+  getAll(): PreferencesProps
   subscribe(listener: (patch: Partial<PreferencesProps>) => void): () => void
   addRecentFile(filePath: string): Promise<void>
   addRecentFolder(folderPath: string): Promise<void>

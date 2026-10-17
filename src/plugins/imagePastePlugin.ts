@@ -70,7 +70,7 @@ async function handleFilePaste(
   options: ImageInsertOptions,
   context: ImageInsertContext
 ) {
-  const hasPath = !!(file as any).path
+  const hasPath = !!(file as File & { path?: string }).path
   const source = hasPath
     ? await fileToImageSource(file)
     : await blobToImageSource(file)

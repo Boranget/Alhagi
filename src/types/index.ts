@@ -49,7 +49,7 @@ export type ViewMode = 'wysiwyg' | 'source' | 'split'
  * 字符串类型故意开放：每加一个 descriptor 不需要改这里。
  * 已知核心 id 列出来给 IDE 自动补全 + 类型友好用，但 (string & {}) 兜住其它。
  */
-export type FileType = 'editor' | 'image' | 'text' | 'unsupported' | (string & {})
+export type FileType = 'editor' | 'image' | 'text' | 'unsupported' | (string & Record<never, never>)
 
 export type SidebarView = 'files' | 'recent' | 'search' | 'outline'
 

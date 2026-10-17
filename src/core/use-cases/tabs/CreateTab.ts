@@ -1,6 +1,7 @@
 ﻿import type { ITabRepository, CreateTabOptions } from '@core/domain/ports/repositories/ITabRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { IElectronSync } from '@core/domain/ports/gateways/IElectronSync'
+import type { TabState } from '@/types'
 import { Tab } from '@core/entities/Tab'
 import { generateUUID } from '@/utils/helpers'
 import { detectFileType, createDefaultEditorState } from '@/utils/tabHelpers'
@@ -47,7 +48,7 @@ export class CreateTab {
     const previousTabId = this.tabRepository.getActiveTabId()
     this.tabRepository.setActiveTab(id)
 
-    this.eventBus.emit('app:tab:created', { tabId: id, tab: tab.toProps() as any })
+    this.eventBus.emit('app:tab:created', { tabId: id, tab: tab.toProps() as TabState })
 
     if (previousTabId && previousTabId !== id) {
       this.eventBus.emit('app:tab:switched', { tabId: id, previousTabId })

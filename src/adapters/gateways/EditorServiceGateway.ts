@@ -8,6 +8,7 @@ import type { IEditorProvider } from '@core/domain/ports/IEditorProvider'
 import type { IEditorCommands } from '@core/domain/ports/IEditorCommands'
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import { useEventBusGateway } from '@adapters/gateways/EventBusGateway'
 
 export interface EditorServiceGatewayDeps {
@@ -99,7 +100,7 @@ export class EditorServiceGateway implements IEditorProvider {
     return this.adapter.getCommands()
   }
 
-  getView(): any | null {
+  getView(): EditorView | null {
     return this.adapter.getView()
   }
 

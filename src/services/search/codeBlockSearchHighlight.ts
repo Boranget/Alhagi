@@ -165,7 +165,9 @@ export function codeBlockSearchHighlight(): Extension {
       let el: Element | null = this.view.dom
       let depth = 0
       while (el && depth < 20) {
-        const pmDesc = (el as any).pmViewDesc
+        const pmDesc = (el as Element & {
+          pmViewDesc?: { node?: { type?: { name?: string } }; spec?: { getPos?: () => number } }
+        }).pmViewDesc
         if (pmDesc?.node?.type?.name === 'code_block') {
           // 存 getPos 函数而非数字，文档编辑后位置自动更新
           const getPos = pmDesc.spec?.getPos

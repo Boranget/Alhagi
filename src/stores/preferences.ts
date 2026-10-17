@@ -222,7 +222,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function getAllPreferences(): Preferences {
     const result = {} as Preferences
     for (const [key, r] of Object.entries(refMap)) {
-      (result as any)[key] = r.value
+      Object.assign(result, { [key]: r.value })
     }
     return result
   }
@@ -231,7 +231,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue
       const r = refMap[key as keyof Preferences]
-      if (r) r.value = value as any
+      if (r) (r as { value: unknown }).value = value
     }
   }
 

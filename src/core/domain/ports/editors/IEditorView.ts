@@ -1,5 +1,6 @@
 import type { ViewMode } from '@shared/types'
 import type { SearchService } from '@/services/search/types'
+import type { EditorView } from '@milkdown/kit/prose/view'
 
 export interface EditorSelection {
   from: number
@@ -27,7 +28,7 @@ export interface IEditorView {
   getHeadings(): EditorHeading[]
   getSelection(): EditorSelection | null
   getActiveEditor(): 'crepe' | 'codemirror' | null
-  getView(): any | null
+  getView(): EditorView | null
   getCMSearchService(tabId?: string): SearchService | null
   undo(): void
   redo(): void

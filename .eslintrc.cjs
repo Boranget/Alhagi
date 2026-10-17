@@ -34,8 +34,7 @@ module.exports = {
       patterns: [
         { group: ['@/stores/tabs'], message: '请通过 ITabRepository 使用 Tabs 数据' },
         { group: ['@/stores/preferences'], message: '请通过 IPreferencesRepository 使用偏好数据' },
-        { group: ['@/stores/search'], message: '请通过 ISearchRepository 使用搜索数据' },
-        { group: ['@/stores/editor'], message: '请通过 IEditorProvider 使用编辑器数据' },
+        { group: ['@/stores/search'], message: '请通过 useSearch/useWorkspaceSearch 使用搜索状态' },
       ]
     }]
   },
@@ -43,17 +42,13 @@ module.exports = {
     {
       files: ['src/components/**/*.vue'],
       rules: {
+        // 组件层仅强制事件总线边界（error）；store 直连遵循全局 warn——
+        // store 即共享状态通道是现行架构（见搜索栈设计），不再要求经 context facade。
         'no-restricted-imports': ['error', {
           paths: [{
             name: '@/events/eventBus',
             message: '请通过 EventBusGateway 使用事件总线'
-          }],
-          patterns: [
-            { group: ['@/stores/tabs'], message: '请通过 useTabContext 使用 Tabs 数据' },
-            { group: ['@/stores/preferences'], message: '请通过 usePreferencesStore（仅 Composition Root）' },
-            { group: ['@/stores/search'], message: '请通过 useSearchContext 使用搜索数据' },
-            { group: ['@/stores/editor'], message: '请通过 useEditorContext 使用编辑器数据' },
-          ]
+          }]
         }]
       }
     },

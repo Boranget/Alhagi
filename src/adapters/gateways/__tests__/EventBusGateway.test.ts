@@ -71,7 +71,7 @@ describe('EventBusGateway', () => {
   })
 
   it('should delegate subscribe to eventBus', () => {
-    const subs = { 'app:tab:created': vi.fn() } as any
+    const subs = { 'app:tab:created': vi.fn() } as unknown as Parameters<typeof gateway.subscribe>[0]
     gateway.subscribe(subs)
 
     expect(mockEventBus.subscribe).toHaveBeenCalledWith(subs)

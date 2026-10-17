@@ -1,6 +1,7 @@
 ﻿import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { IEventBus } from '@core/domain/ports/gateways/IEventBus'
 import type { IElectronSync } from '@core/domain/ports/gateways/IElectronSync'
+import type { TabState } from '@/types'
 
 export class CloseTab {
   constructor(
@@ -20,7 +21,7 @@ export class CloseTab {
     this.tabRepository.delete(tabId)
 
     // 2. 事件发送
-    this.eventBus.emit('app:tab:closed', { tabId, tab: tab.toProps() as any })
+    this.eventBus.emit('app:tab:closed', { tabId, tab: tab.toProps() as TabState })
 
     // 3. 切换到邻居 tab
     if (this.tabRepository.getActiveTabId() === tabId) {
@@ -40,10 +41,10 @@ export class CloseTab {
           this.tabRepository.setActiveTab(nextTabId)
           this.eventBus.emit('app:tab:switched', { tabId: nextTabId, previousTabId: tabId })
         } else {
-          this.tabRepository.setActiveTab('' as any)
+          this.tabRepository.setActiveTab('')
         }
       } else {
-        this.tabRepository.setActiveTab('' as any)
+        this.tabRepository.setActiveTab('')
       }
     }
 

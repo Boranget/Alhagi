@@ -16,6 +16,7 @@ import type { ImageInsertContext } from '@core/domain/ports/services/image/IImag
 import type { IEditorProvider, Selection, Heading } from '@core/domain/ports/IEditorProvider'
 import type { ITabRepository } from '@core/domain/ports/repositories/ITabRepository'
 import type { SearchService } from '@/services/search/types'
+import type { EditorView as ProseMirrorEditorView } from '@milkdown/kit/prose/view'
 
 export class MilkdownAdapter implements IEditorProvider {
   private pool: EditorPool
@@ -156,7 +157,7 @@ export class MilkdownAdapter implements IEditorProvider {
     return this.commands
   }
 
-  getView(): any | null {
+  getView(): ProseMirrorEditorView | null {
     return this.pool.getView()
   }
 

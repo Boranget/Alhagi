@@ -1,5 +1,6 @@
 ﻿import type { IPreferencesRepository } from '@core/domain/ports/repositories/IPreferencesRepository'
 import type { PreferencesProps } from '@core/entities/Preferences'
+import type { Preferences } from '@/stores/preferences'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usePreferencesStore as useOriginalPreferencesStore } from '@/stores/preferences'
@@ -8,19 +9,20 @@ export const usePreferencesRepository = defineStore('preferencesRepo', (): IPref
   const originalStore = useOriginalPreferencesStore()
 
   const get = <K extends keyof PreferencesProps>(key: K): PreferencesProps[K] => {
-    return (originalStore as any)[key] as PreferencesProps[K]
+    return (originalStore as unknown as PreferencesProps)[key]
   }
 
   const set = async <K extends keyof PreferencesProps>(key: K, value: PreferencesProps[K]): Promise<void> => {
-    await originalStore.setOne(key as any, value as any)
+    const storeKey = key as keyof Preferences
+    await originalStore.setOne(storeKey, value as unknown as Preferences[typeof storeKey])
   }
 
   const setMany = async (prefs: Partial<PreferencesProps>): Promise<void> => {
-    await originalStore.setMany(prefs as any)
+    await originalStore.setMany(prefs as unknown as Parameters<typeof originalStore.setMany>[0])
   }
 
-  const getAll = (): any => {
-    return originalStore
+  const getAll = (): PreferencesProps => {
+    return originalStore as unknown as PreferencesProps
   }
 
   const subscribe = (listener: (patch: Partial<PreferencesProps>) => void): (() => void) => {

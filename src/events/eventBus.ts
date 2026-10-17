@@ -132,7 +132,13 @@ export function useEventBus() {
 }
 
 // Expose for e2e tests (tests run in browser context, can't import modules)
+declare global {
+  interface Window {
+    __eventBus?: typeof eventBus
+    __AppEvents?: typeof AppEvents
+  }
+}
 if (typeof window !== 'undefined') {
-  (window as any).__eventBus = eventBus
-  ;(window as any).__AppEvents = AppEvents
+  window.__eventBus = eventBus
+  window.__AppEvents = AppEvents
 }
