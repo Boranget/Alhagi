@@ -158,7 +158,7 @@ export class TabService {
       })
       this.tabsStore.markCleanIfUnchanged(tabId, content)
 
-      this.preferencesStore.addRecentFile(filePath, tab.title)
+      this.preferencesStore.addRecentFile(filePath, extractTitleFromPath(filePath))
 
       this.eventBus.emit(AppEvents.FILE_SAVED, { filePath, tabId })
       return true

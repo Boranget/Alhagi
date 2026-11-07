@@ -23,6 +23,7 @@ import { useErrorStore, ErrorCode, ErrorSeverity } from '@/stores/error'
 import { UI, EDITOR, AUTO_SAVE, I18N, IMAGE, LAUNCH } from '@/constants'
 import { useThemeService } from '@/services/theme/ThemeService'
 import { useRecentFilesService } from '@/services/recentFiles/RecentFilesService'
+import { normalizeRecentFiles, deriveRecentFileTitle } from '@/utils/recentFiles'
 import { setLanguage as setI18nLanguage } from '@/services/i18n'
 import { eventBus, AppEvents } from '@/events/eventBus'
 
@@ -218,6 +219,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     return recentFilesService
   }
 
+  // —————————————— 最近文件事件（单一入口） ——————————————
+  // 注册放在 store setup 阶段而不是 loadPreferences 末尾：打开文件不依赖
+  // 偏好是否加载完成，避免启动早期（会话恢复 / 快速打开）漏记。
+  eventBus.on(AppEvents.FILE_OPENED, ({ filePath }: { filePath: string; tabId?: string }) => {
+    // 只信 filePath。tabId 是运行时 UUID，写入 title 会让列表显示一串乱码。
+    rfs().addRecentFile(filePath, deriveRecentFileTitle(filePath))
+  })
+  eventBus.on(AppEvents.FOLDER_OPENED, ({ folderPath }: { folderPath: string }) => {
+    const name = folderPath.split(/[/\\]/).pop() || folderPath
+    rfs().addRecentFolder(folderPath, name)
+  })
+
   // —————————————— 快照 & 写入 ——————————————
   function getAllPreferences(): Preferences {
     const result = {} as Preferences
@@ -230,6 +243,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function applyPatch(patch: Partial<Preferences>): void {
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue
+
+      // 最近文件是展示数据：读取/广播时统一用 filePath 纠正 title，
+      // 修复早期版本把 tabId 写进 title 的历史数据。
+      if (key === 'recentFiles' && Array.isArray(value)) {
+        const r = recentFiles as Ref<RecentFile[]>
+        r.value = normalizeRecentFiles(value as Array<RecentFile | string>)
+        continue
+      }
+
       const r = refMap[key as keyof Preferences]
       if (r) (r as { value: unknown }).value = value
     }
@@ -320,7 +342,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
 
       if (preferences) {
+        const rawRecentFiles = preferences.recentFiles as unknown
         applyPatch(preferences)
+
+        // 历史数据修复：早期版本把 tabId(UUID) 写进了 title。
+        // 归一化后如果确实有改动，回写一次，避免每次启动重复纠正。
+        if (Array.isArray(rawRecentFiles)) {
+          const normalized = normalizeRecentFiles(rawRecentFiles as Array<RecentFile | string>)
+          if (normalized !== rawRecentFiles) {
+            setOne('recentFiles', normalized)
+          }
+        }
+
         if (needMigrate && window.electronAPI) {
           const plain = JSON.parse(JSON.stringify(getAllPreferences())) as Record<string, unknown>
           window.electronAPI.preferencesSetAll(plain).catch(() => { /* 静默 */ })
@@ -333,16 +366,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
         applyPatch(patch as Partial<Preferences>)
       })
     }
-
-    // 监听解耦后的事件：fileExplorer/tabs 不再直接调用 addRecent*
-    eventBus.on(AppEvents.FILE_OPENED, ({ filePath, tabId }: { filePath: string; tabId?: string }) => {
-      const title = tabId ? (tabId.split('/').pop() || filePath) : filePath
-      rfs().addRecentFile(filePath, title)
-    })
-    eventBus.on(AppEvents.FOLDER_OPENED, ({ folderPath }: { folderPath: string }) => {
-      const name = folderPath.split(/[/\\]/).pop() || folderPath
-      rfs().addRecentFolder(folderPath, name)
-    })
   }
 
   async function loadCustomThemes(): Promise<void> {

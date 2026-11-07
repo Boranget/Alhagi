@@ -8,6 +8,7 @@
 
 import { usePreferencesStore } from '@/stores/preferences'
 import type { RecentFile, RecentFolder } from '@/types'
+import { deriveRecentFileTitle } from '@/utils/recentFiles'
 
 export function useRecentFilesService() {
   const prefs = usePreferencesStore()
@@ -25,13 +26,16 @@ export function useRecentFilesService() {
 
   function addRecentFile(filePath: string, title: string): void {
     const list = prefs.recentFiles
+    // title 只用于展示，始终以 filePath 为准；调用方传错（如 tabId/UUID）时兜底。
+    const resolvedTitle = title?.trim() ? title : deriveRecentFileTitle(filePath)
     const existingIndex = list.findIndex((f) => f.filePath === filePath)
     let next: RecentFile[]
     if (existingIndex !== -1) {
-      const existing = { ...list[existingIndex], lastOpened: Date.now() }
+      // 已存在时同样刷新 title：修复历史数据里写错的 UUID 标题。
+      const existing = { ...list[existingIndex], title: resolvedTitle, lastOpened: Date.now() }
       next = [existing, ...list.slice(0, existingIndex), ...list.slice(existingIndex + 1)]
     } else {
-      next = [{ filePath, title, lastOpened: Date.now(), pinned: false }, ...list]
+      next = [{ filePath, title: resolvedTitle, lastOpened: Date.now(), pinned: false }, ...list]
       next = trim(next, prefs.maxRecentFiles)
     }
     prefs.setOne('recentFiles', next)
