@@ -18,6 +18,7 @@ interface FakeInstance {
   crepeContainer: HTMLDivElement
   cmView: { scrollDOM: HTMLElement } | null
   crepe?: unknown | null
+  largeDocument?: boolean
 }
 
 type PoolInternals = {
@@ -54,6 +55,28 @@ function inject(pool: EditorPool, activeTabId: string | null, entries: Record<st
   internals.activeTabId = activeTabId
   return internals
 }
+
+describe('EditorPool.setViewMode（大文档保护）', () => {
+  it('should reject wysiwyg for a large document instead of rendering an empty Crepe pane', () => {
+    const pool = createPool()
+    const instance = { ...makeInstance('source'), largeDocument: true }
+    inject(pool, 'tab-1', { 'tab-1': instance })
+
+    pool.setViewMode('tab-1', 'wysiwyg')
+
+    expect(instance.viewMode).toBe('source')
+  })
+
+  it('should reject split for a large document', () => {
+    const pool = createPool()
+    const instance = { ...makeInstance('source'), largeDocument: true }
+    inject(pool, 'tab-1', { 'tab-1': instance })
+
+    pool.setViewMode('tab-1', 'split')
+
+    expect(instance.viewMode).toBe('source')
+  })
+})
 
 describe('EditorPool.getScrollContainer', () => {
   it('should return null when there is no active tab', () => {

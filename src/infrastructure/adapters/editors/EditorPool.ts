@@ -23,6 +23,7 @@ import { ImageInsertOptions } from '@core/entities/image/ImageInsertOptions'
 import type { ImageInsertContext } from '@core/domain/ports/services/image/IImageInsertStrategy'
 import { useFileSystemGateway } from '@adapters/gateways/FileSystemGateway'
 import { join, isAbsolute, normalizePath } from '@/services/image/strategies/pathUtils'
+import { isLargeDocumentContent } from '@/utils/largeDocument'
 
 import { createCodeMirrorView, updateEditorTheme, ExternalChange, type EditorView, type ThemeType } from '@/components/Editor/codemirror/setup'
 import type { EditorView as ProseMirrorEditorView } from '@milkdown/kit/prose/view'
@@ -47,6 +48,8 @@ interface TabEditorInstance {
   viewMode: ViewMode
   content: string
   isReady: boolean
+  /** 超阈值文档：不创建 Crepe，只允许 source 模式（见 isLargeDocumentContent） */
+  largeDocument: boolean
   /** 权威（tabsStore）与两侧编辑器的同步器 */
   docSync: DocumentSync | null
   /** applyContentToCrepe 灌入后的 PM doc 引用；listener echo 按引用比对抑制回写 */
@@ -161,6 +164,12 @@ export class EditorPool {
 
     const startTime = performance.now()
 
+    // 大文档：跳过 Crepe 实例。ProseMirror 会为全文节点建 DOM，
+    // 数 MB 的 Markdown 会直接卡死渲染进程；源码模式（CodeMirror）
+    // 只渲染视口，是唯一能流畅打开这类文件的主编辑器路径。
+    const largeDocument = isLargeDocumentContent(content)
+    const effectiveViewMode: ViewMode = largeDocument ? 'source' : viewMode
+
     // 创建 DOM 容器树
     const container = document.createElement('div')
     container.className = 'tab-editor-container'
@@ -183,74 +192,78 @@ export class EditorPool {
     container.appendChild(cmContainer)
     this.wrapper.appendChild(container)
 
-    // 创建 Crepe 实例
-    const isDark = this.isDarkModeFn()
-    const crepe = new Crepe({
-      root: crepeContainer,
-      defaultValue: content,
-      features: {
-        [CrepeFeature.BlockEdit]: false,
-        [CrepeFeature.CodeMirror]: true,
-        [CrepeFeature.LinkTooltip]: true,
-        [CrepeFeature.Table]: true,
-        [CrepeFeature.Toolbar]: false,
-        [CrepeFeature.Placeholder]: true,
-        [CrepeFeature.Cursor]: false,
-        [CrepeFeature.ImageBlock]: true,
-      },
-      featureConfigs: {
-        [CrepeFeature.CodeMirror]: {
-          theme: isDark ? undefined : eclipse,
-          extensions: [codeBlockSearchHighlight()],
+    // 创建 Crepe 实例（大文档跳过）
+    let crepe: Crepe | null = null
+    if (!largeDocument) {
+      const isDark = this.isDarkModeFn()
+      crepe = new Crepe({
+        root: crepeContainer,
+        defaultValue: content,
+        features: {
+          [CrepeFeature.BlockEdit]: false,
+          [CrepeFeature.CodeMirror]: true,
+          [CrepeFeature.LinkTooltip]: true,
+          [CrepeFeature.Table]: true,
+          [CrepeFeature.Toolbar]: false,
+          [CrepeFeature.Placeholder]: true,
+          [CrepeFeature.Cursor]: false,
+          [CrepeFeature.ImageBlock]: true,
         },
-        [CrepeFeature.ImageBlock]: {
-          proxyDomURL: (url: string) => {
-            if (/^(https?|data|file):/.test(url)) return url
-            const dir = this.getCurrentFileDirFn()
-            if (dir && !isAbsolute(url)) {
-              const absolute = normalizePath(join(dir, url))
-              return 'file:///' + absolute.replace(/\\/g, '/')
-            }
-            return url
+        featureConfigs: {
+          [CrepeFeature.CodeMirror]: {
+            theme: isDark ? undefined : eclipse,
+            extensions: [codeBlockSearchHighlight()],
+          },
+          [CrepeFeature.ImageBlock]: {
+            proxyDomURL: (url: string) => {
+              if (/^(https?|data|file):/.test(url)) return url
+              const dir = this.getCurrentFileDirFn()
+              if (dir && !isAbsolute(url)) {
+                const absolute = normalizePath(join(dir, url))
+                return 'file:///' + absolute.replace(/\\/g, '/')
+              }
+              return url
+            },
           },
         },
-      },
-    })
-
-    // 配置 Crepe 监听器
-    crepe.editor
-      .config((ctx) => {
-        ctx.get(listenerCtx).markdownUpdated(this.createMarkdownUpdatedHandler(tabId))
-
-        ctx.get(listenerCtx).updated((ctx) => {
-          try {
-            const view = ctx.get(editorViewCtx)
-            const { from, to } = view.state.selection
-            this.emitCursorChange(from, to, tabId)
-          } catch {
-            // ignore
-          }
-        })
-
-        ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
-          try {
-            const { from, to } = selection
-            this.emitCursorChange(from, to, tabId)
-          } catch {
-            // ignore
-          }
-        })
       })
-      .use(listener)
-      .use(createImagePastePlugin(this.imageInsertService, this.getImageOptions, this.getImageContext))
-      .use(focusModePlugin)
-      .use(searchPlugin)
 
-    // 创建 Crepe 编辑器
-    await crepe.create()
+      // 配置 Crepe 监听器
+      crepe.editor
+        .config((ctx) => {
+          ctx.get(listenerCtx).markdownUpdated(this.createMarkdownUpdatedHandler(tabId))
+
+          ctx.get(listenerCtx).updated((ctx) => {
+            try {
+              const view = ctx.get(editorViewCtx)
+              const { from, to } = view.state.selection
+              this.emitCursorChange(from, to, tabId)
+            } catch {
+              // ignore
+            }
+          })
+
+          ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
+            try {
+              const { from, to } = selection
+              this.emitCursorChange(from, to, tabId)
+            } catch {
+              // ignore
+            }
+          })
+        })
+        .use(listener)
+        .use(createImagePastePlugin(this.imageInsertService, this.getImageOptions, this.getImageContext))
+        .use(focusModePlugin)
+        .use(searchPlugin)
+
+      // 创建 Crepe 编辑器
+      await crepe.create()
+    }
 
     // 懒建：CodeMirror 不在此创建，applyViewMode 在进入 source/split 时
     // 通过 ensureCodeMirror 按需建立，回到纯 wysiwyg 即销毁。
+    // 大文档的 effectiveViewMode 已是 source，随后会立即建立 CM。
     const instance: TabEditorInstance = {
       tabId,
       crepe,
@@ -259,9 +272,10 @@ export class EditorPool {
       crepeContainer,
       cmContainer,
       splitterEl,
-      viewMode,
+      viewMode: effectiveViewMode,
       content,
       isReady: true,
+      largeDocument,
       docSync: null,
       lastAppliedCrepeDoc: null,
       crepeDom: null,
@@ -271,17 +285,19 @@ export class EditorPool {
 
     // 焦点归属追踪：undo/redo 命令（菜单/命令面板）点击后 activeElement
     // 已离开编辑器，需记住最后聚焦的一侧才能与键盘 Ctrl+Z 行为一致。
-    try {
-      crepe.editor.action((ctx) => {
-        const view = ctx.get(editorViewCtx)
-        if (!view) return
-        instance.crepeDom = view.dom
-        view.dom.addEventListener('focusin', () => {
-          instance.lastFocusedEditor = 'crepe'
+    if (crepe) {
+      try {
+        crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx)
+          if (!view) return
+          instance.crepeDom = view.dom
+          view.dom.addEventListener('focusin', () => {
+            instance.lastFocusedEditor = 'crepe'
+          })
         })
-      })
-    } catch {
-      // ignore
+      } catch {
+        // ignore
+      }
     }
 
     // 文档同步：tabsStore.content 为唯一权威，两侧编辑器订阅刷新。
@@ -411,6 +427,13 @@ export class EditorPool {
     if (!instance) return
     if (instance.viewMode === mode) return
 
+    // 大文档没有 Crepe 实例，切到 wysiwyg/split 只会得到空白侧栏；
+    // 这里兜底拒绝，UI 侧的提示由 VIEW_MODE_CHANGE 处理。
+    if (instance.largeDocument && mode !== 'source') {
+      console.warn('[EditorPool] Large document only supports source mode:', tabId)
+      return
+    }
+
     // 冲刷 Crepe 防抖窗口：可见编辑器里的未 commit 内容先进权威，
     // watch 会把两侧刷成最新（含即将显示的隐藏侧），无需手动交接。
     instance.docSync?.flush()
@@ -491,6 +514,9 @@ export class EditorPool {
           this.emitCursorChange(from, to, instance.tabId)
         },
         theme: this.isDarkModeFn() ? 'dark' : 'light',
+        // 大文档关闭 Markdown 语法解析/高亮：CM 的视口渲染仍然流畅，
+        // 但 Lezer 解析整篇数 MB 文档会持续占用 CPU。
+        largeDocument: instance.largeDocument,
       })
       cmView.dom.addEventListener('focusin', () => {
         instance.lastFocusedEditor = 'cm'

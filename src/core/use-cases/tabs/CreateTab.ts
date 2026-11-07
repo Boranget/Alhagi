@@ -5,6 +5,7 @@ import type { TabState } from '@/types'
 import { Tab } from '@core/entities/Tab'
 import { generateUUID } from '@/utils/helpers'
 import { detectFileType, createDefaultEditorState } from '@/utils/tabHelpers'
+import { isLargeDocumentContent } from '@/utils/largeDocument'
 import { TABS, EDITOR } from '@/constants'
 
 export class CreateTab {
@@ -19,15 +20,23 @@ export class CreateTab {
     const id = generateUUID()
     const filePath = options.filePath || null
     const fileType = options.fileType || detectFileType(filePath)
+    const content = options.content || ''
+
+    // 大文档强制源码模式：WYSIWYG 会为全文建 DOM，数 MB 的文件会卡死渲染进程。
+    // 这里落库时就纠正 viewMode（含会话恢复传入的旧值），UI 与 EditorPool 才能一致。
+    const requestedViewMode = options.viewMode || EDITOR.VIEW_MODES.WYSIWYG
+    const viewMode = fileType === 'editor' && isLargeDocumentContent(content)
+      ? EDITOR.VIEW_MODES.SOURCE
+      : requestedViewMode
 
     // 2. 创建 Tab 实体
     const tab = new Tab({
       id,
       filePath,
-      content: options.content || '',
+      content,
       isDirty: false,
       title: options.title || this.generateUntitledTitle(),
-      viewMode: options.viewMode || EDITOR.VIEW_MODES.WYSIWYG,
+      viewMode,
       splitRatio: options.splitRatio ?? 50,
       fileType,
       createdAt: Date.now(),

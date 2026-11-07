@@ -117,6 +117,8 @@ import { LayoutCommands, PreferenceCommands, ViewModeCommands } from '@adapters/
 import { eventBus, AppEvents } from '@adapters/composables/useEventBus'
 import { t } from '@/services/i18n'
 import { Icon } from '@/components/Icons'
+import { toast } from '@/composables/useToast'
+import { isLargeDocumentContent, countNonWhitespaceCharacters } from '@/utils/largeDocument'
 
 const tabsStore = useTabsStore()
 const layoutStore = useLayoutStore()
@@ -148,12 +150,21 @@ const fileName = computed(() => {
 // 原始 Markdown 字符数（不含空白）
 const rawMarkdownChars = computed(() => {
   if (!activeTab.value?.content) return 0
+  // 大文档避免 replace 再分配一份 MB 级字符串
+  if (isLargeDocumentContent(activeTab.value.content)) {
+    return countNonWhitespaceCharacters(activeTab.value.content)
+  }
   return activeTab.value.content.replace(/\s/g, '').length
 })
 
 // 渲染后纯文本字符数（移除 Markdown 语法）
 const plainTextChars = computed(() => {
   if (!activeTab.value?.content) return 0
+  // 大文档的 Markdown 语法剥离要跑多轮全文正则，收益远小于开销；
+  // 直接用非空白字符数，保证状态栏刷新不拖慢输入。
+  if (isLargeDocumentContent(activeTab.value.content)) {
+    return countNonWhitespaceCharacters(activeTab.value.content)
+  }
   let text = activeTab.value.content
   // 移除 Markdown 语法
   text = text.replace(/[#*_~`]+/g, '') // 移除 # * _ ~ `
@@ -211,6 +222,12 @@ let _splitExitTarget: 'wysiwyg' | 'source' = 'source'
  */
 function toggleViewMode() {
   if (!activeTab.value) return
+
+  // 大文档只有 CodeMirror 实例，切到 wysiwyg/split 不会有内容可渲染。
+  if (isLargeDocumentContent(activeTab.value.content)) {
+    toast.warning('文件过大，已锁定为源码模式以保证流畅')
+    return
+  }
 
   const currentMode = activeTab.value.viewMode
   let nextMode: 'wysiwyg' | 'source' | 'split'

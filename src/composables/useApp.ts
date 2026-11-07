@@ -16,6 +16,7 @@ import { useToast } from '@/composables/useToast'
 import { useSelectDialog } from '@/composables/useSelectDialog'
 import { getEditorServiceGateway } from '@adapters/gateways/EditorServiceGateway'
 import { useTabActions } from '@/composables/useTabActions'
+import { isLargeDocumentContent } from '@/utils/largeDocument'
 import { restoreDetachedTab, confirmTabTransferred } from '@/services/crossWindowTab'
 
 // 模块级闭包：多次 useApp() 调用共享同一份状态，但不在模块顶层暴露 ref
@@ -89,6 +90,16 @@ export function useApp(bus?: IEventBus) {
       eventBus.on(AppEvents.VIEW_MODE_CHANGE, async ({ mode }) => {
         const activeTab = tabsStore.activeTabId ? tabsStore.getTab(tabsStore.activeTabId) : null
         if (activeTab) {
+          // 大文档没有 Crepe 实例（见 EditorPool），wysiwyg/split 只会显示空白。
+          // 在这里拦截所有入口（状态栏、菜单、命令面板），避免 UI 进入不可用状态。
+          if (
+            activeTab.fileType === 'editor'
+            && mode !== 'source'
+            && isLargeDocumentContent(activeTab.content)
+          ) {
+            toast.warning('文件过大，已锁定为源码模式以保证流畅')
+            return
+          }
           await tabsStore.updateTab(activeTab.id, { viewMode: mode })
           eventBus.emit(AppEvents.VIEW_MODE_CHANGED, mode)
         }

@@ -106,4 +106,49 @@ describe('CreateTab', () => {
       expect(tab.fileType).toBe('text')
     })
   })
+
+  // ============================================================
+  // 大文档保护：Crepe 无法承载数 MB 文档，必须在落库时改走 source。
+  // ============================================================
+  describe('大文档强制源码模式', () => {
+    const largeContent = 'a'.repeat(1_000_001)
+
+    it('大 markdown 文档忽略传入的 wysiwyg，落库为 source', async () => {
+      const tab = await createTab.execute({
+        filePath: '/docs/huge.md',
+        content: largeContent,
+        viewMode: 'wysiwyg',
+      })
+      expect(tab.fileType).toBe('editor')
+      expect(tab.viewMode).toBe('source')
+    })
+
+    it('会话恢复传入 split 时同样纠正为 source', async () => {
+      const tab = await createTab.execute({
+        filePath: '/docs/huge.md',
+        content: largeContent,
+        viewMode: 'split',
+      })
+      expect(tab.viewMode).toBe('source')
+    })
+
+    it('未达阈值的文档保留调用方 viewMode', async () => {
+      const tab = await createTab.execute({
+        filePath: '/docs/ok.md',
+        content: 'a'.repeat(1000),
+        viewMode: 'split',
+      })
+      expect(tab.viewMode).toBe('split')
+    })
+
+    it('大纯文本文件不受 markdown WYSIWYG 阈值影响', async () => {
+      const tab = await createTab.execute({
+        filePath: '/docs/huge.txt',
+        content: largeContent,
+        viewMode: 'wysiwyg',
+      })
+      expect(tab.fileType).toBe('text')
+      expect(tab.viewMode).toBe('wysiwyg')
+    })
+  })
 })

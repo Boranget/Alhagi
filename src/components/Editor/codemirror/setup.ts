@@ -162,6 +162,12 @@ interface StateOptions {
   onSelectionChange?: () => void
   content: string
   theme?: ThemeType
+  /**
+   * 大文档模式：跳过 Markdown 语言解析 / frontmatter 装饰。
+   * 语法高亮是逐视口按需解析的，但数 MB 文档的 Lezer 解析仍会持续
+   * 占用主线程；大文件优先保证可打开、可编辑。
+   */
+  largeDocument?: boolean
 }
 
 export const createCodeMirrorState = ({
@@ -171,21 +177,28 @@ export const createCodeMirrorState = ({
   onBlur,
   onSelectionChange,
   theme = 'dark',
+  largeDocument = false,
 }: StateOptions) => {
+  const markdownExtensions: Extension[] = largeDocument
+    ? []
+    : [
+        markdown({
+          codeLanguages: [
+            LanguageDescription.of({
+              name: 'yaml',
+              support: yaml(),
+            }),
+          ],
+        }),
+        frontmatterHighlighter,
+      ]
+
   return EditorState.create({
     doc: content,
     extensions: [
       basicSetup,
       ...getThemeExtensions(theme),
-      markdown({
-        codeLanguages: [
-          LanguageDescription.of({
-            name: 'yaml',
-            support: yaml(),
-          }),
-        ],
-      }),
-      frontmatterHighlighter,
+      ...markdownExtensions,
       EditorView.updateListener.of((viewUpdate) => {
         if (viewUpdate.focusChanged) {
           if (viewUpdate.view.hasFocus) {

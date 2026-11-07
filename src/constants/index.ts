@@ -27,7 +27,15 @@ export const EDITOR = {
 
   // 源码模式（CodeMirror）独立的字体/行高，与 wysiwyg 解耦
   DEFAULT_SOURCE_FONT_SIZE: 14,
-  DEFAULT_SOURCE_LINE_HEIGHT: 1.5
+  DEFAULT_SOURCE_LINE_HEIGHT: 1.5,
+
+  // 大文档保护阈值（UTF-16 字符数）。
+  //
+  // Crepe / ProseMirror 会为文档里的每个节点创建真实 DOM，打开数 MB 的
+  // Markdown 时主线程会被完整解析 + 建树卡死。超过该阈值的 Markdown 文档
+  // 不再进入 WYSIWYG，而是强制使用 CodeMirror 源码模式——CM 只渲染视口，
+  // 可以正常打开、编辑和保存大文件。
+  LARGE_DOCUMENT_THRESHOLD: 1_000_000
 } as const
 
 // ==================== 标签页常量 ====================

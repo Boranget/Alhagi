@@ -49,6 +49,8 @@ import { CrepeSearchService } from '@/services/search'
 import type { SearchService, SearchResult, ReplaceResult } from '@/services/search'
 import type { SearchConfig } from '@/utils/search'
 import { useResponsiveEditor } from '@/composables/useResponsiveEditor'
+import { toast } from '@/composables/useToast'
+import { isLargeDocumentContent } from '@/utils/largeDocument'
 
 const tabsStore = useTabsStore()
 const viewModeStore = useViewModeStore()
@@ -62,6 +64,8 @@ const floatingSearchRef = ref<InstanceType<typeof FloatingSearch> | null>(null)
 
 const currentMode = ref<ViewMode>('wysiwyg')
 const unsubscribes: (() => void)[] = []
+/** 大文档提示去重：同一 tab 只在首次创建实例时提示一次 */
+const largeDocumentNotified = new Set<string>()
 
 /**
  * 当前 tab 对应的 descriptor —— 渲染分支的单一事实源。
@@ -136,6 +140,18 @@ watch([activeTab, currentDescriptor], async ([tab]) => {
   // 确保目标 tab 有编辑器实例
   if (!editorCtx.hasTab(tab.id)) {
     await editorCtx.createTab(tab.id, tab.content, tab.viewMode)
+
+    // 大文档由 CreateTab/EditorPool 强制进入源码模式，这里明确告知用户，
+    // 避免误以为 WYSIWYG 坏了。
+    if (
+      tab.fileType === 'editor'
+      && isLargeDocumentContent(tab.content)
+      && !largeDocumentNotified.has(tab.id)
+    ) {
+      largeDocumentNotified.add(tab.id)
+      const mb = (tab.content.length / 1_000_000).toFixed(1)
+      toast.info(`文件较大（约 ${mb} MB），已自动切换到源码模式以保证流畅`)
+    }
   }
 
   // 切换 tab（显示/隐藏）
@@ -211,6 +227,7 @@ onMounted(async () => {
   // 关闭的 tab 立即释放编辑器实例（Crepe/CM/DOM），否则每次关闭都泄漏
   unsubscribes.push(
     eventBus.on(AppEvents.TAB_CLOSED, ({ tabId }) => {
+      largeDocumentNotified.delete(tabId)
       void editorCtx.destroyTab(tabId)
     })
   )
@@ -267,7 +284,13 @@ function handleEditorKeydown(e: KeyboardEvent) {
   &.mode-source {
     .editor-wrapper {
       flex: 1;
+      min-height: 0;
       overflow: hidden;
+      // 必须是 flex column：否则 .tab-editor-container 只拿到 auto 高度，
+      // 里面的 .tab-editor-cm（height: 100%）随内容无限撑高，
+      // CodeMirror 的 .cm-scroller 永远不会产生滚动（无滚动条、滚轮无效）。
+      display: flex;
+      flex-direction: column;
     }
   }
 
@@ -335,6 +358,8 @@ function handleEditorKeydown(e: KeyboardEvent) {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-height: 0;
+    min-width: 0;
     overflow: hidden;
 
     // WYSIWYG 模式
@@ -405,15 +430,18 @@ function handleEditorKeydown(e: KeyboardEvent) {
   :deep(.tab-editor-cm) {
     height: 100%;
     width: 100%;
+    min-height: 0;
     overflow: hidden;
 
     .codemirror-editor {
       height: 100%;
       width: 100%;
+      min-height: 0;
     }
 
     .cm-editor {
       height: 100%;
+      min-height: 0;
     }
 
     .cm-scroller {
